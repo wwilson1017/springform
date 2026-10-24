@@ -15,7 +15,7 @@ function setup(d: DealDetail, extra: Record<string, Reply> = {}) {
   const fetchMock = mockFetch({
     [`GET ${URL}`]: { body: d },
     [`GET ${URL}/health`]: { body: { deal: d, score: null, factors: {}, stale_days: 14, flags: [] } },
-    [`GET ${URL}/touch-evidence`]: { body: { deal_id: 7, count: null, computed_at: null, current: true, items: [] } },
+    [`GET ${URL}/touch-evidence`]: { body: { deal_id: 7, open: true, stage: d.stage, ai_touch_count: null, computed_at: null, verdict_state: 'none', counted: null, evaluated: 0, truncated: false, events: [] } },
     'GET /api/core/timeline/mentionable': { body: [] },
     'GET /api/core/timeline?entity_type=crm.deal&entity_id=7&limit=50': { body: [] },
     'GET /api/core/files?entity_type=crm.deal&entity_id=7': { body: [] },
