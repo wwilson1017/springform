@@ -60,6 +60,9 @@ Conventions:
   not seen it before; an admin's later show or hide always wins.
 - The Backups overview carries `key_mismatch`, the newest backup manifest taken under another
   encryption key (null when they match), and `/api/health` carries `key_mismatch` as true or false.
+- Whisk can find, read, create and link people and organizations, add a note to any record and set
+  or list the user's reminders. Creating or linking contacts waits for the user's approval; notes
+  and reminders happen at once. MCP links get the same tools.
 
 ### Changed
 

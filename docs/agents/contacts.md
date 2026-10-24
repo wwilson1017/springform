@@ -119,6 +119,8 @@ Argument lists as built (each `_in` form adds `conn` first; the record shapes ar
 - `find_duplicates(user, kind, limit=50)` returns `[{match_on, value, count, records: [{id, label}]}]`
 - `resolve(kind, record_id)` returns the head id
 
+Whisk reaches the directory through `backend/core/contacts/tools.py` (`core_search_contacts`, `core_get_person`, `core_get_organization`, `core_create_person`, `core_create_organization`, `core_link_person_organization`; `agent.md` §4), which calls only these functions, as the acting user.
+
 ## 5. Routes
 
 All under `/api/core/contacts`, behind `current_user`:
