@@ -51,6 +51,8 @@ def test_deal_routes(member):
     assert ok(member.get(f"/api/crm/deals/{other}"))["archived_reason"] == f"Merged into deal #{did}"
     assert [e["new_stage"] for e in ok(member.get(f"/api/crm/deals/{did}/stage-events"))] == ["lead", "proposal", "won", "lost"]
     assert [d["id"] for d in ok(member.get(f"/api/crm/people/{person}/deals"))] == [did]
+    assert ok(member.get(f"/api/crm/deals/{did}/touch-evidence"))["verdict_state"] == "none"
+    assert "missing_organization" in ok(member.get(f"/api/crm/deals/{did}/health"))["flags"]
     assert [d["title"] for d in ok(member.get("/api/crm/deals/search", params={"q": "zoe"}))] == ["Wedding cakes"]
 
     moved = ok(member.post("/api/crm/deals/bulk-move", json={"ids": [did, 9999], "stage": "qualified"}))

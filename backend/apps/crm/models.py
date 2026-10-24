@@ -393,21 +393,26 @@ class PersonScore(BaseModel):
     lead_score_at: str
 
 
-class TouchVerdict(BaseModel):
-    source: Literal["note", "activity", "deal_notes"]
+class TouchEvent(BaseModel):
+    source: Literal["note", "activity", "deal_notes", "stage_move"]
     source_id: int | None
-    touch: bool
-    reason: str
-    text: str | None = Field(description="The live evidence line; null when it no longer exists")
-    changed: bool = Field(description="The line was edited after the model judged it")
+    event_at: str = Field(description="Canonical instant; empty for the deal's own notes field")
+    line: str = Field(description="The live evidence line")
+    state: Literal["touch", "not_touch", "not_evaluated", "edited_since", "excluded_empty", "stage_move"]
+    reason: str = Field(description="Why it is not a touch (not_touch, stage_move)")
 
 
 class TouchEvidence(BaseModel):
     deal_id: int
-    count: int | None
+    open: bool = Field(description="Live and open: only these are still counted")
+    stage: Stage
+    ai_touch_count: int | None
     computed_at: str | None
-    current: bool = Field(description="The verdicts still describe the deal's evidence")
-    items: list[TouchVerdict]
+    verdict_state: Literal["none", "current", "stale", "superseded"]
+    counted: int | None
+    evaluated: int
+    truncated: bool = Field(description="The deal has older evidence than the window shows")
+    events: list[TouchEvent]
 
 
 class BackfillStatus(BaseModel):
