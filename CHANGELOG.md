@@ -45,6 +45,8 @@ Conventions:
   memory (context files and facts) and the nightly run.
 - Admins can issue a password reset link for a member (`POST /api/auth/users/{id}/reset-link`), so
   an install without mail has a way back in for someone locked out.
+- `GET /api/todos/changes?head=1` returns just the current cursor, so a client's first poll no
+  longer walks the whole change journal.
 
 ### Changed
 

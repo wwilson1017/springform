@@ -12217,6 +12217,8 @@ export interface operations {
             query?: {
                 since_rev?: number;
                 limit?: number;
+                /** @description Only the current cursor: next_since_rev, no rows */
+                head?: boolean;
             };
             header?: never;
             path?: never;
