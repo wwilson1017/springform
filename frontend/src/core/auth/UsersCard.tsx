@@ -220,7 +220,7 @@ function UserRow({ user, onSaved, onRemoved, onLink }: {
       {reset && (
         <div role="status" className="mt-3 flex flex-col gap-2 rounded-md border border-sf-green bg-sf-card p-3">
           <p className="m-0 text-sm text-sf-ink">
-            Password reset link for <strong>{user.name || user.email}</strong>. It works once, for an hour.{reset.mailed && ' Sent by email too.'}
+            Password reset link for <strong>{user.name || user.email}</strong>. It works once, for an hour, and any earlier reset link stops working.{reset.mailed && ' Sent by email too.'}
           </p>
           <CopyField label="Reset link" value={reset.reset_url} />
           <button type="button" className={`${btnLink} self-start`} onClick={() => setReset(null)}>Done</button>
