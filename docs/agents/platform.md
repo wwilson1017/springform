@@ -38,15 +38,23 @@ springform/
     main.py                 create_app(): discover + mount at import; lifespan = checks → migrate → seed → setup token → startup hooks → scheduler
     core/
       <pkg>/       optional router.py hooks.py jobs.py tools.py startup.py, discovered by registry.install()
-      db.py settings.py secrets.py kv.py registry.py entities.py scheduler.py backup.py changelog.py
-      clock.py localtime.py errors.py pagination.py ratelimit.py logscrub.py csv_export.py sheets.py github.py docs.py preview.py
-      auth/        service.py jwt.py deps.py router.py totp.py google.py invites.py mail.py bootstrap.py users_router.py csrf.py
-      contacts/    service.py api.py router.py
-      timeline/ files/ fields/ views/ reports/ notifications/ reminders/     (each: service.py api.py router.py)
-      agent/       providers/ spec.py registry.py confirm_tier.py engine.py history.py assembly.py compaction.py
-                   deferred.py agents.py memory/ context_files/ observer.py dreaming.py router.py mcp_server.py mcp_client.py jobs.py
+      db.py outbox.py settings.py secrets.py registry.py entities.py scheduler.py changelog.py
+      clock.py localtime.py errors.py pagination.py preview.py
+      auth/        service.py jwt.py deps.py router.py totp.py trusted.py google.py invites.py mail.py bootstrap.py users_router.py csrf.py
+      contacts/    service.py api.py router.py seed.py startup.py
+      timeline/ files/ fields/ views/ notifications/ reminders/     (each: service.py api.py router.py, plus hooks.py / jobs.py where they contribute)
+      reports/     registry.py service.py router.py
+      platform/    keys.py service.py router.py      (settings, workspace, apps, jobs and changelog routes)
+      backup/      service.py restore.py jobs.py router.py
+      sheets/      api.py service.py google.py jobs.py router.py startup.py
+      export/      csv_export.py policy.py service.py router.py
+      guide/       library.py router.py startup.py
+      requests/    github.py service.py jobs.py router.py
+      agent/       providers/ spec.py registry.py engine.py history.py assembly.py compaction.py llm.py delimiters.py write_budget.py
+                   deferred.py agents.py router.py startup.py      (mcp_server.py, mcp_client.py: not built yet)
+      memory/      facts.py context_files.py observer.py dreaming.py jobs.py tools.py router.py startup.py
       migrations/  20261020HHMMSS_core_<name>.sql
-      docs/        core Guide topics
+      docs/        core Guide topics (*.md)
     apps/<slug>/
       app.json  router.py  api.py  service.py  models.py  entities.py  hooks.py  reports.py  tools.py  jobs.py  seed.py  settings.py
       migrations/YYYYMMDDHHMMSS_<slug>_<name>.sql   docs/index.md
@@ -153,7 +161,7 @@ Landing priority: core and the pieces the first client fork needs, then the CRM 
 
 `pyproject`/uv, `package.json`/vite/vitest + `vite-plugin-apps.ts`; `core/db.py` (transaction composition, outbox, migration runner with checksums), `settings.py`, `secrets.py`, `kv.py`, `clock.py` (+ `normalize`), `localtime.py`, `errors.py`, `pagination.py`, `registry.py` (all modules in the contract, role guard at mount), `entities.py` (`authorize`, hooks), `main.py`; the core init migration `20261020000100_core_init.sql` (settings, change_log, job_runs, apps_state, requests, backups, outbox, file blobs, users incl. the system user, totp, trusted_devices, login_tokens, login_attempts, contacts tables, timeline, files); `auth/` minimal but real (setup token, password login, cookie session, `current_user`/`require_admin`, invite with a copyable link, no mail yet); `timeline/` notes + `record_changes_in`; `files/` upload/download with the publication protocol; `scheduler.py` minimal (`Job`, loop, `run_now`); `backup.py` with manifests + `scripts/restore.sh`; `agent/spec.py` + `registry.py` + a FakeProvider engine stub that can run one confirmed `handler_in` tool; `tests/conftest.py` (temp DB, `freeze`, `login_as`), `test_app_contract.py` + `fixtures/bad_app`; `apps/example` (every seam); `scripts/new-app.sh`, `new-fork.sh`, `check-fork-scope.sh`; frontend `core/api/client.ts`, `apps/registry.ts` (contributions + lazy), `Root.tsx`, Layout/Launcher, a minimal record page for `example` with Timeline + Attachments; `docs/agents/`; `AGENTS.md`; `ci.yml` (incl. the conditional Fork scope job).
 
-**Frozen stub signatures** Step 1 ships for later workstreams to fill: `core.changelog.record_in`, `core.sheets.client`, `core.csv_export.stream_csv`, `core.notifications.deliver_in`, `core.reminders`.
+**Frozen stub signatures** Step 1 shipped for later workstreams to fill, now filled at: `backend.core.changelog.record_in`, `backend.core.sheets.api.client`, `backend.core.export.csv_export.stream_csv`, `backend.core.notifications.service.deliver_in`, `backend.core.reminders`.
 
 ## Hard lines
 

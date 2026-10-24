@@ -87,7 +87,7 @@ core_file_blobs(sha256 PK, byte_size, created_at, unreferenced_since, missing_at
 4. The same bytes uploaded to the same record (`UNIQUE(entity_type, entity_id, sha256)`) return **200** with the existing row.
 5. When a blob's last `core_files` row is deleted, the files service sets `core_file_blobs.unreferenced_since` in the same transaction.
 
-### Sweep (`core.files.sweep`, 03:30 install-local)
+### Sweep (`core.files_sweep`, 03:30 install-local)
 
 1. Inside **one** `transaction()`:
    1. select blobs whose `unreferenced_since` is older than **7 days** **and** whose sha256 appears in **no retained backup manifest**;
@@ -163,10 +163,10 @@ Report(key, label, app, params, run(params, user) -> (columns, rows), admin_only
 1. Apps register via `reports.py` (`REPORTS = [Report(...)]`).
 2. `run` receives the user and **must apply `can_read`**.
 3. An app's reports default to "user has one of the app's roles" before their own checks; `admin_only` restricts to admins.
-4. `GET /api/core/reports/{key}?format=csv` streams CSV via `core.csv_export.stream_csv` (shape to be pinned by W2).
+4. `GET /api/core/reports` lists the reports the caller may run. `GET /api/core/reports/{key}` runs one and returns `{columns, rows}`: every query parameter is a report param, and an unknown one, `format` included, is refused with 422. `GET /api/core/reports/{key}/csv` (served from `backend/core/export/router.py`) streams the same report as CSV through `backend.core.export.csv_export.stream_csv`.
 5. CakeCRM's `report_service.py` stays CRM-owned in `apps/crm/reports.py`.
 
-Open (pinned by the implementing workstream, which updates this doc): the `params` schema format, the JSON (non-CSV) response shape, and a report-listing route are not stated.
+`params` is a JSON schema object, `{"type": "object", "properties": {...}, "required": [...]}`. Each property has a `type` of `integer`, `number`, `boolean` or `string` (`format: "date"` allowed) and an optional `default`. Query-string values are coerced to those types, empty ones count as absent, and a missing required one is refused.
 
 ## 6. Notifications
 
@@ -200,7 +200,7 @@ deliver_in(conn, title, message, user_id=None, entity=None, link=None)
 3. **A message already delivered externally cannot be recalled.** The contract says so.
 4. Merges repoint notifications on the source to the target, like reminders (`contacts.md`).
 
-### External delivery (`core.notifications.flush`, every 30 s)
+### External delivery (`core.notifications_flush`, every 30 s)
 
 1. Sends, then records `sent_at`. A crash between the two re-sends: external channels are **at-least-once**.
 2. The payload carries `notification_id`, so the service worker drops a duplicate push.
@@ -218,7 +218,7 @@ core_reminders(owner_user_id, entity_type, entity_id, due_at, repeat, series_id,
 ```
 
 1. Port: `INTEGER[]` / `ANY()` → `json_each`; `SKIP LOCKED` → plain select inside `transaction()`; the `crm.service` / `gtd_common` imports are cut.
-2. Job `core.reminders.fire_due` every 60 s marks `fired_at` **and** calls `deliver_in` **in the same transaction**.
+2. Job `core.reminders_fire_due` every 60 s marks `fired_at` **and** calls `deliver_in` **in the same transaction**.
 3. At fire time the reminder re-checks `authorize(read)` for its owner and **voids itself** otherwise.
 4. Merges repoint reminders (`contacts.md`).
 

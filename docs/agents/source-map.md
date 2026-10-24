@@ -34,7 +34,7 @@ All lifted code is the author's sole authorship (Decisions, License); the proven
 | `backend/core/clock.py` | — | — | — | new | `now_iso()`, `normalize`. |
 | `backend/core/secrets.py` | CakeCRM | `backend/core/secret_store.py` | 309 (head) | lift | Minus keychain. Key: env → `/data/.encryption-key` → generated. |
 | `backend/core/secrets.py` (encryption) | CakeCRM | `backend/core/encryption.py` | 151 (head) | lift | `enc:v1:` format. Open (pinned by the implementing workstream, which updates this doc): whether it lands as its own module. |
-| `backend/core/backup.py` | todo-gtd | `backend/backup.py` | 103 (head) | port | Adapted: recovery sets, manifests written last, blob pinning, key fingerprint. |
+| `backend/core/backup/service.py` | todo-gtd | `backend/backup.py` | 103 (head) | port | Adapted: recovery sets, manifests written last, blob pinning, key fingerprint. |
 | `scripts/restore.sh` | — | — | — | new | |
 | `backend/core/scheduler.py` | todo-gtd | `backend/main.py` `_tick` (line 75) | ~300 target (plan) | port | Loop shape only; jobs, guard, semaphore, statuses are new. |
 | `backend/core/ratelimit.py` | todo-gtd | `backend/ratelimit.py` | 119 (head) | lift | §6. |
@@ -147,11 +147,11 @@ All lifted code is the author's sole authorship (Decisions, License); the proven
 
 | Springform path | Donor | Donor path | Lines | Action | Notes |
 |---|---|---|---|---|---|
-| `backend/core/sheets.py` (service account) | cake_os | `backend/core/google_sheets.py` | 261 (head); `service_account_email()` at 239 | lift | |
-| `backend/core/sheets.py` (A1, guards, read/write) | cake_os | `backend/core/agents/tools/sheets_tools.py`: A1 helpers 171–270, `forbidden_formula`/`check_values` 111–170, `read_range` 616, `write_range` 845 | file 1,115 (head) | lift | Line numbers confirmed at head. |
+| `backend/core/sheets/google.py` (`GoogleSheets`, `parse_service_account`) | cake_os | `backend/core/google_sheets.py` | 261 (head); `service_account_email()` at 239 | lift | |
+| `backend/core/sheets/google.py` (A1 helpers, `forbidden_formula`, `check_values`) | cake_os | `backend/core/agents/tools/sheets_tools.py`: A1 helpers 171–270, `forbidden_formula`/`check_values` 111–170, `read_range` 616, `write_range` 845 | file 1,115 (head) | lift | Line numbers confirmed at head. |
 | Sheets client, cache, refresh, throttle | — | — | — | new | |
-| `backend/core/csv_export.py` | CakeCRM | `backend/crm/export.py:90-102` `_cell` | file 157 (head) | lift | |
-| `backend/core/export_policy.py` | — | — | — | new | |
+| `backend/core/export/csv_export.py` | CakeCRM | `backend/crm/export.py:90-102` `_cell` | file 157 (head) | lift | |
+| `backend/core/export/policy.py` | — | — | — | new | |
 
 ## Platform screens (§10)
 
@@ -165,8 +165,8 @@ All lifted code is the author's sole authorship (Decisions, License); the proven
 | `frontend/src/core/api/client.ts` | CakeCRM | `frontend/src/core/api/client.ts` | 143 (head) | lift | + `openapi-fetch`. |
 | `bootSplit.test.ts` | CakeCRM | `frontend/src/bootSplit.test.ts` | 838 (head) | port | Every app lazy. |
 | Settings registry | CakeCRM | `frontend/src/crm/settingsSections.ts` | 147 (head) | port | Core cards + one section per app. |
-| `backend/core/docs.py` (Guide) | CakeCRM | `backend/help/library.py` | 262 (head) | port | Front matter, 8k cap, lazy warm, deterministic search. |
-| Launcher, Layout/Nav, Settings, Requests, ChangeLog, Backups, Jobs, Sheets pages; `backend/core/github.py` | — | — | ~1,900 + tests | new | |
+| `backend/core/guide/library.py` (Guide) | CakeCRM | `backend/help/library.py`, `backend/help/search.py` | 262 (head) | port | Front matter, 8k cap, lazy warm, deterministic search. |
+| Launcher, Layout/Nav, Settings, Requests, ChangeLog, Backups, Jobs, Sheets pages; `backend/core/requests/github.py` | — | — | ~1,900 + tests | new | |
 
 ## Deploy, CI, maintainability (§13, §14)
 

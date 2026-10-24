@@ -37,8 +37,8 @@
 | Launcher | Tiles by role from `GET /api/core/apps`; hidden tiles shown to admins (`hidden: true`); **badge polling every 60 s while visible**. |
 | Layout / Nav | Core layout; apps' `nav` items from `contributions.ts`. |
 | Settings | Cards: Workspace (incl. timezone, and `PUBLIC_URL` shown read-only), Apps (order/hide), GitHub token, Sheets key, Backups, Export, AI, MCP, Security, Users. Plus one section per app from `contributions.ts` `settingsCards`, keyed by the manifest's `settings_cards[].id`; `admin_only` cards for admins only. |
-| Guide | `core/docs.py` ports CakeCRM `help/library.py`: front matter, **8k cap**, lazy warm, **deterministic search** over core docs (`backend/core/docs/`) and every app's `docs/`. |
-| Requests | Form: title, app, description, plus configurable warning text → a GitHub issue labelled `app:<slug>`, created with a fine-grained token stored in settings (`core/github.py`). Board from `core_requests`, refreshed every 15 min (`core.requests_refresh`). |
+| Guide | `backend/core/guide/library.py` ports CakeCRM `help/library.py`: front matter, **8k cap**, lazy warm, **deterministic search** over core docs (`backend/core/docs/`) and every app's `docs/`. |
+| Requests | Form: title, app, description, plus configurable warning text → a GitHub issue labelled `app:<slug>`, created with a fine-grained token stored in settings (`backend/core/requests/github.py`). Board from `core_requests`, refreshed every 15 min (`core.requests_refresh`). |
 | ChangeLog | Filters: app, user, entity. Rows authorized per row (`records.md` §8). |
 | Backups | List, back up now, download, show the encryption key once (`deploy.md`). |
 | Jobs | Runs, run now; dead outbox rows (`scheduler.md`, `database-and-transactions.md`). |
@@ -110,7 +110,7 @@ Pinned since the block was written (the block stays verbatim; these refine it):
 | Route | Doc | Workstream |
 |---|---|---|
 | `/api/core/contacts/{people,organizations,links,addresses,channels}` | `contacts.md` | W2 |
-| `GET /api/core/reports/{key}?format=csv` | `records.md` | W2 |
+| `GET /api/core/reports/{key}/csv` | `records.md` | W2 |
 | `/api/core/changelog` | `records.md` | W3 |
 | `GET /api/core/export` (ZIP) | `sheets-and-export.md` | W4 |
 | `POST /api/core/sheets/{id}/refresh` | `sheets-and-export.md` | W4 |

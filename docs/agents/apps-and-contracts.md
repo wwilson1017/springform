@@ -66,7 +66,7 @@ Open (pinned by the implementing workstream, which updates this doc): the `icon`
 | `seed.py` | `seed(conn)`, `sample(conn)`, `RESET_TABLES`, `EXPORT` | Below. |
 | `settings.py` | `DEFAULTS = {"<slug>.<key>": value}` | Defaults for `core_settings`. |
 | `migrations/` | `YYYYMMDDHHMMSS_<slug>_<name>.sql` | Below. |
-| `docs/index.md` | Guide topic(s) | Front matter + Markdown; indexed by `core/docs.py` (`frontend-shell.md`). |
+| `docs/index.md` | Guide topic(s) | Front matter + Markdown; indexed by `backend/core/guide/library.py` (`frontend-shell.md`). |
 | `service.py`, `models.py` | — | App-internal; not discovered. |
 
 ### `api.py` and the import rule

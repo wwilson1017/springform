@@ -82,7 +82,7 @@ Lifted from CakeCRM `core/secret_store.py` (minus keychain) and `core/encryption
 
 ## 7. Backups: recovery sets
 
-**Backup = the `/data` volume, as recovery sets.** Sets are written inside the container to `/data/backups` (on the host, `/srv/springform/data/backups`). `backend/core/backup.py` adapts todo-gtd `backend/backup.py`.
+**Backup = the `/data` volume, as recovery sets.** Sets are written inside the container to `/data/backups` (on the host, `/srv/springform/data/backups`). The `backend/core/backup/` package (`service.py`, `restore.py`, `jobs.py`, `router.py`) adapts todo-gtd `backend/backup.py` in `service.py`.
 
 ### The job (`core.backup`, 03:00 install-local)
 

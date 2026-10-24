@@ -3,7 +3,7 @@
 **What this covers:** §9 in full: the Google service account, the connected-sheets tables, the published sheets client, refresh and its throttle, CSV streaming, the admin export policy and its row rules, and the never-export list.
 **Who reads it:** W4 (Sheets + CSV + export policy + Sheets page), any app declaring `sheets` in `app.json` or `EXPORT` in `seed.py`, and anyone streaming a CSV.
 
-Code: `backend/core/sheets.py`, `backend/core/csv_export.py`, `backend/core/export_policy.py`.
+Code: the `backend/core/sheets/` package (`api.py` the published client, `service.py`, `google.py`, `jobs.py`, `router.py`) and the `backend/core/export/` package (`csv_export.py`, `policy.py`, `service.py`, `router.py`).
 
 ## 1. Service account
 
@@ -44,7 +44,7 @@ sheets.client(slug).status(name)
 1. `read` serves `core_sheet_cache` only.
 2. Network calls happen **outside** `transaction()`; the cache write happens inside.
 3. `forbidden_formula` / `check_values` guard written values.
-4. `core.sheets.client` is a frozen Step 1 stub signature that W4 fills.
+4. The client is `backend.core.sheets.api.client(slug)`.
 
 Open (pinned by the implementing workstream, which updates this doc): the `SheetData` shape, what `status` returns, whether `write` is synchronous on the request path and whether it refreshes the cache, and whether `write` on a `mode='read'` sheet is refused.
 
@@ -59,15 +59,15 @@ Each refresh fetches from Google outside `transaction()`, then writes `core_shee
 
 Open (pinned by the implementing workstream, which updates this doc): the throttle's response when it trips (status code, retry hint).
 
-## 5. CSV streaming (`csv_export.py`)
+## 5. CSV streaming (`backend/core/export/csv_export.py`)
 
 ```python
 stream_csv(header, rows, filename)
 ```
 
 1. Every cell goes through CakeCRM `crm/export.py:90-102` `_cell` (formula-injection guard).
-2. Used by `GET /api/core/reports/{key}?format=csv` and the admin export.
-3. `core.csv_export.stream_csv` is a frozen Step 1 stub signature that W4 fills.
+2. Used by `GET /api/core/reports/{key}/csv`. The admin export writes each table with `csv_export.write_csv(f, header, rows)` into the ZIP, which applies the same guard.
+3. It is `backend.core.export.csv_export.stream_csv`.
 
 ## 6. Admin export (`GET /api/core/export`)
 
@@ -75,7 +75,7 @@ An admin downloads a ZIP of CSVs.
 
 ### Column allow-list
 
-1. Core tables and columns listed in `core/export_policy.py`.
+1. Core tables and columns listed in `CORE_EXPORT` in `backend/core/export/policy.py`.
 2. Plus each app's `EXPORT` map from `seed.py`: `{"<table>": {"entity_type": "<slug>.<name>" | None, "columns": [...]}}`.
 3. Nothing else. The contract test checks that `EXPORT` names only owned tables, real columns and a registered entity type (or `None`).
 
