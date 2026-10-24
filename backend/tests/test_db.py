@@ -1,6 +1,9 @@
 import json
+import os
 import re
 import shutil
+import subprocess
+import sys
 from pathlib import Path
 
 import httpx
@@ -107,6 +110,10 @@ def test_core_migration_may_not_drop_or_rename(tmp_path):
     with pytest.raises(MigrationError, match="core_bad.sql uses RENAME"):
         core_db.migrate([], core_dir)
     assert "core_settings" in _tables()
+    (core_dir / "20261020000200_core_bad.sql").unlink()
+    (core_dir / "20261020999900_core_v1_baseline.sql").write_text("DROP TABLE core_requests;")  # a major's baseline
+    core_db.migrate([], core_dir)
+    assert "core_requests" not in _tables()
 
 
 def test_no_sql_reads_the_database_clock():
@@ -123,6 +130,23 @@ def test_network_inside_a_transaction_is_refused(db):
     with db.transaction():
         with pytest.raises(AssertionError, match="network call inside transaction"):
             httpx.Client().get("http://127.0.0.1:9/")
+
+
+def test_the_guard_covers_requests_and_httpx2(db):
+    """The AI SDKs use httpx2 and pywebpush uses requests. Outside a transaction the call reaches
+    the real client (and fails to connect); inside one the guard refuses it first."""
+    import httpx2
+    import requests
+
+    calls = [
+        (lambda: requests.get("http://127.0.0.1:9/", timeout=2), requests.ConnectionError),
+        (lambda: httpx2.Client().get("http://127.0.0.1:9/"), httpx2.ConnectError),
+    ]
+    for call, refused in calls:
+        with pytest.raises(refused):
+            call()
+        with db.transaction(), pytest.raises(AssertionError, match="network call inside transaction"):
+            call()
 
 
 def test_sqlite_assertion(db, monkeypatch, caplog):
@@ -145,3 +169,15 @@ def test_clock_canonical_and_normalize(freeze):
     assert clock.normalize("2026-07-01T12:00:00Z") == "2026-07-01T12:00:00Z"
     with pytest.raises(ValueError):
         clock.normalize("next tuesday")
+
+
+@pytest.mark.parametrize("preview", [True, False])
+def test_freeze_clock_env_is_honoured_only_in_preview_mode(preview):
+    """A fresh interpreter, so the import-time read of SPRINGFORM_FREEZE_CLOCK is what runs."""
+    env = {**os.environ, "SPRINGFORM_FREEZE_CLOCK": "2026-11-02T09:00:00Z"} | ({"PREVIEW_MODE": "1"} if preview else {})
+    out = subprocess.run(
+        [sys.executable, "-c", "from backend.core import clock; print(clock.now_iso())"],
+        cwd=REPO_ROOT, env=env, capture_output=True, text=True, check=True,
+    )
+    assert (out.stdout.strip() == "2026-11-02T09:00:00Z") is preview
+    assert ("ignored outside PREVIEW_MODE" in out.stderr) is not preview

@@ -24,7 +24,7 @@ The motivating failure: a previous fork of CakeCRM had to edit 25 CakeCRM files 
 | MCP | Each user can mint an MCP link that is an API key for that user. Admins can connect Whisk outward to other MCP servers. |
 | AI keys | The whole install works with zero AI keys. Only Whisk waits for one. |
 
-`backend/main.py` `create_app()` discovers apps and mounts their routers **at import**. The lifespan runs, in order: **checks → migrate → seed → setup token → core startup hooks → scheduler**. Seed runs every app's idempotent `seed(conn)` at every startup; in `PREVIEW_MODE` it also seeds the preview users and runs every app's `sample(conn)`. The checks include the `flock`, the SQLite version and FTS5 assertion (`database-and-transactions.md`), the `requires_core` check (run by the migration runner before any migration) and the `PREVIEW_MODE` real-secrets refusal (`auth.md`).
+`backend/main.py` `create_app()` discovers apps and mounts their routers **at import**. The lifespan runs, in order: **open the data directory → key files → migrate → preview check → seed → setup token → core startup hooks → scheduler**. Opening the data directory runs the write probe, takes the `flock` and checks the SQLite version and FTS5 (`database-and-transactions.md`). The key files step makes sure the encryption key and the session secret exist, writing them on first boot; a bad one stops startup there. The migration runner checks `requires_core` before any migration. The preview check is the `PREVIEW_MODE` real-secrets refusal; it runs after migrate because it reads `core_settings` (`auth.md` §11). Seed runs every app's idempotent `seed(conn)` at every startup; in `PREVIEW_MODE` it also seeds the preview users and runs every app's idempotent `sample(conn)` on every boot.
 
 **Core packages contribute like apps.** A core package `backend/core/<pkg>/` may hold `router.py`, `hooks.py`, `jobs.py`, `tools.py` and `startup.py`, and `registry.install()` discovers them (`apps-and-contracts.md` §9). Nobody edits `main.py` or `registry.py` to add one.
 
@@ -35,37 +35,46 @@ springform/
   AGENTS.md  CLAUDE.md(@AGENTS.md)  LICENSE  CHANGELOG.md  springform-version  fork-allow.txt
   pyproject.toml  uv.lock  Dockerfile  entrypoint.sh  railway.json  run.py
   backend/
-    main.py                 create_app(): discover + mount at import; lifespan = checks → migrate → seed → setup token → startup hooks → scheduler
+    main.py                 create_app(): discover + mount at import; lifespan = db + key files → migrate → preview check → seed → setup token → startup hooks → scheduler
     core/
       <pkg>/       optional router.py hooks.py jobs.py tools.py startup.py, discovered by registry.install()
-      db.py settings.py secrets.py kv.py registry.py entities.py scheduler.py backup.py changelog.py
-      clock.py localtime.py errors.py pagination.py ratelimit.py logscrub.py csv_export.py sheets.py github.py docs.py preview.py
-      auth/        service.py jwt.py deps.py router.py totp.py google.py invites.py mail.py bootstrap.py users_router.py csrf.py
-      contacts/    service.py api.py router.py
-      timeline/ files/ fields/ views/ reports/ notifications/ reminders/     (each: service.py api.py router.py)
-      agent/       providers/ spec.py registry.py confirm_tier.py engine.py history.py assembly.py compaction.py
-                   deferred.py agents.py memory/ context_files/ observer.py dreaming.py router.py mcp_server.py mcp_client.py jobs.py
+      db.py outbox.py settings.py secrets.py registry.py entities.py scheduler.py changelog.py
+      clock.py localtime.py errors.py pagination.py preview.py
+      ratelimit.py                     (being built by the inbound MCP workstream)
+      auth/        service.py jwt.py deps.py router.py totp.py trusted.py google.py invites.py mail.py bootstrap.py users_router.py csrf.py
+      contacts/    service.py api.py router.py seed.py startup.py
+      timeline/ files/ fields/ views/ notifications/ reminders/     (each: service.py api.py router.py, plus hooks.py / jobs.py where they contribute)
+      reports/     registry.py service.py router.py
+      platform/    keys.py service.py router.py      (settings, workspace, apps, jobs and changelog routes)
+      backup/      service.py restore.py jobs.py router.py
+      sheets/      api.py service.py google.py jobs.py router.py startup.py
+      export/      csv_export.py policy.py service.py router.py
+      guide/       library.py router.py startup.py
+      requests/    github.py service.py jobs.py router.py
+      agent/       providers/ spec.py registry.py engine.py history.py assembly.py compaction.py llm.py delimiters.py write_budget.py
+                   deferred.py agents.py router.py startup.py
+      mcp/         the inbound MCP server (landing with the MCP workstream)
+      mcp_servers/ the outbound MCP client (landing with the MCP workstream)
+      memory/      facts.py context_files.py observer.py dreaming.py jobs.py tools.py router.py startup.py
       migrations/  20261020HHMMSS_core_<name>.sql
-      docs/        core Guide topics
+      docs/        core Guide topics (*.md)
     apps/<slug>/
       app.json  router.py  api.py  service.py  models.py  entities.py  hooks.py  reports.py  tools.py  jobs.py  seed.py  settings.py
       migrations/YYYYMMDDHHMMSS_<slug>_<name>.sql   docs/index.md
     apps/crm/   apps/todos/   apps/example/   (example is the integration fixture: it contributes every seam)
-    tests/      conftest.py  test_app_contract.py  fixtures/bad_app/  test_core_*.py
+    tests/      conftest.py  test_app_contract.py  fixtures/{bad_app,apps_admin}/  test_<area>.py
   frontend/
     vite.config.ts  vitest.config.ts  vite-plugin-apps.ts (virtual:springform-apps from backend/apps/*/app.json)
     src/core/   api/{client.ts,types.gen.ts}  apps/registry.ts  shell/  auth/  contacts/  records/  agent/  pages/  settings/  theme/
     src/shared/ (lifted CakeCRM: toast, confirm, icons, styles, MobileMenuDrawer, …)
     src/apps/<slug>/contributions.ts (light: lazy loaders)  index.tsx (heavy: the app)  api.ts  pages/  components/
   docs/agents/*.md   docs/AUTO_ISSUES.md   docs/PROVENANCE.md   docs/apps/ (fork-owned)
-  deploy/   setup.sh  deploy.sh  compose.yml  Caddyfile  .env.example
-  scripts/  new-fork.sh  check-fork-scope.sh  seed-labels.sh  gen-types.sh  new-app.sh  update-from-upstream.sh
+  deploy/   setup.sh  deploy.sh  offsite.sh  compose.yml  Caddyfile  .env.example
+  scripts/  new-fork.sh  check-fork-scope.sh  test-fork-scope.sh  seed-labels.sh  gen-types.sh  new-app.sh  update-from-upstream.sh  restore.sh  check-sqlite.py
   .github/workflows/  ci.yml  release.yml
 ```
 
-`scripts/restore.sh` (§1) is not drawn in the plan's tree but is named in §1 and Step 1; it lives in `scripts/`.
-
-There is no fork workflow template: one `ci.yml` serves upstream and forks, with the conditional Fork scope job (`forks.md` §5).
+There is no fork workflow template: one `ci.yml` serves upstream and forks. Its Fork scope job always runs and passes on upstream, which has no `FORK.md` (`forks.md` §5).
 
 ## Hosting contract
 
@@ -73,11 +82,11 @@ The image follows ONCE's contract: **one port, `/up`, data in `/data`, configura
 
 | Item | Contract |
 |---|---|
-| Port | One HTTP port: `PORT` from the environment, default 8000. Railway sets `PORT`; Caddy proxies to `app:8000`. |
+| Port | One HTTP port: `PORT` from the environment, default 8000. Railway sets `PORT`; Caddy proxies to `app:{$PORT}`. |
 | `/up` | `SELECT 1`, then `200 "ok"`. No auth. Docker `HEALTHCHECK` and Railway's healthcheck use it. |
 | `/api/health` | `{version, sqlite_version, fts5, preview, apps:[slug], last_backup_at}`. No auth. `version` is read from `springform-version`. |
 | `/data` | The only state. Everything a restore needs is in it (see below). |
-| Env config | No configuration is baked into the image. |
+| Env config | Configuration comes from the environment. The image bakes in only `DATA_DIR=/data` and `SPRINGFORM_REQUIRE_SQLITE=1`. |
 
 ### `/data` layout (every path the plan names)
 
@@ -99,18 +108,44 @@ The data directory is `DATA_DIR` (the donor's env var, kept; default `./data` fo
 |---|---|---|
 | `PORT` | The HTTP port, default `8000`. Railway sets it. | `deploy.md` |
 | `DATA_DIR` | The data directory, default `./data`; `/data` in the container. | `database-and-transactions.md` |
-| `PUBLIC_URL` | The install's public URL: Google redirect URI, CSRF origin, scheme warning. Shown read-only in Settings; not a `core_settings` key. | `auth.md` |
-| `SECRET_KEY` | The session JWT signing key. | `auth.md` |
+| `PUBLIC_URL` | The install's public URL, default `http://localhost:8000`: Google redirect URI, CSRF origin, invite and reset links, scheme warning. Not a `core_settings` key; `GET /api/core/workspace` returns it as `public_url` so Settings can show it read-only. | `auth.md` |
+| `SECRET_KEY` | The session JWT signing key; when unset, `<DATA_DIR>/.secret-key` is generated at first boot. | `auth.md` |
 | `ENCRYPTION_KEY` | Fernet key; when set, no key file is written. | `deploy.md` |
 | `TRUST_PROXY` | `1` → uvicorn `--proxy-headers --forwarded-allow-ips='*'`. | `auth.md`, `deploy.md` |
 | `PREVIEW_MODE` | `1` → seeded preview users, role picker, Google stub. | `auth.md` |
 | `SPRINGFORM_FREEZE_CLOCK` | `<iso>` → the server clock is frozen there, for Playwright. Honoured only in `PREVIEW_MODE`. | `testing.md` |
 | `RESEND_API_KEY`, `MAIL_FROM` | Invite and reset mail via Resend. | `auth.md` |
 | `MCP_ALLOW_PRIVATE` | `1` → outbound MCP may reach private addresses and `http://`. | `mcp.md` |
-| `AGENT_VECTOR` | `1` → optional `core_agent_vectors`. | `agent.md` |
+| `SPRINGFORM_REQUIRE_SQLITE` | `1` → refuse to start on SQLite older than 3.51.3 (else a warning). The image sets it. | `database-and-transactions.md` |
+| `SHEETS_FAKE` | `1` → a fake Google Sheets client, for local runs and tests. | `sheets-and-export.md` |
 | `DOMAIN` | Caddy site address in `deploy/`. | `deploy.md` |
-| `IMAGE` | Image `compose.yml` and `railway.json` run. | `deploy.md`, `forks.md` |
+| `IMAGE` | The image `compose.yml` runs, default the upstream image; written by `setup.sh`. Railway builds from the `Dockerfile` instead. | `deploy.md`, `forks.md` |
 | `RAILWAY_DEPLOYMENT_DRAINING_SECONDS` | `15`, documented for Railway. | `deploy.md` |
+
+### Install settings (`core_settings`)
+
+The settings an admin changes through `/api/core/settings` are the core keys below plus every app key (`<slug>.<key>`, from the app's `settings.py` `DEFAULTS`, any JSON value). `backend/core/platform/keys.py` defines the core keys with their types and defaults; read one with `backend.core.platform.keys.get(key)`.
+
+| Key | Default | Notes |
+|---|---|---|
+| `workspace.name` | `"Springform"` | Text, required, at most 80 characters. |
+| `timezone` | `"UTC"` | An IANA timezone; the install timezone. |
+| `requests.warning_text` | A default warning | Shown on the Requests form; at most 2,000 characters. |
+| `github.repo` | `""` | `owner/name` for Requests. |
+| `github.token` | none | Secret. A fine-grained token with issues read/write. |
+| `files.max_bytes` | 25 MB | Upload size cap. |
+| `agent.nightly_enabled` | `false` | Gates `core.agent_nightly`. |
+| `agent.context_budget_chars` | `12000` | Whole number above zero. Caps the memory block Whisk reads per turn. |
+| `auth.require_totp_for_google` | `false` | Adds the local TOTP step to Google sign-in. |
+
+`GET /api/core/settings` lists exactly these keys, so saving every listed value back succeeds. Other `core_settings` rows are internal and not listed. Some keys are written only by their own routes, never through `/api/core/settings`: `auth.google_client_id` and `auth.google_client_secret` by `PUT /api/auth/google/config`, `sheets.service_account_json` by `PUT /api/core/sheets/credentials`, and `notifications.vapid_public_key` / `notifications.vapid_private_key`, which are generated.
+
+```
+GET    /api/core/settings        (admin) -> {values, secrets: {key: bool}, defaults}; never a secret value
+PUT    /api/core/settings        (admin) {values: {key: value}} -> the same view; every key is validated first, so one bad value writes nothing
+DELETE /api/core/settings/{key}  (admin) -> back to the default
+GET    /api/core/workspace       -> {name, timezone, version, preview, public_url}
+```
 
 ## Roles
 
@@ -151,9 +186,9 @@ Landing priority: core and the pieces the first client fork needs, then the CRM 
 
 ### Step 1 scope
 
-`pyproject`/uv, `package.json`/vite/vitest + `vite-plugin-apps.ts`; `core/db.py` (transaction composition, outbox, migration runner with checksums), `settings.py`, `secrets.py`, `kv.py`, `clock.py` (+ `normalize`), `localtime.py`, `errors.py`, `pagination.py`, `registry.py` (all modules in the contract, role guard at mount), `entities.py` (`authorize`, hooks), `main.py`; the core init migration `20261020000100_core_init.sql` (settings, change_log, job_runs, apps_state, requests, backups, outbox, file blobs, users incl. the system user, totp, trusted_devices, login_tokens, login_attempts, contacts tables, timeline, files); `auth/` minimal but real (setup token, password login, cookie session, `current_user`/`require_admin`, invite with a copyable link, no mail yet); `timeline/` notes + `record_changes_in`; `files/` upload/download with the publication protocol; `scheduler.py` minimal (`Job`, loop, `run_now`); `backup.py` with manifests + `scripts/restore.sh`; `agent/spec.py` + `registry.py` + a FakeProvider engine stub that can run one confirmed `handler_in` tool; `tests/conftest.py` (temp DB, `freeze`, `login_as`), `test_app_contract.py` + `fixtures/bad_app`; `apps/example` (every seam); `scripts/new-app.sh`, `new-fork.sh`, `check-fork-scope.sh`; frontend `core/api/client.ts`, `apps/registry.ts` (contributions + lazy), `Root.tsx`, Layout/Launcher, a minimal record page for `example` with Timeline + Attachments; `docs/agents/`; `AGENTS.md`; `ci.yml` (incl. the conditional Fork scope job).
+`pyproject`/uv, `package.json`/vite/vitest + `vite-plugin-apps.ts`; `core/db.py` (transaction composition, outbox, migration runner with checksums), `settings.py`, `secrets.py`, `clock.py` (+ `normalize`), `localtime.py`, `errors.py`, `pagination.py`, `registry.py` (all modules in the contract, role guard at mount), `entities.py` (`authorize`, hooks), `main.py`; the core init migration `20261020000100_core_init.sql` (settings, change_log, job_runs, apps_state, requests, backups, outbox, file blobs, users incl. the system user, totp, trusted_devices, login_tokens, login_attempts, contacts tables, timeline, files); `auth/` minimal but real (setup token, password login, cookie session, `current_user`/`require_admin`, invite with a copyable link, no mail yet); `timeline/` notes + `record_changes_in`; `files/` upload/download with the publication protocol; `scheduler.py` minimal (`Job`, loop, `run_now`); `backup/` with manifests + `scripts/restore.sh`; `agent/spec.py` + `registry.py` + a FakeProvider engine stub that can run one confirmed `handler_in` tool; `tests/conftest.py` (temp DB, `freeze`, `login_as`), `test_app_contract.py` + `fixtures/bad_app`; `apps/example` (every seam); `scripts/new-app.sh`, `new-fork.sh`, `check-fork-scope.sh`; frontend `core/api/client.ts`, `apps/registry.ts` (contributions + lazy), `Root.tsx`, Layout/Launcher, a minimal record page for `example` with Timeline + Attachments; `docs/agents/`; `AGENTS.md`; `ci.yml` (incl. the conditional Fork scope job).
 
-**Frozen stub signatures** Step 1 ships for later workstreams to fill: `core.changelog.record_in`, `core.sheets.client`, `core.csv_export.stream_csv`, `core.notifications.deliver_in`, `core.reminders`.
+**Frozen stub signatures** Step 1 shipped for later workstreams to fill, now filled at: `backend.core.changelog.record_in`, `backend.core.sheets.api.client`, `backend.core.export.csv_export.stream_csv`, `backend.core.notifications.service.deliver_in`, `backend.core.reminders`.
 
 ## Hard lines
 

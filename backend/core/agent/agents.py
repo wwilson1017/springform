@@ -11,11 +11,12 @@ Volatile: today's date in the install timezone, who is asking, and the memory bl
 
 from __future__ import annotations
 
-from backend.core import db, localtime, settings
+from backend.core import db, localtime
 from backend.core.agent import delimiters
 from backend.core.auth.deps import User
 from backend.core.clock import now_iso
 from backend.core.errors import NotFound
+from backend.core.platform import keys
 
 DEFAULT_SLUG = "whisk"
 DEFAULT_NAME = "Whisk"
@@ -115,7 +116,7 @@ def build_system_prompt(
 ) -> tuple[str, str]:
     from backend.core import registry  # registry imports this package; resolve at call time
 
-    install = _one_line(settings.get_setting("install_name"), 120) or "this business"
+    install = _one_line(keys.get("workspace.name"), 120) or "this business"
     apps = registry.list_for_user(user)
     apps_block = "## Installed apps\n" + "\n".join(f"- {a['name']}: {a['description']}" for a in apps) if apps else ""
     static = "\n\n".join(p for p in [

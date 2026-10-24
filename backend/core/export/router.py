@@ -2,9 +2,8 @@ from fastapi import APIRouter, Depends, Request
 from fastapi.responses import StreamingResponse
 
 from backend.core.auth.deps import User, current_user, require_admin
-from backend.core.errors import Forbidden, NotFound
 from backend.core.export import csv_export, service
-from backend.core.reports import registry as reports
+from backend.core.reports import service as report_service
 
 router = APIRouter(tags=["core"])
 
@@ -26,14 +25,7 @@ def export_preview() -> dict:
 
 @router.get("/api/core/reports/{key}/csv")
 def report_csv(key: str, request: Request, user: User = Depends(current_user)) -> StreamingResponse:
-    """A report as CSV. Query parameters are the report's params (strings). Who may run it: one of
-    the app's roles, and admin for admin_only reports. Unknown key 404, not allowed 403."""
-    # simplification: params reach run() as raw strings; once the reports API (reports/service.py)
-    # lands, call its run(user, key, request.query_params) so both routes coerce params the same way.
-    report = reports.get(key)
-    if report is None:
-        raise NotFound("no such report")
-    if key not in {r.key for r in reports.for_user(user)}:
-        raise Forbidden("admin_only" if report.admin_only else "forbidden")
-    columns, rows = report.run(dict(request.query_params), user)
-    return csv_export.stream_csv(columns, rows, f"{key}.csv")
+    """A report as CSV, through the same checks as the JSON route: unknown key 404, not allowed
+    403, params coerced to the report's spec with defaults applied, bad params 422."""
+    result = report_service.run(user, key, dict(request.query_params))
+    return csv_export.stream_csv(result["columns"], result["rows"], f"{key}.csv")

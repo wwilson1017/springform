@@ -268,3 +268,13 @@ def test_memory_seam(login_as, monkeypatch):
 
     monkeypatch.setattr(assembly, "_memory", SimpleNamespace(context_for=lambda *a: 1 / 0))
     assert assembly.memory_context(a.principal, "whisk", "hot") == ""  # memory never breaks a turn
+
+
+def test_system_prompt_names_the_workspace(login_as):
+    from backend.core import settings
+    from backend.core.agent import agents
+
+    a = login_as("member")
+    settings.set_setting("workspace.name", "Acme Bakery", None)
+    static, _ = agents.build_system_prompt(agents.get(), a.principal)
+    assert "the assistant for Acme Bakery." in static

@@ -4,6 +4,7 @@ An entity type is `<app>.<name>` (`core.person`, `example.widget`) backed by one
 owns. Every core service and router calls `authorize` before touching a record:
 - missing record, unknown type, or not readable -> NotFound (404: existence is not leaked)
 - readable but the action is "write" and not writable -> Forbidden (403)
+- the system principal never writes, whatever the entity's can_write says
 
 Hooks (docs/agents/authorization.md):
 - sync, in the caller's transaction, cheap bookkeeping only; a failing subscriber rolls the
@@ -148,7 +149,7 @@ def authorize(user: User, conn: Conn, entity_type: str, entity_id: int, action: 
     entity = assert_exists(conn, entity_type, entity_id)
     if not entity.can_read(user, conn, entity_id):
         raise NotFound()
-    if action == "write" and not entity.can_write(user, conn, entity_id):
+    if action == "write" and (user.role == "system" or not entity.can_write(user, conn, entity_id)):
         raise Forbidden()
     return entity
 

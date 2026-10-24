@@ -21,7 +21,7 @@ def test_rows_are_filtered_by_read_access_and_gone_rows_go_only_to_their_writer(
     assert row == {
         "id": row["id"], "at": row["at"], "user": {"id": owner.user["id"], "name": owner.user["name"]},
         "app": "example", "entity_type": "example.widget", "entity_id": public["id"], "title": "Public",
-        "url": f"/example/widgets/{public['id']}", "field": "color", "old": "teal", "new": "blue",
+        "url": f"/example/{public['id']}", "field": "color", "old": "teal", "new": "blue",
         "reason": None, "deleted_at": None,
     }  # fmt: skip
     assert [r["entity_id"] for r in _changes(other)] == [public["id"]]  # another member's private widget: hidden

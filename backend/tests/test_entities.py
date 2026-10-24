@@ -1,3 +1,5 @@
+from dataclasses import replace
+
 import pytest
 
 from backend.apps.example import service
@@ -54,7 +56,7 @@ def test_titles_for_drops_what_the_user_cannot_read(app, make_user):
     conn = core_db.get_conn()
     assert entities.titles_for(owner, conn, "example.widget", [a["id"], b["id"], 999]) == {a["id"]: "Open", b["id"]: "Hidden"}
     assert entities.titles_for(other, conn, "example.widget", [a["id"], b["id"]]) == {a["id"]: "Open"}
-    assert entities.url_for("example.widget", a["id"]) == f"/example/widgets/{a['id']}"
+    assert entities.url_for("example.widget", a["id"]) == f"/example/{a['id']}"
     assert entities.url_for("core.person", 3) == "/people/3"
 
 
@@ -91,3 +93,12 @@ def test_register_refuses_duplicates_and_foreign_tables(app):
         entities.register(entities.Entity("shop.item", "core_people", "Item", "Items", str, person.title_fn))
     with pytest.raises(ValueError, match="Unknown hook"):
         entities.subscribe("on_saved", print)
+
+
+def test_system_principal_is_refused_writes_even_when_can_write_allows_all(app, make_user):
+    owner = make_user("member")
+    widget = service.create_widget(owner, WidgetIn(name="Gear"))
+    open_entity = entities.get("example.widget")
+    entities._ENTITIES["example.widget"] = replace(open_entity, can_write=lambda user, conn, i: True)
+    with pytest.raises(Forbidden):
+        entities.authorize(system_user(), core_db.get_conn(), "example.widget", widget["id"], "write")

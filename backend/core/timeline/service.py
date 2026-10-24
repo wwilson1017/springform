@@ -25,10 +25,12 @@ if TYPE_CHECKING:
     from backend.core.auth.deps import User
 
 MAX_BODY = 10_000
+NOTE_KINDS = ("note", "comment")
 MAX_MENTIONS = 20  # a note naming more people than this is a broadcast, not a mention
 EXCERPT_LEN = 200
 MENTION = re.compile(r"@\[([^\]\n]{1,100})\]\(user:(\d{1,12})\)")
 UNTRACKED = frozenset({"id", "created_at", "updated_at"})
+SYSTEM_USER_ID = 0  # core_users.id of the system principal (authorization.md §7)
 _SELECT = """SELECT t.id, t.kind, t.body, t.changes, t.created_at, t.author_user_id, u.name AS author_name
                FROM core_timeline t LEFT JOIN core_users u ON u.id = t.author_user_id"""
 
@@ -53,14 +55,22 @@ def _insert_in(conn: db.Conn, entity_type: str, entity_id: int, kind: str, body:
     return _entry(conn.execute(f"{_SELECT} WHERE t.id = ?", (cur.lastrowid,)).fetchone())
 
 
-def add_note_in(conn: db.Conn, user: User, entity_type: str, entity_id: int, body: str) -> dict:
+def add_system_in(conn: db.Conn, entity_type: str, entity_id: int, body: str) -> dict:
+    """A `system` row reporting something core did to the record (a merge), authored by the system
+    principal. No authorize: the caller already authorized the action it reports."""
+    return _insert_in(conn, entity_type, entity_id, "system", body, None, SYSTEM_USER_ID)
+
+
+def add_note_in(conn: db.Conn, user: User, entity_type: str, entity_id: int, body: str, kind: str = "note") -> dict:
     entities.authorize(user, conn, entity_type, entity_id, "write")
+    if kind not in NOTE_KINDS:
+        raise Invalid(f"kind must be one of {', '.join(NOTE_KINDS)}")
     text = (body or "").strip()
     if not text:
         raise Invalid("A note needs some text.")
     if len(text) > MAX_BODY:
         raise Invalid(f"A note can be at most {MAX_BODY} characters.")
-    entry = _insert_in(conn, entity_type, entity_id, "note", text, None, user.id)
+    entry = _insert_in(conn, entity_type, entity_id, kind, text, None, user.id)
     _mention_in(conn, user, entity_type, entity_id, entry)
     return entry
 
@@ -113,20 +123,19 @@ def mentionable(q: str | None = None, limit: int = 20) -> list[dict]:
     return mentionable_in(db.get_conn(), q, limit)
 
 
-def add_note(user: User, entity_type: str, entity_id: int, body: str) -> dict:
+def add_note(user: User, entity_type: str, entity_id: int, body: str, kind: str = "note") -> dict:
     with db.transaction() as conn:
-        return add_note_in(conn, user, entity_type, entity_id, body)
+        return add_note_in(conn, user, entity_type, entity_id, body, kind)
 
 
-def list_for(user: User, entity_type: str, entity_id: int, limit: int | None = None, offset: int | None = None) -> list[dict]:
-    """Newest first."""
+def list_for(user: User, entity_type: str, entity_id: int, before: int | None = None, limit: int | None = None) -> list[dict]:
+    """Newest first. Pages back with `before` (the last entry id seen); `limit` 50 by default, at most 200."""
     conn = db.get_conn()
     entities.authorize(user, conn, entity_type, entity_id, "read")
-    limit, offset = pagination.window(limit, offset)
     rows = conn.execute(
-        f"""{_SELECT} WHERE t.entity_type = ? AND t.entity_id = ? AND t.archived_at IS NULL
-            ORDER BY t.created_at DESC, t.id DESC LIMIT ? OFFSET ?""",
-        (entity_type, entity_id, limit, offset),
+        f"""{_SELECT} WHERE t.entity_type = ? AND t.entity_id = ? AND t.archived_at IS NULL AND t.id < ?
+            ORDER BY t.id DESC LIMIT ?""",
+        (entity_type, entity_id, 2**62 if before is None else before, pagination.window(limit)[0]),
     )
     return [_entry(r) for r in rows]
 
