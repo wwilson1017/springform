@@ -5,7 +5,7 @@ from pydantic import BaseModel, ConfigDict
 
 from backend.core import entities
 from backend.core.auth.deps import User, current_user
-from backend.core.fields import service
+from backend.core.fields import models, service
 
 router = APIRouter(prefix="/api/core/fields", tags=["core"])
 FieldType = Literal["text", "number", "boolean", "date", "select", "multiselect", "url", "user"]
@@ -40,23 +40,23 @@ class ValuesIn(BaseModel):
     values: dict[str, Any]
 
 
-@router.get("/entity-types")
+@router.get("/entity-types", response_model=list[models.FieldEntityType])
 def list_field_entity_types(user: User = Depends(current_user)) -> list[dict]:
     """Every registered entity type, for the admin's field-definition picker."""
     return [{"type": e.type, "label": e.label, "label_plural": e.label_plural} for e in entities.all_entities()]
 
 
-@router.get("/definitions")
+@router.get("/definitions", response_model=list[models.FieldDefinition])
 def list_field_definitions(entity_type: str, include_archived: bool = False, user: User = Depends(current_user)) -> list[dict]:
     return service.list_definitions(entity_type, include_archived)
 
 
-@router.post("/definitions")
+@router.post("/definitions", response_model=models.FieldDefinition)
 def create_field_definition(body: DefinitionIn, user: User = Depends(current_user)) -> dict:
     return service.create_definition(user, body.model_dump())
 
 
-@router.patch("/definitions/{definition_id}")
+@router.patch("/definitions/{definition_id}", response_model=models.FieldDefinition)
 def update_field_definition(definition_id: int, body: DefinitionPatch, user: User = Depends(current_user)) -> dict:
     return service.update_definition(user, definition_id, body.model_dump(exclude_unset=True))
 

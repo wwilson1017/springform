@@ -3297,6 +3297,38 @@ export interface components {
             /** Total */
             total: number;
         };
+        /** Address */
+        Address: {
+            /** City */
+            city: string | null;
+            /** Country */
+            country: string | null;
+            /** Created At */
+            created_at: string;
+            /** Id */
+            id: number;
+            /** Is Primary */
+            is_primary: boolean;
+            /** Kind */
+            kind: string | null;
+            /** Line1 */
+            line1: string | null;
+            /** Line2 */
+            line2: string | null;
+            /** Owner Id */
+            owner_id: number;
+            /**
+             * Owner Type
+             * @enum {string}
+             */
+            owner_type: "person" | "organization";
+            /** Postal Code */
+            postal_code: string | null;
+            /** Region */
+            region: string | null;
+            /** Updated At */
+            updated_at: string;
+        };
         /** AddressIn */
         AddressIn: {
             /** City */
@@ -3353,6 +3385,13 @@ export interface components {
             /** Min Days */
             min_days: number;
         };
+        /** AgentModels */
+        AgentModels: {
+            /** Default */
+            default: string | null;
+            /** Light */
+            light: string | null;
+        };
         /** AgentPatch */
         AgentPatch: {
             /** Model Override */
@@ -3365,6 +3404,40 @@ export interface components {
             personality?: string | null;
             /** Provider Override */
             provider_override?: ("anthropic" | "openai") | null;
+        };
+        /** AgentRow */
+        AgentRow: {
+            /** Created At */
+            created_at: string;
+            /** Id */
+            id: number;
+            /** Is Default */
+            is_default: boolean;
+            /** Model Override */
+            model_override: string | null;
+            /**
+             * Model Tier
+             * @enum {string}
+             */
+            model_tier: "default" | "light";
+            /** Name */
+            name: string;
+            /** Personality */
+            personality: string;
+            /** Provider Override */
+            provider_override: string | null;
+            /** Slug */
+            slug: string;
+        };
+        /** AgentStatus */
+        AgentStatus: {
+            /** Configured */
+            configured: boolean;
+            /** Default Agent */
+            default_agent: string;
+            models: components["schemas"]["AgentModels"];
+            /** Providers */
+            providers: components["schemas"]["ProviderInfo"][];
         };
         /** Aging */
         Aging: {
@@ -3479,6 +3552,107 @@ export interface components {
             /** Running */
             running: boolean;
         };
+        /** BackupManifest */
+        BackupManifest: {
+            /** Blobs */
+            blobs: string[];
+            /** Created At */
+            created_at: string;
+            /** Key Fingerprint */
+            key_fingerprint: string;
+            /**
+             * Key Source
+             * @enum {string}
+             */
+            key_source: "env" | "file";
+            snapshot: components["schemas"]["ManifestSnapshot"];
+            /** Springform Version */
+            springform_version: string;
+            /** Version */
+            version: number;
+        };
+        /**
+         * BackupRun
+         * @description A `core_backups` row: one run of the nightly job or of "Back up now".
+         */
+        BackupRun: {
+            /** Byte Size */
+            byte_size: number | null;
+            /** Error */
+            error: string | null;
+            /** Finished At */
+            finished_at: string;
+            /** Id */
+            id: number;
+            /** Manifest */
+            manifest: string | null;
+            /** Sha256 */
+            sha256: string | null;
+            /** Snapshot */
+            snapshot: string | null;
+            /** Started At */
+            started_at: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "ok" | "error" | "skipped";
+        };
+        /**
+         * BackupRunUnrecorded
+         * @description What POST /run answers when the run could not be written to the log: its outcome only.
+         */
+        BackupRunUnrecorded: {
+            /** Byte Size */
+            byte_size?: number | null;
+            /** Error */
+            error?: string | null;
+            /** Manifest */
+            manifest?: string | null;
+            /** Sha256 */
+            sha256?: string | null;
+            /** Snapshot */
+            snapshot?: string | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "ok" | "error" | "skipped";
+        };
+        /**
+         * BackupSet
+         * @description One recovery set on disk. `manifest_ok`: the manifest parses and its snapshot is present at the
+         *     recorded size. `status` comes from the run log (None when no run on this install recorded it).
+         */
+        BackupSet: {
+            /** Blob Count */
+            blob_count: number | null;
+            /** Created At */
+            created_at: string | null;
+            /** Manifest Ok */
+            manifest_ok: boolean;
+            /** Snapshot Bytes */
+            snapshot_bytes: number | null;
+            /** Stamp */
+            stamp: string;
+            /** Status */
+            status: string | null;
+        };
+        /** BackupsOverview */
+        BackupsOverview: {
+            /** Key Shown */
+            key_shown: boolean;
+            /**
+             * Key Source
+             * @enum {string}
+             */
+            key_source: "env" | "file";
+            /** Last Backup At */
+            last_backup_at: string | null;
+            last_run: components["schemas"]["BackupRun"] | null;
+            /** Sets */
+            sets: components["schemas"]["BackupSet"][];
+        };
         /** Badge */
         Badge: {
             /** Count */
@@ -3562,6 +3736,37 @@ export interface components {
             /** Updated */
             updated: number[];
         };
+        /**
+         * ChangeRow
+         * @description `title` and `url` are None when the record is gone (shown only to the user who wrote it).
+         */
+        ChangeRow: {
+            /** App */
+            app: string;
+            /** At */
+            at: string;
+            /** Deleted At */
+            deleted_at: string | null;
+            /** Entity Id */
+            entity_id: number;
+            /** Entity Type */
+            entity_type: string;
+            /** Field */
+            field: string;
+            /** Id */
+            id: number;
+            /** New */
+            new: unknown;
+            /** Old */
+            old: unknown;
+            /** Reason */
+            reason: string | null;
+            /** Title */
+            title: string | null;
+            /** Url */
+            url: string | null;
+            user: components["schemas"]["UserRef"] | null;
+        };
         /** Changes */
         Changes: {
             /** Areas */
@@ -3581,6 +3786,33 @@ export interface components {
             reset: boolean;
             /** Since Rev */
             since_rev: number;
+        };
+        /** Channel */
+        Channel: {
+            /** Created At */
+            created_at: string;
+            /** Id */
+            id: number;
+            /** Is Primary */
+            is_primary: boolean;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "email" | "phone" | "url" | "other";
+            /** Label */
+            label: string | null;
+            /** Owner Id */
+            owner_id: number;
+            /**
+             * Owner Type
+             * @enum {string}
+             */
+            owner_type: "person" | "organization";
+            /** Updated At */
+            updated_at: string;
+            /** Value */
+            value: string;
         };
         /** ChannelIn */
         ChannelIn: {
@@ -3650,6 +3882,132 @@ export interface components {
             /** Tool Run Id */
             tool_run_id: number;
         };
+        /**
+         * ConfirmResponse
+         * @description `result` with "done"; `error` with "error", "uncertain" and a tool no longer offered;
+         *     `current` (the run's status now) with "already_resolved".
+         */
+        ConfirmResponse: {
+            /** Current */
+            current?: ("pending" | "executing" | "done" | "denied" | "error" | "stale" | "uncertain" | "interrupted") | null;
+            /** Error */
+            error?: string | null;
+            /** Result */
+            result?: unknown;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "done" | "denied" | "error" | "stale" | "uncertain" | "already_resolved";
+        };
+        /**
+         * ConnectedSheet
+         * @description A sheet an app declares in its manifest; an admin sets spreadsheet_id and range (`configured`).
+         */
+        ConnectedSheet: {
+            /** App */
+            app: string;
+            /** Configured */
+            configured: boolean;
+            /** Created At */
+            created_at: string;
+            /** Description */
+            description: string;
+            /** Enabled */
+            enabled: boolean;
+            /** Fetched At */
+            fetched_at: string | null;
+            /** Id */
+            id: number;
+            /** Last Error */
+            last_error: string | null;
+            /** Last Synced At */
+            last_synced_at: string | null;
+            /**
+             * Mode
+             * @enum {string}
+             */
+            mode: "read" | "write";
+            /** Name */
+            name: string;
+            /** Range */
+            range: string;
+            /** Row Count */
+            row_count: number | null;
+            /**
+             * Schedule
+             * @enum {string}
+             */
+            schedule: "hourly" | "daily" | "manual";
+            /** Spreadsheet Id */
+            spreadsheet_id: string;
+            /** Updated At */
+            updated_at: string;
+        };
+        /**
+         * ContactDuplicates
+         * @description Live records sharing an email, phone, name (people) or domain (organizations).
+         */
+        ContactDuplicates: {
+            /** Count */
+            count: number;
+            /**
+             * Match On
+             * @enum {string}
+             */
+            match_on: "email" | "phone" | "name" | "domain";
+            /** Records */
+            records: components["schemas"]["ContactLabel"][];
+            /** Value */
+            value: string;
+        };
+        /** ContactLabel */
+        ContactLabel: {
+            /** Id */
+            id: number;
+            /** Label */
+            label: string;
+        };
+        /**
+         * ContactLink
+         * @description A person-organization link row.
+         */
+        ContactLink: {
+            /** Created At */
+            created_at: string;
+            /** Ended On */
+            ended_on: string | null;
+            /** Id */
+            id: number;
+            /** Is Primary */
+            is_primary: boolean;
+            /** Organization Id */
+            organization_id: number;
+            /** Person Id */
+            person_id: number;
+            /** Role */
+            role: string;
+            /** Started On */
+            started_on: string | null;
+        };
+        /** ContactSearchHit */
+        ContactSearchHit: {
+            /** Email */
+            email: string | null;
+            /** Id */
+            id: number;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "person" | "organization";
+            /** Name */
+            name: string;
+            /** Phone */
+            phone: string | null;
+            /** Url */
+            url: string;
+        };
         /** ContextFileIn */
         ContextFileIn: {
             /** Content */
@@ -3678,6 +4036,55 @@ export interface components {
             /** Updated */
             updated: number;
         };
+        /** Conversation */
+        Conversation: {
+            /** Agent Id */
+            agent_id: number;
+            /** Agent Slug */
+            agent_slug: string;
+            /** Compacted At */
+            compacted_at: string | null;
+            /** Created At */
+            created_at: string;
+            /** Id */
+            id: number;
+            /** Is Private */
+            is_private: boolean;
+            /** Title */
+            title: string;
+            /** Updated At */
+            updated_at: string;
+            /** User Id */
+            user_id: number;
+        };
+        /** ConversationDeleted */
+        ConversationDeleted: {
+            /** Deleted */
+            deleted: boolean;
+        };
+        /** ConversationDetail */
+        ConversationDetail: {
+            /** Agent Id */
+            agent_id: number;
+            /** Agent Slug */
+            agent_slug: string;
+            /** Compacted At */
+            compacted_at: string | null;
+            /** Created At */
+            created_at: string;
+            /** Id */
+            id: number;
+            /** Is Private */
+            is_private: boolean;
+            /** Messages */
+            messages: components["schemas"]["ServerMessage"][];
+            /** Title */
+            title: string;
+            /** Updated At */
+            updated_at: string;
+            /** User Id */
+            user_id: number;
+        };
         /** ConversationIn */
         ConversationIn: {
             /** Agent Slug */
@@ -3689,6 +4096,52 @@ export interface components {
             is_private?: boolean | null;
             /** Title */
             title?: string | null;
+        };
+        /**
+         * CoreApp
+         * @description One launcher app; admins also get hidden ones, marked hidden.
+         */
+        CoreApp: {
+            /** Badge */
+            badge: string | null;
+            /** Description */
+            description: string;
+            /** Hidden */
+            hidden: boolean;
+            /** Icon */
+            icon: string;
+            /** Name */
+            name: string;
+            /** Order */
+            order: number;
+            /** Path */
+            path: string;
+            /** Roles */
+            roles: ("admin" | "member")[];
+            /** Settings Cards */
+            settings_cards: components["schemas"]["SettingsCard"][];
+            /** Slug */
+            slug: string;
+            /** Version */
+            version: string;
+        };
+        /**
+         * CoreSettings
+         * @description `values`/`defaults` for plain keys; `secrets` says only whether a secret is set.
+         */
+        CoreSettings: {
+            /** Defaults */
+            defaults: {
+                [key: string]: unknown;
+            };
+            /** Secrets */
+            secrets: {
+                [key: string]: boolean;
+            };
+            /** Values */
+            values: {
+                [key: string]: unknown;
+            };
         };
         /** CredentialsIn */
         CredentialsIn: {
@@ -3751,6 +4204,21 @@ export interface components {
              * @description YYYY-MM-DD in the install timezone
              */
             day: string;
+        };
+        /** DeadOutboxRow */
+        DeadOutboxRow: {
+            /** Attempts */
+            attempts: number;
+            /** Created At */
+            created_at: string;
+            /** Dead At */
+            dead_at: string;
+            /** Hook */
+            hook: string;
+            /** Id */
+            id: number;
+            /** Last Error */
+            last_error: string | null;
         };
         /** Deal */
         Deal: {
@@ -4074,6 +4542,58 @@ export interface components {
             /** Valid From */
             valid_from?: string | null;
         };
+        /** FieldChange */
+        FieldChange: {
+            /** Field */
+            field: string;
+            /** New */
+            new: unknown;
+            /** Old */
+            old: unknown;
+        };
+        /**
+         * FieldDefinition
+         * @description `options` only for select and multiselect; `required` is advisory (shown, not enforced).
+         */
+        FieldDefinition: {
+            /** Archived At */
+            archived_at: string | null;
+            /** Created At */
+            created_at: string;
+            /** Entity Type */
+            entity_type: string;
+            /** Id */
+            id: number;
+            /** Key */
+            key: string;
+            /** Label */
+            label: string;
+            /** Options */
+            options: string[] | null;
+            /** Position */
+            position: number;
+            /** Required */
+            required: boolean;
+            /**
+             * Type
+             * @enum {string}
+             */
+            type: "text" | "number" | "boolean" | "date" | "select" | "multiselect" | "url" | "user";
+            /** Updated At */
+            updated_at: string;
+        };
+        /**
+         * FieldEntityType
+         * @description A registered entity type, for the field-definition picker.
+         */
+        FieldEntityType: {
+            /** Label */
+            label: string;
+            /** Label Plural */
+            label_plural: string;
+            /** Type */
+            type: string;
+        };
         /** File */
         File: {
             /** Byte Size */
@@ -4122,10 +4642,60 @@ export interface components {
             /** Email */
             email: string;
         };
+        /** GuideHit */
+        GuideHit: {
+            /** App */
+            app: string;
+            /** Slug */
+            slug: string;
+            /** Snippet */
+            snippet: string;
+            /** Title */
+            title: string;
+        };
+        /** GuideTopic */
+        GuideTopic: {
+            /** App */
+            app: string;
+            /** Slug */
+            slug: string;
+            /** Summary */
+            summary: string;
+            /** Title */
+            title: string;
+        };
+        /** GuideTopicBody */
+        GuideTopicBody: {
+            /** App */
+            app: string;
+            /** Body Markdown */
+            body_markdown: string;
+            /** Slug */
+            slug: string;
+            /** Summary */
+            summary: string;
+            /** Title */
+            title: string;
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
+        };
+        /** Health */
+        Health: {
+            /** Apps */
+            apps: string[];
+            /** Fts5 */
+            fts5: boolean;
+            /** Last Backup At */
+            last_backup_at: string | null;
+            /** Preview */
+            preview: boolean;
+            /** Sqlite Version */
+            sqlite_version: string;
+            /** Version */
+            version: string;
         };
         /** ImportConfirmIn */
         ImportConfirmIn: {
@@ -4396,6 +4966,83 @@ export interface components {
             /** Visibility */
             visibility?: ("private" | "team") | null;
         };
+        /** JobInfo */
+        JobInfo: {
+            /** App */
+            app: string;
+            /** At */
+            at: string | null;
+            /** Every */
+            every: number | null;
+            /** In Flight */
+            in_flight: boolean;
+            last_run: components["schemas"]["JobLastRun"] | null;
+            /** Name */
+            name: string;
+            /** Timeout */
+            timeout: number;
+        };
+        /** JobLastRun */
+        JobLastRun: {
+            /** Error */
+            error: string | null;
+            /** Finished At */
+            finished_at: string | null;
+            /** Started At */
+            started_at: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "running" | "ok" | "error" | "timed_out" | "interrupted" | "skipped";
+        };
+        /** JobRun */
+        JobRun: {
+            /** App */
+            app: string;
+            /** Error */
+            error: string | null;
+            /** Finished At */
+            finished_at: string | null;
+            /** Id */
+            id: number;
+            /** Job */
+            job: string;
+            /** Scheduled For */
+            scheduled_for: string | null;
+            /** Started At */
+            started_at: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "running" | "ok" | "error" | "timed_out" | "interrupted" | "skipped";
+            /**
+             * Trigger
+             * @enum {string}
+             */
+            trigger: "schedule" | "manual" | "nudge";
+        };
+        /** JobStarted */
+        JobStarted: {
+            /** Started */
+            started: boolean;
+        };
+        /**
+         * KeyReveal
+         * @description The key once (`key_source` "file"); an environment key is never returned, only its fingerprint.
+         */
+        KeyReveal: {
+            /** Fingerprint */
+            fingerprint: string;
+            /** Key */
+            key?: string | null;
+            /**
+             * Key Source
+             * @enum {string}
+             */
+            key_source: "env" | "file";
+        };
         /** LinkIn */
         LinkIn: {
             /** Ended On */
@@ -4464,10 +5111,87 @@ export interface components {
              */
             reason: string;
         };
+        /** ManifestSnapshot */
+        ManifestSnapshot: {
+            /** Byte Size */
+            byte_size: number;
+            /** Filename */
+            filename: string;
+            /** Sha256 */
+            sha256: string;
+        };
+        /** McpLink */
+        McpLink: {
+            /** Created At */
+            created_at: string;
+            /** Id */
+            id: number;
+            /** Label */
+            label: string;
+            /** Last Used At */
+            last_used_at: string | null;
+        };
         /** McpLinkIn */
         McpLinkIn: {
             /** Label */
             label: string;
+        };
+        /**
+         * McpLinkWithOwner
+         * @description A row of `?all=true` (admins): every live link with its owner.
+         */
+        McpLinkWithOwner: {
+            /** Created At */
+            created_at: string;
+            /** Id */
+            id: number;
+            /** Label */
+            label: string;
+            /** Last Used At */
+            last_used_at: string | null;
+            /** User Email */
+            user_email: string;
+            /** User Id */
+            user_id: number;
+            /** User Name */
+            user_name: string;
+        };
+        /** McpServer */
+        McpServer: {
+            /** Created At */
+            created_at: string;
+            /** Enabled */
+            enabled: boolean;
+            /** Has Token */
+            has_token: boolean;
+            /** Id */
+            id: number;
+            /** Last Discovered At */
+            last_discovered_at: string | null;
+            /** Last Error */
+            last_error: string | null;
+            /** Name */
+            name: string;
+            /** Prefix */
+            prefix: string;
+            /** Tools */
+            tools: components["schemas"]["RemoteTool"][];
+            /** Updated At */
+            updated_at: string;
+            /** Url */
+            url: string;
+        };
+        /**
+         * McpServerCheck
+         * @description Connect and list tools: `tools` is how many; `error` only when it failed.
+         */
+        McpServerCheck: {
+            /** Error */
+            error?: string | null;
+            /** Ok */
+            ok: boolean;
+            /** Tools */
+            tools: number;
         };
         /** MePatch */
         MePatch: {
@@ -4475,6 +5199,14 @@ export interface components {
             name?: string | null;
             /** Tz */
             tz?: string | null;
+        };
+        /**
+         * MergedAway
+         * @description What reading a merged id answers: the survivor's id.
+         */
+        MergedAway: {
+            /** Merged Into */
+            merged_into: number;
         };
         /** Meta */
         Meta: {
@@ -4503,6 +5235,21 @@ export interface components {
             id: number;
             /** Name */
             name: string;
+        };
+        /** NewMcpLink */
+        NewMcpLink: {
+            /** Created At */
+            created_at: string;
+            /** Id */
+            id: number;
+            /** Label */
+            label: string;
+            /** Last Used At */
+            last_used_at: string | null;
+            /** Token */
+            token: string;
+            /** Url */
+            url: string;
         };
         /** NoteIn */
         NoteIn: {
@@ -4538,6 +5285,52 @@ export interface components {
             /** Title */
             title: string;
         };
+        /** Ok */
+        Ok: {
+            /** Ok */
+            ok: boolean;
+        };
+        /** OrganizationDetail */
+        OrganizationDetail: {
+            /** Addresses */
+            addresses: components["schemas"]["Address"][];
+            /** Archived At */
+            archived_at: string | null;
+            /** Channels */
+            channels: components["schemas"]["Channel"][];
+            /** Created At */
+            created_at: string;
+            /** Domain */
+            domain: string | null;
+            /** Email */
+            email: string | null;
+            /** Id */
+            id: number;
+            /** Industry */
+            industry: string | null;
+            /** Merged Into Id */
+            merged_into_id: number | null;
+            /** Name */
+            name: string;
+            /** Notes */
+            notes: string | null;
+            /** Owner User Id */
+            owner_user_id: number | null;
+            /** People */
+            people: components["schemas"]["PersonLink"][];
+            /** Phone */
+            phone: string | null;
+            /** Source */
+            source: string | null;
+            /** Status */
+            status: string | null;
+            /** Tags */
+            tags: string[];
+            /** Updated At */
+            updated_at: string;
+            /** Website */
+            website: string | null;
+        };
         /** OrganizationFields */
         OrganizationFields: {
             /** Domain */
@@ -4562,6 +5355,72 @@ export interface components {
             tags?: string[] | null;
             /** Website */
             website?: string | null;
+        };
+        /**
+         * OrganizationLink
+         * @description One of a person's organizations, primary first.
+         */
+        OrganizationLink: {
+            /** Archived At */
+            archived_at: string | null;
+            /** Ended On */
+            ended_on: string | null;
+            /** Is Primary */
+            is_primary: boolean;
+            /** Name */
+            name: string;
+            /** Organization Id */
+            organization_id: number;
+            /** Role */
+            role: string;
+            /** Started On */
+            started_on: string | null;
+        };
+        /** OrganizationPage */
+        OrganizationPage: {
+            /** Items */
+            items: components["schemas"]["OrganizationRecord"][];
+            /** Page */
+            page: number;
+            /** Page Size */
+            page_size: number;
+            /** Total */
+            total: number;
+        };
+        /** OrganizationRecord */
+        OrganizationRecord: {
+            /** Archived At */
+            archived_at: string | null;
+            /** Created At */
+            created_at: string;
+            /** Domain */
+            domain: string | null;
+            /** Email */
+            email: string | null;
+            /** Id */
+            id: number;
+            /** Industry */
+            industry: string | null;
+            /** Merged Into Id */
+            merged_into_id: number | null;
+            /** Name */
+            name: string;
+            /** Notes */
+            notes: string | null;
+            /** Owner User Id */
+            owner_user_id: number | null;
+            /** Phone */
+            phone: string | null;
+            /** Source */
+            source: string | null;
+            /** Status */
+            status: string | null;
+            /** Tags */
+            tags: string[];
+            /** Updated At */
+            updated_at: string;
+            /** Website */
+            website: string | null;
         };
         /** OrganizationRollup */
         OrganizationRollup: {
@@ -4603,6 +5462,47 @@ export interface components {
             /** Name */
             name: string;
         };
+        /** PersonDetail */
+        PersonDetail: {
+            /** Addresses */
+            addresses: components["schemas"]["Address"][];
+            /** Archived At */
+            archived_at: string | null;
+            /** Channels */
+            channels: components["schemas"]["Channel"][];
+            /** Created At */
+            created_at: string;
+            /** Email */
+            email: string | null;
+            /** Family Name */
+            family_name: string | null;
+            /** Given Name */
+            given_name: string | null;
+            /** Id */
+            id: number;
+            /** Merged Into Id */
+            merged_into_id: number | null;
+            /** Name */
+            name: string;
+            /** Notes */
+            notes: string | null;
+            /** Organizations */
+            organizations: components["schemas"]["OrganizationLink"][];
+            /** Owner User Id */
+            owner_user_id: number | null;
+            /** Phone */
+            phone: string | null;
+            /** Source */
+            source: string | null;
+            /** Status */
+            status: string | null;
+            /** Tags */
+            tags: string[];
+            /** Title */
+            title: string | null;
+            /** Updated At */
+            updated_at: string;
+        };
         /** PersonFields */
         PersonFields: {
             /** Email */
@@ -4627,6 +5527,85 @@ export interface components {
             tags?: string[] | null;
             /** Title */
             title?: string | null;
+        };
+        /**
+         * PersonLink
+         * @description One of an organization's people, by name.
+         */
+        PersonLink: {
+            /** Archived At */
+            archived_at: string | null;
+            /** Email */
+            email: string | null;
+            /** Ended On */
+            ended_on: string | null;
+            /** Is Primary */
+            is_primary: boolean;
+            /** Name */
+            name: string;
+            /** Person Id */
+            person_id: number;
+            /** Phone */
+            phone: string | null;
+            /** Role */
+            role: string;
+            /** Started On */
+            started_on: string | null;
+            /** Title */
+            title: string | null;
+        };
+        /** PersonPage */
+        PersonPage: {
+            /** Items */
+            items: components["schemas"]["PersonRow"][];
+            /** Page */
+            page: number;
+            /** Page Size */
+            page_size: number;
+            /** Total */
+            total: number;
+        };
+        /**
+         * PersonRow
+         * @description A row of the people list.
+         */
+        PersonRow: {
+            /** Archived At */
+            archived_at: string | null;
+            /** Created At */
+            created_at: string;
+            /** Email */
+            email: string | null;
+            /** Family Name */
+            family_name: string | null;
+            /** Given Name */
+            given_name: string | null;
+            /** Id */
+            id: number;
+            /** Merged Into Id */
+            merged_into_id: number | null;
+            /** Name */
+            name: string;
+            /** Notes */
+            notes: string | null;
+            /** Owner User Id */
+            owner_user_id: number | null;
+            /** Phone */
+            phone: string | null;
+            /** Primary Organization Id */
+            primary_organization_id: number | null;
+            /** Primary Organization Name */
+            primary_organization_name: string | null;
+            /** Source */
+            source: string | null;
+            /** Status */
+            status: string | null;
+            /** Tags */
+            tags: string[];
+            /** Title */
+            title: string | null;
+            /** Updated At */
+            updated_at: string;
         };
         /** PersonScore */
         PersonScore: {
@@ -4787,6 +5766,24 @@ export interface components {
             /** Value Snapshot */
             value_snapshot: string | null;
         };
+        /**
+         * ProviderInfo
+         * @description A model vendor's settings; never carries the key.
+         */
+        ProviderInfo: {
+            /** Enabled */
+            enabled: boolean;
+            /** Has Key */
+            has_key: boolean;
+            /** Model Default */
+            model_default: string;
+            /** Model Light */
+            model_light: string;
+            /** Provider */
+            provider: string;
+            /** Updated At */
+            updated_at: string | null;
+        };
         /** ProviderPatch */
         ProviderPatch: {
             /** Api Key */
@@ -4798,12 +5795,34 @@ export interface components {
             /** Model Light */
             model_light?: string | null;
         };
+        /** ProviderTest */
+        ProviderTest: {
+            /** Model */
+            model: string;
+            /** Ok */
+            ok: boolean;
+            /** Reply */
+            reply: string;
+        };
         /** PushKeys */
         PushKeys: {
             /** Auth */
             auth: string;
             /** P256Dh */
             p256dh: string;
+        };
+        /**
+         * PushPublicKey
+         * @description The VAPID public key for `pushManager.subscribe({applicationServerKey})`.
+         */
+        PushPublicKey: {
+            /** Public Key */
+            public_key: string;
+        };
+        /** PushRemoved */
+        PushRemoved: {
+            /** Removed */
+            removed: boolean;
         };
         /** Reminder */
         Reminder: {
@@ -4873,6 +5892,18 @@ export interface components {
             /** Title */
             title?: string | null;
         };
+        /**
+         * RemoteTool
+         * @description A tool as the last discovery found it; `read_only_hint` is the server's claim, shown only.
+         */
+        RemoteTool: {
+            /** Description */
+            description: string;
+            /** Name */
+            name: string;
+            /** Read Only Hint */
+            read_only_hint: boolean;
+        };
         /** Removed */
         Removed: {
             /** Areas */
@@ -4928,6 +5959,28 @@ export interface components {
              */
             freq: "daily" | "weekly" | "monthly" | "yearly";
         };
+        /** ReportInfo */
+        ReportInfo: {
+            /** Admin Only */
+            admin_only: boolean;
+            /** App */
+            app: string;
+            /** Key */
+            key: string;
+            /** Label */
+            label: string;
+            /** Params */
+            params: {
+                [key: string]: unknown;
+            } | null;
+        };
+        /** ReportResult */
+        ReportResult: {
+            /** Columns */
+            columns: string[];
+            /** Rows */
+            rows: unknown[][];
+        };
         /** RequestIn */
         RequestIn: {
             /**
@@ -4942,6 +5995,45 @@ export interface components {
             description: string;
             /** Title */
             title: string;
+        };
+        /**
+         * RequestRow
+         * @description A request filed here, mirroring its GitHub issue; `app` is "core" or an app slug.
+         */
+        RequestRow: {
+            /** App */
+            app: string;
+            /** Created At */
+            created_at: string;
+            /** Description */
+            description: string;
+            /** Id */
+            id: number;
+            /** Issue Number */
+            issue_number: number | null;
+            /** Labels */
+            labels: string[];
+            requested_by: components["schemas"]["UserRef"] | null;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "open" | "closed";
+            /** Title */
+            title: string;
+            /** Updated At */
+            updated_at: string;
+            /** Url */
+            url: string | null;
+        };
+        /** RequestsConfig */
+        RequestsConfig: {
+            /** Configured */
+            configured: boolean;
+            /** Repo */
+            repo: string | null;
+            /** Warning Text */
+            warning_text: string;
         };
         /** ResetLink */
         ResetLink: {
@@ -4988,6 +6080,35 @@ export interface components {
             /** Review Due */
             review_due: boolean;
         };
+        /**
+         * SavedView
+         * @description `version` is the equality token an edit must send back; `can_edit`: owner or admin.
+         */
+        SavedView: {
+            /** Can Edit */
+            can_edit: boolean;
+            /** Created At */
+            created_at: string;
+            /** Entity Type */
+            entity_type: string | null;
+            /** Id */
+            id: number;
+            /** Is Shared */
+            is_shared: boolean;
+            /** Name */
+            name: string;
+            owner: components["schemas"]["UserRef"];
+            /** Payload */
+            payload: {
+                [key: string]: unknown;
+            };
+            /** Surface */
+            surface: string;
+            /** Updated At */
+            updated_at: string;
+            /** Version */
+            version: number;
+        };
         /** ScoresBackfillOut */
         ScoresBackfillOut: {
             /** Deals */
@@ -5023,6 +6144,24 @@ export interface components {
             /** Url */
             url: string;
         };
+        /** ServerMessage */
+        ServerMessage: {
+            /** Created At */
+            created_at: string;
+            /** Id */
+            id: number;
+            /** Model */
+            model: string | null;
+            /**
+             * Role
+             * @enum {string}
+             */
+            role: "user" | "assistant" | "tool";
+            /** Text */
+            text: string;
+            /** Tool Calls */
+            tool_calls: components["schemas"]["ServerToolCall"][];
+        };
         /**
          * ServerPatch
          * @description Omitted (or null) fields stay as they are; `token: ""` removes the token.
@@ -5038,6 +6177,40 @@ export interface components {
             token?: string | null;
             /** Url */
             url?: string | null;
+        };
+        /**
+         * ServerToolCall
+         * @description A tool call the model made, with its run: status and a result capped for display.
+         */
+        ServerToolCall: {
+            /** Args */
+            args: {
+                [key: string]: unknown;
+            };
+            /** Error */
+            error: string | null;
+            /** Result */
+            result: unknown;
+            /** Status */
+            status: ("pending" | "executing" | "done" | "denied" | "error" | "stale" | "uncertain" | "interrupted") | null;
+            /** Tool */
+            tool: string;
+            /** Tool Run Id */
+            tool_run_id: number | null;
+            /** Tool Use Id */
+            tool_use_id: string;
+        };
+        /** SettingsCard */
+        SettingsCard: {
+            /**
+             * Admin Only
+             * @default false
+             */
+            admin_only: boolean;
+            /** Id */
+            id: string;
+            /** Title */
+            title: string;
         };
         /** SettingsIn */
         SettingsIn: {
@@ -5065,6 +6238,16 @@ export interface components {
             /** Is Shared */
             is_shared?: boolean | null;
         };
+        /**
+         * SheetCredentials
+         * @description Whether a service-account key is stored; the key itself never comes back.
+         */
+        SheetCredentials: {
+            /** Configured */
+            configured: boolean;
+            /** Service Account Email */
+            service_account_email: string | null;
+        };
         /** SheetPatch */
         SheetPatch: {
             /** Enabled */
@@ -5075,6 +6258,22 @@ export interface components {
             schedule?: ("hourly" | "daily" | "manual") | null;
             /** Spreadsheet Id */
             spreadsheet_id?: string | null;
+        };
+        /**
+         * SheetPreview
+         * @description The cached header and first rows; every cell is a string.
+         */
+        SheetPreview: {
+            /** Fetched At */
+            fetched_at: string | null;
+            /** Header */
+            header: string[];
+            /** Row Count */
+            row_count: number | null;
+            /** Rows */
+            rows: string[][];
+            /** Stale */
+            stale: boolean;
         };
         /** SnoozeIn */
         SnoozeIn: {
@@ -5236,6 +6435,26 @@ export interface components {
             /** Endpoint */
             endpoint: string;
             keys: components["schemas"]["PushKeys"];
+        };
+        /**
+         * TimelineEntry
+         * @description `changes` lists the changed fields of a `field_change` entry and is None otherwise.
+         */
+        TimelineEntry: {
+            author: components["schemas"]["UserRef"] | null;
+            /** Body */
+            body: string;
+            /** Changes */
+            changes: components["schemas"]["FieldChange"][] | null;
+            /** Created At */
+            created_at: string;
+            /** Id */
+            id: number;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "note" | "comment" | "field_change" | "system";
         };
         /** Today */
         Today: {
@@ -5422,10 +6641,20 @@ export interface components {
             /** Count */
             count: number;
         };
+        /** UnreadCount */
+        UnreadCount: {
+            /** Count */
+            count: number;
+        };
         /** UnsubscribeIn */
         UnsubscribeIn: {
             /** Endpoint */
             endpoint: string;
+        };
+        /** Updated */
+        Updated: {
+            /** Updated */
+            updated: number;
         };
         /** Uploader */
         Uploader: {
@@ -5442,6 +6671,13 @@ export interface components {
             role?: string | null;
             /** Tz */
             tz?: string | null;
+        };
+        /** UserRef */
+        UserRef: {
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
         };
         /** ValidationError */
         ValidationError: {
@@ -5602,6 +6838,19 @@ export interface components {
              */
             closed_on?: string | null;
         };
+        /** Workspace */
+        Workspace: {
+            /** Name */
+            name: string;
+            /** Preview */
+            preview: boolean;
+            /** Public Url */
+            public_url: string;
+            /** Timezone */
+            timezone: string;
+            /** Version */
+            version: string;
+        };
         /** MergeIn */
         backend__apps__crm__models__MergeIn: {
             /**
@@ -5656,9 +6905,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    }[];
+                    "application/json": components["schemas"]["AgentRow"][];
                 };
             };
         };
@@ -5684,9 +6931,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["AgentRow"];
                 };
             };
             /** @description Validation Error */
@@ -5752,9 +6997,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["ConfirmResponse"];
                 };
             };
             /** @description Validation Error */
@@ -5787,9 +7030,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    }[];
+                    "application/json": components["schemas"]["Conversation"][];
                 };
             };
             /** @description Validation Error */
@@ -5822,9 +7063,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Conversation"];
                 };
             };
             /** @description Validation Error */
@@ -5855,9 +7094,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["ConversationDetail"];
                 };
             };
             /** @description Validation Error */
@@ -5888,9 +7125,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["ConversationDeleted"];
                 };
             };
             /** @description Validation Error */
@@ -5925,9 +7160,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Conversation"];
                 };
             };
             /** @description Validation Error */
@@ -5956,9 +7189,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    }[];
+                    "application/json": components["schemas"]["ProviderInfo"][];
                 };
             };
         };
@@ -5984,9 +7215,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["ProviderInfo"];
                 };
             };
             /** @description Validation Error */
@@ -6017,9 +7246,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["ProviderTest"];
                 };
             };
             /** @description Validation Error */
@@ -6048,9 +7275,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["AgentStatus"];
                 };
             };
         };
@@ -7002,9 +8227,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    }[];
+                    "application/json": components["schemas"]["CoreApp"][];
                 };
             };
         };
@@ -7028,9 +8251,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    }[];
+                    "application/json": components["schemas"]["CoreApp"][];
                 };
             };
             /** @description Validation Error */
@@ -7065,9 +8286,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    }[];
+                    "application/json": components["schemas"]["CoreApp"][];
                 };
             };
             /** @description Validation Error */
@@ -7096,9 +8315,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["BackupsOverview"];
                 };
             };
         };
@@ -7118,9 +8335,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["KeyReveal"];
                 };
             };
         };
@@ -7140,9 +8355,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["BackupRun"] | components["schemas"]["BackupRunUnrecorded"];
                 };
             };
         };
@@ -7195,9 +8408,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["BackupManifest"];
                 };
             };
             /** @description Validation Error */
@@ -7233,9 +8444,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    }[];
+                    "application/json": components["schemas"]["ChangeRow"][];
                 };
             };
             /** @description Validation Error */
@@ -7268,9 +8477,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Address"];
                 };
             };
             /** @description Validation Error */
@@ -7301,9 +8508,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Ok"];
                 };
             };
             /** @description Validation Error */
@@ -7338,9 +8543,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Address"];
                 };
             };
             /** @description Validation Error */
@@ -7373,9 +8576,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Channel"];
                 };
             };
             /** @description Validation Error */
@@ -7406,9 +8607,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Ok"];
                 };
             };
             /** @description Validation Error */
@@ -7443,9 +8642,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Channel"];
                 };
             };
             /** @description Validation Error */
@@ -7478,9 +8675,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["ContactLink"];
                 };
             };
             /** @description Validation Error */
@@ -7513,9 +8708,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Ok"];
                 };
             };
             /** @description Validation Error */
@@ -7548,9 +8741,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["ContactLink"];
                 };
             };
             /** @description Validation Error */
@@ -7585,9 +8776,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["OrganizationPage"];
                 };
             };
             /** @description Validation Error */
@@ -7620,9 +8809,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["OrganizationDetail"];
                 };
             };
             /** @description Validation Error */
@@ -7651,9 +8838,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    }[];
+                    "application/json": components["schemas"]["ContactDuplicates"][];
                 };
             };
         };
@@ -7677,9 +8862,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["OrganizationDetail"];
                 };
             };
             /** @description Validation Error */
@@ -7710,9 +8893,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["OrganizationDetail"] | components["schemas"]["MergedAway"];
                 };
             };
             /** @description Validation Error */
@@ -7743,9 +8924,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["OrganizationDetail"];
                 };
             };
             /** @description Validation Error */
@@ -7780,9 +8959,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["OrganizationDetail"];
                 };
             };
             /** @description Validation Error */
@@ -7813,9 +8990,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["OrganizationDetail"];
                 };
             };
             /** @description Validation Error */
@@ -7851,9 +9026,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["PersonPage"];
                 };
             };
             /** @description Validation Error */
@@ -7886,9 +9059,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["PersonDetail"];
                 };
             };
             /** @description Validation Error */
@@ -7917,9 +9088,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    }[];
+                    "application/json": components["schemas"]["ContactDuplicates"][];
                 };
             };
         };
@@ -7943,9 +9112,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["PersonDetail"];
                 };
             };
             /** @description Validation Error */
@@ -7976,9 +9143,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["PersonDetail"] | components["schemas"]["MergedAway"];
                 };
             };
             /** @description Validation Error */
@@ -8009,9 +9174,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["PersonDetail"];
                 };
             };
             /** @description Validation Error */
@@ -8046,9 +9209,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["PersonDetail"];
                 };
             };
             /** @description Validation Error */
@@ -8079,9 +9240,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["PersonDetail"];
                 };
             };
             /** @description Validation Error */
@@ -8114,9 +9273,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    }[];
+                    "application/json": components["schemas"]["ContactSearchHit"][];
                 };
             };
             /** @description Validation Error */
@@ -8297,9 +9454,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    }[];
+                    "application/json": components["schemas"]["FieldDefinition"][];
                 };
             };
             /** @description Validation Error */
@@ -8332,9 +9487,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["FieldDefinition"];
                 };
             };
             /** @description Validation Error */
@@ -8398,9 +9551,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["FieldDefinition"];
                 };
             };
             /** @description Validation Error */
@@ -8429,9 +9580,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    }[];
+                    "application/json": components["schemas"]["FieldEntityType"][];
                 };
             };
         };
@@ -8683,9 +9832,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    }[];
+                    "application/json": components["schemas"]["GuideTopic"][];
                 };
             };
         };
@@ -8708,9 +9855,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    }[];
+                    "application/json": components["schemas"]["GuideHit"][];
                 };
             };
             /** @description Validation Error */
@@ -8741,9 +9886,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["GuideTopicBody"];
                 };
             };
             /** @description Validation Error */
@@ -8772,9 +9915,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    }[];
+                    "application/json": components["schemas"]["JobInfo"][];
                 };
             };
         };
@@ -8796,9 +9937,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    }[];
+                    "application/json": components["schemas"]["DeadOutboxRow"][];
                 };
             };
             /** @description Validation Error */
@@ -8830,9 +9969,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    }[];
+                    "application/json": components["schemas"]["JobRun"][];
                 };
             };
             /** @description Validation Error */
@@ -8863,9 +10000,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["JobStarted"];
                 };
             };
             /** @description Validation Error */
@@ -8896,9 +10031,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    }[];
+                    "application/json": components["schemas"]["McpLink"][] | components["schemas"]["McpLinkWithOwner"][];
                 };
             };
             /** @description Validation Error */
@@ -8931,9 +10064,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["NewMcpLink"];
                 };
             };
             /** @description Validation Error */
@@ -8991,9 +10122,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    }[];
+                    "application/json": components["schemas"]["McpServer"][];
                 };
             };
         };
@@ -9017,9 +10146,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["McpServer"];
                 };
             };
             /** @description Validation Error */
@@ -9083,9 +10210,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["McpServer"];
                 };
             };
             /** @description Validation Error */
@@ -9116,9 +10241,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["McpServer"];
                 };
             };
             /** @description Validation Error */
@@ -9149,9 +10272,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["McpServerCheck"];
                 };
             };
             /** @description Validation Error */
@@ -9316,9 +10437,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["PushPublicKey"];
                 };
             };
         };
@@ -9342,9 +10461,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Ok"];
                 };
             };
             /** @description Validation Error */
@@ -9377,9 +10494,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["PushRemoved"];
                 };
             };
             /** @description Validation Error */
@@ -9408,9 +10523,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Updated"];
                 };
             };
         };
@@ -9430,9 +10543,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["UnreadCount"];
                 };
             };
         };
@@ -9712,9 +10823,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    }[];
+                    "application/json": components["schemas"]["ReportInfo"][];
                 };
             };
         };
@@ -9736,9 +10845,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["ReportResult"];
                 };
             };
             /** @description Validation Error */
@@ -9802,9 +10909,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    }[];
+                    "application/json": components["schemas"]["RequestRow"][];
                 };
             };
             /** @description Validation Error */
@@ -9837,9 +10942,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["RequestRow"];
                 };
             };
             /** @description Validation Error */
@@ -9868,9 +10971,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["RequestsConfig"];
                 };
             };
         };
@@ -9890,9 +10991,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Updated"];
                 };
             };
         };
@@ -9912,9 +11011,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["CoreSettings"];
                 };
             };
         };
@@ -9938,9 +11035,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["CoreSettings"];
                 };
             };
             /** @description Validation Error */
@@ -9971,9 +11066,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["CoreSettings"];
                 };
             };
             /** @description Validation Error */
@@ -10002,9 +11095,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    }[];
+                    "application/json": components["schemas"]["ConnectedSheet"][];
                 };
             };
         };
@@ -10024,9 +11115,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["SheetCredentials"];
                 };
             };
         };
@@ -10050,9 +11139,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["SheetCredentials"];
                 };
             };
             /** @description Validation Error */
@@ -10087,9 +11174,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["ConnectedSheet"];
                 };
             };
             /** @description Validation Error */
@@ -10120,9 +11205,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["SheetPreview"];
                 };
             };
             /** @description Validation Error */
@@ -10153,7 +11236,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ConnectedSheet"];
                 };
             };
             /** @description Validation Error */
@@ -10187,9 +11270,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    }[];
+                    "application/json": components["schemas"]["TimelineEntry"][];
                 };
             };
             /** @description Validation Error */
@@ -10222,9 +11303,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["TimelineEntry"];
                 };
             };
             /** @description Validation Error */
@@ -10255,9 +11334,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    }[];
+                    "application/json": components["schemas"]["UserRef"][];
                 };
             };
             /** @description Validation Error */
@@ -10288,9 +11365,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    }[];
+                    "application/json": components["schemas"]["SavedView"][];
                 };
             };
             /** @description Validation Error */
@@ -10323,9 +11398,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["SavedView"];
                 };
             };
             /** @description Validation Error */
@@ -10389,9 +11462,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["SavedView"];
                 };
             };
             /** @description Validation Error */
@@ -10426,9 +11497,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["SavedView"];
                 };
             };
             /** @description Validation Error */
@@ -10457,9 +11526,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Workspace"];
                 };
             };
         };
@@ -12025,9 +13092,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Health"];
                 };
             };
         };
