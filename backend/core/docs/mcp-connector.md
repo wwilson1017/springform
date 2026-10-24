@@ -15,7 +15,8 @@ Treat the link like a password. Anyone who has it can act as you until it is rev
 2. Copy it now. It is shown once and cannot be shown again.
 3. Add it to your AI app:
    - **Claude (web or desktop):** add a custom connector and paste the whole link.
-   - **Claude Code and similar tools:** use the server address ending in `/mcp` and send the link's token as a bearer token.
+   - **Claude Code:** copy the command the card shows (`claude mcp add --transport http springform` followed by the link) and run it.
+   - **Tools that want a bearer token:** use the server address ending in `/mcp`, and send the last part of the link (after `/mcp/`) as the bearer token.
 
 Changes made through the link happen straight away. The approval prompts in your AI app are your safeguard, so read them before you allow an action. Every action is logged.
 
