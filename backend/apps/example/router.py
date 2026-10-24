@@ -8,7 +8,10 @@ router = APIRouter()
 
 
 @router.get("/widgets", response_model=list[Widget])
-def list_widgets(user: User = Depends(current_user)) -> list[dict]:
+def list_widgets(person_id: int | None = None, user: User = Depends(current_user)) -> list[dict]:
+    """Readable widgets; `?person_id=` narrows to one person's (the person page's panel)."""
+    if person_id is not None:
+        return service.widgets_for_person(user, person_id)
     return service.list_widgets(user)
 
 

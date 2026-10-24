@@ -34,6 +34,8 @@ def test_private_widget_is_invisible_to_another_member_on_every_surface(login_as
     conn = core_db.get_conn()
     assert entities.titles_for(other.principal, conn, "example.widget", [secret["id"], public["id"]]) == {public["id"]: "Public"}
     assert [w["name"] for w in example_api.widgets_for_person(other.principal, person)] == ["Public"]
+    assert [w["name"] for w in other.get("/api/example/widgets", params={"person_id": person}).json()] == ["Public"]
+    assert other.get("/api/example/widgets", params={"person_id": 999}).status_code == 404
     with pytest.raises(NotFound):
         example_api.get_widget(other.principal, secret["id"])
     report = reports.get("example.widgets_by_color")
@@ -73,16 +75,19 @@ def test_sync_hook_runs_with_the_edit(login_as):
 
 def test_tools_registered_and_scoped(login_as):
     member = login_as("member")
-    names = [t.name for t in tools.for_user(member.principal)]
+    def ours(specs):  # forks install more apps; only the fixture's tools are pinned here
+        return [t.name for t in specs if t.app == "example"]
+
+    names = ours(tools.for_user(member.principal))
     assert names == ["example_list_widgets", "example_create_widget"]
-    assert [t.name for t in tools.for_source("job")] == ["example_list_widgets"]
+    assert ours(tools.for_source("job")) == ["example_list_widgets"]
     create = tools.get("example_create_widget")
     assert create.app == "example" and create.revision == "0.1.0"
     with core_db.transaction() as conn:
         made = create.handler_in(conn, member.principal, {"name": "From a tool", "is_private": True})
     assert create.targets({"name": "x", "person_id": 5}) == [("core.person", 5)]
     assert tools.get("example_list_widgets").handler(member.principal, {})[0]["id"] == made["id"]
-    assert [t.name for t in tools.for_user(system_user())] == names  # the job principal sees reads-capable tools
+    assert ours(tools.for_user(system_user())) == names  # role check passes; for_source("job") drops the write
 
 
 def test_tidy_job_is_attributed_to_the_system_principal(login_as):
