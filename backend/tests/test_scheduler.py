@@ -181,6 +181,8 @@ def test_job_validation():
         Job("core.x", print)
     with pytest.raises(ValueError, match="HH:MM"):
         Job("core.x", print, at="3am")
+    with pytest.raises(ValueError, match="whole number"):
+        Job("core.x", print, every=0.5)
     scheduler.clear()
     with pytest.raises(ValueError, match="core.<job>"):
         scheduler.register(Job("tidy", print, every=1))

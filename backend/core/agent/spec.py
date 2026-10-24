@@ -73,4 +73,4 @@ def tool_def_sha256(spec: ToolSpec) -> str:
         "server_id": spec.server_id,
         "server_url": spec.server_url,
     }
-    return hashlib.sha256(json.dumps(material, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+    return hashlib.sha256(json.dumps(material, sort_keys=True).encode()).hexdigest()

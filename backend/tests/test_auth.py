@@ -1,12 +1,11 @@
 import io
-import statistics
 import time
 
 import pytest
 from fastapi import HTTPException
 
 from backend import cli
-from backend.core import db as core_db, preview
+from backend.core import db as core_db, preview, settings
 from backend.core.auth import bootstrap, jwt, service
 from backend.core.auth.deps import COOKIE, require_admin
 
@@ -59,15 +58,15 @@ def test_wrong_password_costs_about_what_an_unknown_email_costs(client, make_use
     make_user("member", email="real@example.com")  # hashed at 10 rounds
     service.spend_dummy_verify()  # build the equalizer hash outside the timing
 
-    def timed(email):
-        samples = []
-        for _ in range(3):
+    # Interleaved, so a load spike from other processes lands on both sides; the minimum is the
+    # least noisy estimate of what each path costs.
+    samples: dict[str, list[float]] = {"real@example.com": [], "nobody@example.com": []}
+    for _ in range(5):
+        for email, bucket in samples.items():
             start = time.perf_counter()
             assert _login(client, email, "wrong-password").status_code == 401
-            samples.append(time.perf_counter() - start)
-        return statistics.median(samples)
-
-    known, unknown = timed("real@example.com"), timed("nobody@example.com")
+            bucket.append(time.perf_counter() - start)
+    known, unknown = min(samples["real@example.com"]), min(samples["nobody@example.com"])
     assert 0.5 < known / unknown < 2.0, (known, unknown)
 
 
@@ -150,11 +149,17 @@ def test_preview_role_picker(client, db, monkeypatch):
     assert _login(client, "preview-admin@example.com", "!").status_code == 401  # no password to guess
 
 
-def test_preview_refuses_real_secrets(monkeypatch):
+def test_preview_refuses_real_secrets(db, monkeypatch):
     monkeypatch.setenv("PREVIEW_MODE", "1")
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "")  # an empty value is unset
     preview.check_startup()
-    monkeypatch.setenv("ENCRYPTION_KEY", "anything")
-    with pytest.raises(RuntimeError, match="ENCRYPTION_KEY"):
+    for key in ("ENCRYPTION_KEY", "RESEND_API_KEY"):
+        monkeypatch.setenv(key, "anything")
+        with pytest.raises(RuntimeError, match=key):
+            preview.check_startup()
+        monkeypatch.delenv(key)
+    settings.set_setting("core.mail_key", "re_123", None, is_secret=True)
+    with pytest.raises(RuntimeError, match="a secret in core_settings"):
         preview.check_startup()
 
 
