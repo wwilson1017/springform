@@ -32,7 +32,9 @@ class Entity:
 
 Apps register entities in `entities.py` as `ENTITIES = [Entity(...)]`. Core registers `core.person` and `core.organization`.
 
-Open: the app-contract section of the plan writes `can_read(user, id)` / `can_write(user, id)`, while the `Entity` dataclass takes `(User, Conn, int)`. This doc follows the dataclass. Open: whether entity type strings must be `<slug>.<name>` (every example is) and whether registration validates it.
+`can_read` and `can_write` always take `(user, conn, id)`, as in the dataclass.
+
+Entity type strings are `<slug>.<name>`; core's use `core.`. The format is enforced, and the contract test checks it.
 
 ### Registered entity types in the plan
 
@@ -42,7 +44,7 @@ Open: the app-contract section of the plan writes `can_read(user, id)` / `can_wr
 | `core.organization` | core | Any active member. |
 | `crm.deal` | `crm` | Any member. |
 | `todos.item` | `todos` | The Todos permission model (§6 below). |
-| example's widget | `example` | A restrictive `can_read` (private widgets). Rule and type name: Open (`apps-and-contracts.md`). |
+| example's widget | `example` | A restrictive `can_read` (private widgets). Rule and type name: Open (pinned by the implementing workstream, which updates this doc; `apps-and-contracts.md` §7). |
 
 ## 2. Functions
 
@@ -50,40 +52,51 @@ Open: the app-contract section of the plan writes `can_read(user, id)` / `can_wr
 |---|---|
 | `get(type)` | The registered `Entity`, or an error for an unknown type. Replaces CakeCRM's `VALID_ENTITY_TYPES` checks. |
 | `assert_exists(conn, type, id)` | Raises when the record does not exist. |
-| **`authorize(user, conn, type, id, "read" \| "write")`** | **404** when the record is missing, **403** when denied. Called by every core service and router **before touching a record**. |
+| **`authorize(user, conn, type, id, "read" \| "write")`** | `read`: **404** when the record is missing **or** not readable, so existence never leaks. `write`: **404** when missing or not readable, **403** when readable but not writable. Called by every core service and router **before touching a record**. |
 | `url_for(type, id)` | The record's URL via `url_fn`. |
 | `titles_for(user, conn, type, ids)` | Titles via `title_fn`, **dropping titles the user may not read**. |
-| `delete_record_in(conn, type, id)` | Deletes the record and runs the `on_entity_deleted_in` subscribers **in the same transaction**. |
+| `delete_record_in(conn, type, id)` | Deletes the record and runs the `on_entity_deleted` subscribers (through `on_entity_deleted_in`) **in the same transaction**. |
 
-Open: §4 names the delete function `delete_record(conn, type, id)`, while the SQLite rules and the CRM checklist name it `entities.delete_record_in`. It takes `conn` either way; the `_in` name matches the convention. Open: `url_for`'s exact signature is not stated.
+`entities.delete_record_in` is the only delete function; there is no form without `_in`, and it always runs on the caller's `conn`.
 
-Open (status codes): `authorize` is specified as "404 on missing, 403 on denied". The API block says `GET /api/example/widgets/{id}` → "404 when missing or not readable" and lists "403 denied, 404 missing or not readable". So a read the caller may not perform returns 404 in the API block, 403 in the plan. The orchestrator must pick one rule (and say whether a write denied on a readable record is 403).
+Open (pinned by the implementing workstream, which updates this doc): `url_for`'s exact signature is not stated.
+
+Role-guarded routes refuse with **403**: a member calling an admin-only app's API (§4).
 
 ## 3. Hooks
 
-Registered from each app's `hooks.py` by the registry, never through signals.
-
-| Hook | Kind | Runs | Use |
-|---|---|---|---|
-| `on_entity_deleted_in(conn, …)` | Sync | Inside the deleting transaction. | Cascade owned rows (core uses it for timeline, files, fields, reminders, notifications, change log). |
-| `on_entity_merged_in(conn, …)` | Sync | Inside the merge transaction. | Repoint or reconcile app rows (CRM keeps the higher `crm_person_scores` score). |
-| `on_record_changed_in(conn, …)` | Sync | Inside the changing transaction. | Cheap bookkeeping (CRM sets `crm_deals.touch_dirty`). |
-| `after_record_changed` | Outbox | After `COMMIT`, via the single drainer. | Expensive or external work (`database-and-transactions.md` §4). |
-
-Rules:
-
-1. Sync hooks receive `conn` and run in the caller's transaction; a failing subscriber rolls the whole write back.
-2. Sync hooks do cheap bookkeeping only: set a flag, write a row. No network, no `transaction()`.
-3. After-commit work is durable: a `core_outbox` row written in the same transaction.
-
-App side, from the app contract:
+Apps subscribe in `hooks.py`. The registry registers the subscribers; nothing uses signals.
 
 ```python
 # backend/apps/<slug>/hooks.py
-HOOKS = {"on_record_changed": [...], "on_entity_deleted": [...], "on_entity_merged": [...]}
+HOOKS = {
+    "on_entity_deleted": [...],
+    "on_entity_merged": [...],
+    "on_record_changed": [...],
+    "after_record_changed": [...],
+}
 ```
 
-Open: the `HOOKS` keys (`on_record_changed`, `on_entity_deleted`, `on_entity_merged`) do not match the hook names in §4 (`on_*_in` sync, `after_record_changed` outbox), and the plan does not say how an app subscribes to the outbox hook through `HOOKS`. Open: subscriber signatures (arguments after `conn`) are not stated; §3 gives `merge_people_in(conn, target_id, source_id, actor)` for the merge itself and `record_changes_in(conn, type, id, before, after, user_id)` for changes.
+| `HOOKS` key | Kind | Subscriber | Runs | Use |
+|---|---|---|---|---|
+| `on_entity_deleted` | Sync | `fn(conn, entity_type, entity_id)` | Inside the deleting transaction. | Cascade owned rows (core uses it for timeline, files, fields, reminders, notifications; the change log stamps `deleted_at`). |
+| `on_entity_merged` | Sync | `fn(conn, entity_type, target_id, source_id)` | Inside the merge transaction. | Repoint or reconcile app rows (CRM keeps the higher `crm_person_scores` score). |
+| `on_record_changed` | Sync | `fn(conn, entity_type, entity_id, changes, user_id)` | Inside the changing transaction. | Cheap bookkeeping (CRM sets `crm_deals.touch_dirty`). |
+| `after_record_changed` | Durable, via the outbox | `fn(conn, payload)` | After `COMMIT`: the single drainer runs it inside its own transaction, which also sets `processed_at`, so it runs exactly once. Each subscriber gets its own outbox row. | Follow-up DB work that must survive a crash. It runs inside a transaction, so no network or LLM call: external work goes to an `external=True` outbox consumer or the app's own job (`database-and-transactions.md` §4). |
+
+`changes` is always a list, one item per changed field. The `after_record_changed` payload carries the same fields:
+
+```
+{entity_type, entity_id, changes: [{field, old, new}], user_id}
+```
+
+Core's dispatchers carry `_in` and run on the caller's `conn`: `on_entity_deleted_in`, `on_entity_merged_in` and `on_record_changed_in` call the sync subscribers, and `after_record_changed_in` writes the outbox rows. `delete_record_in`, the merge functions and `record_changes_in` call them.
+
+Rules:
+
+1. Sync subscribers receive `conn` and run in the caller's transaction; a failing subscriber rolls the whole write back.
+2. Sync subscribers do cheap bookkeeping only: set a flag, write a row. No network, no `transaction()`.
+3. After-commit work is durable: a `core_outbox` row written in the same transaction as the change.
 
 ## 4. Manifest roles reach the API
 
@@ -106,7 +119,7 @@ A copy of record data (an audit row, a notification, a reminder, an export) is c
 | Titles | `titles_for` drops titles the user may not read. |
 | Reports | `run(params, user)` receives the user and must apply `can_read`. |
 | Fields | Values are read and written only after `authorize`. |
-| Files | Download requires `authorize(read)` on the parent record. |
+| Files | Download requires `authorize(read)` on the parent record; upload and delete require `authorize(write)`. |
 | Timeline | Reads and writes go through `authorize`. |
 | Saved views | Store filters, not rows; no record authorization beyond ownership / `is_shared`. |
 | Todos `/for/{entity_type}/{entity_id}` | `authorize(read)` on the record first, then team todos plus the caller's private ones. |
@@ -130,11 +143,13 @@ The restrictive entity the two-member test uses. `apps/todos/entities.py` regist
 | Why | So `user_id` foreign keys on tool runs, timeline rows and change-log rows can record unattended actions. |
 | Authentication | Never. Login, Google, invite and MCP-link minting all reject `role='system'`. |
 | Excluded from | User listings, notification recipients, and "every active user" expansions. |
-| Reads | `require_roles` grants it **member-level reads only**, and only when the request source is a job (never from an HTTP request). No private records. |
+| Reads | Through the entity's `can_read`, with the system user treated as a **member**. Owner-only rules refuse it, so it reads no private records. |
+| Writes | `authorize(system, …, "write")` is **always refused**. |
+| Jobs | Jobs call services with the system `User` object directly. `require_roles` is HTTP-only, and HTTP can never authenticate as the system user. |
 | Agent | Unattended runs (`source='job'`) run as the system principal and may only call tools that are `writes=False`, not `always_confirm`, not remote, not `untrusted_source`, enforced in `registry.for_source` (`agent.md`). |
 | Bootstrap | First-run checks look for the absence of **human** accounts (`WHERE role != 'system'`), not an empty table (`auth.md`). |
 
-Open: how a job-sourced call presents itself to `require_roles` (a request-context flag, a separate dependency) is not stated. Open: §8 stores the Todos team rev in `todos_sync` at `user_id = 0`, which is the system principal's id; whether that row is meant to reference `core_users(0)` is not stated.
+The Todos team rev is stored in `todos_sync` at `user_id = 0` on purpose: 0 is the system principal's id, because the team rev belongs to no human.
 
 ## 8. The two-member test
 
@@ -153,7 +168,7 @@ Two members, one private todo. Every core surface refuses the other member:
 
 Plus: a member calling an admin-only app's API directly gets 403. Step 1b runs the same check on an `example` record across every surface built in Step 1.
 
-Open: which search endpoint the "search" surface means (contacts FTS, timeline FTS, a global search) is not stated.
+Open (pinned by the implementing workstream, which updates this doc): which search endpoint the "search" surface means (contacts FTS, timeline FTS, a global search) is not stated.
 
 ## Tests that pin this
 

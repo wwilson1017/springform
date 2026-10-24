@@ -17,7 +17,8 @@ Lifted from todo-gtd `backend/db.py` 499–540 and 782–825.
 | `PRAGMA synchronous` | `NORMAL` (the todo-gtd donor sets `FULL`; Springform's contract is `NORMAL`). |
 | `PRAGMA foreign_keys` | `ON` |
 | `PRAGMA busy_timeout` | `5000` |
-| Data-dir probe | At init, write and delete a probe file in the data directory; refuse to start with an actionable error if it is not writable (donor's `DATA_DIR` probe). |
+| Data-dir probe | At init, write and delete a probe file in the data directory (`DATA_DIR`, default `./data`; `/data` in the container); refuse to start with an actionable error if it is not writable (the donor's probe). |
+| Database file | `<DATA_DIR>/springform.sqlite`, so `/data/springform.sqlite` in the container. |
 | `db.log_db()` | A seam that returns the main connection in v0.1 (one DB file). |
 
 ## 2. `transaction()`
@@ -63,11 +64,11 @@ Rules:
 
 ### Sync hooks (in-transaction)
 
-`on_entity_deleted_in`, `on_entity_merged_in`, `on_record_changed_in` receive `conn` and run **inside the caller's transaction**. A failing subscriber rolls the whole write back. They are for cheap bookkeeping only: set a flag, write a row. Registered from each app's `hooks.py`, never signals (`authorization.md` has the registry side).
+Subscribers to the `HOOKS` keys are `on_entity_deleted` `fn(conn, entity_type, entity_id)`, `on_entity_merged` `fn(conn, entity_type, target_id, source_id)` and `on_record_changed` `fn(conn, entity_type, entity_id, changes, user_id)`. Core's `_in` dispatchers (`on_entity_deleted_in`, `on_entity_merged_in`, `on_record_changed_in`) call them **inside the caller's transaction**. A failing subscriber rolls the whole write back. They are for cheap bookkeeping only: set a flag, write a row. Registered from each app's `hooks.py`, never signals (`authorization.md` §3 has the registry side).
 
 ### Durable outbox (after commit)
 
-Work that must happen after commit is **durable, not in-memory**. `record_changes_in` writes a `core_outbox` row in the same transaction as the change.
+Work that must happen after commit is **durable, not in-memory**. `record_changes_in` writes one `core_outbox` row per `after_record_changed` subscriber in the same transaction as the change (through `after_record_changed_in`). Each such subscriber is registered as a local consumer, `fn(conn, payload)`, with the payload `{entity_type, entity_id, changes: [{field, old, new}], user_id}`.
 
 ```sql
 core_outbox(
@@ -75,25 +76,25 @@ core_outbox(
   hook,          -- consumer name (e.g. after_record_changed)
   payload,       -- JSON TEXT
   created_at,    -- now_iso()
+  available_at,  -- not claimable before this (retry backoff)
   claimed_at,    -- set by the drainer's atomic claim
   attempts,      -- bumped on failure
   processed_at,  -- set when the consumer's effect is recorded
   last_error,
-  dead_at        -- set after 5 failed attempts
+  dead_at        -- set at the 5th failure
 )
 ```
 
 Drainer and consumer rules:
 
 1. **There is exactly one drainer**: the scheduler job `core.outbox_drain` (every 30 s, plus the post-`COMMIT` nudge). The scheduler's per-job in-flight guard makes it single-flight.
-2. **Atomic claim, one row per transaction:** `UPDATE core_outbox SET claimed_at=? WHERE id=? AND claimed_at IS NULL`. Two drainers started by hand claim disjoint rows.
-3. A consumer with **local DB effects** performs them and sets `processed_at` in **one** transaction. It is exactly-once by construction: a crash between effect and `processed_at` cannot happen.
-4. A consumer with **external effects** (LLM call, HTTP) is **at-least-once**. It uses the outbox `id` as its idempotency key where the remote supports one, and records the effect's own id before marking processed. After a crash the row is re-claimed when `claimed_at` is older than the job timeout, and replays once with the same idempotency key.
-5. Failures bump `attempts` with backoff. After 5 attempts the row gets `dead_at` and shows on the Jobs page.
+2. **Atomic claim, one row per transaction:** the oldest row with `processed_at` and `dead_at` NULL and `available_at <= now`, then `UPDATE core_outbox SET claimed_at=? WHERE id=? AND (claimed_at IS NULL OR claimed_at < ?)`, where the last parameter is now minus **300 s** (`CLAIM_TIMEOUT`, the `core.outbox_drain` job timeout): a claim older than that is stale and may be taken again. Two drainers started by hand claim disjoint rows.
+3. A **local** consumer is `fn(conn, payload)`. The drainer runs it inside one transaction that also sets `processed_at`, so it is exactly-once by construction: a crash between effect and `processed_at` cannot happen. It uses `_in` functions and never calls `transaction()`.
+4. An **external** consumer (LLM call, HTTP) is `fn(outbox_id, payload)`, runs outside any transaction, and is **at-least-once**. It uses the outbox `id` as its idempotency key where the remote supports one, and records the effect's own id before marking processed. After a crash the row is re-claimed when `claimed_at` is older than 300 s, and replays once with the same idempotency key.
+5. Failures bump `attempts` and push `available_at` back **30 s, doubling after each failure**. The 5th failure sets `dead_at`, and the row shows on the Jobs page.
 6. Consumers never start a drain and never call `transaction()` while already inside one.
-7. Worked example: the CRM sets `crm_deals.touch_dirty` in the sync hook (durable with the write) and does its LLM work from the outbox or its own job, never inside a write lock.
-
-Open: the backoff schedule is not stated. Open: the re-claim predicate for a stale claim (the claim SQL above only matches `claimed_at IS NULL`) and which timeout applies ("the job timeout", `Job.timeout` default 300 s, is the likely reading). Open: how a consumer declares itself local or external, and the payload shape per hook. Open: hook naming is inconsistent across the plan (`HOOKS` keys `on_record_changed`/`on_entity_deleted`/`on_entity_merged` in the app contract; `on_*_in` sync names and `after_record_changed` outbox name in §4; "queues `on_record_changed` for after commit" in the §4 timeline row); see `authorization.md`.
+7. A consumer registers with `outbox.register(hook, fn, external=False)`, one consumer per hook; `external=True` declares the external kind (rule 4). `HOOKS["after_record_changed"]` subscribers are registered as local consumers for you.
+8. Worked example: the CRM sets `crm_deals.touch_dirty` in the sync hook (durable with the write) and does its LLM work from the outbox or its own job, never inside a write lock.
 
 ## 5. Migration runner
 
@@ -110,8 +111,6 @@ Ported from CakeCRM `backend/core/postgres.py:181-248`. Runs at **startup only**
 | Stamps | Core migrations are stamped `20261020…`; app migrations `>= 20261101…`. |
 | Core init | `20261020000100_core_init.sql` (settings, change_log, job_runs, apps_state, requests, backups, outbox, file blobs, users incl. the system user, totp, trusted_devices, login_tokens, login_attempts, contacts tables, timeline, files). |
 | Per workstream | Every workstream adds its **own** `20261020…_core_<area>.sql` and **never edits one that has landed**. |
-
-Open: Step 1 puts the contacts tables in `20261020000100_core_init.sql`, while §3 names a separate `20261020000300_core_contacts.sql`. Which file holds them is unresolved.
 
 ### Applying a file
 
@@ -133,7 +132,7 @@ except Exception:
 3. `_migrations_applied(filename PK, sha256, applied_at)`. The sha256 of each applied file is recorded. **A changed applied file fails startup.**
 4. **Before applying any migration**, the runner checks every installed app's `requires_core` against `springform-version` and refuses to start on a mismatch, naming the app.
 
-Open: the `requires_core` specifier grammar and parser are not stated (manifests use `>=0.1,<1`).
+`requires_core` is a PEP 440 specifier set (e.g. `>=0.1,<1`), parsed with `packaging`.
 
 ### What a migration may reference
 
@@ -147,32 +146,26 @@ Open: the `requires_core` specifier grammar and parser are not stated (manifests
 1. **Within a major version, core never drops or renames a table or column.** Changes are additive: new tables, new nullable columns, new indexes.
 2. A column core stops using is marked deprecated in `CHANGELOG.md` "Schema" and stays, nullable and unused, until the next major.
 3. A major (`1.0`, `2.0`) may drop deprecated columns and ships a **baseline** migration. Apps crossing it re-baseline (squash their migrations) and raise `requires_core`.
-4. **Lint:** any core migration in a minor release that contains `DROP COLUMN`, `DROP TABLE` or `RENAME` fails.
-
-Open: how the lint decides which migrations belong to "a minor release" (e.g. files added since the previous tag) is not stated.
+4. **Lint:** every core migration except files named `*_baseline.sql` fails if it contains `DROP COLUMN`, `DROP TABLE` or `RENAME`. Only a major's baseline may drop.
 
 ## 6. Identifiers, resets
 
 1. Every table that other rows point at polymorphically (anything in `ENTITIES`, `core_timeline`, `core_files`) uses `INTEGER PRIMARY KEY AUTOINCREMENT`, so a deleted id is never reused under an old timeline or audit reference.
 2. **An app reset never touches `sqlite_sequence`.** `registry.reset_app_in(conn, slug)`:
-   1. runs `entities.delete_record_in` for every row of the app's entity tables, which cascades timeline, files, fields, reminders, notifications and change-log rows through `on_entity_deleted_in`;
+   1. runs `entities.delete_record_in` for every row of the app's entity tables, which cascades timeline, files, fields, reminders, notifications and change-log rows through the `on_entity_deleted` subscribers;
    2. then `DELETE`s the app's non-entity `RESET_TABLES`;
    3. ids keep climbing.
-3. Only the admin **factory reset** clears every table and every sequence together. It is allowed in `PREVIEW_MODE` or on an install with no human data, and refused otherwise.
-4. Change-log rows written before a delete keep `entity_id` plus a `deleted_at` marker, so history stays distinguishable from any later record.
+3. Only the admin **factory reset** clears every table and every sequence together. It is allowed only when `PREVIEW_MODE` is on, or when no human user other than the caller exists **and** every app's `RESET_TABLES`, `core_people` and `core_organizations` hold zero rows. It is refused otherwise.
+4. Change-log rows written before a delete keep `entity_id` and get `core_change_log.deleted_at` (`TEXT NULL`) set, so history stays distinguishable from any later record.
 5. The CRM's port replaces CakeCRM's `TRUNCATE … RESTART IDENTITY` (`crm/service.py::_truncate_all`) with `registry.reset_app_in(conn, "crm")`; the reset regression test runs through the CRM's own reset entry point.
-
-Open: `core_change_log`'s column list in §1 does not include `deleted_at`; the marker's column is not named there. Open: what "no human data" means for the factory-reset gate.
 
 ## 7. Timestamps
 
 1. Canonical form: `YYYY-MM-DDTHH:MM:SSZ` (UTC, second precision).
 2. Written only by `core.clock.now_iso()`. A test greps SQL for `datetime('now')` and `CURRENT_TIMESTAMP`.
-3. User-supplied instants go through `clock.normalize(value, tz)`.
+3. User-supplied instants go through `clock.normalize(value: str | datetime, tz: str) -> str`, which returns the canonical UTC string.
 4. Day bucketing for reports happens in Python via `zoneinfo` and the install timezone (`core/localtime.py`, lifted from CakeCRM). SQL only compares against precomputed UTC bounds. Never `substr(col,1,10)` (that is a UTC date).
 5. The install timezone is `core_settings.timezone` (IANA, default UTC).
-
-Open: the inputs `normalize` accepts (date-only strings, naive datetimes, offsets) and its return type are not stated.
 
 ## 8. Money, search, JSON, keys
 
@@ -234,7 +227,7 @@ Written for the CRM port (§7); grep each before a ported module is done.
 
 - Migrations apply in order (core before apps), checksums enforced, a failing fixture leaves no partial DDL.
 - Fresh apply; an upgrade from the previous tagged release plus a private fixture app applies cleanly on both a fresh and an upgraded database, with a fixture whose historical migration references a deprecated core column.
-- The DROP/RENAME lint fails a core migration in a minor release; the `requires_core` refusal is tested with a fixture declaring `<0.1`.
+- The DROP/RENAME lint fails a core migration not named `*_baseline.sql`; the `requires_core` refusal is tested with a fixture declaring `<0.1`.
 - `now_iso` is the only timestamp writer (grep test).
 - No `httpx` inside `transaction()` (`transaction()` patched to fail on `httpx`/provider calls).
 - Nested `transaction()` raises.
