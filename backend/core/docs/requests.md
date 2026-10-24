@@ -22,7 +22,7 @@ The Requests board lists requests filed from this install, newest first. Switch 
 
 ## For admins: connecting GitHub
 
-Requests need two settings in **Settings → GitHub**:
+Requests need two settings in the **GitHub** card of **Settings → Integrations**:
 
 - **Repository**, as `owner/name`.
 - **Token**: a GitHub fine-grained personal access token limited to that one repository, with **Issues: read and write**. It is stored encrypted and never shown again.

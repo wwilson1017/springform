@@ -22,9 +22,9 @@ A deal's **temperature** is set by a person: hot, warm, cold, or not set. Not se
 state of a deal nobody has triaged; it is neutral, not cold. Hot deals that have gone quiet head the
 dashboard's Today list.
 
-## Top deals
+## Deals to watch
 
-The dashboard's Top deals are five open deals past the Lead stage, ranked by value with probability
+The dashboard's **Deals to watch** are five open deals past the Lead stage, ranked by value with probability
 tipping the order: a deal counts at 40% of its value at 0% probability, rising to its full value at
 100%. A big likely deal beats a small near-certain one.
 

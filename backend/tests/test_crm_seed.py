@@ -1,7 +1,8 @@
 """CRM reference data and preview samples: both run again on every boot, so both are idempotent."""
 
 from backend.apps.crm import seed, stage_criteria
-from backend.core import db as core_db
+from backend.core import db as core_db, preview
+from backend.core.contacts import seed as contacts_seed
 
 
 def run(fn):
@@ -24,6 +25,7 @@ def test_sample_builds_the_pipeline_once(app, make_user):
     assert core_db.rows("SELECT * FROM crm_deals") == [], "nothing without an admin to act as"
     admin, member = make_user("admin"), make_user("member")
     run(seed.seed)
+    run(contacts_seed.sample)  # preview seeds core's sample directory first
     run(seed.sample)
     deals = core_db.rows("SELECT title, stage, owner_user_id, person_id, organization_id, value_cents FROM crm_deals ORDER BY id")
     assert [d["stage"] for d in deals] == ["proposal", "negotiation", "qualified", "lead", "won", "lost"]
@@ -35,3 +37,10 @@ def test_sample_builds_the_pipeline_once(app, make_user):
     run(seed.sample)
     assert [core_db.one(f"SELECT count(*) AS n FROM {t}")["n"] for t in ("crm_deals", "crm_activity_log", "core_people")] == counts
     assert all(e.endswith(".example.com") for (e,) in core_db.get_conn().execute("SELECT email FROM core_people WHERE email IS NOT NULL"))
+
+
+def test_preview_seeds_the_sample_directory_before_the_deals(app, monkeypatch):
+    monkeypatch.setenv("PREVIEW_MODE", "1")
+    preview.seed()  # no core startup hook has run
+    deals = core_db.rows("SELECT person_id, organization_id FROM crm_deals")
+    assert len(deals) == len(seed.SAMPLE) and all(d["person_id"] and d["organization_id"] for d in deals)

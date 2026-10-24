@@ -73,6 +73,7 @@ def test_the_rolling_window_counts_touches_per_owner(me, make_user, freeze):
     freeze("2026-10-14T15:00:00Z")
     out = dashboard.weekly_touches(me)
     assert (out["window"]["label"], out["window"]["custom"], out["window"]["end"]) == ("Last 7 days", False, "2026-10-14T15:00:00Z")
+    assert (out["window"]["start_day"], out["window"]["end_day"]) == ("2026-10-07", "2026-10-14")  # Chicago days
     reps = {r["name"]: (r["open_deals"], r["touches"], [d["title"] for d in r["deals"]]) for r in out["reps"]}
     assert reps == {other.name: (0, 1, ["Theirs"]), me.name: (2, 1, ["Mine"]), "Unassigned": (1, 0, [])}
     assert [r["name"] for r in out["reps"]][-1] == "Unassigned"
@@ -96,6 +97,7 @@ def test_custom_windows_are_whole_local_days(me, freeze):
     freeze("2026-10-20T15:00:00Z")
     window = dashboard.weekly_touches(me, "2026-10-07", "2026-10-07")["window"]
     assert (window["start"], window["end"], window["custom"]) == ("2026-10-07T05:00:00Z", "2026-10-08T05:00:00Z", True)
+    assert (window["start_day"], window["end_day"]) == ("2026-10-07", "2026-10-07")  # echoes back as the same range
     assert dashboard.weekly_touches(me, "2026-10-07", "2026-10-07")["total_touches"] == 1
     assert dashboard.weekly_touches(me, "2026-10-08", "2026-10-08")["total_touches"] == 0
     for start, end in (("2026-10-07", None), ("2026-10-08", "2026-10-07"), ("2026-10-7", "2026-10-08"), ("2026-02-30", "2026-03-01")):
@@ -190,3 +192,11 @@ def test_the_touch_routes_answer_404_and_422_not_500(login_as):
     assert admin.get("/api/crm/dashboard/weekly-touches/detail?owner=424242").status_code == 404
     assert admin.get("/api/crm/dashboard/weekly-touches/detail?owner=0").status_code == 404
     assert admin.get("/api/crm/dashboard/weekly-touches?start=9999-12-30&end=9999-12-31").status_code == 422
+
+
+def test_the_window_days_echo_back_over_http(login_as):
+    admin = login_as("admin")
+    rolling = admin.get("/api/crm/dashboard/weekly-touches").json()["window"]
+    days = {"start": rolling["start_day"], "end": rolling["end_day"]}
+    echoed = admin.get("/api/crm/dashboard/weekly-touches/detail", params={"owner": "unassigned", **days}).json()["window"]
+    assert (echoed["start_day"], echoed["end_day"], echoed["custom"]) == (days["start"], days["end"], True)

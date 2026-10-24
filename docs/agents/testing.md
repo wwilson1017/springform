@@ -10,17 +10,18 @@
 1. **Real temp SQLite.** `db(tmp_path)` runs all migrations (core, then every app) on a fresh file. No services.
 2. **No FakeConn.** Never fake the connection or the database.
 3. **`freeze(iso)`**: a fixture that freezes `core.clock` at an ISO instant (reminders, scheduler, sweep ages, `at` catch-up).
-4. **`login_as(role, email=None, on=app)`**: a fixture that creates a new user of that role and returns a new signed-in `TestClient` with `.user`. The first account goes through the real setup-token path as an admin; later ones sign in through `/api/auth/login`. **`make_user(role, email=None, password=…)`** creates a user directly, without HTTP.
+4. **`login_as(role, email=None, on=app)`**: a fixture that creates a new user of that role and returns a new signed-in `TestClient` with `.user` (the `/api/me` shape) and `.principal` (the `User`). The first account goes through the real setup-token path as an admin; later ones sign in through `/api/auth/login`. **`make_user(role, email=None, password=…)`** creates a user directly, without HTTP.
 5. **Skip/xfail ban**: conftest fails collection when a test carries a `skip`, `skipif` or `xfail` marker (lifted from CakeCRM). `ALLOWED_SUPPRESSIONS` lists node ids allowed one, each with a reason; it is empty. `test_conftest_guards.py` self-tests it.
 6. Two-member tests create two real members and one restrictive record: every `login_as("member")` call makes a new, distinct member.
 7. Providers: a **FakeProvider** stands in for LLM providers; nothing calls a real model.
-8. HTTP to external services is mocked (Google token endpoint) or served locally (a FastMCP stub, `httpx.ASGITransport`).
+8. HTTP to external services is mocked (Google token endpoint) or served locally: inbound MCP runs through `httpx2.ASGITransport`, and the outbound client talks to `backend/tests/fixtures/mcp_stub.py`, a two-tool `MCPServer` on a loopback port (with `MCP_ALLOW_PRIVATE=1`).
 9. The contract test runs against every app in `backend/apps/` and against `backend/tests/fixtures/bad_app`, which it must fail.
 
 ### Vitest (`frontend/vitest.config.ts`)
 
 1. A **non-UTC `TZ` pin**, so date code that assumes UTC fails.
 2. Guards: apps contract, bootSplit, contrast, grep guards.
+3. Fail closed: `passWithNoTests: false`, `allowOnly: false` and `expect.requireAssertions`, so an empty run or an assertion-free test is red.
 
 ### Playwright
 
@@ -37,7 +38,7 @@ Runs against a seeded `PREVIEW_MODE=1` build with the FakeProvider and the Googl
 - A lint fails any core migration not named `*_baseline.sql` that contains `DROP COLUMN`, `DROP TABLE` or `RENAME`, and a test proves a `*_baseline.sql` file may drop a table.
 - The `requires_core` refusal, with a fixture declaring `<0.1`.
 - `now_iso` is the only timestamp writer (grep test for `datetime('now')` / `CURRENT_TIMESTAMP`).
-- No `httpx` inside `transaction()` (an autouse fixture makes `httpx` sends raise inside one, in every test).
+- No `httpx` inside `transaction()` (an autouse fixture makes `httpx` and `httpx2` sends raise inside one, in every test).
 - Nested `transaction()` raises.
 - A merge with a failing subscriber rolls back entirely (a core merge invoking a failing CRM subscriber leaves no partial change).
 - After-commit hooks run after `COMMIT` only.
@@ -112,7 +113,7 @@ Runs against a seeded `PREVIEW_MODE=1` build with the FakeProvider and the Googl
 - MCP link lists role-filtered tools and executes an attributed write via a real `ClientSession` over `httpx2.ASGITransport` (the `mcp` 2.x client speaks `httpx2`).
 - Revoked and deactivated links 404.
 - Origin refused.
-- Outbound against a local FastMCP stub: discovery, prefixing, every call confirms, private address refused, fenced result.
+- Outbound against the loopback `MCPServer` stub (`fixtures/mcp_stub.py`): discovery, prefixing, every call confirms, private address refused, fenced result.
 - DNS rebinding: a stub resolver that returns a public address first and a private one second.
 
 ### Export
@@ -134,7 +135,7 @@ Runs against a seeded `PREVIEW_MODE=1` build with the FakeProvider and the Googl
 - `CustomFields` by type.
 - `SavedViewBar` stale-version refusal.
 - A grep guard that `apps/crm` contains no `contact_id|company_id`.
-- `gen-types` diff clean.
+- `gen-types` diff clean (a CI step in the Frontend job, not a vitest).
 
 ## 4. Playwright smoke
 

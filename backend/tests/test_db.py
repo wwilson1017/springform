@@ -68,6 +68,20 @@ def _core_migration_names() -> list[str]:
     return sorted(p.name for p in core_db.CORE_MIGRATIONS.glob("*.sql"))
 
 
+def _shared_stamps(names: list[str]) -> list[str]:
+    stamps = [n[:14] for n in names]
+    return sorted({s for s in stamps if stamps.count(s) > 1})
+
+
+def test_no_two_core_migrations_share_a_stamp():
+    """Core files sort by name, so a shared stamp orders by the rest of the name, by accident."""
+    assert _shared_stamps(["20261020000100_core_a.sql", "20261020000100_core_b.sql", "20261020000200_core_c.sql"]) == ["20261020000100"]
+    assert _shared_stamps(["20261020000100_core_a.sql", "20261020000200_core_b.sql"]) == []
+    names = _core_migration_names()
+    assert "20261020000100_core_init.sql" in names  # reached the real files
+    assert _shared_stamps(names) == []
+
+
 def test_changed_applied_migration_fails_startup(tmp_path):
     app_dir = _app(tmp_path / "apps", "fx", {"20261101000000_fx_init.sql": "CREATE TABLE fx_a (id INTEGER);"})
     core_db.init(tmp_path / "data")
@@ -97,6 +111,15 @@ def test_requires_core_refusal_names_the_app_before_applying_anything(tmp_path):
     with pytest.raises(MigrationError, match="App 'oldapp' requires core '<0.1'"):
         core_db.migrate([app_dir])
     assert _tables() == set()
+
+
+def test_a_version_that_is_not_pep_440_stops_the_boot_with_a_clear_message(tmp_path):
+    app_dir = _app(tmp_path / "apps", "fx", {"20261101000000_fx_init.sql": ""})
+    with pytest.raises(MigrationError, match=r"refuses to start: springform-version holds '0\.1\.0-dryrun-b'"):
+        core_db.check_requires_core([app_dir], "0.1.0-dryrun-b")
+    with pytest.raises(MigrationError, match="springform-version"):
+        core_db.check_requires_core([], "0.1.0-dryrun-b")  # even with no app to check
+    core_db.check_requires_core([app_dir], "0.1.0+fork.1")
 
 
 def test_core_migration_may_not_drop_or_rename(tmp_path):

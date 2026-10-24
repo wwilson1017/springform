@@ -3,7 +3,7 @@
 **What this covers:** the §4 record services every entity gets: timeline (and `record_changes_in`), files (publication, sweep, crash cases, safe serving), custom fields, saved views, the reports registry, notifications, reminders, the change log, and the frontend `records/` components.
 **Who reads it:** W2 (record-service backends), W3 (change log), W11 (record-services frontend), any app that shows a record page.
 
-Every service checks `entities.authorize` before touching a record (`authorization.md`). Every service and published function comes as `fn` / `fn_in(conn, …)` (`database-and-transactions.md`), with these exceptions: `timeline.api.list_for` has no `_in` form, `record_changes_in` has only the `_in` form, and a report's `run` needs none because it opens no transaction. Most services live in `backend/core/<service>/{service.py, api.py, router.py}`. Two do not: the change-log writer is the single module `backend/core/changelog.py`, with its route in `backend/core/platform/`, and reports are `backend/core/reports/{registry.py, service.py, router.py}` with no `api.py` (apps import `Report` from `backend.core.reports.registry`).
+Every service checks `entities.authorize` before touching a record (`authorization.md`). Every service and published function comes as `fn` / `fn_in(conn, …)` (`database-and-transactions.md`), with these exceptions: `timeline.api.list_for` has no `_in` form, `record_changes_in` and `add_system_in` have only the `_in` form, and a report's `run` needs none because it opens no transaction. Most services live in `backend/core/<service>/{service.py, api.py, router.py}`. Two do not: the change-log writer is the single module `backend/core/changelog.py`, with its route in `backend/core/platform/`, and reports are `backend/core/reports/{registry.py, service.py, router.py}` with no `api.py` (apps import `Report` from `backend.core.reports.registry`).
 
 ## 1. Timeline
 
@@ -40,7 +40,7 @@ and runs the sync `on_record_changed` subscribers (through `on_record_changed_in
 ### Rules
 
 1. Listing and adding notes go through `entities.authorize`; a note needs write access to its record. `record_changes_in`, `add_system_in` and the delete and merge hooks do not authorize: the caller has already authorized the edit.
-2. `system` rows record platform actions (e.g. "merged #<source> into this record"). Core writes them with `timeline.add_system_in(conn, entity_type, entity_id, body)`; the author is the system principal (`id=0`), and the acting user is in the change log.
+2. `system` rows record platform actions (e.g. "merged #<source> into this record"). Core and apps write them with `timeline.api.add_system_in(conn, entity_type, entity_id, body)` (the CRM's deal merge does); the author is the system principal (`id=0`), and the acting user is in the change log. A system row is not a note, so it is not a CRM touch.
 3. Merges repoint timeline rows keeping the original author and time (`contacts.md`).
 4. A mention in `body` is written `@[Name](user:ID)`. Each mentioned active human user who can read the record gets a `core_timeline_mentions(timeline_id, user_id, display_name)` row and a notification (`deliver_in`, in the note's transaction), except the author. Anyone else named in the body gets neither.
 5. A comment is stored and listed exactly like a note; only its `kind` differs.

@@ -638,6 +638,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/auth/users/{user_id}/reset-link": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Issue Reset Link */
+        post: operations["auth_issue_reset_link"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/core/apps": {
         parameters: {
             query?: never;
@@ -4926,6 +4943,13 @@ export interface components {
             /** Title */
             title: string;
         };
+        /** ResetLink */
+        ResetLink: {
+            /** Mailed */
+            mailed: boolean;
+            /** Reset Url */
+            reset_url: string;
+        };
         /** ResetOut */
         ResetOut: {
             /** Activity */
@@ -5337,12 +5361,28 @@ export interface components {
         TouchWindow: {
             /** Custom */
             custom: boolean;
-            /** End */
+            /**
+             * End
+             * @description UTC instant, exclusive
+             */
             end: string;
+            /**
+             * End Day
+             * @description Last install-local day applied, inclusive; send it back as end
+             */
+            end_day: string;
             /** Label */
             label: string;
-            /** Start */
+            /**
+             * Start
+             * @description UTC instant, inclusive
+             */
             start: string;
+            /**
+             * Start Day
+             * @description First install-local day applied, YYYY-MM-DD; send it back as start
+             */
+            start_day: string;
         };
         /** TouchedDeal */
         TouchedDeal: {
@@ -6903,6 +6943,37 @@ export interface operations {
                     "application/json": {
                         [key: string]: unknown;
                     };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    auth_issue_reset_link: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResetLink"];
                 };
             };
             /** @description Validation Error */
@@ -12204,6 +12275,8 @@ export interface operations {
             query?: {
                 since_rev?: number;
                 limit?: number;
+                /** @description Only the current cursor: next_since_rev, no rows */
+                head?: boolean;
             };
             header?: never;
             path?: never;

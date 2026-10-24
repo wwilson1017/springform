@@ -26,7 +26,7 @@ Runtime image settings: `VOLUME /data`, `HEALTHCHECK` on `/up`, `STOPSIGNAL SIGT
 | Route | Auth | Contract |
 |---|---|---|
 | `GET /up` | none | Runs `SELECT 1`, returns `200 "ok"`. Docker `HEALTHCHECK`, `deploy.sh` and Railway use it. |
-| `GET /api/health` | none | `{version, sqlite_version, fts5, preview, apps:[slug], last_backup_at}`. `version` from `springform-version`. |
+| `GET /api/health` | none | `{version, sqlite_version, fts5, preview, apps:[slug], last_backup_at}`. `version` from `springform-version`, which must be a PEP 440 version (`0.1.0`, `0.1.0+fork.1`): startup checks each app's `requires_core` against it, and a string like `0.1.0-fork` stops the boot with a message naming the file and the value. |
 
 The **CI image test** runs the container and asserts `/api/health` reports `sqlite_version >= 3.51.3` and `fts5: true`.
 
@@ -58,13 +58,27 @@ With `TRUST_PROXY=1` the app port is bound only on the compose network, never pu
 7. Offer the rclone off-site cron (§7 below); `RCLONE_REMOTE=` sets it up unattended.
 8. Print the **setup token** (`auth.md` §5).
 
+Re-running it is safe: it keeps an existing `.env`, adds no duplicate ufw rule or cron, and leaves running containers alone. Because `.env` is kept, `DOMAIN=` and `IMAGE=` count only on the first run; later, edit `.env`.
+
+`NO_PULL=1` runs an `IMAGE` loaded with `docker load` instead of pulling it, for a dry run before an image is published or a server without registry access. Docker does not exist before the first run, so on a fresh server that run installs it and stops with "not loaded"; load the image and run `setup.sh` again:
+
+```bash
+docker save springform:test | gzip > springform-test.tar.gz      # on the build machine
+sudo DOMAIN=localhost IMAGE=springform:test NO_PULL=1 deploy/setup.sh   # on the server: installs Docker, stops
+sudo docker load -i springform-test.tar.gz && sudo DOMAIN=localhost IMAGE=springform:test NO_PULL=1 deploy/setup.sh
+```
+
+`DOMAIN=localhost` gets a certificate from Caddy's internal CA, so test with `curl -k https://localhost/up`. API calls made with curl and a session cookie need `-H 'Sec-Fetch-Site: same-origin'`, as a browser sends (`auth.md`, CSRF).
+
 ### `deploy.sh`
 
-1. `docker compose pull`.
+1. `docker compose pull`; with `NO_PULL=1`, skipped, and the app image must already be loaded.
 2. `compose up` (which **stops the old container first**).
-3. Prune old images.
+3. Prune dangling images (a replaced `:latest`; a pinned tag stays until removed by hand).
 4. Wait on `/up`.
 5. Print the version.
+
+To move to another release, set `IMAGE` in `.env`, then run `deploy.sh`. An `IMAGE=` given on the command line also works, because compose prefers the shell's value, but the next plain `deploy.sh` goes back to the `.env` one. Expect about ten seconds of 502 from Caddy: the old container stops in about two, and the new one needs most of the rest to boot.
 
 ## 5. Stop-before-start
 
@@ -135,6 +149,21 @@ It wraps `python -m backend.core.backup.restore`. Every check runs before anythi
 3. Checks that the key the restored install will use has the manifest's fingerprint. That key is `ENCRYPTION_KEY` when set, and the `--key-file` when given. A wrong key fails loudly instead of booting an install that cannot read its stored credentials.
 
 Exit codes: 0 restored, 1 refused or failed, 2 usage.
+
+`scripts/restore.sh` needs a checkout and `uv`. A server set up by `setup.sh` has neither, so run the same module inside the app image. With the `ENCRYPTION_KEY` from `.env` (compose passes it), the old data directory mounted read-only, and the new empty one as `/data`:
+
+```bash
+cd /srv/springform
+sudo docker compose stop app
+sudo mv -T data data.before-restore && sudo mkdir data   # -T: refuses if an older one is still there
+sudo docker compose run --rm --no-deps -v "$PWD/data.before-restore:/restore-from:ro" --entrypoint python app \
+  -m backend.core.backup.restore /restore-from/backups/<stamp>.manifest.json /data
+sudo docker compose up -d app        # entrypoint.sh gives the restored files to the app user
+```
+
+If the restore refuses, `data/` is still empty: `sudo rmdir data && sudo mv data.before-restore data` puts the old one back. Restoring from the off-site copy works the same way: `rclone copy <remote:path> <dir>` gives `<dir>/backups/` and `<dir>/files/`, so mount `<dir>` as `/restore-from`. On a new server, first put the old `.env`'s `ENCRYPTION_KEY` and `SECRET_KEY` into the new `.env`: `setup.sh` generated fresh ones, and the restore refuses the new key.
+
+Only the restore refuses a wrong key. A data directory copied by hand boots with a wrong `ENCRYPTION_KEY` and serves: every stored credential then reads as unset (the Whisk provider shows a key but "not configured"). The boot does notice: `backup/startup.py` compares the key's fingerprint with the newest manifest under `/data/backups`, and on a mismatch logs an ERROR with the remedy and stores the manifest's filename in the internal `core_settings` row `backups.key_mismatch` (cleared on the next boot that matches, or when there is no backup). It never refuses to boot, so an install whose key is lost can still be recovered. So restore through the module, never by copying files.
 
 ### Restore test (CI)
 

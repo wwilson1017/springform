@@ -178,3 +178,20 @@ def test_edits_over_http_reach_the_other_members_feed(login_as):
     later = b.get("/api/todos/changes", params={"since_rev": out["next_since_rev"]}).json()
     assert later["items"] == [] and [r["id"] for r in later["removed"]["items"]] == [todo["id"]]
     assert b.get("/api/todos/changes", params={"since_rev": later["next_since_rev"]}).json()["changed"] is False
+
+
+def test_head_only_gives_the_cursor_without_walking_the_journal(login_as):
+    a, b = login_as("member"), login_as("member")
+    for i in range(3):
+        a.post("/api/todos/items", json={"title": f"Team job {i}", "visibility": "team"})
+    full = b.get("/api/todos/changes").json()
+    assert len(full["items"]) == 3
+    top = b.get("/api/todos/changes", params={"head": 1}).json()
+    assert top == {
+        "since_rev": 0, "next_since_rev": full["next_since_rev"], "more": False, "reset": False, "changed": False,
+        **NOTHING, "removed": NOTHING,
+    }
+    assert b.get("/api/todos/changes", params={"head": 1, "since_rev": 10**6}).json()["reset"] is False
+    todo = a.post("/api/todos/items", json={"title": "After the head", "visibility": "team"}).json()
+    after = b.get("/api/todos/changes", params={"since_rev": top["next_since_rev"]}).json()
+    assert [t["id"] for t in after["items"]] == [todo["id"]]

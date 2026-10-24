@@ -7,7 +7,7 @@ Each install needs its own Google sign-in client. It takes about ten minutes in 
 
 ## 1. Check the install's address
 
-Google sends people back to a fixed address after they sign in. That address is built from the install's public address (its `PUBLIC_URL`), never from whatever address you happen to be browsing. Make sure `PUBLIC_URL` is the real `https://` address your team uses, then open **Settings → Google sign-in** and copy the **redirect URI** it shows.
+Google sends people back to a fixed address after they sign in. That address is built from the install's public address (its `PUBLIC_URL`), never from whatever address you happen to be browsing. Make sure `PUBLIC_URL` is the real `https://` address your team uses, then open **Settings → Sign-in** and copy the **Redirect URI** the **Google sign-in** card shows.
 
 ## 2. Create the client in Google Cloud
 
@@ -20,9 +20,9 @@ Google sends people back to a fixed address after they sign in. That address is 
 
 ## 3. Add it to the install
 
-Paste the client ID and secret into **Settings → Google sign-in** and save. The secret is stored encrypted.
+Paste the client ID and secret into the **Google sign-in** card in **Settings → Sign-in** and save. The secret is stored encrypted.
 
-Then sign out and try **Sign in with Google** yourself. People still need an invite; Google sign-in never creates accounts.
+Then sign out and try **Continue with Google** yourself. People still need an invite; Google sign-in never creates accounts.
 
 ## If it fails
 
