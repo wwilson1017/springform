@@ -142,9 +142,29 @@ The hash is the sha256 hex of `json.dumps(fields, sort_keys=True)` over the fiel
 
 ### Registry sources and refresh
 
-Sources: core packages' `tools.py` (context files, memory; `apps-and-contracts.md` §9), discovered apps' `get_tools()`, and MCP servers (`mcp.md`). Outbound MCP servers are the one source that changes after boot: `registry.swap_server(server_id, specs)` replaces one server's specs, rebuilds and validates the whole registry, and **swaps it in atomically** (a refused build changes nothing). Old specs stay valid for already-pending approvals only until their `tool_def_sha256` check fails. `build_registry` also refuses a remote spec (`server_url` set) that is not `always_confirm`, `untrusted_source` and `external_effect`.
+Sources: core packages' `tools.py` (contacts, notes, reminders, memory and context files, listed below; `apps-and-contracts.md` §9), discovered apps' `get_tools()`, and MCP servers (`mcp.md`). Outbound MCP servers are the one source that changes after boot: `registry.swap_server(server_id, specs)` replaces one server's specs, rebuilds and validates the whole registry, and **swaps it in atomically** (a refused build changes nothing). Old specs stay valid for already-pending approvals only until their `tool_def_sha256` check fails. `build_registry` also refuses a remote spec (`server_url` set) that is not `always_confirm`, `untrusted_source` and `external_effect`.
 
 Deferred tools (`deferred.py`): groups keyed by app slug, deferral threshold 100 tools.
+
+### Core tools
+
+Every install has these, from core packages' `tools.py`. The contacts, note and reminder tools are enabled for any active admin or member (never the system principal), and each result carries the record's `url`. The three directory writes confirm, since they add records every member sees; `core_add_note` and `core_set_reminder` are routine (no Approve card, like `crm_create_deal`): small, the user's own, and reversible.
+
+| Tool | Kind | What it does |
+|---|---|---|
+| `core_search_contacts` | read | FTS search over people and organizations (`kind` person, organization or any); people come with their organizations and roles. |
+| `core_get_person` | read | A person with organizations and roles, channels and one-line addresses; a merged id answers with the survivor plus `merged_from`. |
+| `core_get_organization` | read | An organization with its people and roles, channels and addresses. |
+| `core_create_person` | write | Creates a person, optionally linked to `organization_id` with `role` (that organization is the target). A live person with the same name returns `{created: false, existing}` unless `allow_duplicate`. |
+| `core_create_organization` | write | Creates an organization; a live one with the same name returns `{created: false, existing}`. |
+| `core_link_person_organization` | write | Links a person and an organization with a role (`primary` optional); both are targets. |
+| `core_add_note` | routine write | A timeline note on any registered record, authored by the user; the record is the target, so it needs write access. An unknown `entity_type` is refused with the registered types listed. |
+| `core_set_reminder` | routine write | A reminder on a readable record, owned by the user and titled with the record's name; a `due_at` without an offset is read in the install timezone. No targets (the record does not change). |
+| `core_list_my_reminders` | read | The user's reminders, soonest first: `open` (default, snoozed included) or `done`, with `due_local`. |
+| `core_memory_search` | read | Facts and Whisk's context files. |
+| `core_memory_remember` | write | Records one business fact. |
+| `core_context_file_read` | read | One of Whisk's context files. |
+| `core_context_file_write` | write | Replaces a context file, protected ones included: admin only, `always_confirm`, not over MCP. |
 
 ## 5. Turn loop
 
