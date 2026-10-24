@@ -11,8 +11,13 @@ After a compaction the aged middle is replaced by the stored gist, folded onto t
 user row. One oversized row is cut for the live context only (storage stays whole), re-closing
 any fence the cut leaves open.
 
-The memory seam: when `backend.core.memory` is installed, `memory_context()` asks it for this
-turn's block and fences it as untrusted; `after_turn()` lets it look at the finished turn.
+The memory seam, when `backend.core.memory` is installed:
+- `memory.instructions_for(conn, agent_slug)`: the protected files (soul.md, MEMORY.md, admin-
+  written through a confirmed tool). They go unfenced into the static half on every turn and
+  replace the agent row's `soul`.
+- `memory.context_for(conn, user, agent_slug, query, include_protected=False)`: facts and the
+  other files, fenced as untrusted data in the volatile half.
+- `memory.after_turn(conn, conversation_id)`: inside a transaction after each finished turn.
 """
 
 from __future__ import annotations
@@ -122,14 +127,29 @@ def has_untrusted(messages: list[dict]) -> bool:
 # ── Memory seam ───────────────────────────────────────────────────────────────
 
 
-def memory_context(user: User, agent_slug: str, query: str | None) -> str:
-    """The memory block for this turn, fenced as untrusted, or "" (no memory package, no query,
-    nothing relevant, or a memory failure: memory never breaks a turn)."""
-    fn = getattr(_memory, "context_for", None)
-    if fn is None or not query:
-        return ""
+def memory_instructions(agent_slug: str) -> str | None:
+    """The protected files as unfenced instructions, or None when there is no such seam (or it
+    failed), in which case the agent row's soul is used."""
+    fn = getattr(_memory, "instructions_for", None)
+    if fn is None:
+        return None
     try:
-        text = fn(db.get_conn(), user, agent_slug, query)
+        return fn(db.get_conn(), agent_slug)
+    except Exception:
+        logger.warning("memory.instructions_for failed; using the agent's own soul", exc_info=True)
+        return None
+
+
+def memory_context(user: User, agent_slug: str, query: str | None) -> str:
+    """The memory block for this turn, fenced as untrusted, or "" (no memory package, nothing
+    relevant, or a memory failure: memory never breaks a turn). A turn with no typed text (a
+    continuation) still gets the context files, just no fact search."""
+    fn = getattr(_memory, "context_for", None)
+    if fn is None:
+        return ""
+    split = {"include_protected": False} if hasattr(_memory, "instructions_for") else {}
+    try:
+        text = fn(db.get_conn(), user, agent_slug, query or "", **split)
     except Exception:
         logger.warning("memory.context_for failed; turn continues without memory", exc_info=True)
         return ""
@@ -149,4 +169,7 @@ def after_turn(conversation_id: int) -> None:
 
 
 def system_prompt(agent: dict, user: User, *, query: str | None, catalog: str = "") -> tuple[str, str]:
+    instructions = memory_instructions(agent["slug"])
+    if instructions is not None:  # soul.md is the soul once the memory package owns it
+        agent = {**agent, "soul": instructions}
     return agents.build_system_prompt(agent, user, catalog=catalog, memory=memory_context(user, agent["slug"], query))

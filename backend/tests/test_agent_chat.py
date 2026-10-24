@@ -237,22 +237,35 @@ def test_deferred_tools_split_by_app_and_load_on_demand():
     assert deferred.split(specs[:100], {}) == (specs[:100], [], "")
 
 
-def test_memory_seam_is_fenced_into_the_prompt_and_after_turn_runs_in_a_transaction(login_as, monkeypatch):
+def test_memory_seam(login_as, monkeypatch):
     from types import SimpleNamespace
 
     from backend.core.agent import agents
 
-    seen = []
+    seen, asked = [], []
+
+    def context_for(conn, user, slug, query, *, include_protected=True):
+        asked.append((query, include_protected))
+        return f"Fact for {slug}: the oven is hot." if query else "## notes.md\n\nOpen at nine."
+
     memory = SimpleNamespace(
-        context_for=lambda conn, user, slug, query: f"Fact for {slug}: the oven is {query}.",
+        instructions_for=lambda conn, slug: "## soul.md\n\nI bake.",
+        context_for=context_for,
         after_turn=lambda conn, conversation_id: seen.append((conn.in_transaction, conversation_id)),
     )
     monkeypatch.setattr(assembly, "_memory", memory)
     a = login_as("member")
-    static, volatile = assembly.system_prompt(agents.get(), a.principal, query="hot")
+    whisk = agents.get()
+    static, volatile = assembly.system_prompt(whisk, a.principal, query="oven")
+    assert "I bake." in static and whisk["soul"] not in static  # soul.md replaces the row's soul, unfenced
     assert "<recorded_memory" in volatile and "the oven is hot" in volatile and "the oven is hot" not in static
+    assert asked == [("oven", False)]
+    _, volatile = assembly.system_prompt(whisk, a.principal, query=None)  # a continuation still gets the files
+    assert "Open at nine." in volatile
+
     cid = chat(a, message="hello")[0]["id"]
     assert seen == [(True, cid)]
 
     monkeypatch.setattr(assembly, "_memory", SimpleNamespace(context_for=lambda *a: 1 / 0))
     assert assembly.memory_context(a.principal, "whisk", "hot") == ""  # memory never breaks a turn
+    assert whisk["soul"] in assembly.system_prompt(whisk, a.principal, query="x")[0]  # no split: the row's soul
