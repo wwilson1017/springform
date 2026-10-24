@@ -151,7 +151,9 @@ The restrictive entity the two-member test uses. `apps/todos/entities.py` regist
 | Agent | Unattended runs (`source='job'`) run as the system principal and may only call tools that are `writes=False`, not `always_confirm`, not remote, not `untrusted_source`, enforced in `registry.for_source` (`agent.md`). |
 | Bootstrap | First-run checks look for the absence of **human** accounts (`WHERE role != 'system'`), not an empty table (`auth.md`). |
 
-Open: how a job-sourced call presents itself to `require_roles` (a request-context flag, a separate dependency) is not stated. Open: §8 stores the Todos team rev in `todos_sync` at `user_id = 0`, which is the system principal's id; whether that row is meant to reference `core_users(0)` is not stated.
+Open: how a job-sourced call presents itself to `require_roles` (a request-context flag, a separate dependency) is not stated.
+
+The Todos team rev is stored in `todos_sync` at `user_id = 0` on purpose: 0 is the system principal's id, because the team rev belongs to no human.
 
 ## 8. The two-member test
 
