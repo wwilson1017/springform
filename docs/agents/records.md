@@ -222,7 +222,7 @@ deliver_in(conn, title, message, *, user_id=None, entity: tuple[str, int] | None
 Everything after `message` is keyword-only.
 
 1. Inserts one `core_notifications` row per recipient **in the caller's transaction**, so the in-app notification is **exactly-once**. Returns the new ids.
-2. `user_id=None` expands to every **active human** user who may read `entity` (never the system principal). A broadcast is therefore one row per user, and read state is per user. A given `user_id` gets a row only if that user is an active human who may read `entity`; otherwise nothing is written. An unknown entity type or a missing record raises 404. `link` defaults to the record's URL.
+2. `user_id=None` expands to every **active human** user who may read `entity` (never the system principal). A broadcast is therefore one row per user, and read state is per user. A given `user_id` gets a row only if that user is an active human who may read `entity`; otherwise nothing is written. An unknown entity type or a missing record raises 404. `link` defaults to the record's URL from the entity's `url_fn`.
 3. Inserts a `queued` row in `core_notification_deliveries` for each registered channel enabled for that recipient. A channel is `register_channel(name, send, *, enabled_in=None)`; web push registers itself as one.
 
 ### The notification remembers its record

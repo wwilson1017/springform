@@ -40,6 +40,7 @@ springform/
       <pkg>/       optional router.py hooks.py jobs.py tools.py startup.py, discovered by registry.install()
       db.py outbox.py settings.py secrets.py registry.py entities.py scheduler.py changelog.py
       clock.py localtime.py errors.py pagination.py preview.py
+      ratelimit.py                     (being built by the inbound MCP workstream)
       auth/        service.py jwt.py deps.py router.py totp.py trusted.py google.py invites.py mail.py bootstrap.py users_router.py csrf.py
       contacts/    service.py api.py router.py seed.py startup.py
       timeline/ files/ fields/ views/ notifications/ reminders/     (each: service.py api.py router.py, plus hooks.py / jobs.py where they contribute)
@@ -51,7 +52,9 @@ springform/
       guide/       library.py router.py startup.py
       requests/    github.py service.py jobs.py router.py
       agent/       providers/ spec.py registry.py engine.py history.py assembly.py compaction.py llm.py delimiters.py write_budget.py
-                   deferred.py agents.py router.py startup.py      (mcp_server.py, mcp_client.py: not built yet)
+                   deferred.py agents.py router.py startup.py
+      mcp/         the inbound MCP server (landing with the MCP workstream)
+      mcp_servers/ the outbound MCP client (landing with the MCP workstream)
       memory/      facts.py context_files.py observer.py dreaming.py jobs.py tools.py router.py startup.py
       migrations/  20261020HHMMSS_core_<name>.sql
       docs/        core Guide topics (*.md)

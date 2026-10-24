@@ -3,9 +3,9 @@
 **What this covers:** §6. Inbound: a per-user MCP link that is an API key for that user, immediate writes, exclusions, the HTTP rules lifted from todo-gtd, the SDK choice, URL forms. Outbound: the servers table, discovery and refresh, naming, every call confirms, untrusted fencing, the address policy enforced at connection time, and the DNS-rebinding test.
 **Who reads it:** W14 (MCP server), W15 (MCP client), W9/W12 (registry and confirmation), the MCP settings cards.
 
-Code: `backend/core/agent/mcp_server.py`, `backend/core/agent/mcp_client.py`. Both work with zero AI keys.
+Code: the inbound server is the core package `backend/core/mcp/`, and the outbound client is `backend/core/mcp_servers/`; both land with the MCP workstream. Both work with zero AI keys.
 
-## 1. Inbound (`mcp_server.py`)
+## 1. Inbound (`backend/core/mcp/`)
 
 ### Table
 
@@ -63,7 +63,7 @@ Use the `mcp` SDK's **low-level `Server`** with `StreamableHTTPSessionManager(st
 
 The MCP bearer is the link token, not the session JWT. The cookie CSRF rules (`auth.md` §3) cover cookie-authenticated `/api` requests; `/mcp` sits outside `/api` and authenticates by link token.
 
-## 2. Outbound (`mcp_client.py`)
+## 2. Outbound (`backend/core/mcp_servers/`)
 
 ### Table
 
