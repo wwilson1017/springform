@@ -17,7 +17,6 @@
 8. HTTP to external services is mocked (Google token endpoint) or served locally (a FastMCP stub, `httpx.ASGITransport`).
 9. The contract test runs against every app in `backend/apps/` and against `backend/tests/fixtures/bad_app`, which it must fail.
 
-
 ### Vitest (`frontend/vitest.config.ts`)
 
 1. A **non-UTC `TZ` pin**, so date code that assumes UTC fails.

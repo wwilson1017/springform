@@ -20,7 +20,6 @@ Base: CakeCRM `backend/assistant/` (Chatty's loop already trimmed, with server-s
 | `backend/core/memory/observer.py`, `dreaming.py`, `jobs.py` | The observer from Chatty plus CakeCRM `backend/memory/observer.py`; dreaming is new, plain Python with no model call (it merges duplicate facts); nightly and setting-gated | 580 |
 | `router.py`; `mcp_server.py`, `mcp_client.py` (not built yet) | CakeCRM `assistant/router.py` and `providers/router.py`, minus uploads; new; new | 250 / 250 / 320 |
 
-
 ## 2. Tables
 
 ```sql

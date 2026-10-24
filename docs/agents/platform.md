@@ -71,7 +71,6 @@ springform/
   .github/workflows/  ci.yml  release.yml
 ```
 
-
 There is no fork workflow template: one `ci.yml` serves upstream and forks. Its Fork scope job always runs and passes on upstream, which has no `FORK.md` (`forks.md` §5).
 
 ## Hosting contract
