@@ -45,7 +45,7 @@ export function DashboardPage() {
       <section className={`${card} p-4`}>
         <div className="flex items-baseline justify-between">
           <h2 className={sectionTitle}>Today</h2>
-          <Link to="today" className="text-sm text-sf-accent-text">See all</Link>
+          <Link to="/crm/today" className="text-sm text-sf-accent-text">See all</Link>
         </div>
         <TodayList compact />
       </section>
@@ -55,7 +55,7 @@ export function DashboardPage() {
         <ul className="m-0 list-none divide-y divide-sf-line border-t border-sf-line p-0">
           {open.map(s => (
             <li key={s.stage}>
-              <Link to={`deals?stage=${s.stage}`}
+              <Link to={`/crm/deals?stage=${s.stage}`}
                 className="grid grid-cols-[1fr_auto] items-center gap-x-4 gap-y-1 py-3 no-underline md:grid-cols-[150px_1fr_120px_80px]">
                 <span className="flex items-center gap-2 text-base text-sf-ink"><StageDot stage={s.stage} />{stageLabel(s.stage)}</span>
                 <span className="order-last col-span-2 h-0.5 bg-sf-line md:order-none md:col-span-1">
@@ -76,7 +76,7 @@ export function DashboardPage() {
             <ul className="m-0 list-none divide-y divide-sf-line p-0">
               {data.top_deals.map(d => (
                 <li key={d.id}>
-                  <Link to={`deals/${d.id}`} className="flex items-center gap-3 py-2 text-sm no-underline">
+                  <Link to={`/crm/deals/${d.id}`} className="flex items-center gap-3 py-2 text-sm no-underline">
                     <span className="min-w-0 flex-1 truncate text-sf-ink">{d.title}</span>
                     <StageBadge stage={d.stage} />
                     <span className="text-sf-ink-mute">{formatCents(d.value_cents, d.currency)}</span>
@@ -93,7 +93,7 @@ export function DashboardPage() {
               {data.recent_activity.map(a => (
                 <li key={a.id} className="py-2 text-sm">
                   <span className="text-sf-ink">{a.activity}</span>
-                  {a.deal_id && <> · <Link to={`deals/${a.deal_id}`} className="text-sf-accent-text">{a.deal_title}</Link></>}
+                  {a.deal_id && <> · <Link to={`/crm/deals/${a.deal_id}`} className="text-sf-accent-text">{a.deal_title}</Link></>}
                   {a.note && <span className="block truncate text-sf-ink-mute">{a.note}</span>}
                   <span className="block text-xs text-sf-ink-dim">{a.actor_name ?? 'Someone'} · {formatDate(a.created_at)}</span>
                 </li>
@@ -113,7 +113,7 @@ function FirstRun() {
   return (
     <div className={`${card} flex flex-wrap items-center gap-3 p-4 text-sm`}>
       <p className="m-0 flex-1 text-sf-ink">
-        Start by <Link to="import" className="text-sf-accent-text">importing your contacts</Link> or <Link to="deals" className="text-sf-accent-text">adding a deal</Link>.
+        Start by <Link to="/crm/import" className="text-sf-accent-text">importing your contacts</Link> or <Link to="/crm/deals" className="text-sf-accent-text">adding a deal</Link>.
       </p>
       <button type="button" onClick={dismiss} className="cursor-pointer border-0 bg-transparent text-sf-ink-dim">Dismiss</button>
     </div>

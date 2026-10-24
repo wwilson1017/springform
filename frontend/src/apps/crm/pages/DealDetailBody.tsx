@@ -50,7 +50,7 @@ export function DealDetailPage() {
 function Shell({ children }: { children: React.ReactNode }) {
   return (
     <div className="mx-auto max-w-6xl px-4 py-6 md:px-8">
-      <Link to="../deals" relative="path" className="text-sm text-sf-accent-text">← Pipeline</Link>
+      <Link to="/crm/deals" className="text-sm text-sf-accent-text">← Pipeline</Link>
       <div className="mt-3">{children}</div>
     </div>
   );

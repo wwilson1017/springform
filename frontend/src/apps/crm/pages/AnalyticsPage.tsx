@@ -91,7 +91,7 @@ function Sections({ a }: { a: Analytics }) {
           {a.aging.buckets.every(b => b.count === 0) ? <p className={muted}>No open deals.</p>
             : <Bars rows={a.aging.buckets.map(b => ({ key: b.label, label: `${b.label} days`, value: b.count }))} max={ageMax} />}
           <p className="m-0 mt-3 text-sm text-sf-ink-mute">
-            {a.aging.stale_count} untouched for {a.stale_days}+ days. <Link to="../stale" relative="path" className="text-sf-accent-text">See stale deals</Link>
+            {a.aging.stale_count} untouched for {a.stale_days}+ days. <Link to="/crm/stale" className="text-sf-accent-text">See stale deals</Link>
           </p>
         </section>
       </div>

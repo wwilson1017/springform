@@ -14,7 +14,7 @@ export function TouchDetailPage() {
   const [search] = useSearchParams();
   const url = owner ? touchDetailUrl(owner, search.get('start') ?? undefined, search.get('end') ?? undefined) : null;
   const { data, error, reload } = useJson<WeeklyTouchDetail>(url);
-  const back = <Link to="../touches" relative="path" className="text-sm text-sf-accent-text">← Weekly touches</Link>;
+  const back = <Link to="/crm/touches" className="text-sm text-sf-accent-text">← Weekly touches</Link>;
 
   if (!owner) return <div className={page}>{back}<p className="text-sf-ink-mute">That isn't a rep.</p></div>;
   return (

@@ -261,7 +261,7 @@ export function PipelinePage() {
 
       {pending?.stage === 'won' && <ClosedOnDialog dealTitle={pending.title} onConfirm={confirmPending} onCancel={() => setPending(null)} />}
       {pending?.stage === 'lost' && <ReasonDialog variant="lost" dealTitle={pending.title} onConfirm={confirmPending} onCancel={() => setPending(null)} />}
-      {creating && <DealForm onClose={() => setCreating(false)} onCreated={d => { setCreating(false); navigate(String(d.id)); }} />}
+      {creating && <DealForm onClose={() => setCreating(false)} onCreated={d => { setCreating(false); navigate(`/crm/deals/${d.id}`); }} />}
     </div>
   );
 }
@@ -314,7 +314,7 @@ function DealCard({ deal, selected, onToggle, onMove, onCycle, ownerName }: {
       style={{ borderLeft: `3px solid ${c.fill}` }}>
       <div className="flex items-start gap-2">
         <input type="checkbox" checked={selected} onChange={onToggle} aria-label={`Select ${deal.title}`} className="mt-0.5 accent-sf-accent" />
-        <Link to={String(deal.id)} className="min-w-0 flex-1 font-medium text-sf-ink no-underline hover:underline">{deal.title}</Link>
+        <Link to={`/crm/deals/${deal.id}`} className="min-w-0 flex-1 font-medium text-sf-ink no-underline hover:underline">{deal.title}</Link>
         <DealTemperatureIcon value={deal.deal_temperature} onCycle={onCycle} disabled={archived} />
       </div>
       {who && <div className="mt-1 truncate text-xs text-sf-ink-mute">{who}</div>}
