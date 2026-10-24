@@ -1,6 +1,6 @@
 import { Suspense, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation } from 'react-router';
-import { AppIcon, IconBell, IconBuilding, IconHome, IconMenu, IconSliders, IconUsers } from '../../shared/icons';
+import { AppIcon, IconBuilding, IconHome, IconMenu, IconSliders, IconUsers } from '../../shared/icons';
 import { MobileMenuDrawer, type DrawerItem } from '../../shared/MobileMenuDrawer';
 import { useIsMobile } from '../../shared/useIsMobile';
 import { useCoreApps } from '../apps/CoreAppsContext';
@@ -8,6 +8,7 @@ import { navItems } from '../apps/registry';
 import { useAuth } from '../auth/AuthContext';
 import BootFallback from '../components/BootFallback';
 import ChunkErrorBoundary from '../components/ChunkErrorBoundary';
+import { NotificationBell } from '../records/NotificationBell';
 import { coreNavItems } from './coreNav';
 import { ThemeToggle } from './ThemeToggle';
 import { UserMenu } from './UserMenu';
@@ -60,11 +61,7 @@ export function Layout() {
         )}
         <div className="flex-1" />
         <ThemeToggle />
-        {/* Slot for the notification bell, which arrives with the notifications service. */}
-        <span title="Notifications arrive in a later release" aria-hidden
-          className="flex h-8 w-8 items-center justify-center text-sf-ink-dim">
-          <IconBell size={16} />
-        </span>
+        <NotificationBell />
         {!isMobile && user && <UserMenu user={user} items={menu} onSignOut={() => void signOut()} />}
       </header>
       {menuOpen && (
