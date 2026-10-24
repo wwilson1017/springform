@@ -3640,6 +3640,8 @@ export interface components {
         };
         /** BackupsOverview */
         BackupsOverview: {
+            /** Key Mismatch */
+            key_mismatch: string | null;
             /** Key Shown */
             key_shown: boolean;
             /**
@@ -4688,6 +4690,8 @@ export interface components {
             apps: string[];
             /** Fts5 */
             fts5: boolean;
+            /** Key Mismatch */
+            key_mismatch: boolean;
             /** Last Backup At */
             last_backup_at: string | null;
             /** Preview */

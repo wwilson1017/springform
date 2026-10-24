@@ -3,7 +3,7 @@
 A data directory copied by hand to a server with another ENCRYPTION_KEY boots and serves, but
 every stored secret reads as unset. On a mismatch the boot logs an ERROR with the remedy and
 stores the manifest's filename at KEY_MISMATCH (an internal core_settings row) for the Backups
-page; a match, or no backup at all, clears it. It never refuses to boot: an install whose key is
+page and /api/health; a match, or no backup at all, clears it. It never refuses to boot: an install whose key is
 lost must still start so its admin can recover.
 """
 
@@ -11,10 +11,9 @@ import logging
 
 from backend.core import db, secrets, settings
 from backend.core.backup import service
+from backend.core.backup.service import KEY_MISMATCH
 
 logger = logging.getLogger(__name__)
-
-KEY_MISMATCH = "backups.key_mismatch"
 
 
 def _newest_fingerprint() -> tuple[str, str] | None:

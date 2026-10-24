@@ -54,6 +54,8 @@ Conventions:
   covers, which a client can send back as the `start`/`end` range.
 - App manifest field `hidden_by_default`: the app starts hidden from members on an install that has
   not seen it before; an admin's later show or hide always wins.
+- The Backups overview carries `key_mismatch`, the newest backup manifest taken under another
+  encryption key (null when they match), and `/api/health` carries `key_mismatch` as true or false.
 
 ### Changed
 

@@ -32,6 +32,7 @@ ORPHAN_AGE = 3600  # seconds before a snapshot without a manifest, or a .tmp, co
 STAMP = re.compile(r"^\d{8}T\d{6}Z(-\d+)?$")
 SNAPSHOT, MANIFEST = ".sqlite", ".manifest.json"
 KEY_SHOWN = "backups.key_shown_at"
+KEY_MISMATCH = "backups.key_mismatch"  # written at boot by startup.py
 MANIFEST_VERSION = 1
 
 _running = threading.Lock()  # one run at a time, whether the job or "Back up now" started it
@@ -233,6 +234,12 @@ def last_backup_at() -> str | None:
     return None
 
 
+def key_mismatch() -> str | None:
+    """The newest manifest taken under another encryption key, as the last boot found it (None when
+    the keys match or there is no backup)."""
+    return settings.get_setting(KEY_MISMATCH)
+
+
 def overview() -> dict:
     """The Backups page: the sets, the last run (so a failure or skip is visible) and the key state."""
     return {
@@ -241,6 +248,7 @@ def overview() -> dict:
         "last_run": db.one("SELECT * FROM core_backups ORDER BY id DESC LIMIT 1"),
         "key_source": key_source(),
         "key_shown": settings.get_setting(KEY_SHOWN) is not None,
+        "key_mismatch": key_mismatch(),
     }
 
 
