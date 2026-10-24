@@ -62,7 +62,7 @@ The service forms are `contacts.service.merge_people_in(conn, target_id, source_
 
 **Preconditions**
 
-1. Both ids are first resolved to their chain heads: `resolve(id)` follows `merged_into_id` with a cycle guard.
+1. Both ids are first resolved to their chain heads: `resolve_in(conn, kind, id)` follows `merged_into_id` with a cycle guard (a loop is a 409).
 2. Self-merge is refused (422).
 3. Merging into an archived record is refused (409).
 4. The actor needs write access to both records.
@@ -98,16 +98,26 @@ Each function has an `_in(conn, …)` form.
 | `get_person`, `get_organization` | One record, or `{"merged_into": head}` for a merged id. |
 | `search` | Search via `core_contacts_fts`. |
 | `create_person`, `create_organization` | Create a record. |
-| `update_person`, `update_organization` | Update fields (channels through `_sync_primary`). |
+| `update_person`, `update_organization` | Update fields. `email` / `phone` rewrite the primary channel of that kind, and `_sync_primary` then refreshes the mirror columns; other channels and addresses change only through the routes (§5), not `contacts.api`. |
 | `link` / `unlink` | Person ↔ organization with a role. |
 | `organizations_for` | Organizations of a person. |
 | `people_for` | People of an organization. |
 | `resolve_or_create_organizations` | Match organizations by name, creating the missing ones. |
 | `merge_people`, `merge_organizations` | §3; the `_in` forms take `(conn, user, target_id, source_id)`. |
 | `find_duplicates` | Lifted from CakeCRM `analytics_service.py:234-330`. Keys (email, phone digits, person name, organization domain) are trimmed and `casefold()`ed in Python, so accented names group. |
-| `resolve` | Follows `merged_into_id` to the chain head. |
+| `resolve` | `resolve(kind, record_id)`: follows `merged_into_id` to the chain head. Takes no user and authorizes nothing. |
 
-Open (pinned by the implementing workstream, which updates this doc): the full argument lists of the remaining functions (see `backend/core/contacts/api.py`).
+Argument lists as built (each `_in` form adds `conn` first; the record shapes are in the `backend/core/contacts/api.py` docstring):
+
+- `get_person(user, person_id)`, `get_organization(user, organization_id)`
+- `create_person(user, **fields)`, `create_organization(user, **fields)`; `update_person(user, person_id, **fields)`, `update_organization(user, organization_id, **fields)`
+- `search(user, q, kind=None, limit=20)`
+- `organizations_for(user, person_id)`, `people_for(user, organization_id)`
+- `link(user, person_id, organization_id, role="", is_primary=False, started_on=None, ended_on=None)` returns the link; `unlink(user, person_id, organization_id, role="")`
+- `resolve_or_create_organizations(user, names)` returns `{name: id}`
+- `merge_people(user, target_id, source_id)`, `merge_organizations(user, target_id, source_id)` return the survivor's detail
+- `find_duplicates(user, kind, limit=50)` returns `[{match_on, value, count, records: [{id, label}]}]`
+- `resolve(kind, record_id)` returns the head id
 
 Whisk reaches the directory through `backend/core/contacts/tools.py` (`core_search_contacts`, `core_get_person`, `core_get_organization`, `core_create_person`, `core_create_organization`, `core_link_person_organization`; `agent.md` §4), which calls only these functions, as the acting user.
 
@@ -149,11 +159,11 @@ Lifted from CakeCRM `backend/crm/service.py:315-1031` (~650 lines) plus `backend
 | Piece | Source | Contract |
 |---|---|---|
 | `ContactPicker` | CakeCRM `crm/components/RecordCombobox.tsx` (458, already generic) + `crm/dealLinkPickers.ts` | Picks a person or organization. |
-| People list + detail | CakeCRM `crm/ContactsPage.tsx`, `crm/ContactDetailPage.tsx` | Detail renders every app's `recordPanels["core.person"]`. |
-| Organizations list + detail | CakeCRM `crm/CompaniesPage.tsx`, `crm/CompanyDetailPage.tsx` | Detail renders every app's `recordPanels["core.organization"]`. |
-| Forms | CakeCRM `crm/components/ContactForm.tsx`, `CompanyForm.tsx` | |
+| `ListPage` | CakeCRM `crm/ContactsPage.tsx`, `crm/CompaniesPage.tsx` | One page for `/people` and `/organizations`: search, archived toggle, tag and organization filters, pages of 50, "New …" and the duplicates panel. |
+| `DetailPage` | CakeCRM `crm/ContactDetailPage.tsx`, `crm/CompanyDetailPage.tsx` (shape only) | One page for `/people/:id` and `/organizations/:id`; renders `recordPanels["core.person"]` or `recordPanels["core.organization"]` for the apps the user receives. |
+| `NewRecordDialog`, `FieldsForm` | CakeCRM `crm/components/ContactForm.tsx`, `CompanyForm.tsx` (shape only, for the dialog) | `NewRecordDialog` creates either kind; `FieldsForm` is the shared form for the record's edit form and the channel, address and link rows. |
 
-The four pages and forms are ~1,350 lifted lines. Detail pages also host the core record components (`records.md`).
+The pages and forms are 650 lines (the plan expected ~1,350 lifted). The detail page also hosts the core record components (`records.md`).
 
 Pages: `/people`, `/people/:id`, `/organizations`, `/organizations/:id` (`frontend-shell.md` §3).
 
