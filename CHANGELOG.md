@@ -29,6 +29,11 @@ Conventions:
   tool call asks for approval, results are treated as untrusted, and private addresses are refused.
 - Setting `agent.context_budget_chars`: how much business memory Whisk reads per turn.
 - The workspace API returns the install's public URL (`PUBLIC_URL`) for Settings to show read-only.
+- Todos screens: Today, Inbox triage, To Do, Waiting, Someday, Done, Projects, Areas, Review, search
+  and a page per todo, with a private/team switch and an assignee on todos, projects and areas, a
+  Mine / Everyone switch, changes from others every 30 seconds, a To-dos panel on people and
+  organizations, and a Settings card for the default visibility.
+- The Todos filters answer carries `default_visibility`, so members see the default too.
 - Settings: editable workspace name and timezone, app hide/show and reorder, GitHub and Google Sheets
   integrations, export download and upload limit; a Backups page with "Back up now", downloads and the
   one-time encryption-key reveal.

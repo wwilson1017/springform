@@ -72,7 +72,9 @@ class TestCreate:
     def test_the_default_visibility_is_a_setting(self, me):
         from backend.core import settings
 
+        assert service.filters(me)["default_visibility"] == "private"
         settings.set_setting("todos.default_visibility", "team", None)
+        assert service.filters(me)["default_visibility"] == "team"  # the form's starting point
         assert add(me, "shared by default")["visibility"] == "team"
         assert add(me, "but not this", visibility="private")["visibility"] == "private"
 
