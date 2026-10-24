@@ -33,13 +33,13 @@ All lifted code is the author's sole authorship (Decisions, License); the proven
 | `backend/core/localtime.py` | CakeCRM | `backend/core/localtime.py` | 67 (head) | lift | |
 | `backend/core/clock.py` | — | — | — | new | `now_iso()`, `normalize`. |
 | `backend/core/secrets.py` | CakeCRM | `backend/core/secret_store.py` | 309 (head) | lift | Minus keychain. Key: env → `/data/.encryption-key` → generated. |
-| `backend/core/secrets.py` (encryption) | CakeCRM | `backend/core/encryption.py` | 151 (head) | lift | `enc:v1:` format. Open (pinned by the implementing workstream, which updates this doc): whether it lands as its own module. |
-| `backend/core/backup.py` | todo-gtd | `backend/backup.py` | 103 (head) | port | Adapted: recovery sets, manifests written last, blob pinning, key fingerprint. |
+| `backend/core/secrets.py` (encryption) | CakeCRM | `backend/core/encryption.py` | 151 (head) | lift | `enc:v1:` format. Lands in `backend/core/secrets.py` with the key ladder, not as its own module. |
+| `backend/core/backup/service.py` | todo-gtd | `backend/backup.py` | 103 (head) | port | Adapted: recovery sets, manifests written last, blob pinning, key fingerprint. |
 | `scripts/restore.sh` | — | — | — | new | |
 | `backend/core/scheduler.py` | todo-gtd | `backend/main.py` `_tick` (line 75) | ~300 target (plan) | port | Loop shape only; jobs, guard, semaphore, statuses are new. |
-| `backend/core/ratelimit.py` | todo-gtd | `backend/ratelimit.py` | 119 (head) | lift | §6. |
-| `backend/core/logscrub.py` | — | — | — | — | Open (pinned by the implementing workstream, which updates this doc): source not stated (todo-gtd has `backend/logscrub.py`, 88 at head). |
-| `backend/core/registry.py`, `entities.py`, `kv.py`, `settings.py`, `errors.py`, `pagination.py`, `changelog.py`, `preview.py` | — | — | `entities.py` ~260 (plan) | new | |
+| `backend/core/ratelimit.py` | todo-gtd | `backend/ratelimit.py` | 119 (head) | lift | Not built yet (planned for the MCP inbound limiter, §6). Login rate limits are a sliding window over `core_login_attempts` in `backend/core/auth/service.py`. |
+| `backend/core/logscrub.py` | — | — | — | — | Not built yet. Open (pinned by the implementing workstream, which updates this doc): source not stated (todo-gtd has `backend/logscrub.py`, 88 at head). |
+| `backend/core/registry.py`, `entities.py`, `outbox.py`, `settings.py`, `errors.py`, `pagination.py`, `changelog.py`, `preview.py`, `platform/` | — | — | `entities.py` ~260 (plan), about 195 built | new | No `kv.py`: install settings are `settings.py` and `platform/keys.py`. |
 | `backend/main.py` | — | — | — | new | |
 
 ## Login (§2)
@@ -79,7 +79,7 @@ All lifted code is the author's sole authorship (Decisions, License); the proven
 | `backend/core/files/` | CakeCRM | `backend/crm/attachment_service.py`, `backend/core/thumbnails.py` | 379 → 330; 260 (plan) / 245 (head) | port | Bytes move to `/data/files`; publication and sweep protocol new. |
 | `backend/core/fields/` | CakeCRM | `backend/crm/field_service.py` | 427 → 400 | port | `VALID_ENTITY_TYPES` → `entities.get`. |
 | `backend/core/views/` | CakeCRM | `backend/saved_views/` | 356 → 320 | port | `Json()` → `json.dumps`. |
-| `backend/core/reports/` | CakeCRM | `backend/crm/export.py` `_cell` (90–102; at 96 at head) | new ~250 | new + lift | `report_service.py` (477) stays CRM-owned. |
+| `backend/core/reports/` | — | — | new ~250 | new | `report_service.py` (477) stays CRM-owned. The `_cell` lift lives in `backend/core/export/csv_export.py`. |
 | `backend/core/notifications/` | CakeCRM | `backend/notifications/` | 767 → 650 | port | Telegram branch → `register_channel`. |
 | `backend/core/reminders/` | CakeCRM | `backend/reminders/` | 767 → 700 | port | `recurrence.py` unchanged; `crm.service`/`gtd_common` imports cut. |
 | `frontend/src/core/records/` | CakeCRM | `frontend/src/crm/components/{NotesThread,ActivityTimeline,NoteComposer,MentionPicker,NoteAttachments,CustomFieldsSection,CustomFieldInputs,CustomFieldSettings,NotificationsBell,ReminderForm}.tsx`, `useCustomFieldsForm.ts`, `chatterAttachments.ts`, `RemindersPage.tsx`; `frontend/src/shared/collection/{SavedViewsMenu.tsx,savedViews.ts}` | ~2,700 lifted + 400 new (plan); head: 276, 232, 323, 185, 137, 165, 72, 215, 209, 205, 84, 156, 206; 396, 83 | lift | Donor files by name; the plan gives totals and the `NotesThread` + `ActivityTimeline` merge. `ReportTable` new. |
@@ -88,22 +88,22 @@ All lifted code is the author's sole authorship (Decisions, License); the proven
 
 | Springform path | Donor | Donor path | Lines (plan) | Action | Notes |
 |---|---|---|---|---|---|
-| `backend/core/agent/providers/` | CakeCRM | `backend/providers/` | 2,400 lifted / 200 ported (head: 3,038 py) | lift | `credentials.py` → `core_agent_providers` + settings. |
-| `backend/core/agent/spec.py`, `registry.py` | CakeCRM | `backend/assistant/registry.py` | 212 → 150 / 160 new | port | Sources = core + apps + MCP; atomic swap. |
-| `backend/core/agent/{confirm_tier,engine,history,assembly,compaction,delimiters,write_budget}.py` | CakeCRM | `backend/assistant/` same names | ~2,500 (head: 127, 840, 674, 318, 566, 370, 53) | lift | JSONB→TEXT; Gmail/page bindings cut; `turns.py` (564) skipped in v1; `uploads.py` not lifted. |
+| `backend/core/agent/providers/` | CakeCRM | `backend/providers/` (Anthropic and OpenAI only; Google, Ollama, Together, model listing, tier inference and pricing not lifted) | about 590 built (head: 3,038 py) | lift | `credentials.py` rewritten for `core_agent_providers` only; `fake.py` and `windows.py` new. |
+| `backend/core/agent/spec.py`, `registry.py` | CakeCRM | `backend/assistant/registry.py`, `backend/assistant/confirm_tier.py` (folded into `spec.py`) | 212 → 150 / 160 new | port | Sources = core + apps + MCP; atomic swap. |
+| `backend/core/agent/{engine,history,assembly,compaction,delimiters,write_budget}.py` | CakeCRM | `backend/assistant/` same names | ~2,500 (head: 840, 674, 318, 566, 370, 53) | lift | JSONB→TEXT; Gmail/page bindings cut; `turns.py` (564) skipped in v1; `uploads.py` not lifted. |
 | `backend/core/agent/deferred.py` | chatty | `backend/core/agents/deferred_tools.py` | 350 (head 410) | lift | Group key = app slug, threshold 100. |
 | `backend/core/agent/agents.py` | CakeCRM | `backend/assistant/identity.py` | 300 (head 737) | port | Rows, not a singleton. |
-| `backend/core/agent/memory/` | chatty | `backend/core/agents/memory/` (`db.py` 1,124 head) | part of 1,800 | lift | FTS5, temporal facts, observations; drop GCS, brain (`brain_backend.py`), commitments (`commitments.py`). |
-| `backend/core/agent/context_files/` | CakeCRM | `backend/context_files/` | part of 1,800 (head 1,274 py) | port | tsvector → FTS5. Chatty's context-file layout. |
-| `backend/core/agent/observer.py`, `dreaming.py`, `jobs.py` | chatty | `backend/core/agents/memory/observer.py` (329), `backend/core/agents/dreaming/` (312) | 580 | lift | Nightly, setting-gated, skipped with zero keys. |
+| `backend/core/memory/facts.py` | CakeCRM | `backend/memory/service.py` (Chatty's memory as CakeCRM ported it) | part of 1,800 | port | FTS5, temporal facts, soft invalidation. Chatty's `db.py` was not lifted directly. |
+| `backend/core/memory/context_files.py` | CakeCRM | `backend/context_files/service.py` | part of 1,800 (head 1,274 py) | port | One module; tsvector → FTS5. Chatty's context-file layout. |
+| `backend/core/memory/observer.py`, `dreaming.py`, `jobs.py` | chatty, CakeCRM | `backend/core/agents/memory/observer.py` (329) and CakeCRM `backend/memory/observer.py` | 580 | lift + new | The observer is lifted; dreaming is new plain Python (merges duplicate facts, no model call); Chatty's `dreaming/` was not lifted. Nightly, setting-gated. |
 | `backend/core/agent/router.py` | CakeCRM | `backend/assistant/router.py` | 250 (head 428) | port | Minus uploads. |
-| `backend/core/agent/mcp_server.py` | todo-gtd | `backend/mcp_server.py` HTTP section | 250 | new + lift | Plan cites ~700–946; at head the section is 832–946. Donor uses FastMCP; Springform uses the `mcp` low-level `Server`. |
-| `backend/core/agent/mcp_client.py` | — | — | 320 | new | |
+| `backend/core/mcp/` (inbound server) | todo-gtd | `backend/mcp_server.py` HTTP section | 250 | new + lift | Plan cites ~700–946; at head the section is 832–946. Donor uses FastMCP; Springform uses the `mcp` low-level `Server`. |
+| `backend/core/mcp_servers/` (outbound client) | — | — | 320 | new | |
 | `frontend/src/core/agent/WhiskPage` | chatty | `frontend/src/agent/AgentPage.tsx` | 967 → ~400 | port | |
 | `frontend/src/core/agent/AgentChatPanel` | chatty | `frontend/src/agent/components/AgentChatPanel.tsx` | 880 → ~500 | port | |
 | `frontend/src/core/agent/useAgentChat` | chatty | `frontend/src/agent/hooks/useAgentChat.ts` | 653 → ~400 | port | |
 | `frontend/src/core/agent/AgentMessageBubble` | chatty | `frontend/src/agent/components/AgentMessageBubble.tsx` | 515 → ~350 | port | |
-| `ConversationSidebar`, `useConversations`, `ConfirmHost` | chatty | `frontend/src/agent/components/ConversationSidebar.tsx` (273), `frontend/src/agent/hooks/useConversations.ts` (197), `frontend/src/shared/ConfirmHost.tsx` (126) | head | lift | |
+| `ConversationSidebar`, `useConversations` | chatty | `frontend/src/agent/components/ConversationSidebar.tsx` (273), `frontend/src/agent/hooks/useConversations.ts` (197) | head | lift | |
 | `MarkdownContent` | chatty | `frontend/src/agent/components/MarkdownContent.tsx` | 94 (head) | lift | As is. |
 | `ContextFilesPage` | chatty | `frontend/src/agent/components/AgentContextEditor.tsx` | 453 (head) | port | |
 | `ProviderSetup` + keys card | CakeCRM | `frontend/src/setup/ProviderSetup.tsx` | 129 (head) | lift | |
@@ -147,17 +147,17 @@ All lifted code is the author's sole authorship (Decisions, License); the proven
 
 | Springform path | Donor | Donor path | Lines | Action | Notes |
 |---|---|---|---|---|---|
-| `backend/core/sheets.py` (service account) | cake_os | `backend/core/google_sheets.py` | 261 (head); `service_account_email()` at 239 | lift | |
-| `backend/core/sheets.py` (A1, guards, read/write) | cake_os | `backend/core/agents/tools/sheets_tools.py`: A1 helpers 171–270, `forbidden_formula`/`check_values` 111–170, `read_range` 616, `write_range` 845 | file 1,115 (head) | lift | Line numbers confirmed at head. |
+| `backend/core/sheets/google.py` (`GoogleSheets`, `parse_service_account`) | cake_os | `backend/core/google_sheets.py` | 261 (head); `service_account_email()` at 239 | lift | |
+| `backend/core/sheets/google.py` (A1 helpers, `forbidden_formula`, `check_values`) | cake_os | `backend/core/agents/tools/sheets_tools.py`: A1 helpers 171–270, `forbidden_formula`/`check_values` 111–170, `read_range` 616, `write_range` 845 | file 1,115 (head) | lift | Line numbers confirmed at head. |
 | Sheets client, cache, refresh, throttle | — | — | — | new | |
-| `backend/core/csv_export.py` | CakeCRM | `backend/crm/export.py:90-102` `_cell` | file 157 (head) | lift | |
-| `backend/core/export_policy.py` | — | — | — | new | |
+| `backend/core/export/csv_export.py` | CakeCRM | `backend/crm/export.py:90-102` `_cell` | file 157 (head) | lift | |
+| `backend/core/export/policy.py` | — | — | — | new | |
 
 ## Platform screens (§10)
 
 | Springform path | Donor | Donor path | Lines | Action | Notes |
 |---|---|---|---|---|---|
-| `frontend/src/shared/` | CakeCRM | `frontend/src/shared/` subset | ~900 (plan); folder is 8,307 (head) | lift | Toast, confirm, icons, styles, `MobileMenuDrawer`, … |
+| `frontend/src/shared/` | CakeCRM | `frontend/src/shared/` subset | ~900 (plan); folder is 8,307 (head) | lift | Toast, confirm, `ConfirmHost`, icons, styles, `MobileMenuDrawer`, … |
 | `BootFallback` | CakeCRM | `frontend/src/core/components/BootFallback.tsx` | 36 (head) | lift | |
 | `ChunkErrorBoundary` | CakeCRM | `frontend/src/core/components/ChunkErrorBoundary.tsx` | 298 (head) | lift | |
 | `useTheme` + contrast tests | CakeCRM | `frontend/src/core/theme/useTheme.ts`, `hueContrast.test.ts`, `inkContrast.test.ts` | 87 (head) | lift | |
@@ -165,8 +165,8 @@ All lifted code is the author's sole authorship (Decisions, License); the proven
 | `frontend/src/core/api/client.ts` | CakeCRM | `frontend/src/core/api/client.ts` | 143 (head) | lift | + `openapi-fetch`. |
 | `bootSplit.test.ts` | CakeCRM | `frontend/src/bootSplit.test.ts` | 838 (head) | port | Every app lazy. |
 | Settings registry | CakeCRM | `frontend/src/crm/settingsSections.ts` | 147 (head) | port | Core cards + one section per app. |
-| `backend/core/docs.py` (Guide) | CakeCRM | `backend/help/library.py` | 262 (head) | port | Front matter, 8k cap, lazy warm, deterministic search. |
-| Launcher, Layout/Nav, Settings, Requests, ChangeLog, Backups, Jobs, Sheets pages; `backend/core/github.py` | — | — | ~1,900 + tests | new | |
+| `backend/core/guide/library.py` (Guide) | CakeCRM | `backend/help/library.py`, `backend/help/search.py` | 262 (head) | port | Front matter, 8k cap, lazy warm, deterministic search. |
+| Launcher, Layout/Nav, Settings, Requests, ChangeLog, Backups, Jobs, Sheets pages; `backend/core/requests/github.py` | — | — | ~1,900 + tests | new | |
 
 ## Deploy, CI, maintainability (§13, §14)
 

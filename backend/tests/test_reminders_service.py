@@ -34,7 +34,7 @@ def test_routes_round_trip_and_ownership(login_as, freeze):
     r = _remind(a, note="ask about pricing", due_at="2026-11-03T15:00:00Z", entity_type=W, entity_id=w["id"])
     assert r == {
         "id": r["id"], "owner": {"id": a.user["id"], "name": a.user["name"]}, "mine": True,
-        "entity_type": W, "entity_id": w["id"], "entity_title": "Sprocket", "link": f"/example/widgets/{w['id']}",
+        "entity_type": W, "entity_id": w["id"], "entity_title": "Sprocket", "link": f"/example/{w['id']}",
         "title": "Call back", "note": "ask about pricing", "due_at": "2026-11-03T15:00:00Z", "repeat": None,
         "series_id": r["id"], "status": "open", "void_reason": None, "fired_at": None,
         "created_at": "2026-11-02T09:00:00Z", "updated_at": "2026-11-02T09:00:00Z",
@@ -102,7 +102,7 @@ def test_fires_under_a_frozen_clock_with_its_notification_in_the_same_transactio
     assert _row(r["id"]) == {"status": "open", "void_reason": None, "fired_at": "2026-11-02T09:00:00Z", "due_at": "2026-11-02T09:00:00Z"}
     assert _notes() == [{
         "user_id": a.user["id"], "title": "Reminder: Call back", "message": "ask about pricing",
-        "entity_type": W, "entity_id": w["id"], "link": f"/example/widgets/{w['id']}",
+        "entity_type": W, "entity_id": w["id"], "link": f"/example/{w['id']}",
     }]  # fmt: skip
     assert reminders.fire_due()["fired"] == 0  # once only
 
