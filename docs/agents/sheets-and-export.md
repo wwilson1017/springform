@@ -76,8 +76,12 @@ An admin downloads a ZIP of CSVs.
 ### Column allow-list
 
 1. Core tables and columns listed in `CORE_EXPORT` in `backend/core/export/policy.py`.
-2. Plus each app's `EXPORT` map from `seed.py`: `{"<table>": {"entity_type": "<slug>.<name>" | None, "columns": [...]}}`.
-3. Nothing else. The contract test checks that `EXPORT` names only owned tables, real columns and a registered entity type (or `None`).
+2. Plus each app's `EXPORT` map from `seed.py`, in the same shape as `CORE_EXPORT`: `{"<table>": {"entity": ..., "columns": [...], "id_column"?: ..., "where"?: ..., "owner_column"?: ...}}`.
+   - `entity`: the entity type that authorizes each row, or `None` for no row check. It may name row columns in braces, filled from the row: `"{entity_type}"` (timeline, files), `"core.{owner_type}"`.
+   - `id_column`: the row column holding that record's id; default `"id"`, meaning the row is the record.
+   - `where`: a fixed SQL filter on the table.
+   - `owner_column`: for rows whose record id is NULL (attached to nothing), the column naming the user they belong to. Such rows go only to that user; without it they are left out.
+3. Nothing else. The contract test checks that an app's `EXPORT` names only tables the app owns, real columns, and one of the app's own registered entity types. `None` and the brace forms are therefore for `CORE_EXPORT` only.
 
 ### Never exported
 
@@ -91,17 +95,17 @@ An admin downloads a ZIP of CSVs.
 
 ### Rows follow the same rules as the screen (decided)
 
-1. Each `EXPORT` entry names its entity type, or `None`.
-2. Rows the exporting admin cannot `can_read` are left out (other members' private todos, private timeline rows on them).
+1. Each `EXPORT` entry names its entity type in `entity`.
+2. A row is exported only when `entities.authorize(read)` passes for the exporting admin. Rows they cannot read are left out (other members' private todos, private timeline rows on them). An entry whose `entity` is `None` has no row check.
 3. The export is a business-data export. The full `/data` backup remains the privileged recovery path (`deploy.md`).
 
-Open (pinned by the implementing workstream, which updates this doc): the ZIP's file naming (one CSV per table?) and how tables without an entity type (core tables, and app entries with `"entity_type": None`) are row-filtered.
+The ZIP is `springform-export-<timestamp>.zip`. It holds one `<table>.csv` per allowed table, plus `manifest.json` with `{version, created_at, exported_by, tables: [{name, file, columns, rows}]}`.
 
 ## Tests that pin this
 
 - Export ZIP columns pinned and secrets absent.
 - A two-user test proves a private todo is absent from the other admin's export.
-- Contract test: `EXPORT` names only owned tables, real columns and a registered entity type (or `None`).
+- Contract test: `EXPORT` names only owned tables, real columns and one of the app's registered entity types.
 
 ## Source
 
