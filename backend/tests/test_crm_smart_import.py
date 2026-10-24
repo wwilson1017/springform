@@ -114,10 +114,30 @@ def test_confirm_creates_people_links_organizations_and_skips_a_bad_row(me):
     assert contacts.get_person(me, out["person_ids"][1])["organizations"][0]["name"] == "Demo Café Group"
 
 
+def test_confirm_skips_people_already_in_contacts_and_repeated_rows(me):
+    with core_db.transaction() as conn:
+        contacts.create_person_in(conn, me, name="Known Person", email="Known@Example.com")
+
+    def person(name, email="", organization=""):
+        return {"name": name, "email": email, "phone": "", "organization": organization, "title": "", "source": "", "notes": "", "tags": []}
+
+    out = smart_import.confirm(me, [
+        person("Ada Example", "ada@example.com"), person("Known Again", " known@example.com", "Orphan Org"),
+        person("Ada Twin", "ADA@example.com"), person("Known Person"), person("No Email"), person("no email"),
+    ])  # fmt: skip
+    assert out["created"] == 2 and out["skipped"] == [
+        "Row 2 (Known Again): already in contacts (same email)", "Row 3 (Ada Twin): the same email as an earlier row",
+        "Row 4 (Known Person): already in contacts (same name)", "Row 6 (no email): the same name as an earlier row",
+    ]  # fmt: skip
+    assert core_db.one("SELECT count(*) AS n FROM core_organizations WHERE name = 'Orphan Org'")["n"] == 0, "a skipped row creates no organization"
+
+
 def test_the_routes(login_as):
     member = login_as("member")
     parsed = member.post("/api/crm/import/parse", files={"file": ("contacts.vcf", VCF, "text/vcard")})
     assert parsed.status_code == 200 and len(parsed.json()["people"]) == 2
     done = member.post("/api/crm/import/confirm", json={"people": parsed.json()["people"]})
     assert done.status_code == 200 and done.json()["created"] == 2
+    again = member.post("/api/crm/import/confirm", json={"people": parsed.json()["people"]}).json()
+    assert (again["created"], len(again["skipped"])) == (0, 2), "importing the same file twice adds nobody"
     assert member.post("/api/crm/import/confirm", json={"people": []}).status_code == 422
