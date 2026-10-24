@@ -108,6 +108,39 @@ describe('UsersCard', () => {
     expect(within(theirs).getByRole('button', { name: 'Deactivate' })).toBeTruthy();
   });
 
+  it('makes a password reset link to copy for someone else, never for yourself', async () => {
+    const fetchMock = renderCard({
+      [LIST]: { body: [row(1, { email: 'boss@example.com', name: 'Boss', role: 'admin' }), row(2), row(3)] },
+      'POST /api/auth/users/2/reset-link': { body: { reset_url: 'http://x.test/reset-password/r2', mailed: true } },
+      'POST /api/auth/users/3/reset-link': { body: { reset_url: 'http://x.test/reset-password/r3', mailed: false } },
+    });
+    await screen.findByText('(you)');
+    expect(within(screen.getByText('Boss').closest('li')!).queryByRole('button', { name: 'Reset link' })).toBeNull();
+
+    const two = screen.getByText('User 2').closest('li')!;
+    fireEvent.click(within(two).getByRole('button', { name: 'Reset link' }));
+    const panel = await within(two).findByRole('status');
+    expect((within(panel).getByLabelText('Reset link') as HTMLInputElement).value).toBe('http://x.test/reset-password/r2');
+    expect(within(panel).getByRole('button', { name: 'Copy' })).toBeTruthy();
+    expect(panel.textContent).toContain('Sent by email too.');
+    expect(callsTo(fetchMock, 'POST', '/api/auth/users/2/reset-link')).toHaveLength(1);
+
+    const three = screen.getByText('User 3').closest('li')!;
+    fireEvent.click(within(three).getByRole('button', { name: 'Reset link' }));
+    expect((await within(three).findByRole('status')).textContent).not.toContain('Sent by email');
+  });
+
+  it("says so when an account can't get a reset link", async () => {
+    renderCard({
+      [LIST]: { body: [row(1, { email: 'boss@example.com', name: 'Boss', role: 'admin' }), row(2)] },
+      'POST /api/auth/users/2/reset-link': { status: 404, body: { detail: 'not_found' } },
+    });
+    const two = (await screen.findByText('User 2')).closest('li')!;
+    fireEvent.click(within(two).getByRole('button', { name: 'Reset link' }));
+    expect((await within(two).findByRole('alert')).textContent).toBe("This account can't get a reset link. Reload the list.");
+    expect(within(two).queryByRole('status')).toBeNull();
+  });
+
   it('offers a new invite link only while the invite is pending', async () => {
     renderCard({
       [LIST]: { body: [row(1, { email: 'boss@example.com', name: 'Boss', role: 'admin' }), row(4, { invite_pending: true, has_password: false })] },
@@ -115,6 +148,7 @@ describe('UsersCard', () => {
     });
     const pending = (await screen.findByText('User 4')).closest('li')!;
     expect(within(screen.getByText('Boss').closest('li')!).queryByRole('button', { name: 'New invite link' })).toBeNull();
+    expect(within(pending).queryByRole('button', { name: 'Reset link' })).toBeNull();
     fireEvent.click(within(pending).getByRole('button', { name: 'New invite link' }));
     expect((await screen.findByRole('status')).textContent).toMatch(/Invite emailed to u4@example.com/);
   });
