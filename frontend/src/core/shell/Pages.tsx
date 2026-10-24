@@ -10,6 +10,17 @@ export function NotFound() {
   );
 }
 
+/** What a member sees on an admin-only page (RequireAdmin). */
+export function NotAllowed() {
+  return (
+    <div className="mx-auto max-w-xl px-4 py-16 text-center">
+      <h1 className="m-0 font-display text-2xl font-medium text-sf-ink">Not allowed</h1>
+      <p className="text-sf-ink-mute">Only admins can open this page.</p>
+      <Link to="/" className="text-sf-accent-text">Back to the launcher</Link>
+    </div>
+  );
+}
+
 /** A core screen whose real version arrives in a later wave. */
 export function ComingSoon({ title }: { title: string }) {
   return (

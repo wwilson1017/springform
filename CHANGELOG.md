@@ -49,6 +49,8 @@ Conventions:
 
 ### Changed
 
+- A member who opens an admin-only page sees "Not allowed" with a link home, instead of being sent
+  somewhere else.
 - The example app serves a widget at one URL, `/example/<id>`, the one the backend links to; the
   `/example/widgets/<id>` alias is gone.
 - A fresh install no longer runs every daily job (backup, files sweep, agent nightly) at first

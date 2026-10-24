@@ -13,7 +13,7 @@ export interface CoreRoute {
   element: ReactNode;
   /** Rendered outside the signed-in shell, like /login. */
   public?: boolean;
-  /** Members get the 403 page. */
+  /** Members get the Not allowed page. */
   admin?: boolean;
 }
 

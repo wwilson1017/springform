@@ -47,9 +47,9 @@ describe('Settings sections by role', () => {
     expect(await within(nav).findByRole('link', { name: 'Account' })).toBeTruthy();
     expect(within(nav).queryByRole('link', { name: 'Users' })).toBeNull();
     expect(within(nav).queryByRole('link', { name: 'Sign-in' })).toBeNull();
-    // The deep link fell back to the member's first section.
-    expect(await screen.findByRole('heading', { name: 'Profile' })).toBeTruthy();
-    expect(screen.getByRole('heading', { name: 'Security' })).toBeTruthy();
+    // The deep link says so in place instead of loading the admin cards.
+    expect(await screen.findByRole('heading', { name: 'Not allowed' })).toBeTruthy();
+    expect(screen.queryByRole('heading', { name: 'Users' })).toBeNull();
     expect(callsTo(fetchMock, 'GET', '/api/auth/users?status=active')).toHaveLength(0);
   });
 

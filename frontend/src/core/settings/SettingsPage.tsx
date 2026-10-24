@@ -9,7 +9,7 @@ import { settingsSections, visibleCards, visibleSections, type SettingsSection }
 
 /**
  * `/settings/<section>`. Unknown sections fall back to the first visible one rather than 404ing;
- * an all-admin section sits behind RequireAdmin, so a member's deep link lands on /settings.
+ * an all-admin section sits behind RequireAdmin, so a member's deep link says Not allowed.
  */
 export function SettingsPage() {
   const { isAdmin } = useAuth();
@@ -36,7 +36,7 @@ export function SettingsPage() {
       </nav>
       <div className="min-w-0 flex-1">
         {adminOnly
-          ? <RequireAdmin fallback="/settings"><SectionCards section={section} isAdmin={isAdmin} /></RequireAdmin>
+          ? <RequireAdmin><SectionCards section={section} isAdmin={isAdmin} /></RequireAdmin>
           : <SectionCards section={section} isAdmin={isAdmin} />}
       </div>
     </div>
