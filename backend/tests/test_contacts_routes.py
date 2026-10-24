@@ -18,7 +18,9 @@ def test_people_organizations_links_and_channels_over_http(login_as):
     acme = _ok(member.post(f"{BASE}/organizations", json={"name": "Acme Example", "domain": "acme.example.com"}))
     globex = _ok(member.post(f"{BASE}/organizations", json={"name": "Globex Sample"}))
     assert member.post(f"{BASE}/organizations", json={"name": "acme example"}).status_code == 409
-    ada = _ok(member.post(f"{BASE}/people", json={"name": "Ada Example", "email": "ada@example.com", "phone": "555-0101", "tags": ["vip"]}))
+    ada = _ok(member.post(f"{BASE}/people", json={
+        "name": "Ada Example", "email": "ada@example.com", "phone": "555-0101", "tags": ["vip"], "owner_user_id": member.user["id"],
+    }))  # fmt: skip
     link = {"person_id": ada["id"], "organization_id": acme["id"], "role": "Buyer"}
     _ok(member.post(f"{BASE}/links", json={**link, "started_on": "2026-01-05"}))
     _ok(member.post(f"{BASE}/links", json={"person_id": ada["id"], "organization_id": globex["id"], "role": "Advisor"}))
@@ -35,6 +37,7 @@ def test_people_organizations_links_and_channels_over_http(login_as):
 
     detail = _ok(member.get(f"{BASE}/people/{ada['id']}"))
     assert detail["email"] == "ada@work.example.com" and detail["tags"] == ["vip"]
+    assert (detail["owner_name"], acme["owner_name"]) == (member.user["name"], None)
     assert [(o["name"], o["role"], o["is_primary"], o["started_on"]) for o in detail["organizations"]] == [
         ("Globex Sample", "Partner", True, None), ("Acme Example", "Buyer", False, "2026-01-05"),
     ]
@@ -52,7 +55,9 @@ def test_people_organizations_links_and_channels_over_http(login_as):
     found = _ok(member.get(f"{BASE}/search", params={"q": "ada exam"}))
     assert [(h["kind"], h["id"], h["url"]) for h in found] == [("person", ada["id"], f"/people/{ada['id']}")]
     listed = _ok(member.get(f"{BASE}/people", params={"organization_id": globex["id"]}))
-    assert [(p["id"], p["primary_organization_name"]) for p in listed["items"]] == [(ada["id"], "Globex Sample")]
+    assert [(p["id"], p["primary_organization_name"], p["owner_name"]) for p in listed["items"]] == [
+        (ada["id"], "Globex Sample", member.user["name"]),
+    ]
     assert member.patch(f"{BASE}/people/{ada['id']}", json={"nickname": "x"}).status_code == 422
     assert member.post(f"{BASE}/channels", json={"owner_type": "person", "owner_id": ada["id"], "kind": "fax", "value": "1"}).status_code == 422
     assert member.get(f"{BASE}/people/9999").status_code == 404
