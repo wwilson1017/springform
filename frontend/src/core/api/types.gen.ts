@@ -5318,6 +5318,8 @@ export interface components {
             name: string;
             /** Notes */
             notes: string | null;
+            /** Owner Name */
+            owner_name: string | null;
             /** Owner User Id */
             owner_user_id: number | null;
             /** People */
@@ -5411,6 +5413,8 @@ export interface components {
             name: string;
             /** Notes */
             notes: string | null;
+            /** Owner Name */
+            owner_name: string | null;
             /** Owner User Id */
             owner_user_id: number | null;
             /** Phone */
@@ -5492,6 +5496,8 @@ export interface components {
             notes: string | null;
             /** Organizations */
             organizations: components["schemas"]["OrganizationLink"][];
+            /** Owner Name */
+            owner_name: string | null;
             /** Owner User Id */
             owner_user_id: number | null;
             /** Phone */
@@ -5592,6 +5598,8 @@ export interface components {
             name: string;
             /** Notes */
             notes: string | null;
+            /** Owner Name */
+            owner_name: string | null;
             /** Owner User Id */
             owner_user_id: number | null;
             /** Phone */
