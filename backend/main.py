@@ -14,6 +14,7 @@ from fastapi.routing import APIRoute
 from backend.core import REPO_ROOT, VERSION, db, errors, preview, registry, scheduler, settings
 from backend.core.auth import bootstrap, csrf
 from backend.core.auth.deps import User, current_user
+from backend.core.backup import service as backup
 
 FRONTEND_DIST = REPO_ROOT / "frontend" / "dist"
 
@@ -61,7 +62,7 @@ def create_app(apps_dir: Path = db.APPS_DIR) -> FastAPI:
             "fts5": db.fts5_enabled(conn),
             "preview": settings.preview_mode(),
             "apps": [a.slug for a in registry.installed()],
-            "last_backup_at": None,  # the backup workstream fills this
+            "last_backup_at": backup.last_backup_at(),
         }
 
     @app.get("/api/core/apps", tags=["core"])
