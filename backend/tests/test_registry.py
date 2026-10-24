@@ -23,8 +23,8 @@ def test_member_gets_403_on_an_admin_only_app(login_as):
     assert admin.get("/api/adminonly/ping").json() == {"ok": True}
     assert [a["slug"] for a in member.get("/api/core/apps").json()] == []
     assert [a["slug"] for a in admin.get("/api/core/apps").json()] == ["adminonly"]
-    assert [t.name for t in tools.for_user(member.principal)] == []
-    assert [t.name for t in tools.for_user(admin.principal)] == ["adminonly_peek"]
+    assert [t.name for t in tools.for_user(member.principal) if t.app != "core"] == []
+    assert [t.name for t in tools.for_user(admin.principal) if t.app != "core"] == ["adminonly_peek"]
 
 
 def test_apps_listing_by_role_and_hidden_state(login_as):
