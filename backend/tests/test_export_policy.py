@@ -58,8 +58,9 @@ def test_report_csv_respects_admin_only_and_app_roles(app, login_as):
     assert member.get("/api/core/reports/example.echo/csv?since=2026-01-01&q==x").content.decode("utf-8-sig").splitlines() == [
         "param,value", "q,'=x", "since,2026-01-01",
     ]
-    for key in ("example.secret", "example.admins", "example.nope"):
-        assert member.get(f"/api/core/reports/{key}/csv").status_code == 404
+    assert member.get("/api/core/reports/example.secret/csv").json() == {"detail": "admin_only"}
+    assert member.get("/api/core/reports/example.admins/csv").status_code == 403
+    assert member.get("/api/core/reports/example.nope/csv").status_code == 404
     assert admin.get("/api/core/reports/example.secret/csv").status_code == 200
     assert admin.get("/api/core/reports/example.admins/csv").status_code == 200
     assert make_client(app).get("/api/core/reports/example.echo/csv").status_code == 401
