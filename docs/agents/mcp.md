@@ -43,12 +43,12 @@ exposed = registry.for_user(link.user) ∩ registry.for_source("mcp")
 | Bearer `/mcp` with a bad or missing token | **401**. |
 | `/.well-known/…`, `/register`, `/authorize`, `/token` | **404** (no OAuth; a client finds no sign-in and uses the link as is). |
 | Body over **4 MB** | Refused (413 in the donor). |
-| More than **600 calls/min per link** | Refused by the rate limiter. |
+| More than **600 calls/min per link**, or over the per-IP limit (the donor's `IPRateLimiter(window=60, max_hits=600)`, lifted) | Refused by the rate limiters. Both apply. |
 | A request carrying an `Origin` header | Refused. |
 
 The plan cites the donor section as lines ~700–946; at the recorded donor sha it is lines 832–946 (`source-map.md`).
 
-Open: the donor's `call_limiter` is per IP (`IPRateLimiter(window=60, max_hits=600)`); the plan says "per link". Open: whether a link use updates `last_used_at` on every call. Open: the token format and length. Open: link mint/list/revoke routes (shape to be pinned by W14).
+Open (pinned by the implementing workstream, which updates this doc): whether a link use updates `last_used_at` on every call. The token format and length. Link mint/list/revoke routes (shape to be pinned by W14).
 
 ### SDK
 
@@ -80,7 +80,7 @@ core_agent_mcp_servers(id, name, url, token_enc, prefix UNIQUE, enabled, tools_j
 3. Discovered tools are swapped into the registry **atomically**. Old specs stay valid for already-pending approvals only until their `tool_def_sha256` check fails.
 4. A failing server drops its tools (and records `last_error`), not the app.
 
-Open: the hourly discovery job is not in §11's core job list; its job name and whether it runs through the scheduler are not stated.
+Open (pinned by the implementing workstream, which updates this doc): the hourly discovery job is not in §11's core job list; its job name and whether it runs through the scheduler are not stated.
 
 ### Naming
 

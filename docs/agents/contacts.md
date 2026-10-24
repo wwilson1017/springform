@@ -9,7 +9,7 @@ The directory is core so every app points at the same people. People and organiz
 
 ## 1. Tables
 
-Migration: see Open at the end of this section.
+Migration: the core init migration, `20261020000100_core_init.sql`. There is no separate contacts migration.
 
 ```sql
 core_people(
@@ -45,7 +45,7 @@ core_contact_channels(owner_type, owner_id,
 core_contacts_fts   -- FTS5, tokenize = unicode61, over both people and organizations, maintained by triggers
 ```
 
-Open: Step 1 lists "contacts tables" inside `20261020000100_core_init.sql`, while §3 names `20261020000300_core_contacts.sql`; which file holds them is unresolved. Open: the `…` columns of `core_people` (timestamps), the enum values of `source` and `status`, and the FTS column list are not stated. Open: whether `core_addresses` and `core_contact_channels` have their own primary-uniqueness index per owner (the plan states one only for links).
+Open (pinned by the implementing workstream, which updates this doc): the `…` columns of `core_people` (timestamps), the enum values of `source` and `status`, and the FTS column list are not stated. Whether `core_addresses` and `core_contact_channels` have their own primary-uniqueness index per owner (the plan states one only for links).
 
 ## 2. Primary-channel sync
 
@@ -53,7 +53,7 @@ Open: Step 1 lists "contacts tables" inside `20261020000100_core_init.sql`, whil
 2. They are rewritten by the service **in the same transaction** whenever channels change.
 3. There is **one writer path**: `contacts.service._sync_primary(conn, owner)`. Nothing else writes those columns.
 
-Open: whether `core_organizations.email` / `phone` are mirrored the same way (`_sync_primary` takes an `owner`, and channels have `owner_type`, but the plan states the mirror only for people).
+Open (pinned by the implementing workstream, which updates this doc): whether `core_organizations.email` / `phone` are mirrored the same way (`_sync_primary` takes an `owner`, and channels have `owner_type`, but the plan states the mirror only for people).
 
 ## 3. Merge
 
@@ -76,16 +76,16 @@ Open: whether `core_organizations.email` / `phone` are mirrored the same way (`_
 | Custom field values | The target's non-empty value wins, else the source's. |
 | Timeline rows | Repointed, keeping their original author and time, plus one `system` row on the survivor: "merged #<source> into this record". |
 | Reminders | Repointed. |
-| App data | Through `on_entity_merged_in` subscribers in the same transaction. Example: the CRM's subscriber repoints deals and keeps the higher `crm_person_scores` score. |
+| Notifications | Repointed, like reminders. |
+| App data | Through `on_entity_merged` subscribers (dispatched by `on_entity_merged_in`) in the same transaction. Example: the CRM's subscriber repoints deals and keeps the higher `crm_person_scores` score. |
 
 **After the move**
 
 1. The source gets `merged_into_id = target` and `archived_at`.
 2. **Every older alias that pointed at the source is re-pointed at the target.** Aliases are kept flat, so a read of any merged id resolves in one hop.
-3. Reads of a merged id return `{"merged_into": head}`.
-4. A failing subscriber rolls the whole merge back.
-
-Open: the HTTP status of a read that returns `{"merged_into": head}` is not stated. Open: whether a merge writes a `core_change_log` row, and how notifications that point at the source are handled, are not stated.
+3. Reads of a merged id return **200** `{"merged_into": head}`.
+4. The merge writes one `core_change_log` row per record.
+5. A failing subscriber rolls the whole merge back.
 
 ## 4. Published `contacts.api`
 
@@ -106,7 +106,7 @@ Each function has an `_in(conn, …)` form.
 
 `resolve(id)` (follows `merged_into_id` to the chain head) is a service function the merge uses; the plan does not list it among the published functions.
 
-Open: full signatures (person vs organization variants, argument names) are not stated (to be pinned by W2).
+Open (pinned by the implementing workstream, which updates this doc): full signatures (person vs organization variants, argument names) are not stated (to be pinned by W2).
 
 ## 5. Routes
 
@@ -136,7 +136,7 @@ Lifted from CakeCRM `backend/crm/service.py:315-1031` (~650 lines) plus `backend
 
 The four pages and forms are ~1,350 lifted lines. Detail pages also host the core record components (`records.md`).
 
-Open: core page paths (`/people`, `/organizations`, …) are not stated.
+Pages: `/people`, `/people/:id`, `/organizations`, `/organizations/:id` (`frontend-shell.md` §3).
 
 ## Tests that pin this
 
