@@ -20,6 +20,8 @@ Conventions:
 
 ### Added
 
+- Backups page: a warning when the server's encryption key does not match the newest backup, naming
+  the manifest and linking the Guide's backups topic.
 - Settings, Users: admins make a one-time password reset link for another account, to copy, and see
   when it was emailed too.
 - Record services UI: custom fields on records with an admin field editor, saved views, a Reports
