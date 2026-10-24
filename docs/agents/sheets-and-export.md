@@ -66,7 +66,7 @@ stream_csv(header, rows, filename)
 ```
 
 1. Every cell goes through CakeCRM `crm/export.py:90-102` `_cell` (formula-injection guard).
-2. Used by `GET /api/core/reports/{key}?format=csv` and the admin export.
+2. Used by `GET /api/core/reports/{key}/csv` and the admin export.
 3. `core.csv_export.stream_csv` is a frozen Step 1 stub signature that W4 fills.
 
 ## 6. Admin export (`GET /api/core/export`)

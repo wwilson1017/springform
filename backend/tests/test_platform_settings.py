@@ -1,4 +1,4 @@
-from backend.core import db as core_db, settings
+from backend.core import db as core_db, memory, settings
 from backend.core.platform import keys
 
 from .conftest import make_client
@@ -85,3 +85,21 @@ def test_settings_are_admin_only_and_workspace_is_for_every_member(login_as, app
         "preview": False,
     }
     assert workspace["version"]
+
+
+def test_get_lists_only_settable_keys_so_a_round_trip_put_succeeds(login_as):
+    admin = login_as("admin")
+    settings.set_setting("backups.key_shown_at", "2026-11-02T09:00:00Z", None)  # internal core rows
+    settings.set_setting("notifications.vapid_public_key", "BPub", None)
+    settings.set_setting("auth.google_client_secret", "gsecret", None, is_secret=True)
+    settings.set_setting("gone.colour", "red", None)  # an app that is no longer installed
+    body = admin.get("/api/core/settings").json()
+    listed = set(body["values"]) | set(body["secrets"]) | set(body["defaults"])
+    assert listed == set(keys.known())
+    assert body["values"]["agent.context_budget_chars"] == memory.DEFAULT_BUDGET
+    assert admin.put("/api/core/settings", json={"values": body["values"]}).status_code == 200
+
+    assert admin.put("/api/core/settings", json={"values": {"agent.context_budget_chars": 0}}).status_code == 422
+    r = admin.put("/api/core/settings", json={"values": {"agent.context_budget_chars": 4000}})
+    assert r.json()["values"]["agent.context_budget_chars"] == 4000
+    assert settings.get_setting(memory.BUDGET_SETTING) == 4000  # what memory.context_for reads

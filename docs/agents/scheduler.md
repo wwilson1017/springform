@@ -62,7 +62,7 @@ running | ok | error | timed_out | interrupted | skipped
 
 | Kind | Rule |
 |---|---|
-| `at` | Once per install-local day, computed in the install timezone, **DST-safe**. A **single catch-up** if the slot was missed (restart or downtime). |
+| `at` | Once per install-local day, computed in the install timezone, **DST-safe**. A **single catch-up** if the slot since the job's last run was missed (restart or downtime). A job that has **never run waits for its next slot**: a fresh install does not run every `at` job (backup, files sweep, agent nightly) at first boot. |
 | `every` | Not caught up. |
 
 Timezone: `core_settings.timezone` (IANA, default `UTC`). Nothing hardcoded.
@@ -100,6 +100,7 @@ Step 1 ships a minimal scheduler: `Job`, the loop, `run_now`. W3 completes it.
 
 - Stale `running` → `interrupted`.
 - Missed `at` catches up once.
+- A never-run `at` job waits for its next slot; a manual run after the slot is not followed by a catch-up.
 - Overlapping job skipped.
 - A job that ignores its timeout: no second instance starts and the slot is released only when it ends.
 - Two drainers started by hand claim disjoint rows.

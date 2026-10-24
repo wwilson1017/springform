@@ -40,7 +40,7 @@ and runs the sync `on_record_changed` subscribers (through `on_record_changed_in
 ### Rules
 
 1. Reads and writes go through `entities.authorize`.
-2. `system` rows record platform actions (e.g. "merged #<source> into this record").
+2. `system` rows record platform actions (e.g. "merged #<source> into this record"). Core writes them with `timeline.add_system_in(conn, entity_type, entity_id, body)`; the author is the system principal (`id=0`), and the acting user is in the change log.
 3. Merges repoint timeline rows keeping the original author and time (`contacts.md`).
 4. A mention in `body` is written `@[Name](user:ID)`. It notifies only users who `can_read` the record (`deliver_in` to each mentioned user who passes).
 
@@ -163,7 +163,7 @@ Report(key, label, app, params, run(params, user) -> (columns, rows), admin_only
 1. Apps register via `reports.py` (`REPORTS = [Report(...)]`).
 2. `run` receives the user and **must apply `can_read`**.
 3. An app's reports default to "user has one of the app's roles" before their own checks; `admin_only` restricts to admins.
-4. `GET /api/core/reports/{key}?format=csv` streams CSV via `core.csv_export.stream_csv` (shape to be pinned by W2).
+4. `GET /api/core/reports/{key}/csv` streams CSV via `core.csv_export.stream_csv`. It runs through `reports.service.run`, the same role check and param parsing as the JSON route `GET /api/core/reports/{key}` (defaults applied, bad params 422).
 5. CakeCRM's `report_service.py` stays CRM-owned in `apps/crm/reports.py`.
 
 Open (pinned by the implementing workstream, which updates this doc): the `params` schema format, the JSON (non-CSV) response shape, and a report-listing route are not stated.

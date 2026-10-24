@@ -1,5 +1,6 @@
 """Every test runs on a real temporary SQLite database; nothing in the data layer is mocked."""
 
+import contextlib
 import itertools
 
 import httpx
@@ -31,25 +32,45 @@ def _isolate(tmp_path, monkeypatch):
     core_db.close()
 
 
-@pytest.fixture(autouse=True)
-def _no_network_inside_transaction(monkeypatch):
-    """The rule "no network call inside transaction()", enforced for the whole suite."""
-    sync_send, async_send = httpx.Client.send, httpx.AsyncClient.send
+def _http_clients() -> list[tuple[type, str, bool]]:
+    """(class, method, is_async) for every HTTP client the code reaches: httpx, httpx2 (the AI SDKs)
+    and requests (pywebpush). A client whose module is not installed is left out."""
+    clients = [(httpx.Client, "send", False), (httpx.AsyncClient, "send", True)]
+    with contextlib.suppress(ImportError):
+        import httpx2
 
+        clients += [(httpx2.Client, "send", False), (httpx2.AsyncClient, "send", True)]
+    with contextlib.suppress(ImportError):
+        import requests.sessions
+
+        clients.append((requests.sessions.Session, "request", False))
+    return clients
+
+
+_HTTP_CLIENTS = _http_clients()
+
+
+def _refuse_inside_transaction(original, is_async: bool):
     def guard():
         if core_db.in_transaction():
             raise AssertionError("network call inside transaction()")
 
-    def send(self, *args, **kwargs):
+    def call(self, *args, **kwargs):
         guard()
-        return sync_send(self, *args, **kwargs)
+        return original(self, *args, **kwargs)
 
-    async def asend(self, *args, **kwargs):
+    async def acall(self, *args, **kwargs):
         guard()
-        return await async_send(self, *args, **kwargs)
+        return await original(self, *args, **kwargs)
 
-    monkeypatch.setattr(httpx.Client, "send", send)
-    monkeypatch.setattr(httpx.AsyncClient, "send", asend)
+    return acall if is_async else call
+
+
+@pytest.fixture(autouse=True)
+def _no_network_inside_transaction(monkeypatch):
+    """The rule "no network call inside transaction()", enforced for the whole suite."""
+    for cls, method, is_async in _HTTP_CLIENTS:
+        monkeypatch.setattr(cls, method, _refuse_inside_transaction(getattr(cls, method), is_async))
 
 
 @pytest.fixture

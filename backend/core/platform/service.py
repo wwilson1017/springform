@@ -20,18 +20,20 @@ if TYPE_CHECKING:
 
 
 def settings_view() -> dict:
-    """`values` and `defaults` for plain keys; `secrets` says only whether a secret is set."""
+    """The keys an admin may change (`keys.known()`: core keys, then installed apps' DEFAULTS):
+    `values` and `defaults` for plain keys; `secrets` says only whether a secret is set. Every other
+    `core_settings` row is internal state a core package keeps for itself (credentials with their own
+    card, the VAPID keypair, when the backup key was shown) and is not listed."""
     spec = keys.known()
     stored = {r["key"]: r for r in db.rows("SELECT key, value, is_secret FROM core_settings")}
     values, secrets_, defaults = {}, {}, {}
-    for key in sorted(set(spec) | set(stored)):
-        k, row = spec.get(key), stored.get(key)
-        if (k and k.secret) or (row and row["is_secret"]):
+    for key in sorted(spec):
+        k, row = spec[key], stored.get(key)
+        if k.secret or (row and row["is_secret"]):
             secrets_[key] = bool(row and row["value"])
             continue
-        values[key] = settings.get_setting(key, k.default if k else None)
-        if k:
-            defaults[key] = k.default
+        values[key] = settings.get_setting(key, k.default)
+        defaults[key] = k.default
     return {"values": values, "secrets": secrets_, "defaults": defaults}
 
 
