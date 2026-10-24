@@ -8,7 +8,7 @@ order: 13
 One bulk operation: **moving deals to another stage**. There is no bulk archive, delete, reassign
 or merge.
 
-Tick the cards you want, pick a stage, apply. There is no confirmation: moving them back undoes it.
+Tick the cards you want and choose a stage from **Move to…**; the deals move at once (Won first asks for the closing day). There is no confirmation: moving them back undoes it.
 
 ## Limits and failures
 

@@ -1,6 +1,6 @@
 # Frontend shell and the API block
 
-**What this covers:** §10 and §12: what is lifted into `frontend/src/core` and `frontend/src/shared`, the app registry and routing, the bootSplit rule, the launcher, the settings registry, the Guide, Requests, ChangeLog, Backups, Jobs and Sheets pages, type generation, the `--color-sf-*` tokens, and the full API block the frontend and backend are coded against.
+**What this covers:** §10 and §12: what is lifted into `frontend/src/core` and `frontend/src/shared`, the app registry and routing, the bootSplit rule, the launcher, the settings registry and its sections, the core discovery seams and page paths, the Guide, Requests, ChangeLog, Backups and Jobs pages, type generation (including request bodies), the `--color-sf-*` tokens, and the full API block the frontend and backend are coded against.
 **Who reads it:** W6 (shell), W1/W9 (settings cards), W3/W4/W5 (core pages), W11/W12/W13 (record, agent and CRM frontends), and every backend author whose routes the frontend calls.
 
 ## 1. Lifted from CakeCRM
@@ -24,6 +24,8 @@
 4. Record pages render apps' `recordPanels` for their entity type, passing `{entityType, entityId}`.
 5. Full contract in `apps-and-contracts.md` §5.
 
+**Links inside an app are absolute.** Root mounts an app at `<path>/*`, and react-router 7 resolves a relative link inside a splat route against the whole URL, so `<Link to="deals">` seen from `/crm/deals` resolves to `/crm/deals/deals`. Write `/crm/deals`, or build the path from the app root the way Todos' `todoPath('/inbox')` does (`src/apps/todos/menu.ts`). The app's own `<Routes>` stay relative (`<Route path="deals">`).
+
 ### bootSplit rule
 
 1. Every app's `index.tsx` is **lazy**; nothing in the boot chunk imports an app's screens.
@@ -35,28 +37,59 @@
 | Screen | Contract |
 |---|---|
 | Launcher | Tiles by role from `GET /api/core/apps`; hidden tiles shown to admins (`hidden: true`); **badge polling every 60 s while visible**. |
-| Layout / Nav | Core layout; apps' `nav` items from `contributions.ts`. |
-| Settings | Cards: Workspace (incl. timezone), Apps (order/hide), GitHub token, Sheets key, Backups, Export, AI, MCP, Security, Users. Plus one section per app from `contributions.ts` `settingsCards`, keyed by the manifest's `settings_cards[].id`; `admin_only` cards for admins only. |
-| Guide | `backend/core/guide/library.py` ports CakeCRM `help/library.py`. Core topics are `backend/core/docs/*.md`, slugged by file name. An app's `docs/index.md` is the topic `<slug>`, and its other `docs/<name>.md` files are `<slug>.<name>`. Each file opens with front matter: `title` (required, at most 80 characters), `summary` (optional, at most 200) and `order` (optional integer, default 1000). The body cap is **8,000 characters**. A bad topic (too long, an unknown key, a bad file name, a duplicate slug) is skipped and logged at runtime; a test loads strictly and fails CI on it. The library loads at startup and searches deterministically: title beats summary beats body, and ties break on slug. Routes: `GET /api/core/guide` (topics of core and of the apps on the caller's launcher), `GET /api/core/guide/search?q=&limit=` (at most 20), `GET /api/core/guide/{slug}` (`{slug, title, summary, body_markdown, app}`). |
+| Layout / Nav | `src/core/shell/Layout.tsx`: the header nav is Home, People, Organizations, then core `primary` items (`nav.tsx` seam below), then apps' `nav` items from `contributions.ts` for the apps the user receives. Core `menu` items and Settings sit in the user menu; the mobile drawer shows both lists plus Settings. |
+| Settings | `/settings/<section id>`. Core sections come from each area's `settingsCards.ts` (seam below), plus one section per app from `contributions.ts` `settingsCards`, keyed by the manifest's `settings_cards[].id`; `admin_only` cards for admins only. The sections as built are in the Settings table below. Backups is a page (`/backups`), not a card. |
+| Guide | `backend/core/guide/library.py` ports CakeCRM `help/library.py`. Core topics are `backend/core/docs/*.md`, slugged by file name. An app's `docs/index.md` is the topic `<slug>`, and its other `docs/<name>.md` files are `<slug>.<name>`. Each file opens with front matter: `title` (required, at most 80 characters), `summary` (optional, at most 200) and `order` (optional integer, default 1000). The body cap is **8,000 characters**. A bad topic (too long, an unknown key, a bad file name, a duplicate slug) is skipped and logged at runtime; a test loads strictly and fails CI on it. The library loads at startup and searches deterministically: title beats summary beats body, and ties break on slug. Routes: `GET /api/core/guide` (`[{slug, title, summary, app}]`, topics of core and of the apps on the caller's launcher), `GET /api/core/guide/search?q=&limit=` (`[{slug, title, snippet, app}]`; default 10, at most 20), `GET /api/core/guide/{slug}` (`{slug, title, summary, body_markdown, app}`). Pages: `/guide` (the index with search) and `/guide/:slug` (one topic), both from `src/core/pages/Guide.tsx` through `src/core/pages/routes.tsx`, with a Guide item in the user menu. |
 | Requests | Form: title, app, description, plus the warning text from the setting `requests.warning_text` → a GitHub issue in `github.repo`, labelled `request` and `app:<slug>` (`app` defaults to `core`), created with the token in the setting `github.token` (`backend/core/requests/github.py`). Routes: `POST /api/core/requests`, `GET /api/core/requests`, `GET /api/core/requests/config`, `POST /api/core/requests/refresh`. Board from `core_requests`, refreshed every 15 min (`core.requests_refresh`). |
 | ChangeLog | Filters: app, user, entity. Rows authorized per row (`records.md` §8). |
 | Backups | List, back up now, download, show the encryption key once (`deploy.md`). |
 | Jobs | Runs, run now; dead outbox rows (`scheduler.md`, `database-and-transactions.md`). |
-| Sheets admin | Connected sheets, status, refresh (`sheets-and-export.md`). |
+| Sheets admin | No page: connected sheets, status and refresh are the Google Sheets card in Settings → Integrations (`src/core/integrations/`, `sheets-and-export.md`). |
 
-W6 owns the settings registry and `settings/`. W1 (Security, Users) and W9 (AI, MCP) contribute cards **through the registry W6 defines in Step 1**; they do not edit `settings/`.
+`src/core/settings/` holds the registry (`settingsSections.ts`) and the shell's own sections (`settingsCards.ts`: Workspace, Apps, Data). Every other area contributes through its own `settingsCards.ts` and does not edit `settings/`.
 
 Core areas contribute to the shell by discovery, like apps; nobody edits `Root.tsx`, `Layout.tsx` or `settings/` to add one. Each module is an eager glob, so it holds only data and `lazy()` loaders:
 
 | File | Default export | Contract |
 |---|---|---|
-| `src/core/<area>/routes.tsx` | `CoreRoute[]`, `{path, element, public?, admin?}` | Shell routes render inside the signed-in Layout, admin ones behind `RequireAdmin`; `public` ones (an invite or reset link) render beside `/login`. Paths have no leading slash, and the first segment must be a reserved slug. |
-| `src/core/<area>/nav.tsx` | `CoreNavItem[]`, `{to, label, icon, placement: "primary" \| "menu", adminOnly?, order?}` | `primary` items sit in the header nav; `menu` items in the user menu and the mobile drawer. Lower `order` first, default 100. |
-| `src/core/<area>/settingsCards.ts` | `SettingsSection[]`, `{id, label, order?, cards: [{id, title, adminOnly, Card}]}` | The section id is the URL segment `/settings/<id>`. A section shows only when one of its cards does. |
+| `src/core/<area>/routes.tsx` | `CoreRoute[]`, `{path, element, public?, admin?}` (`src/core/shell/coreRoutes.ts`) | Shell routes render inside the signed-in Layout, admin ones behind `RequireAdmin`; `public` ones (an invite or reset link) render beside `/login`. Paths have no leading slash, and the first segment must be a reserved slug. |
+| `src/core/<area>/nav.tsx` | `CoreNavItem[]`, `{to, label, icon, placement: "primary" \| "menu", adminOnly?, order?}` (`src/core/shell/coreNav.ts`) | `icon` is an element sized 18, not a name. `primary` items sit in the header nav after Organizations and before the apps (keep it to one per area); `menu` items in the user menu and the mobile drawer. Lower `order` first, default 100. |
+| `src/core/<area>/settingsCards.ts` | `SettingsSection[]`, `{id, label, order?, cards: [{id, title, adminOnly, Card}]}` (`src/core/settings/settingsSections.ts`) | The section id is the URL segment `/settings/<id>`. A section shows only when one of its cards does. Core sections sort by `order` (default 0) and member-visible sections take a lower `order` than admin-only ones; app sections follow. |
 
-Core page paths: `/`, `/login`, `/setup`, `/invite/:token`, `/reset-password/:token`, `/people`, `/people/:id`, `/organizations`, `/organizations/:id`, `/settings/*`, `/guide`, `/guide/:slug`, `/reports`, `/requests`, `/changelog`, `/backups`, `/jobs`, `/whisk`, `/reminders`, `/notifications`. The backend mails `PUBLIC_URL/invite/<token>` and `PUBLIC_URL/reset-password/<token>` links. Each first segment is a reserved slug (`apps-and-contracts.md` §1).
+Core page paths, pinned. Add a new one only through a `routes.tsx` module, with its first segment added to `RESERVED_SLUGS` in `backend/core/registry.py`:
 
-Settings and Backups as built: there is no Sheets admin page; connected sheets are administered in Settings → Integrations (`/settings/integrations`), so `sheets` stays reserved but unrouted. Core sections: Workspace (10) and Apps (20) from `settings/`, member-visible read-only and edited by admins; Integrations (50: GitHub with `github.repo`, `github.token` and `requests.warning_text`; Google Sheets) from `integrations/`; Data (60: Export, Files with `files.max_bytes`) from `settings/`. `/backups` is `src/core/backups/` (route plus an admin-only user-menu item). The header's install name comes from `GET /api/core/workspace` through `settings/useWorkspace.ts`.
+| Path | Declared in | Notes |
+|---|---|---|
+| `/`, `/settings/*` | `src/core/Root.tsx` | The launcher (index) and Settings, inside the signed-in Layout. |
+| `/login`, `/setup` | `src/core/Root.tsx` | Outside the Layout. |
+| `/invite/:token`, `/reset-password/:token` | `src/core/auth/routes.tsx` | `public`. The backend mails `PUBLIC_URL/invite/<token>` and `PUBLIC_URL/reset-password/<token>` links. |
+| `/people`, `/people/:id`, `/organizations`, `/organizations/:id` | `src/core/contacts/routes.tsx` | Header links come from `Layout.tsx`. |
+| `/guide`, `/guide/:slug`, `/requests`, `/changelog`, `/jobs` | `src/core/pages/routes.tsx` | `/jobs` is `admin`. Menu items in `src/core/pages/nav.tsx`. |
+| `/backups` | `src/core/backups/routes.tsx` | `admin`; an admin-only menu item. |
+| `/whisk/*` | `src/core/agent/routes.tsx` | One splat for `/whisk` and `/whisk/<conversation id>`; the only `primary` nav item. |
+| `/reports`, `/reminders`, `/notifications` | `src/core/records/routes.tsx` | Reminders and Reports are menu items; Notifications opens from the header bell. |
+
+Each first segment is a reserved slug (`apps-and-contracts.md` §1).
+
+Settings sections as built, in the order a user sees them (a member sees only the sections with a card for members):
+
+| Order | `/settings/<id>` | Label | Cards | Declared in |
+|---|---|---|---|---|
+| 5 | `account` | Account | Profile, Security (members) | `src/core/auth/settingsCards.ts` |
+| 8 | `notifications` | Notifications | Push notifications (members) | `src/core/records/settingsCards.ts` |
+| 10 | `workspace` | Workspace | Workspace (members read, admins edit; includes the timezone) | `src/core/settings/settingsCards.ts` |
+| 20 | `apps` | Apps | Apps (members read, admins hide and order) | `src/core/settings/settingsCards.ts` |
+| 25 | `mcp` | MCP | MCP connector (members) | `src/core/mcp/settingsCards.ts` |
+| 30 | `users` | Users | Users (admin) | `src/core/auth/settingsCards.ts` |
+| 35 | `records` | Records | Custom fields (admin) | `src/core/records/settingsCards.ts` |
+| 40 | `signin` | Sign-in | Google sign-in (admin) | `src/core/auth/settingsCards.ts` |
+| 50 | `integrations` | Integrations | GitHub (`github.repo`, `github.token`, `requests.warning_text`), Google Sheets (admin) | `src/core/integrations/settingsCards.ts` |
+| 60 | `data` | Data | Export, Files (`files.max_bytes`) (admin) | `src/core/settings/settingsCards.ts` |
+| 70 | `ai` | AI | Providers, Agents, Memory, Nightly run (admin) | `src/core/agent/settingsCards.ts` |
+| 80 | `mcp_servers` | MCP servers | Connected MCP servers (admin) | `src/core/mcp_servers/settingsCards.ts` |
+| after core | `<slug>` | the app's name | The manifest's `settings_cards`, in launcher order: CRM (`crm`, admin), Todos (`todos`, members), Example (`example`, admin) | `src/apps/<slug>/contributions.ts` |
+
+There is no Sheets admin page, so `sheets` stays reserved but unrouted. `/backups` is `src/core/backups/` (route plus an admin-only user-menu item). The header's install name comes from `GET /api/core/workspace` through `settings/useWorkspace.ts`.
 
 ## 4. Type generation (§12)
 
@@ -66,6 +99,15 @@ Settings and Backups as built: there is no Sheets admin page; connected sheets a
 4. Apps use `paths['/api/todos/…']` and `components['schemas'][…]`.
 5. Routers are tagged by slug with stable `operationId`s so generated names do not churn.
 6. In a fork, `types.gen.ts` is a generated file and is exempt from the scope check (`forks.md`).
+
+**Request bodies are not the generated schema as is.** openapi-typescript marks every field that has a server-side default as required, so `components['schemas']['DealIn']` demands `currency`, `stage`, `notes` and the rest even though the server fills them. The operation's own body type, `paths['/api/crm/deals']['post']['requestBody']['content']['application/json']`, is that same schema, so it has the same problem. Type a request body as a `Partial<>` of the schema plus the fields the server requires, as `src/apps/crm/api.ts` does:
+
+```ts
+/** The generated DealIn marks defaulted fields required; the server fills them. */
+export const createDeal = (body: Partial<DealIn> & Pick<DealIn, 'title'>) => postJson<Deal>(`${BASE}/deals`, body);
+```
+
+Responses are fine as generated: a defaulted field is always present in what the server returns.
 
 ## 5. Frontend tests
 
@@ -114,7 +156,7 @@ Pinned since the block was written (the block stays verbatim; these refine it):
 - **Timeline:** `GET` pages with `?before=<id>&limit=` (default 50, at most 200), newest first. `POST` also accepts `kind` (`note` by default, `comment` allowed). Mentions in `body` are `@[Name](user:ID)`, and `GET /api/core/timeline/mentionable?q=` feeds the picker (`records.md` §1).
 - **Files:** `File` also carries `has_thumb`, and `GET /api/core/files/{id}/thumb` serves the thumbnail. `POST` returns 201 for a new attachment and 200 with the existing row for the same bytes on the same record. Download answers 410 `file_missing` when the bytes are gone. `DELETE` requires write access to the parent record (`records.md` §2).
 
-### Routes named elsewhere in the plan (shape to be pinned by the implementing workstream)
+### Routes documented elsewhere (each shape is pinned in its doc)
 
 | Route | Doc | Workstream |
 |---|---|---|
