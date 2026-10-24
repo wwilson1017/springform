@@ -6,7 +6,8 @@
 #   curl -fsSL https://raw.githubusercontent.com/wwilson1017/springform/master/deploy/setup.sh | sudo bash
 #
 # Without DOMAIN it asks. Optional: IMAGE=<a fork's image> (run `docker login ghcr.io` first if
-# the image is private), RCLONE_REMOTE=<remote:path> to schedule the off-site copy unattended.
+# the image is private), NO_PULL=1 to run an IMAGE already loaded with `docker load` instead of
+# pulling it, RCLONE_REMOTE=<remote:path> to schedule the off-site copy unattended.
 set -euo pipefail
 
 DIR=/srv/springform
