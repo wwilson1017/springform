@@ -237,19 +237,25 @@ def test_core_migrations_reference_only_core(tmp_path):
 
 
 # The only /api routes that answer without a session; every other one, core and app, must 401.
+# Sign-in flows from the login package; /api/auth/google/stub is out of the schema (PREVIEW_MODE only).
 ALLOW_UNAUTHENTICATED = {
-    "GET /api/health", "GET /api/auth/status", "POST /api/auth/setup", "POST /api/auth/login",
+    "GET /api/health",
+    "GET /api/auth/status", "POST /api/auth/setup", "POST /api/auth/login", "POST /api/auth/login/totp",
     "POST /api/auth/logout", "POST /api/auth/preview",
+    "GET /api/auth/google/start", "GET /api/auth/google/callback",
+    "GET /api/auth/invite/{token}", "POST /api/auth/invite/{token}", "POST /api/auth/forgot", "POST /api/auth/reset",
 }
 
 
-def anonymous_reachable(fastapi_app: FastAPI) -> list[str]:
-    """/api routes outside ALLOW_UNAUTHENTICATED that answer something other than 401 without a session."""
+def anonymous_reachable(fastapi_app: FastAPI, slug: str | None = None) -> list[str]:
+    """/api routes (only `/api/<slug>/` when given) outside ALLOW_UNAUTHENTICATED that answer
+    something other than 401 without a session."""
+    prefix = f"/api/{slug}/" if slug else "/api/"
     client, found = TestClient(fastapi_app), []
     for path, ops in fastapi_app.openapi()["paths"].items():
         for method in ops:
             route = f"{method.upper()} {path}"
-            if path.startswith("/api/") and route not in ALLOW_UNAUTHENTICATED:
+            if path.startswith(prefix) and route not in ALLOW_UNAUTHENTICATED:
                 status = client.request(method.upper(), re.sub(r"\{[^}]+\}", "1", path)).status_code
                 if status != 401:
                     found.append(f"{route} -> {status}")
