@@ -1,0 +1,46 @@
+[project]
+name = "springform"
+version = "0.1.0"
+description = "An open-source foundation for small-business software: one SQLite file, one process, apps in folders."
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.12"
+dependencies = [
+    "bcrypt>=4.2",
+    "cryptography>=43",
+    "fastapi>=0.115",
+    "httpx>=0.27",
+    "packaging>=24",
+    "pydantic>=2.9",
+    "pyjwt>=2.9",
+    "python-multipart>=0.0.12",
+    "uvicorn[standard]>=0.32",
+]
+
+[dependency-groups]
+dev = [
+    # SQLite with FTS5 for dev/CI. Linux x86_64 wheels only; elsewhere the stdlib sqlite3 is used.
+    "pysqlite3-binary>=0.5.4; sys_platform == 'linux' and platform_machine == 'x86_64'",
+    "pytest>=8.3",
+    "ruff>=0.7",
+]
+
+[tool.uv]
+package = false
+
+[tool.pytest.ini_options]
+testpaths = ["backend/tests"]
+pythonpath = ["."]
+addopts = "-q"
+
+[tool.ruff]
+target-version = "py312"
+exclude = [".venv", "data", "node_modules", "frontend"]
+
+[tool.ruff.lint]
+select = ["F", "E", "W", "I"]
+ignore = ["E501"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["backend"]
+combine-as-imports = true
