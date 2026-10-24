@@ -133,7 +133,13 @@ The restrictive entity the two-member test uses. `apps/todos/entities.py` regist
 1. Private todos: owner only (read, write, complete).
 2. Team todos: any active member may view, edit, complete, reassign.
 3. Admins see team todos and their own, never others' private ones.
-4. Deactivating a user hides their private todos (an admin "transfer" moves them to another owner) and leaves team todos in place.
+4. Only the owner makes a row private. The owner or an admin gives a row to someone else or deletes it.
+5. An admin may create a private row for another person; anyone else creates private rows only for themselves.
+6. A private row's assignee is nobody or its owner.
+7. The system principal (a job calling `api.create`) may create team todos only; with no other owner given, they are owned by user 0.
+8. Deactivating a user hides their private todos and leaves team todos in place. Nothing is written: an inactive user reads nothing, and only an owner reads a private row. An admin moves them to another owner with `POST /api/todos/transfer`.
+
+The same rules cover the app's projects and areas.
 
 ## 7. The system principal
 
@@ -149,7 +155,7 @@ The restrictive entity the two-member test uses. `apps/todos/entities.py` regist
 | Agent | Unattended runs (`source='job'`) run as the system principal and may only call tools that are `writes=False`, not `always_confirm`, not remote, not `untrusted_source`, enforced in `registry.for_source` (`agent.md`). |
 | Bootstrap | First-run checks look for the absence of **human** accounts (`WHERE role != 'system'`), not an empty table (`auth.md`). |
 
-The Todos team rev is stored in `todos_sync` at `user_id = 0` on purpose: 0 is the system principal's id, because the team rev belongs to no human.
+The Todos team rev is stored in `todos_sync` at `user_id = 0` on purpose: 0 is the system principal's id, because the team rev belongs to no human. `todos_sync` has one row per audience: 0 for the team, otherwise that user's private rows. Its `rev` is the audience's head in `todos_journal`, and `floor` (team row only) marks the first stamp since install or the last app reset, so an older cursor gets a full resend. Clients read the change feed with `since_rev` and continue from the returned `next_since_rev`.
 
 ## 8. The two-member test
 

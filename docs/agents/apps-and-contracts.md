@@ -79,7 +79,7 @@ Published APIs the plan fixes so far:
 | App | Functions |
 |---|---|
 | `crm` | `get_deal`, `deals_for_person`, `deals_for_organization`, `create_deal` (each with `_in`) |
-| `todos` | `create(acting_user_id, title, *, owner_user_id=None, visibility="private", entity_type=None, entity_id=None, due_date=None, notes="", source="app")` (creating for another owner requires `visibility="team"` or admin), `list_for_record(user, entity_type, entity_id, include_done=False)`, `complete(acting_user_id, todo_id)`; `_in` forms of each |
+| `todos` | `create(acting_user_id, title, *, owner_user_id=None, visibility="private", entity_type=None, entity_id=None, due_date=None, notes="", source="app")` (creating for another owner requires `visibility="team"` or an admin; the system principal may create team todos only, owned by user 0 when no owner is given), `list_for_record(user, entity_type, entity_id, include_done=False)`, `complete(acting_user_id, todo_id)`; `_in` forms of each |
 | `example` | `get_widget`, `widgets_for_person` (from `publishes`) |
 | core `contacts.api` | `contacts.md` |
 
