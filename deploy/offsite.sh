@@ -14,7 +14,7 @@ data=${DATA:-$(cd "$(dirname "$0")" && pwd)/data}
 
 manifest=
 for m in "$data"/backups/*.manifest.json; do
-  [ -e "$m" ] && manifest=$m   # the glob sorts by name, so the last one is the newest
+  [ -e "$m" ] && manifest=$m   # stamps are YYYYMMDDTHHMMSSZ, so the last match is the newest
 done
 if [ -z "$manifest" ]; then
   echo "no backup set in $data/backups yet"

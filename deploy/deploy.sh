@@ -13,7 +13,8 @@ docker compose pull --quiet
 docker compose up -d
 docker image prune -f >/dev/null
 
-up='import urllib.request; urllib.request.urlopen("http://127.0.0.1:8000/up", timeout=3)'
+base='import os, urllib.request; base = "http://127.0.0.1:%s" % os.environ.get("PORT", "8000")'
+up="$base"'; urllib.request.urlopen(base + "/up", timeout=3)'
 for _ in $(seq 60); do
   docker compose exec -T app python -c "$up" 2>/dev/null && break
   sleep 2
@@ -23,7 +24,7 @@ if ! docker compose exec -T app python -c "$up"; then
   echo "Springform did not answer /up within two minutes" >&2
   exit 1
 fi
-docker compose exec -T app python -c '
-import json, urllib.request
-health = json.load(urllib.request.urlopen("http://127.0.0.1:8000/api/health", timeout=5))
+docker compose exec -T app python -c "$base"'
+import json
+health = json.load(urllib.request.urlopen(base + "/api/health", timeout=5))
 print("Springform", health["version"], "is up (SQLite", health["sqlite_version"] + ")")'

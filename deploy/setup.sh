@@ -51,7 +51,7 @@ printf 'APT::Periodic::Update-Package-Lists "1";\nAPT::Periodic::Unattended-Upgr
   >/etc/apt/apt.conf.d/20auto-upgrades
 
 echo "== $DIR"
-mkdir -p "$DIR/data" "$DIR/backups"
+mkdir -p "$DIR/data"
 src=
 if [ -n "${BASH_SOURCE[0]:-}" ] && [ -f "$(dirname "${BASH_SOURCE[0]}")/compose.yml" ]; then
   src=$(dirname "${BASH_SOURCE[0]}")

@@ -122,7 +122,8 @@ only when a core rule changes.
 - Built-in apps: CRM and Todos, plus `example`, the integration fixture that uses every seam.
 - One default agent, Whisk. Login is invite-only with two roles.
 - A fork changes only `backend/apps/`, `frontend/src/apps/`, `docs/apps/`, lockfiles, generated
-  types and the globs in `fork-allow.txt`. Anything else is sent upstream.
+  types and the globs in `fork-allow.txt`. Anything else is sent upstream. The app folders are
+  fork-editable in full, built-in apps (CRM, Todos, example) included, by design.
 
 ## Commits and PRs
 

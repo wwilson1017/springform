@@ -42,7 +42,9 @@ It installs Docker, opens only ports 22/80/443, turns on automatic security upda
 `/srv/springform/.env` with fresh secrets, starts the app behind Caddy (automatic HTTPS), prints the
 setup token, and offers a nightly off-site copy of the backups with rclone. Update later with
 `sudo /srv/springform/deploy.sh`. A fork runs its own image: set `IMAGE=` in `.env` (and run
-`docker login ghcr.io` first if the image is private).
+`docker login ghcr.io` first if the image is private). A fork may edit anything under
+`backend/apps/` and `frontend/src/apps/`, built-in apps included, by design; CI's Fork scope job
+fails any other change that departs from the pinned upstream release.
 
 **Deploys are stop-before-start.** SQLite has one writer, and the app holds a lock on
 `/data/.springform.lock` so a second copy refuses to start. `docker compose up` stops the old
