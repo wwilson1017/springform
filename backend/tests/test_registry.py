@@ -57,11 +57,24 @@ def test_reset_keeps_ids_climbing_and_old_content_unreachable(app, make_user):
     assert timeline.list_for(other, "example.widget", fresh["id"]) == []
 
 
-def test_factory_reset_is_refused_once_a_human_exists(app, make_user):
-    make_user("admin")
-    with pytest.raises(Forbidden):
-        with core_db.transaction() as conn:
-            registry.factory_reset_in(conn)
+def test_factory_reset_only_on_an_install_holding_no_data(app, make_user):
+    admin = make_user("admin")
+    registry.factory_reset(caller=admin)  # the caller is the only human and nothing is stored yet
+    admin = make_user("admin")
+    with pytest.raises(Forbidden):  # another human account exists
+        registry.factory_reset()
+    with core_db.transaction() as conn:
+        conn.execute("DELETE FROM core_users WHERE id NOT IN (0, ?)", (admin.id,))
+    service.create_widget(admin, WidgetIn(name="Kept"))
+    with pytest.raises(Forbidden):  # an app table holds data
+        registry.factory_reset(caller=admin)
+
+
+def test_factory_reset_runs_core_startup_hooks_after_commit(app, monkeypatch):
+    ran = []
+    monkeypatch.setattr(registry, "run_startup_hooks", lambda: ran.append(core_db.in_transaction()))
+    registry.factory_reset()
+    assert ran == [False]
 
 
 def test_factory_reset_in_preview_clears_everything_and_reseeds(app, monkeypatch):
@@ -69,6 +82,7 @@ def test_factory_reset_in_preview_clears_everything_and_reseeds(app, monkeypatch
 
     monkeypatch.setenv("PREVIEW_MODE", "1")
     preview.seed()
+    preview.seed()  # every preview boot runs sample(); it must not duplicate
     assert core_db.one("SELECT count(*) AS n FROM example_widgets")["n"] == 2  # sample data
     with core_db.transaction() as conn:
         registry.factory_reset_in(conn)

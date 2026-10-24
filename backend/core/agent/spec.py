@@ -6,9 +6,9 @@ Two handler forms:
   `targets(args)` record. It uses `_in` service functions and never opens `transaction()`.
 - `handler(user, args)` for reads and external-effect tools: runs outside any transaction.
 
-`confirm_tier="routine"` (writes only) lets a write skip the Approve card; `hides_when(args)`
-puts the card back for a call that would take a record out of view; `always_confirm` forces a
-card even for reads (every remote tool). `tool_def_sha256` binds a pending approval to exactly
+`confirm_tier="routine"` (writes only) lets a write skip the Approve card; `always_confirm` forces
+a card even for reads (every remote tool). `hides_when(user)` returning True hides the tool from
+that user (registry.for_user). `tool_def_sha256` binds a pending approval to exactly
 what was shown, where it runs, and the implementation revision.
 """
 
@@ -42,7 +42,7 @@ class ToolSpec:
     targets: Callable[[dict], list[tuple[str, int]]] | None = None
     confirm_tier: str | None = None
     always_confirm: bool = False
-    hides_when: Callable[[dict], bool] | None = None
+    hides_when: Callable[[User], bool] | None = None
     enabled: Callable[[User], bool] = _always
     untrusted_source: bool = False
     external_effect: bool = False  # a write whose effect leaves the install (handler, not handler_in)
@@ -73,4 +73,4 @@ def tool_def_sha256(spec: ToolSpec) -> str:
         "server_id": spec.server_id,
         "server_url": spec.server_url,
     }
-    return hashlib.sha256(json.dumps(material, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+    return hashlib.sha256(json.dumps(material, sort_keys=True).encode()).hexdigest()

@@ -247,8 +247,8 @@ def migration_files(app_dirs_: list[Path], core_dir: Path = CORE_MIGRATIONS) -> 
 
 
 def lint_core_migration(sql: str) -> list[str]:
-    """Within a major version core never drops or renames (docs: core schema compatibility)."""
-    # simplification: lints every core migration; a 1.0 baseline migration will need an exemption.
+    """Within a major version core never drops or renames (docs: core schema compatibility).
+    A major release's `*_baseline.sql` is exempt: migrate skips the lint for it."""
     code = "\n".join(line.split("--", 1)[0] for line in sql.splitlines())
     return sorted({m.group(0).upper() for m in _NO_DROP.finditer(code)})
 
@@ -298,7 +298,8 @@ def migrate(app_dirs_: list[Path] | None = None, core_dir: Path = CORE_MIGRATION
                 if applied[f.name] != digest:
                     raise MigrationError(f"Migration {f.name} changed after it was applied; add a new migration instead")
                 continue
-            if f.parent.resolve() == core_dir.resolve() and (found := lint_core_migration(sql)):
+            is_core = f.parent.resolve() == core_dir.resolve()
+            if is_core and not f.name.endswith("_baseline.sql") and (found := lint_core_migration(sql)):
                 raise MigrationError(f"Core migration {f.name} uses {', '.join(found)}; core schema changes are additive")
             logger.info("Applying migration %s", f.name)
             try:

@@ -1,5 +1,6 @@
 """The Springform process. `create_app()` discovers and mounts apps at import; the lifespan runs
-startup checks -> migrations -> seeds -> setup token -> scheduler, and stops the scheduler on exit.
+db checks and key files -> migrations -> preview checks -> seeds -> setup token -> startup hooks
+-> scheduler, and stops the scheduler on exit.
 
 Run with one worker (`uvicorn backend.main:app --workers 1`): the data-dir lock refuses a second.
 """
@@ -11,7 +12,7 @@ from fastapi import Depends, FastAPI, HTTPException
 from fastapi.responses import FileResponse, PlainTextResponse
 from fastapi.routing import APIRoute
 
-from backend.core import REPO_ROOT, VERSION, db, errors, preview, registry, scheduler, settings
+from backend.core import REPO_ROOT, VERSION, db, errors, preview, registry, scheduler, secrets, settings
 from backend.core.auth import bootstrap, csrf
 from backend.core.auth.deps import User, current_user
 
@@ -26,9 +27,10 @@ def _operation_id(route: APIRoute) -> str:
 def create_app(apps_dir: Path = db.APPS_DIR) -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI):
-        preview.check_startup()
         db.init(settings.data_dir())
+        secrets.key(), settings.secret_key()  # first boot writes both key files; a bad one stops startup here
         db.migrate(db.app_dirs(apps_dir))
+        preview.check_startup()
         registry.seed_apps()
         preview.seed()
         bootstrap.ensure_setup_token()

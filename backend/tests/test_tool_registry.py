@@ -63,12 +63,19 @@ def test_sources_apply_their_exclusions():
 
 
 def test_for_user_applies_enabled():
-    reg = build_registry([read(), read(name="core_admin", enabled=lambda u: u.role == "admin")])
+    reg = build_registry([
+        read(), read(name="core_admin", enabled=lambda u: u.role == "admin"),
+        read(name="core_unlinked", hides_when=lambda u: u.role == "member"),
+    ])
 
     class Member:
         role = "member"
 
+    class Admin:
+        role = "admin"
+
     assert [s.name for s in reg.for_user(Member())] == ["core_read"]
+    assert [s.name for s in reg.for_user(Admin())] == ["core_read", "core_admin", "core_unlinked"]
 
 
 def test_tool_def_sha256_binds_what_was_shown_and_where_it_runs():
