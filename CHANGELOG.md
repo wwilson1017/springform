@@ -49,6 +49,8 @@ Conventions:
 
 ### Changed
 
+- CRM Weekly touches shows its window by the install-local days the server applied
+  (`start_day`, `end_day`) and carries those days to a rep's page.
 - Todos pages start their change feed from the current rev (`GET /api/todos/changes?head=1`)
   instead of walking the whole journal on every page load.
 - A member who opens an admin-only page sees "Not allowed" with a link home, instead of being sent

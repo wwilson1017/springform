@@ -18,8 +18,11 @@ export type BulkMoveOut = S['BulkMoveOut'];
 export type Dashboard = S['Dashboard'];
 export type Today = S['Today'];
 export type TodayItem = S['TodayItem'];
-export type WeeklyTouches = S['WeeklyTouches'];
-export type WeeklyTouchDetail = S['WeeklyTouchDetail'];
+/** The window with the install-local days it covers (`YYYY-MM-DD`, end included), which the
+ *  API answers beside the UTC instants; declared here until types.gen.ts carries them. */
+export type TouchWindow = S['TouchWindow'] & { start_day: string; end_day: string };
+export type WeeklyTouches = Omit<S['WeeklyTouches'], 'window'> & { window: TouchWindow };
+export type WeeklyTouchDetail = Omit<S['WeeklyTouchDetail'], 'window'> & { window: TouchWindow };
 export type TouchedDeal = S['TouchedDeal'];
 export type Analytics = S['Analytics'];
 export type PipelineAnalytics = S['PipelineAnalytics'];
