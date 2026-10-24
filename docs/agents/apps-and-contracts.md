@@ -11,7 +11,7 @@ The app contract replaces the 25 core edits a previous CakeCRM fork needed. An a
 
 | Field | Type | Rule |
 |---|---|---|
-| `slug` | string | `^[a-z][a-z0-9_]{1,29}$`. Equals the folder name. **Permanent**: it is baked into table names. Reserved: `core`, `api`, `auth`, `mcp`, `up`, `assets`, `agent`, `me`, `health`, `settings`, `people`, `organizations`, `guide`, `requests`, `login`, `setup`, `invite`, `changelog`, `backups`, `jobs`, `sheets`, `notifications`, `reminders`, `whisk`, `files`, `timeline`, `export`. A slug may not equal another installed slug + `_` + anything (prefix collision: `crm` and `crm_x` cannot both be installed). |
+| `slug` | string | `^[a-z][a-z0-9_]{1,29}$`. Equals the folder name. **Permanent**: it is baked into table names. Reserved: `core`, `api`, `auth`, `mcp`, `up`, `assets`, `agent`, `me`, `health`, `settings`, `people`, `organizations`, `guide`, `requests`, `login`, `setup`, `invite`, `changelog`, `backups`, `jobs`, `sheets`, `notifications`, `reminders`, `whisk`, `files`, `timeline`, `export`, `reports`. A slug may not start with `core_`, and may not equal another installed slug + `_` + anything (prefix collision: `crm` and `crm_x` cannot both be installed). |
 | `name` | string | Display name (launcher tile, settings section). |
 | `description` | string | Launcher/tile description. |
 | `path` | string | Must equal `/<slug>`. |
@@ -66,7 +66,7 @@ Open (pinned by the implementing workstream, which updates this doc): the `icon`
 | `seed.py` | `seed(conn)`, `sample(conn)`, `RESET_TABLES`, `EXPORT` | Below. |
 | `settings.py` | `DEFAULTS = {"<slug>.<key>": value}` | Defaults for `core_settings`. |
 | `migrations/` | `YYYYMMDDHHMMSS_<slug>_<name>.sql` | Below. |
-| `docs/index.md` | Guide topic(s) | Front matter + Markdown; indexed by `backend/core/guide/library.py` (`frontend-shell.md`). |
+| `docs/index.md` | Guide topic(s) | Front matter + Markdown, loaded by `backend/core/guide/library.py`. `docs/index.md` is the topic `<slug>`; any other `docs/<name>.md` is `<slug>.<name>` (`frontend-shell.md` §3). |
 | `service.py`, `models.py` | — | App-internal; not discovered. |
 
 ### `api.py` and the import rule

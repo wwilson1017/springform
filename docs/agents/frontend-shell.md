@@ -37,7 +37,7 @@
 | Launcher | Tiles by role from `GET /api/core/apps`; hidden tiles shown to admins (`hidden: true`); **badge polling every 60 s while visible**. |
 | Layout / Nav | Core layout; apps' `nav` items from `contributions.ts`. |
 | Settings | Cards: Workspace (incl. timezone, and `PUBLIC_URL` shown read-only), Apps (order/hide), GitHub token, Sheets key, Backups, Export, AI, MCP, Security, Users. Plus one section per app from `contributions.ts` `settingsCards`, keyed by the manifest's `settings_cards[].id`; `admin_only` cards for admins only. |
-| Guide | `backend/core/guide/library.py` ports CakeCRM `help/library.py`: front matter, **8k cap**, lazy warm, **deterministic search** over core docs (`backend/core/docs/`) and every app's `docs/`. |
+| Guide | `backend/core/guide/library.py` ports CakeCRM `help/library.py`. Core topics are `backend/core/docs/*.md`, slugged by file name. An app's `docs/index.md` is the topic `<slug>`, and its other `docs/<name>.md` files are `<slug>.<name>`. Each file opens with front matter: `title` (required, at most 80 characters), `summary` (optional, at most 200) and `order` (optional integer, default 1000). The body cap is **8,000 characters**. A bad topic (too long, an unknown key, a bad file name, a duplicate slug) is skipped and logged at runtime; a test loads strictly and fails CI on it. The library loads at startup and searches deterministically: title beats summary beats body, and ties break on slug. Routes: `GET /api/core/guide` (topics of core and of the apps on the caller's launcher), `GET /api/core/guide/search?q=&limit=` (at most 20), `GET /api/core/guide/{slug}` (`{slug, title, summary, body_markdown, app}`). |
 | Requests | Form: title, app, description, plus configurable warning text → a GitHub issue labelled `app:<slug>`, created with a fine-grained token stored in settings (`backend/core/requests/github.py`). Board from `core_requests`, refreshed every 15 min (`core.requests_refresh`). |
 | ChangeLog | Filters: app, user, entity. Rows authorized per row (`records.md` §8). |
 | Backups | List, back up now, download, show the encryption key once (`deploy.md`). |
@@ -46,9 +46,9 @@
 
 W6 owns the settings registry and `settings/`. W1 (Security, Users) and W9 (AI, MCP) contribute cards **through the registry W6 defines in Step 1**; they do not edit `settings/`.
 
-Core page paths: `/`, `/login`, `/setup`, `/invite/:token`, `/people`, `/people/:id`, `/organizations`, `/organizations/:id`, `/settings/*`, `/guide`, `/requests`, `/changelog`, `/backups`, `/jobs`, `/whisk`, `/reminders`, `/notifications`. Each first segment is a reserved slug (`apps-and-contracts.md` §1).
+Core page paths: `/`, `/login`, `/setup`, `/invite/:token`, `/reset-password/:token`, `/people`, `/people/:id`, `/organizations`, `/organizations/:id`, `/settings/*`, `/guide`, `/guide/:slug`, `/reports`, `/requests`, `/changelog`, `/backups`, `/jobs`, `/whisk`, `/reminders`, `/notifications`. The backend mails `PUBLIC_URL/invite/<token>` and `PUBLIC_URL/reset-password/<token>` links. Each first segment is a reserved slug (`apps-and-contracts.md` §1).
 
-Open (pinned by the implementing workstream, which updates this doc): the Sheets admin page's path (it is not in the list above; `sheets` is reserved). The settings registry's card interface, and where core cards are declared. The `core_requests` columns, the Requests routes, and where the "configurable warning text" is stored. The Guide's routes. (The 8k cap is the donor's `MAX_TOPIC_CHARS = 8000`, characters per topic.)
+Open (pinned by the implementing workstream, which updates this doc): the Sheets admin page's path (it is not in the list above; `sheets` is reserved). The settings registry's card interface, and where core cards are declared. The `core_requests` columns, the Requests routes, and where the "configurable warning text" is stored.
 
 ## 4. Type generation (§12)
 
@@ -102,7 +102,7 @@ Badge routes return {count, label?}. Errors: `{detail}`; 401 not signed in, 403 
 Pinned since the block was written (the block stays verbatim; these refine it):
 
 - **Errors:** 404 when a record is missing or not readable, for reads and writes alike; 403 only when the record is readable but not writable, or a role-guarded route refuses the caller (`authorization.md` §2).
-- **Timeline:** `GET` pages with `?before=<id>&limit=50`, newest first. `POST` also accepts `kind` (`note` by default, `comment` allowed). Mentions in `body` are `@[Name](user:ID)` (`records.md` §1).
+- **Timeline:** `GET` pages with `?before=<id>&limit=` (default 50, at most 200), newest first. `POST` also accepts `kind` (`note` by default, `comment` allowed). Mentions in `body` are `@[Name](user:ID)`, and `GET /api/core/timeline/mentionable?q=` feeds the picker (`records.md` §1).
 - **Files:** `File` also carries `has_thumb`, and `GET /api/core/files/{id}/thumb` serves the thumbnail. `POST` returns 201 for a new attachment and 200 with the existing row for the same bytes on the same record. Download answers 410 `file_missing` when the bytes are gone. `DELETE` requires write access to the parent record (`records.md` §2).
 
 ### Routes named elsewhere in the plan (shape to be pinned by the implementing workstream)

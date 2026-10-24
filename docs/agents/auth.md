@@ -45,7 +45,7 @@ The JWT signing key is the `SECRET_KEY` environment variable.
 4. A request carrying **both** a cookie and a bearer header is treated as cookie-authenticated (rule 1 applies).
 5. Preflights (`OPTIONS`) are not authenticated and pass.
 
-A refusal is **403** `{detail: "csrf"}`. State-changing means every method except `GET`, `HEAD` and `OPTIONS`.
+A refusal is **403** `{detail: "csrf_refused"}`. State-changing means every method except `GET`, `HEAD` and `OPTIONS`.
 
 ## 4. Tables
 

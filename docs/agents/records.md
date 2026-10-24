@@ -42,16 +42,18 @@ and runs the sync `on_record_changed` subscribers (through `on_record_changed_in
 1. Reads and writes go through `entities.authorize`.
 2. `system` rows record platform actions (e.g. "merged #<source> into this record").
 3. Merges repoint timeline rows keeping the original author and time (`contacts.md`).
-4. A mention in `body` is written `@[Name](user:ID)`. It notifies only users who `can_read` the record (`deliver_in` to each mentioned user who passes).
+4. A mention in `body` is written `@[Name](user:ID)`. Each mentioned active human user who can read the record gets a `core_timeline_mentions(timeline_id, user_id, display_name)` row and a notification (`deliver_in`, in the note's transaction), except the author. Anyone else named in the body gets neither.
+5. A comment is stored and listed exactly like a note; only its `kind` differs.
 
 ### API
 
 ```
-GET  /api/core/timeline?entity_type=&entity_id=&before=<id>&limit=50  -> [{id, kind: "note"|"comment"|"field_change"|"system", body, changes, author:{id,name}, created_at}], newest first
+GET  /api/core/timeline?entity_type=&entity_id=&before=<id>&limit=  -> [{id, kind: "note"|"comment"|"field_change"|"system", body, changes, author:{id,name}|null, created_at}], newest first
 POST /api/core/timeline {entity_type, entity_id, body, kind?: "note"|"comment"} -> the new entry; kind defaults to "note"
+GET  /api/core/timeline/mentionable?q=  -> [{id, name}], active human users for the @-mention picker, by name, at most 20
 ```
 
-Open (pinned by the implementing workstream, which updates this doc): how a comment differs from a note, and the `core_timeline_mentions` columns.
+`limit` defaults to 50, at most 200. To page back, pass the last id seen as `before`. `changes` is null except on `field_change` rows.
 
 ## 2. Files
 
