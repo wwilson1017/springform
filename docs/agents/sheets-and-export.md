@@ -7,31 +7,31 @@ Code: the `backend/core/sheets/` package (`api.py` the published client, `servic
 
 ## 1. Service account
 
-Lifted from cake_os (private) `backend/core/google_sheets.py` (261).
+Google access is `backend/core/sheets/google.py`: a new REST client, `GoogleSheets`, that signs its own service-account JWT, with `read(spreadsheet_id, a1)` and `write(spreadsheet_id, a1, rows)`. With `SHEETS_FAKE=1` it is `FakeSheets`, a canned table for local runs and tests. Only the guards and A1 helpers were lifted from cake_os.
 
 1. The service-account JSON is stored encrypted in `core_settings['sheets.service_account_json']`, written by the admin-only `PUT /api/core/sheets/credentials {service_account_json}`.
-2. `service_account_email()` is shown in the UI as: "share with this address: Viewer for read, Editor for write".
+2. The admin-only `GET /api/core/sheets/credentials` returns `{configured, service_account_email}`. The UI shows the email as: "share with this address: Viewer for read, Editor for write".
 3. Settings has a Sheets key card; the Sheets admin page lists connected sheets (`frontend-shell.md`).
 
-Also lifted from cake_os `backend/core/agents/tools/sheets_tools.py`: the A1 helpers (171–270), `forbidden_formula` / `check_values` (111–170), `read_range` (616), `write_range` (845).
+Lifted from cake_os `backend/core/agents/tools/sheets_tools.py`: the A1 helpers (171–270) and `forbidden_formula` / `check_values` (111–170).
 
 ## 2. Tables
 
 ```sql
 core_connected_sheets(
-  app, name,
-  spreadsheet_id, range,
+  id, app, name, description,
+  spreadsheet_id, range,           -- range in A1 notation
   mode CHECK (mode IN ('read','write')),
-  schedule, enabled,
-  last_synced_at, last_error, row_count
+  schedule CHECK (schedule IN ('hourly','daily','manual')) DEFAULT 'hourly', enabled,
+  last_synced_at, last_error, row_count,
+  last_attempt_at,                 -- the last refresh started; drives the 60 s throttle
+  created_at, updated_at
 )
 -- UNIQUE(app, name)
 -- seeded from each app.json `sheets: [{name, mode, description}]`
 
-core_sheet_cache(sheet_id, fetched_at, header, rows)
+core_sheet_cache(sheet_id PK, fetched_at, header JSON, rows JSON)   -- header: list of strings; rows: lists of strings
 ```
-
-Open (pinned by the implementing workstream, which updates this doc): `id` is implied by `POST /api/core/sheets/{id}/refresh` and `core_sheet_cache.sheet_id` but not listed. `schedule`'s format and how it relates to the hourly job. Where the manifest's `description` is stored. The encoding of `header` and `rows` (JSON TEXT is the platform default).
 
 ## 3. The published client
 
@@ -41,23 +41,21 @@ sheets.client(slug).write(name, rows)
 sheets.client(slug).status(name)
 ```
 
-1. `read` serves `core_sheet_cache` only.
-2. Network calls happen **outside** `transaction()`; the cache write happens inside.
-3. `forbidden_formula` / `check_values` guard written values.
-4. The client is `backend.core.sheets.api.client(slug)`.
-
-Open (pinned by the implementing workstream, which updates this doc): the `SheetData` shape, what `status` returns, whether `write` is synchronous on the request path and whether it refreshes the cache, and whether `write` on a `mode='read'` sheet is refused.
+1. `read` serves `core_sheet_cache` only and returns `SheetData(header, rows, fetched_at, stale)`. Every row is padded to the header's width, and all cells are strings. `stale` is true when nothing is cached, the last refresh failed, or the cache is older than twice its schedule.
+2. `status` returns `{configured, enabled, last_synced_at, last_error, row_count}`. `read` and `status` have `_in(conn, …)` forms.
+3. `write` replaces a write-mode sheet's range synchronously and returns the rows Google updated. It calls Google, so it raises inside `transaction()` and has no `_in` form. It refuses (422) a read-mode sheet or rows that fail `check_values`, answers 502 when Google fails, and leaves the cache untouched.
+4. The client is `backend.core.sheets.api.client(slug)`; an undeclared sheet name is 404.
 
 ## 4. Refresh
 
 | Trigger | Contract |
 |---|---|
 | Job `core.sheets_refresh` | Hourly. |
-| `POST /api/core/sheets/{id}/refresh` | Manual refresh, **60 s throttle per range** (shape to be pinned by W4). |
+| `POST /api/core/sheets/{id}/refresh` | Manual refresh, throttled to one per **60 s per connected sheet** (`last_attempt_at`). |
 
 Each refresh fetches from Google outside `transaction()`, then writes `core_sheet_cache` and updates `last_synced_at` / `last_error` / `row_count` inside one.
 
-Open (pinned by the implementing workstream, which updates this doc): the throttle's response when it trips (status code, retry hint).
+A tripped throttle answers **429** `{detail: "throttled", retry_after}` with a `Retry-After` header. The other admin routes are `GET /api/core/sheets`, `PATCH /api/core/sheets/{id}` and `GET /api/core/sheets/{id}/preview`.
 
 ## 5. CSV streaming (`backend/core/export/csv_export.py`)
 
@@ -85,13 +83,11 @@ An admin downloads a ZIP of CSVs.
 
 ### Never exported
 
-1. `core_users.password_hash`.
-2. TOTP secrets and backup codes.
-3. Trusted devices.
-4. Login token hashes and MCP token hashes.
-5. `core_settings` secrets.
-6. Provider keys.
-7. Agent conversations, messages and memory.
+`backend/core/export/policy.py` defines these, and `policy.check` enforces them on the merged policy:
+
+1. Whole tables: `core_totp`, `core_trusted_devices`, `core_login_tokens`, `core_login_attempts`, `core_settings`, `core_outbox`, `core_backups`, `core_sheet_cache`.
+2. Every table starting `core_agent_` or `core_mcp_`: conversations, messages, memory, provider keys and MCP tokens.
+3. Columns, wherever they appear: `password_hash`, `secret_enc`, `backup_codes`, `token_hash`.
 
 ### Rows follow the same rules as the screen (decided)
 
