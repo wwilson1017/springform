@@ -38,7 +38,8 @@ _STOPWORDS = frozenset({
 
 _COLS = """f.id, f.text, f.tags, f.valid_from, f.invalid_from, f.invalidated_by, f.superseded_by,
            f.source_conversation_id, f.author_user_id, u.name AS author_name, f.created_at"""
-_FROM = "core_agent_facts f LEFT JOIN core_users u ON u.id = f.author_user_id"
+_AUTHOR = "LEFT JOIN core_users u ON u.id = f.author_user_id"
+_FROM = f"core_agent_facts f {_AUTHOR}"
 _CURRENT = "(f.valid_from <= :now AND (f.invalid_from IS NULL OR f.invalid_from > :now))"
 
 
@@ -159,7 +160,7 @@ def search_in(conn: db.Conn, query: str, limit: int = 10, *, include_history: bo
     if not match:
         return []
     rows = conn.execute(
-        f"""SELECT {_COLS} FROM core_agent_facts_fts JOIN {_FROM} ON f.id = core_agent_facts_fts.rowid
+        f"""SELECT {_COLS} FROM core_agent_facts_fts JOIN core_agent_facts f ON f.id = core_agent_facts_fts.rowid {_AUTHOR}
             WHERE core_agent_facts_fts MATCH :match AND (:history OR {_CURRENT})
             ORDER BY {_CURRENT} DESC, bm25(core_agent_facts_fts), f.id DESC LIMIT :limit""",
         {"match": match, "history": int(include_history), "now": clock.now_iso(), "limit": _limit(limit)},
