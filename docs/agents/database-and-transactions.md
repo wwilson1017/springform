@@ -164,11 +164,9 @@ except Exception:
 
 1. Canonical form: `YYYY-MM-DDTHH:MM:SSZ` (UTC, second precision).
 2. Written only by `core.clock.now_iso()`. A test greps SQL for `datetime('now')` and `CURRENT_TIMESTAMP`.
-3. User-supplied instants go through `clock.normalize(value, tz)`.
+3. User-supplied instants go through `clock.normalize(value: str | datetime, tz: str) -> str`, which returns the canonical UTC string.
 4. Day bucketing for reports happens in Python via `zoneinfo` and the install timezone (`core/localtime.py`, lifted from CakeCRM). SQL only compares against precomputed UTC bounds. Never `substr(col,1,10)` (that is a UTC date).
 5. The install timezone is `core_settings.timezone` (IANA, default UTC).
-
-Open: the inputs `normalize` accepts (date-only strings, naive datetimes, offsets) and its return type are not stated.
 
 ## 8. Money, search, JSON, keys
 
