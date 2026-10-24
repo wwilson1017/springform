@@ -82,12 +82,10 @@ One seeded row: `id=0`, `role='system'`, email `system@springform.local`, `passw
    - written to `/data/setup-token`, mode 0600;
    - `deploy/setup.sh` prints it at the end.
 3. The setup page `/setup` requires the token (`POST /api/auth/setup`).
-4. Admin creation happens under the write lock with a re-check that there is still no human user, and the token is consumed (`core_login_tokens` purpose `setup`).
+4. Admin creation happens under the write lock with a re-check that there is still no human user (`WHERE role != 'system'`, the same test as the bootstrap), and the token is consumed (`core_login_tokens` purpose `setup`).
 5. After setup, `POST /api/auth/setup` returns **404** (also 404 for a wrong token).
 6. The first admin is created by password or CLI only: `python -m backend.cli create-admin EMAIL`. Google is configured afterwards in Settings and linked on the admin's next Google sign-in.
 7. The setup test runs against the real migrated, seeded database.
-
-Plan text note: §2 says the re-check is "that the table is still empty", which the system row makes false; the bootstrap rule two sentences later ("absence of human accounts") is the one to implement.
 
 ## 6. Password login and rate limits
 
