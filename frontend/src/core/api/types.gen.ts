@@ -2087,6 +2087,710 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/crm/activity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Activity */
+        get: operations["crm_list_activity"];
+        put?: never;
+        /** Log Activity */
+        post: operations["crm_log_activity"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/crm/activity/{activity_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Activity */
+        delete: operations["crm_delete_activity"];
+        options?: never;
+        head?: never;
+        /** Update Activity */
+        patch: operations["crm_update_activity"];
+        trace?: never;
+    };
+    "/api/crm/analytics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Analytics */
+        get: operations["crm_get_analytics"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/crm/analytics/pipeline": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Pipeline Analytics */
+        get: operations["crm_get_pipeline_analytics"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/crm/badge": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Badge */
+        get: operations["crm_badge"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/crm/dashboard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Dashboard */
+        get: operations["crm_get_dashboard"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/crm/dashboard/today": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Today */
+        get: operations["crm_today"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/crm/dashboard/weekly-touches": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Weekly Touches */
+        get: operations["crm_weekly_touches"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/crm/dashboard/weekly-touches/detail": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Weekly Touch Detail */
+        get: operations["crm_weekly_touch_detail"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/crm/deals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Board
+         * @description The pipeline board (see deals.board for the three bounding modes).
+         */
+        get: operations["crm_board"];
+        put?: never;
+        /** Create Deal */
+        post: operations["crm_create_deal"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/crm/deals/bulk-move": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Bulk Move
+         * @description Move many deals to one stage. A deal that cannot move is listed in errors; the rest move.
+         */
+        post: operations["crm_bulk_move"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/crm/deals/duplicates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Duplicate Deals */
+        get: operations["crm_duplicate_deals"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/crm/deals/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Search Deals */
+        get: operations["crm_search_deals"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/crm/deals/{deal_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Deal */
+        get: operations["crm_get_deal"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update Deal */
+        patch: operations["crm_update_deal"];
+        trace?: never;
+    };
+    "/api/crm/deals/{deal_id}/archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Archive Deal */
+        post: operations["crm_archive_deal"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/crm/deals/{deal_id}/health": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Deal Health */
+        get: operations["crm_deal_health"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/crm/deals/{deal_id}/lost": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Mark Lost */
+        post: operations["crm_mark_lost"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/crm/deals/{deal_id}/merge": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Merge Deals
+         * @description Fold body.source_id into this deal; the source is archived.
+         */
+        post: operations["crm_merge_deals"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/crm/deals/{deal_id}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Restore Deal */
+        post: operations["crm_restore_deal"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/crm/deals/{deal_id}/stage-events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Stage Events */
+        get: operations["crm_stage_events"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/crm/deals/{deal_id}/touch-evidence": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Touch Evidence */
+        get: operations["crm_touch_evidence"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/crm/deals/{deal_id}/won": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Mark Won */
+        post: operations["crm_mark_won"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/crm/import/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Import Confirm
+         * @description Create the reviewed people and link their organizations.
+         */
+        post: operations["crm_import_confirm"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/crm/import/parse": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Import Parse
+         * @description Read a CSV or vCard file into people to review; nothing is saved.
+         */
+        post: operations["crm_import_parse"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/crm/meta": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Meta */
+        get: operations["crm_get_meta"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/crm/meta/dismiss-onboarding": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Dismiss Onboarding */
+        post: operations["crm_dismiss_onboarding"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/crm/organizations/{organization_id}/deals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Organization Deals */
+        get: operations["crm_organization_deals"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/crm/organizations/{organization_id}/rollup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Organization Rollup */
+        get: operations["crm_organization_rollup"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/crm/people/{person_id}/deals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Person Deals
+         * @description The person page's Deals panel; 404 when the person is not readable.
+         */
+        get: operations["crm_person_deals"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/crm/provenance/{entity_type}/{entity_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Provenance
+         * @description The fields Whisk wrote that nobody has confirmed or edited since.
+         */
+        get: operations["crm_get_provenance"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/crm/provenance/{entity_type}/{entity_id}/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Confirm Provenance */
+        post: operations["crm_confirm_provenance"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/crm/reset": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reset
+         * @description Delete every deal and activity (with their notes, files and history); keep people and
+         *     organizations. Body {"confirm": "RESET"}.
+         */
+        post: operations["crm_reset"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/crm/scores/backfill": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Scores Backfill */
+        post: operations["crm_scores_backfill"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/crm/scores/people": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Person Scores
+         * @description Stored lead scores for the given people (never-scored people are absent).
+         */
+        get: operations["crm_person_scores"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/crm/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Settings */
+        get: operations["crm_get_settings"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update Settings */
+        patch: operations["crm_update_settings"];
+        trace?: never;
+    };
+    "/api/crm/stage-criteria": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Stage Criteria */
+        get: operations["crm_list_stage_criteria"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/crm/stage-criteria/{stage}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Set Stage Criteria */
+        put: operations["crm_set_stage_criteria"];
+        post?: never;
+        /**
+         * Reset Stage Criteria
+         * @description Back to the standard wording.
+         */
+        delete: operations["crm_reset_stage_criteria"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/crm/stale-deals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Stale Deals */
+        get: operations["crm_stale_deals"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/crm/touch-count/backfill": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Touch Backfill Status */
+        get: operations["crm_touch_backfill_status"];
+        put?: never;
+        /**
+         * Touch Backfill
+         * @description Queue deals for the crm.touch_count job: never-counted ones, or every live deal.
+         */
+        post: operations["crm_touch_backfill"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/example/badge": {
         parameters: {
             query?: never;
@@ -2500,6 +3204,62 @@ export interface components {
             /** Password */
             password: string;
         };
+        /** Activity */
+        Activity: {
+            /** Activity */
+            activity: string;
+            /** Actor Name */
+            actor_name: string | null;
+            /** Actor User Id */
+            actor_user_id: number | null;
+            /** Created At */
+            created_at: string;
+            /** Deal Id */
+            deal_id: number | null;
+            /** Deal Title */
+            deal_title: string | null;
+            /** Id */
+            id: number;
+            /** Note */
+            note: string;
+            /** Person Id */
+            person_id: number | null;
+            /** Person Name */
+            person_name: string | null;
+        };
+        /** ActivityIn */
+        ActivityIn: {
+            /**
+             * Activity
+             * @description call, email, meeting, …
+             */
+            activity: string;
+            /** Deal Id */
+            deal_id?: number | null;
+            /**
+             * Note
+             * @default
+             */
+            note: string;
+            /** Person Id */
+            person_id?: number | null;
+        };
+        /** ActivityPatch */
+        ActivityPatch: {
+            /** Activity */
+            activity?: string | null;
+            /** Note */
+            note?: string | null;
+        };
+        /** ActivityStats */
+        ActivityStats: {
+            /** By Type */
+            by_type: components["schemas"]["TypeCount"][];
+            /** Daily */
+            daily: components["schemas"]["DayCount"][];
+            /** Total */
+            total: number;
+        };
         /** AddressIn */
         AddressIn: {
             /** City */
@@ -2545,6 +3305,17 @@ export interface components {
             /** Region */
             region?: string | null;
         };
+        /** AgeBucket */
+        AgeBucket: {
+            /** Count */
+            count: number;
+            /** Label */
+            label: string;
+            /** Max Days */
+            max_days: number | null;
+            /** Min Days */
+            min_days: number;
+        };
         /** AgentPatch */
         AgentPatch: {
             /** Model Override */
@@ -2558,6 +3329,29 @@ export interface components {
             /** Provider Override */
             provider_override?: ("anthropic" | "openai") | null;
         };
+        /** Aging */
+        Aging: {
+            /** Buckets */
+            buckets: components["schemas"]["AgeBucket"][];
+            /** Stale Count */
+            stale_count: number;
+            /** Stale Deals */
+            stale_deals: components["schemas"]["StaleDeal"][];
+        };
+        /** Analytics */
+        Analytics: {
+            activity: components["schemas"]["ActivityStats"];
+            aging: components["schemas"]["Aging"];
+            /** Per Rep */
+            per_rep: components["schemas"]["RepStats"][];
+            /** Stale Days */
+            stale_days: number;
+            /** Timezone */
+            timezone: string;
+            win_loss: components["schemas"]["WinLoss"];
+            /** Window Days */
+            window_days: number;
+        };
         /** AppOrder */
         AppOrder: {
             /** Slugs */
@@ -2567,6 +3361,11 @@ export interface components {
         AppPatch: {
             /** Hidden */
             hidden?: boolean | null;
+        };
+        /** ArchiveIn */
+        ArchiveIn: {
+            /** Reason */
+            reason: string;
         };
         /** Area */
         Area: {
@@ -2626,6 +3425,23 @@ export interface components {
             /** Visibility */
             visibility?: ("private" | "team") | null;
         };
+        /** BackfillStatus */
+        BackfillStatus: {
+            /**
+             * Configured
+             * @description An AI provider is configured; without one the job skips
+             */
+            configured: boolean;
+            /** Last Run At */
+            last_run_at: string | null;
+            /**
+             * Pending
+             * @description Deals waiting for a touch count (dirty or never counted)
+             */
+            pending: number;
+            /** Running */
+            running: boolean;
+        };
         /** Badge */
         Badge: {
             /** Count */
@@ -2633,12 +3449,34 @@ export interface components {
             /** Label */
             label?: string | null;
         };
+        /** Board */
+        Board: {
+            /** Deals */
+            deals: components["schemas"]["Deal"][];
+            /**
+             * Deals Truncated
+             * @description Only with limit_per_stage
+             */
+            deals_truncated?: boolean | null;
+            /**
+             * Stage Summary
+             * @description Open stages, live deals; null on a continuation page
+             */
+            stage_summary: components["schemas"]["StageSummary"][] | null;
+            /** Total Pipeline Value Cents */
+            total_pipeline_value_cents: number | null;
+        };
         /** Body_core_upload_file */
         Body_core_upload_file: {
             /** Entity Id */
             entity_id: number;
             /** Entity Type */
             entity_type: string;
+            /** File */
+            file: string;
+        };
+        /** Body_crm_import_parse */
+        Body_crm_import_parse: {
             /** File */
             file: string;
         };
@@ -2653,6 +3491,32 @@ export interface components {
             };
             /** Ids */
             ids: number[];
+        };
+        /** BulkMoveIn */
+        BulkMoveIn: {
+            /**
+             * Closed On
+             * @description For a move into won; default today
+             */
+            closed_on?: string | null;
+            /** Ids */
+            ids: number[];
+            /**
+             * Stage
+             * @enum {string}
+             */
+            stage: "lead" | "qualified" | "proposal" | "negotiation" | "won" | "lost";
+        };
+        /** BulkMoveOut */
+        BulkMoveOut: {
+            /** Errors */
+            errors: string[];
+            /** Ok */
+            ok: boolean;
+            /** Updated */
+            updated: number;
+            /** Updated Ids */
+            updated_ids: number[];
         };
         /** BulkOut */
         BulkOut: {
@@ -2794,6 +3658,299 @@ export interface components {
             /** Service Account Json */
             service_account_json: string;
         };
+        /** CrmSettings */
+        CrmSettings: {
+            /** Default Currency */
+            default_currency: string;
+            /** Stale Days */
+            stale_days: number;
+            /** Touch Count Enabled */
+            touch_count_enabled: boolean;
+        };
+        /** CrmSettingsPatch */
+        CrmSettingsPatch: {
+            /** Default Currency */
+            default_currency?: string | null;
+            /** Stale Days */
+            stale_days?: number | null;
+            /** Touch Count Enabled */
+            touch_count_enabled?: boolean | null;
+        };
+        /** Dashboard */
+        Dashboard: {
+            /**
+             * Pipeline By Stage
+             * @description Every stage, live deals
+             */
+            pipeline_by_stage: components["schemas"]["StageSummary"][];
+            /** Recent Activity */
+            recent_activity: components["schemas"]["Activity"][];
+            /**
+             * Top Deals
+             * @description Open deals past lead, ranked by value weighted by probability
+             */
+            top_deals: components["schemas"]["Deal"][];
+            /** Total Organizations */
+            total_organizations: number;
+            /** Total People */
+            total_people: number;
+            /**
+             * Total Pipeline Value Cents
+             * @description Open stages only
+             */
+            total_pipeline_value_cents: number;
+            /**
+             * Won This Month Cents
+             * @description Won deals whose closed_on is in the install-local month
+             */
+            won_this_month_cents: number;
+        };
+        /** DayCount */
+        DayCount: {
+            /** Count */
+            count: number;
+            /**
+             * Day
+             * @description YYYY-MM-DD in the install timezone
+             */
+            day: string;
+        };
+        /** Deal */
+        Deal: {
+            /** Ai Touch Count */
+            ai_touch_count: number | null;
+            /** Ai Touch Count At */
+            ai_touch_count_at: string | null;
+            /** Archived At */
+            archived_at: string | null;
+            /** Archived By */
+            archived_by: number | null;
+            /** Archived Reason */
+            archived_reason: string | null;
+            /** Closed On */
+            closed_on: string | null;
+            /** Created At */
+            created_at: string;
+            /** Currency */
+            currency: string;
+            /** Deal Temperature */
+            deal_temperature: ("hot" | "warm" | "cold") | null;
+            /** Expected Close */
+            expected_close: string | null;
+            /** Id */
+            id: number;
+            /**
+             * Last Activity At
+             * @description Newest activity or timeline note on the deal
+             */
+            last_activity_at: string | null;
+            /** Lead Score */
+            lead_score: number | null;
+            /** Lead Score At */
+            lead_score_at: string | null;
+            /** Lost Reason */
+            lost_reason: string;
+            /** Notes */
+            notes: string;
+            /** Organization Id */
+            organization_id: number | null;
+            /** Organization Name */
+            organization_name: string | null;
+            /** Owner Name */
+            owner_name: string | null;
+            /** Owner User Id */
+            owner_user_id: number | null;
+            /** Person Id */
+            person_id: number | null;
+            /** Person Name */
+            person_name: string | null;
+            /** Probability */
+            probability: number;
+            /**
+             * Stage
+             * @enum {string}
+             */
+            stage: "lead" | "qualified" | "proposal" | "negotiation" | "won" | "lost";
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "open" | "won" | "lost";
+            /** Title */
+            title: string;
+            /** Updated At */
+            updated_at: string;
+            /** Value Cents */
+            value_cents: number;
+        };
+        /** DealDetail */
+        DealDetail: {
+            /** Activity */
+            activity: components["schemas"]["Activity"][];
+            /** Ai Touch Count */
+            ai_touch_count: number | null;
+            /** Ai Touch Count At */
+            ai_touch_count_at: string | null;
+            /** Archived At */
+            archived_at: string | null;
+            /** Archived By */
+            archived_by: number | null;
+            /** Archived Reason */
+            archived_reason: string | null;
+            /** Closed On */
+            closed_on: string | null;
+            /** Created At */
+            created_at: string;
+            /** Currency */
+            currency: string;
+            /** Deal Temperature */
+            deal_temperature: ("hot" | "warm" | "cold") | null;
+            /** Expected Close */
+            expected_close: string | null;
+            /** Id */
+            id: number;
+            /**
+             * Last Activity At
+             * @description Newest activity or timeline note on the deal
+             */
+            last_activity_at: string | null;
+            /** Lead Score */
+            lead_score: number | null;
+            /** Lead Score At */
+            lead_score_at: string | null;
+            /** Lost Reason */
+            lost_reason: string;
+            /** Notes */
+            notes: string;
+            /** Organization Id */
+            organization_id: number | null;
+            /** Organization Name */
+            organization_name: string | null;
+            /** Owner Name */
+            owner_name: string | null;
+            /** Owner User Id */
+            owner_user_id: number | null;
+            /** Person Id */
+            person_id: number | null;
+            /** Person Name */
+            person_name: string | null;
+            /** Probability */
+            probability: number;
+            /**
+             * Stage
+             * @enum {string}
+             */
+            stage: "lead" | "qualified" | "proposal" | "negotiation" | "won" | "lost";
+            /** Stage Events */
+            stage_events: components["schemas"]["StageEvent"][];
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "open" | "won" | "lost";
+            /** Title */
+            title: string;
+            /** Updated At */
+            updated_at: string;
+            /** Value Cents */
+            value_cents: number;
+        };
+        /** DealHealth */
+        DealHealth: {
+            deal: components["schemas"]["Deal"];
+            /** Factors */
+            factors: {
+                [key: string]: number;
+            };
+            /** Flags */
+            flags: string[];
+            /** Score */
+            score: number | null;
+            /** Stale Days */
+            stale_days: number;
+        };
+        /** DealIn */
+        DealIn: {
+            /**
+             * Closed On
+             * @description YYYY-MM-DD; only for a deal created won (default today)
+             */
+            closed_on?: string | null;
+            /**
+             * Currency
+             * @default USD
+             */
+            currency: string;
+            /** Deal Temperature */
+            deal_temperature?: ("hot" | "warm" | "cold") | null;
+            /**
+             * Expected Close
+             * @description YYYY-MM-DD
+             */
+            expected_close?: string | null;
+            /**
+             * Notes
+             * @default
+             */
+            notes: string;
+            /** Organization Id */
+            organization_id?: number | null;
+            /** Owner User Id */
+            owner_user_id?: number | null;
+            /** Person Id */
+            person_id?: number | null;
+            /**
+             * Probability
+             * @default 0
+             */
+            probability: number;
+            /**
+             * Stage
+             * @default lead
+             * @enum {string}
+             */
+            stage: "lead" | "qualified" | "proposal" | "negotiation" | "won" | "lost";
+            /** Title */
+            title: string;
+            /**
+             * Value Cents
+             * @default 0
+             */
+            value_cents: number;
+        };
+        /** DealPatch */
+        DealPatch: {
+            /**
+             * Closed On
+             * @description YYYY-MM-DD. With a move into won: the day it was won (default today). Alone: edits a won deal's day.
+             */
+            closed_on?: string | null;
+            /** Currency */
+            currency?: string | null;
+            /** Deal Temperature */
+            deal_temperature?: ("hot" | "warm" | "cold") | null;
+            /**
+             * Expected Close
+             * @description YYYY-MM-DD
+             */
+            expected_close?: string | null;
+            /** Notes */
+            notes?: string | null;
+            /** Organization Id */
+            organization_id?: number | null;
+            /** Owner User Id */
+            owner_user_id?: number | null;
+            /** Person Id */
+            person_id?: number | null;
+            /** Probability */
+            probability?: number | null;
+            /** Stage */
+            stage?: ("lead" | "qualified" | "proposal" | "negotiation" | "won" | "lost") | null;
+            /** Title */
+            title?: string | null;
+            /** Value Cents */
+            value_cents?: number | null;
+        };
         /** DefinitionIn */
         DefinitionIn: {
             /** Entity Type */
@@ -2849,6 +4006,24 @@ export interface components {
         Deleted: {
             /** Deleted */
             deleted: number;
+        };
+        /** DuplicateGroup */
+        DuplicateGroup: {
+            /** Count */
+            count: number;
+            /** Match On */
+            match_on: string;
+            /** Records */
+            records: components["schemas"]["DuplicateRecord"][];
+            /** Value */
+            value: string;
+        };
+        /** DuplicateRecord */
+        DuplicateRecord: {
+            /** Id */
+            id: number;
+            /** Label */
+            label: string;
         };
         /** FactIn */
         FactIn: {
@@ -2914,6 +4089,74 @@ export interface components {
         HTTPValidationError: {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
+        };
+        /** ImportConfirmIn */
+        ImportConfirmIn: {
+            /** People */
+            people: components["schemas"]["ImportPerson"][];
+        };
+        /** ImportParsed */
+        ImportParsed: {
+            /**
+             * Method
+             * @enum {string}
+             */
+            method: "csv" | "vcf" | "ai";
+            /** People */
+            people: components["schemas"]["ImportPerson"][];
+            /** Warnings */
+            warnings: string[];
+        };
+        /** ImportPerson */
+        ImportPerson: {
+            /**
+             * Email
+             * @default
+             */
+            email: string;
+            /** Name */
+            name: string;
+            /**
+             * Notes
+             * @default
+             */
+            notes: string;
+            /**
+             * Organization
+             * @default
+             */
+            organization: string;
+            /**
+             * Phone
+             * @default
+             */
+            phone: string;
+            /**
+             * Source
+             * @default
+             */
+            source: string;
+            /** Tags */
+            tags?: string[];
+            /**
+             * Title
+             * @default
+             */
+            title: string;
+        };
+        /** ImportResult */
+        ImportResult: {
+            /** Created */
+            created: number;
+            /** Organizations Linked */
+            organizations_linked: number;
+            /** Person Ids */
+            person_ids: number[];
+            /**
+             * Skipped
+             * @description One line per row not imported, with the reason
+             */
+            skipped: string[];
         };
         /** InviteIn */
         InviteIn: {
@@ -3176,6 +4419,14 @@ export interface components {
             /** Password */
             password: string;
         };
+        /** LostIn */
+        LostIn: {
+            /**
+             * Reason
+             * @default
+             */
+            reason: string;
+        };
         /** McpLinkIn */
         McpLinkIn: {
             /** Label */
@@ -3188,12 +4439,17 @@ export interface components {
             /** Tz */
             tz?: string | null;
         };
-        /** MergeIn */
-        MergeIn: {
-            /** Source Id */
-            source_id: number;
-            /** Target Id */
-            target_id: number;
+        /** Meta */
+        Meta: {
+            /**
+             * Empty
+             * @description No deals, activity, people or organizations yet
+             */
+            empty: boolean;
+            /** Onboarding Dismissed */
+            onboarding_dismissed: boolean;
+            /** Sample Data Loaded */
+            sample_data_loaded: boolean;
         };
         /** Moved */
         Moved: {
@@ -3270,6 +4526,32 @@ export interface components {
             /** Website */
             website?: string | null;
         };
+        /** OrganizationRollup */
+        OrganizationRollup: {
+            /** Deals */
+            deals: components["schemas"]["Deal"][];
+            /** Last Activity At */
+            last_activity_at: string | null;
+            /** Name */
+            name: string;
+            /** Open Deals */
+            open_deals: number;
+            /** Open Value Cents */
+            open_value_cents: number;
+            /** Organization Id */
+            organization_id: number;
+            /**
+             * People
+             * @description core person rows linked to the organization
+             */
+            people: {
+                [key: string]: unknown;
+            }[];
+            /** Recent Activity */
+            recent_activity: components["schemas"]["Activity"][];
+            /** Won Value Cents */
+            won_value_cents: number;
+        };
         /** PasswordIn */
         PasswordIn: {
             /** Current */
@@ -3308,6 +4590,31 @@ export interface components {
             tags?: string[] | null;
             /** Title */
             title?: string | null;
+        };
+        /** PersonScore */
+        PersonScore: {
+            /** Lead Score */
+            lead_score: number;
+            /** Lead Score At */
+            lead_score_at: string;
+            /** Person Id */
+            person_id: number;
+        };
+        /** PipelineAnalytics */
+        PipelineAnalytics: {
+            /** Conversion */
+            conversion: components["schemas"]["StageConversion"][];
+            /** History Covers Window */
+            history_covers_window: boolean;
+            /** History Days */
+            history_days: number | null;
+            /** History Since */
+            history_since: string | null;
+            /** Time In Stage */
+            time_in_stage: components["schemas"]["StageDuration"][];
+            velocity: components["schemas"]["Velocity"];
+            /** Window Days */
+            window_days: number;
         };
         /** PreviewIn */
         PreviewIn: {
@@ -3412,6 +4719,37 @@ export interface components {
             /** Visibility */
             visibility?: ("private" | "team") | null;
         };
+        /** Provenance */
+        Provenance: {
+            /** Entity Id */
+            entity_id: number;
+            /** Entity Type */
+            entity_type: string;
+            /**
+             * Fields
+             * @description Only live, unconfirmed AI-written fields
+             */
+            fields: {
+                [key: string]: components["schemas"]["ProvenanceField"];
+            };
+        };
+        /** ProvenanceConfirmIn */
+        ProvenanceConfirmIn: {
+            /**
+             * Fields
+             * @description Default: every badged field
+             */
+            fields?: string[] | null;
+        };
+        /** ProvenanceField */
+        ProvenanceField: {
+            /** Populated At */
+            populated_at: string;
+            /** Source */
+            source: string;
+            /** Value Snapshot */
+            value_snapshot: string | null;
+        };
         /** ProviderPatch */
         ProviderPatch: {
             /** Api Key */
@@ -3507,6 +4845,27 @@ export interface components {
             /** Projects */
             projects: components["schemas"]["Tombstone"][];
         };
+        /** RepStats */
+        RepStats: {
+            /** Activity Count */
+            activity_count: number;
+            /** Deals Lost */
+            deals_lost: number;
+            /** Deals Open */
+            deals_open: number;
+            /** Deals Won */
+            deals_won: number;
+            /** Name */
+            name: string;
+            /** Open Value Cents */
+            open_value_cents: number;
+            /** Records Touched */
+            records_touched: number;
+            /** User Id */
+            user_id: number | null;
+            /** Won Value Cents */
+            won_value_cents: number;
+        };
         /** Repeat */
         Repeat: {
             /** Anchor */
@@ -3547,12 +4906,12 @@ export interface components {
             /** Title */
             title: string;
         };
-        /** ResetIn */
-        ResetIn: {
-            /** Password */
-            password: string;
-            /** Token */
-            token: string;
+        /** ResetOut */
+        ResetOut: {
+            /** Activity */
+            activity: number;
+            /** Deals */
+            deals: number;
         };
         /** Review */
         Review: {
@@ -3584,6 +4943,13 @@ export interface components {
             last_review_at: string | null;
             /** Review Due */
             review_due: boolean;
+        };
+        /** ScoresBackfillOut */
+        ScoresBackfillOut: {
+            /** Deals */
+            deals: number;
+            /** People */
+            people: number;
         };
         /** SecondFactorIn */
         SecondFactorIn: {
@@ -3671,6 +5037,142 @@ export interface components {
             /** Until */
             until: string;
         };
+        /** StageConversion */
+        StageConversion: {
+            /** Advanced */
+            advanced: number;
+            /**
+             * Entered
+             * @description Deals whose first entry into the stage is in the window
+             */
+            entered: number;
+            /** Lost */
+            lost: number;
+            /**
+             * Progression Rate
+             * @description (advanced + won) / entered, 0-1
+             */
+            progression_rate: number | null;
+            /**
+             * Stage
+             * @enum {string}
+             */
+            stage: "lead" | "qualified" | "proposal" | "negotiation" | "won" | "lost";
+            /** Still Here */
+            still_here: number;
+            /**
+             * Win Rate
+             * @description won / entered, 0-1
+             */
+            win_rate: number | null;
+            /** Won */
+            won: number;
+        };
+        /** StageCriteria */
+        StageCriteria: {
+            /** Checklist */
+            checklist: string[];
+            /** Is Default */
+            is_default: boolean;
+            /**
+             * Stage
+             * @enum {string}
+             */
+            stage: "lead" | "qualified" | "proposal" | "negotiation" | "won" | "lost";
+            /** Summary */
+            summary: string;
+            /** Updated At */
+            updated_at: string | null;
+        };
+        /** StageCriteriaIn */
+        StageCriteriaIn: {
+            /** Checklist */
+            checklist: string[];
+            /** Summary */
+            summary: string;
+        };
+        /** StageDuration */
+        StageDuration: {
+            /** Avg Days */
+            avg_days: number | null;
+            /** Median Days */
+            median_days: number | null;
+            /**
+             * Samples
+             * @description Finished stays in the stage that started in the window
+             */
+            samples: number;
+            /**
+             * Stage
+             * @enum {string}
+             */
+            stage: "lead" | "qualified" | "proposal" | "negotiation" | "won" | "lost";
+        };
+        /** StageEvent */
+        StageEvent: {
+            /** Changed At */
+            changed_at: string;
+            /** Id */
+            id: number;
+            /**
+             * New Stage
+             * @enum {string}
+             */
+            new_stage: "lead" | "qualified" | "proposal" | "negotiation" | "won" | "lost";
+            /** Old Stage */
+            old_stage: string;
+            /** User Id */
+            user_id: number | null;
+            /** User Name */
+            user_name: string | null;
+        };
+        /** StageSummary */
+        StageSummary: {
+            /** Count */
+            count: number;
+            /**
+             * Stage
+             * @enum {string}
+             */
+            stage: "lead" | "qualified" | "proposal" | "negotiation" | "won" | "lost";
+            /** Total Value Cents */
+            total_value_cents: number;
+        };
+        /** StaleDeal */
+        StaleDeal: {
+            /** Age Days */
+            age_days: number;
+            /** Days Since Touch */
+            days_since_touch: number;
+            /** Id */
+            id: number;
+            /** Organization Name */
+            organization_name: string | null;
+            /** Owner User Id */
+            owner_user_id: number | null;
+            /** Person Name */
+            person_name: string | null;
+            /**
+             * Stage
+             * @enum {string}
+             */
+            stage: "lead" | "qualified" | "proposal" | "negotiation" | "won" | "lost";
+            /** Title */
+            title: string;
+            /** Value Cents */
+            value_cents: number;
+        };
+        /** StaleDeals */
+        StaleDeals: {
+            /** Count */
+            count: number;
+            /** Deals */
+            deals: components["schemas"]["StaleDeal"][];
+            /** Stale Days */
+            stale_days: number;
+            /** Total Stale */
+            total_stale: number;
+        };
         /** StepIn */
         StepIn: {
             /** Backup Code */
@@ -3691,6 +5193,38 @@ export interface components {
             endpoint: string;
             keys: components["schemas"]["PushKeys"];
         };
+        /** Today */
+        Today: {
+            /** Date */
+            date: string;
+            /** Items */
+            items: components["schemas"]["TodayItem"][];
+            /** Next Refresh At */
+            next_refresh_at: string;
+        };
+        /** TodayItem */
+        TodayItem: {
+            deal?: components["schemas"]["Deal"] | null;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "deal" | "reminder";
+            /**
+             * Rank
+             * @description 1 hot and stale deal, 2 reminder due today; null: only in the expanded list
+             */
+            rank: number | null;
+            /** Reason */
+            reason: string;
+            /**
+             * Reminder
+             * @description core reminder shape
+             */
+            reminder?: {
+                [key: string]: unknown;
+            } | null;
+        };
         /** Tombstone */
         Tombstone: {
             /** Id */
@@ -3698,12 +5232,135 @@ export interface components {
             /** Rev */
             rev: number;
         };
+        /** TouchEvent */
+        TouchEvent: {
+            /**
+             * Event At
+             * @description Canonical instant; empty for the deal's own notes field
+             */
+            event_at: string;
+            /**
+             * Line
+             * @description The live evidence line
+             */
+            line: string;
+            /**
+             * Reason
+             * @description Why it is not a touch (not_touch, stage_move)
+             */
+            reason: string;
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "note" | "activity" | "deal_notes" | "stage_move";
+            /** Source Id */
+            source_id: number | null;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "touch" | "not_touch" | "not_evaluated" | "edited_since" | "excluded_empty" | "stage_move";
+        };
+        /** TouchEvidence */
+        TouchEvidence: {
+            /** Ai Touch Count */
+            ai_touch_count: number | null;
+            /** Computed At */
+            computed_at: string | null;
+            /** Counted */
+            counted: number | null;
+            /** Deal Id */
+            deal_id: number;
+            /** Evaluated */
+            evaluated: number;
+            /** Events */
+            events: components["schemas"]["TouchEvent"][];
+            /**
+             * Open
+             * @description Live and open: only these are still counted
+             */
+            open: boolean;
+            /**
+             * Stage
+             * @enum {string}
+             */
+            stage: "lead" | "qualified" | "proposal" | "negotiation" | "won" | "lost";
+            /**
+             * Truncated
+             * @description The deal has older evidence than the window shows
+             */
+            truncated: boolean;
+            /**
+             * Verdict State
+             * @enum {string}
+             */
+            verdict_state: "none" | "current" | "stale" | "superseded";
+        };
+        /** TouchRep */
+        TouchRep: {
+            /** Deals */
+            deals: components["schemas"]["TouchedDeal"][];
+            /** Name */
+            name: string;
+            /** Open Deals */
+            open_deals: number;
+            /** Touches */
+            touches: number;
+            /**
+             * User Id
+             * @description null: the unassigned pile
+             */
+            user_id: number | null;
+        };
+        /** TouchWindow */
+        TouchWindow: {
+            /** Custom */
+            custom: boolean;
+            /** End */
+            end: string;
+            /** Label */
+            label: string;
+            /** Start */
+            start: string;
+        };
+        /** TouchedDeal */
+        TouchedDeal: {
+            /** Id */
+            id: number;
+            /** Organization Name */
+            organization_name: string | null;
+            /** Owner User Id */
+            owner_user_id: number | null;
+            /** Person Name */
+            person_name: string | null;
+            /**
+             * Stage
+             * @enum {string}
+             */
+            stage: "lead" | "qualified" | "proposal" | "negotiation" | "won" | "lost";
+            /** Title */
+            title: string;
+            /** Touch Count */
+            touch_count: number | null;
+            /** Touched At */
+            touched_at: string | null;
+            /** Value Cents */
+            value_cents: number;
+        };
         /** TransferIn */
         TransferIn: {
             /** From User Id */
             from_user_id: number;
             /** To User Id */
             to_user_id: number;
+        };
+        /** TypeCount */
+        TypeCount: {
+            /** Activity */
+            activity: string;
+            /** Count */
+            count: number;
         };
         /** UnsubscribeIn */
         UnsubscribeIn: {
@@ -3750,6 +5407,13 @@ export interface components {
                 [key: string]: unknown;
             };
         };
+        /** Velocity */
+        Velocity: {
+            /** Avg Days To Won */
+            avg_days_to_won: number | null;
+            /** Won In Window */
+            won_in_window: number;
+        };
         /** ViewIn */
         ViewIn: {
             /** Entity Type */
@@ -3784,6 +5448,25 @@ export interface components {
             };
             /** Version */
             version: number;
+        };
+        /** WeeklyTouchDetail */
+        WeeklyTouchDetail: {
+            /** Deals */
+            deals: components["schemas"]["TouchedDeal"][];
+            rep: components["schemas"]["TouchRep"];
+            /** Truncated */
+            truncated: boolean;
+            window: components["schemas"]["TouchWindow"];
+        };
+        /** WeeklyTouches */
+        WeeklyTouches: {
+            /** Reps */
+            reps: components["schemas"]["TouchRep"][];
+            /** Total Open Deals */
+            total_open_deals: number;
+            /** Total Touches */
+            total_touches: number;
+            window: components["schemas"]["TouchWindow"];
         };
         /** Widget */
         Widget: {
@@ -3831,6 +5514,63 @@ export interface components {
             name?: string | null;
             /** Person Id */
             person_id?: number | null;
+        };
+        /** WinLoss */
+        WinLoss: {
+            /** Avg Days To Close */
+            avg_days_to_close: number | null;
+            /** Avg Open Deal Cents */
+            avg_open_deal_cents: number | null;
+            /** Avg Won Deal Cents */
+            avg_won_deal_cents: number | null;
+            /** Deals Lost */
+            deals_lost: number;
+            /** Deals Won */
+            deals_won: number;
+            /** Open Deals */
+            open_deals: number;
+            /** Total Pipeline Value Cents */
+            total_pipeline_value_cents: number;
+            /** Win Rate Pct */
+            win_rate_pct: number | null;
+        };
+        /** WonIn */
+        WonIn: {
+            /**
+             * Closed On
+             * @description Default today; on an already-won deal, edits the day
+             */
+            closed_on?: string | null;
+        };
+        /** MergeIn */
+        backend__apps__crm__models__MergeIn: {
+            /**
+             * Source Id
+             * @description The deal folded into this one and archived
+             */
+            source_id: number;
+        };
+        /** ResetIn */
+        backend__apps__crm__models__ResetIn: {
+            /**
+             * Confirm
+             * @constant
+             */
+            confirm: "RESET";
+        };
+        /** ResetIn */
+        backend__core__auth__invites__ResetIn: {
+            /** Password */
+            password: string;
+            /** Token */
+            token: string;
+        };
+        /** MergeIn */
+        backend__core__contacts__router__MergeIn: {
+            /** Source Id */
+            source_id: number;
+            /** Target Id */
+            target_id: number;
         };
     };
     responses: never;
@@ -4715,7 +6455,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["ResetIn"];
+                "application/json": components["schemas"]["backend__core__auth__invites__ResetIn"];
             };
         };
         responses: {
@@ -5836,7 +7576,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["MergeIn"];
+                "application/json": components["schemas"]["backend__core__contacts__router__MergeIn"];
             };
         };
         responses: {
@@ -6102,7 +7842,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["MergeIn"];
+                "application/json": components["schemas"]["backend__core__contacts__router__MergeIn"];
             };
         };
         responses: {
@@ -8607,6 +10347,1400 @@ export interface operations {
                     "application/json": {
                         [key: string]: unknown;
                     };
+                };
+            };
+        };
+    };
+    crm_list_activity: {
+        parameters: {
+            query?: {
+                deal_id?: number | null;
+                person_id?: number | null;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Activity"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    crm_log_activity: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ActivityIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Activity"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    crm_delete_activity: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                activity_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Deleted"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    crm_update_activity: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                activity_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ActivityPatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Activity"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    crm_get_analytics: {
+        parameters: {
+            query?: {
+                days?: number;
+                stale_days?: number | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Analytics"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    crm_get_pipeline_analytics: {
+        parameters: {
+            query?: {
+                days?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PipelineAnalytics"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    crm_badge: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Badge"];
+                };
+            };
+        };
+    };
+    crm_get_dashboard: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Dashboard"];
+                };
+            };
+        };
+    };
+    crm_today: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Today"];
+                };
+            };
+        };
+    };
+    crm_weekly_touches: {
+        parameters: {
+            query?: {
+                /** @description YYYY-MM-DD, install-local */
+                start?: string | null;
+                /** @description YYYY-MM-DD, inclusive */
+                end?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WeeklyTouches"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    crm_weekly_touch_detail: {
+        parameters: {
+            query: {
+                /** @description A user id, or 'unassigned' */
+                owner: string;
+                start?: string | null;
+                end?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WeeklyTouchDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    crm_board: {
+        parameters: {
+            query?: {
+                stage?: ("lead" | "qualified" | "proposal" | "negotiation" | "won" | "lost") | null;
+                include_archived?: boolean;
+                /** @description Keyset page size; pages are ordered by id */
+                limit?: number | null;
+                /** @description The last id of the previous page */
+                after_id?: number | null;
+                limit_per_stage?: number | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Board"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    crm_create_deal: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DealIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Deal"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    crm_bulk_move: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BulkMoveIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BulkMoveOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    crm_duplicate_deals: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DuplicateGroup"][];
+                };
+            };
+        };
+    };
+    crm_search_deals: {
+        parameters: {
+            query?: {
+                /** @description Every word, as a prefix, in the deal or its person or organization */
+                q?: string | null;
+                stage?: ("lead" | "qualified" | "proposal" | "negotiation" | "won" | "lost") | null;
+                person_id?: number | null;
+                organization_id?: number | null;
+                owner_user_id?: number | null;
+                sort_by?: "updated_at" | "created_at" | "value_cents" | "expected_close" | "title" | "stage" | "probability" | "lead_score";
+                sort_dir?: "asc" | "desc";
+                limit?: number;
+                include_archived?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Deal"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    crm_get_deal: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                deal_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DealDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    crm_update_deal: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                deal_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DealPatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Deal"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    crm_archive_deal: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                deal_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ArchiveIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Deal"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    crm_deal_health: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                deal_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DealHealth"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    crm_mark_lost: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                deal_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LostIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Deal"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    crm_merge_deals: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                deal_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["backend__apps__crm__models__MergeIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Deal"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    crm_restore_deal: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                deal_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Deal"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    crm_stage_events: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                deal_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StageEvent"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    crm_touch_evidence: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                deal_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TouchEvidence"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    crm_mark_won: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                deal_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WonIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Deal"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    crm_import_confirm: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ImportConfirmIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    crm_import_parse: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_crm_import_parse"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportParsed"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    crm_get_meta: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Meta"];
+                };
+            };
+        };
+    };
+    crm_dismiss_onboarding: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Meta"];
+                };
+            };
+        };
+    };
+    crm_organization_deals: {
+        parameters: {
+            query?: {
+                include_archived?: boolean;
+            };
+            header?: never;
+            path: {
+                organization_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Deal"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    crm_organization_rollup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                organization_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrganizationRollup"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    crm_person_deals: {
+        parameters: {
+            query?: {
+                include_archived?: boolean;
+            };
+            header?: never;
+            path: {
+                person_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Deal"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    crm_get_provenance: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                entity_type: "crm.deal" | "core.person";
+                entity_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Provenance"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    crm_confirm_provenance: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                entity_type: "crm.deal" | "core.person";
+                entity_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProvenanceConfirmIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Provenance"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    crm_reset: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["backend__apps__crm__models__ResetIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResetOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    crm_scores_backfill: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScoresBackfillOut"];
+                };
+            };
+        };
+    };
+    crm_person_scores: {
+        parameters: {
+            query: {
+                /** @description Comma-separated person ids */
+                ids: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PersonScore"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    crm_get_settings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CrmSettings"];
+                };
+            };
+        };
+    };
+    crm_update_settings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CrmSettingsPatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CrmSettings"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    crm_list_stage_criteria: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StageCriteria"][];
+                };
+            };
+        };
+    };
+    crm_set_stage_criteria: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                stage: "lead" | "qualified" | "proposal" | "negotiation" | "won" | "lost";
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StageCriteriaIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StageCriteria"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    crm_reset_stage_criteria: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                stage: "lead" | "qualified" | "proposal" | "negotiation" | "won" | "lost";
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StageCriteria"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    crm_stale_deals: {
+        parameters: {
+            query?: {
+                days?: number | null;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaleDeals"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    crm_touch_backfill_status: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BackfillStatus"];
+                };
+            };
+        };
+    };
+    crm_touch_backfill: {
+        parameters: {
+            query?: {
+                scope?: "missing" | "all";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BackfillStatus"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
