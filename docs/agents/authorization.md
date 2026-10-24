@@ -5,7 +5,7 @@
 
 ## 1. `Entity`
 
-`backend/core/entities.py` (~260 lines, new).
+`backend/core/entities.py` (about 195 lines, new).
 
 ```python
 @dataclass(frozen=True)
@@ -44,7 +44,7 @@ Entity type strings are `<slug>.<name>`; core's use `core.`. The format is enfor
 | `core.organization` | core | Any active member. |
 | `crm.deal` | `crm` | Any member. |
 | `todos.item` | `todos` | The Todos permission model (§6 below). |
-| example's widget | `example` | A restrictive `can_read` (private widgets). Rule and type name: Open (pinned by the implementing workstream, which updates this doc; `apps-and-contracts.md` §7). |
+| `example.widget` | `example` | Read: anyone unless the widget is private, then only its owner. Write: the owner or an admin. |
 
 ## 2. Functions
 
@@ -53,13 +53,11 @@ Entity type strings are `<slug>.<name>`; core's use `core.`. The format is enfor
 | `get(type)` | The registered `Entity`, or an error for an unknown type. Replaces CakeCRM's `VALID_ENTITY_TYPES` checks. |
 | `assert_exists(conn, type, id)` | Raises when the record does not exist. |
 | **`authorize(user, conn, type, id, "read" \| "write")`** | `read`: **404** when the record is missing **or** not readable, so existence never leaks. `write`: **404** when missing or not readable, **403** when readable but not writable. Called by every core service and router **before touching a record**. |
-| `url_for(type, id)` | The record's URL via `url_fn`. |
+| `url_for(entity_type, entity_id) -> str` | The record's URL via `url_fn`. |
 | `titles_for(user, conn, type, ids)` | Titles via `title_fn`, **dropping titles the user may not read**. |
 | `delete_record_in(conn, type, id)` | Deletes the record and runs the `on_entity_deleted` subscribers (through `on_entity_deleted_in`) **in the same transaction**. |
 
 `entities.delete_record_in` is the only delete function; there is no form without `_in`, and it always runs on the caller's `conn`.
-
-Open (pinned by the implementing workstream, which updates this doc): `url_for`'s exact signature is not stated.
 
 Role-guarded routes refuse with **403**: a member calling an admin-only app's API (§4).
 
@@ -100,9 +98,9 @@ Rules:
 
 ## 4. Manifest roles reach the API
 
-1. `registry.mount()` adds `Depends(require_roles(manifest.roles))` to each app's router. A member calling an admin-only app's API directly gets **403**.
+1. `registry.mount_app()` adds `Depends(require_roles(manifest.roles))` to each app's router. A member calling an admin-only app's API directly gets **403**.
 2. Entities, reports and tools registered by an app **default their `can_read` / `can_write` to "user has one of the app's roles"**, applied **before** the app's own check.
-3. `registry.for_user(user)` filters tools by `enabled(user)` and app roles (`agent.md`).
+3. `backend.core.agent.registry.for_user(user)` filters tools by `enabled(user)`. The app's roles reach it because `mount_app` wraps each app tool's `enabled` with the role check (`agent.md`).
 4. `Report.admin_only` restricts a report to admins (`records.md`).
 
 ## 5. Stored copies and deliveries obey the same rules
