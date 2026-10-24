@@ -46,9 +46,17 @@
 
 W6 owns the settings registry and `settings/`. W1 (Security, Users) and W9 (AI, MCP) contribute cards **through the registry W6 defines in Step 1**; they do not edit `settings/`.
 
+Core areas contribute to the shell by discovery, like apps; nobody edits `Root.tsx`, `Layout.tsx` or `settings/` to add one. Each module is an eager glob, so it holds only data and `lazy()` loaders:
+
+| File | Default export | Contract |
+|---|---|---|
+| `src/core/<area>/routes.tsx` | `CoreRoute[]`, `{path, element, public?, admin?}` | Shell routes render inside the signed-in Layout, admin ones behind `RequireAdmin`; `public` ones (an invite or reset link) render beside `/login`. Paths have no leading slash, and the first segment must be a reserved slug. |
+| `src/core/<area>/nav.tsx` | `CoreNavItem[]`, `{to, label, icon, placement: "primary" \| "menu", adminOnly?, order?}` | `primary` items sit in the header nav; `menu` items in the user menu and the mobile drawer. Lower `order` first, default 100. |
+| `src/core/<area>/settingsCards.ts` | `SettingsSection[]`, `{id, label, order?, cards: [{id, title, adminOnly, Card}]}` | The section id is the URL segment `/settings/<id>`. A section shows only when one of its cards does. |
+
 Core page paths: `/`, `/login`, `/setup`, `/invite/:token`, `/reset-password/:token`, `/people`, `/people/:id`, `/organizations`, `/organizations/:id`, `/settings/*`, `/guide`, `/guide/:slug`, `/reports`, `/requests`, `/changelog`, `/backups`, `/jobs`, `/whisk`, `/reminders`, `/notifications`. The backend mails `PUBLIC_URL/invite/<token>` and `PUBLIC_URL/reset-password/<token>` links. Each first segment is a reserved slug (`apps-and-contracts.md` §1).
 
-Open (pinned by the implementing workstream, which updates this doc): the Sheets admin page's path (it is not in the list above; `sheets` is reserved). The settings registry's card interface, and where core cards are declared.
+Open (pinned by the implementing workstream, which updates this doc): the Sheets admin page's path (it is not in the list above; `sheets` is reserved).
 
 ## 4. Type generation (§12)
 
@@ -122,7 +130,7 @@ Pinned since the block was written (the block stays verbatim; these refine it):
 | Google start/callback, invites, reset, TOTP, users admin | `auth.md` | W1 |
 | `POST /api/core/jobs/{name}/run` (admin run now) | `scheduler.md` | W3 |
 
-Open (pinned by the implementing workstream, which updates this doc): `/api/todos/badge` and `/api/todos/for/...` are the plan's `/badge` and `/for/...` under the Todos mount; the full paths are inferred from the mount rule.
+The Todos routes `/api/todos/badge` and `/api/todos/for/{entity_type}/{entity_id}` are the app router's `/badge` and `/for/...` under its `/api/todos` mount.
 
 ## Tests that pin this
 
