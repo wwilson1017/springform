@@ -50,9 +50,9 @@ export function ActivityTimeline({ activities, onUpdate, onUncertainWrite }: Pro
   }
 
   function handleNavigateToContact() {
-    if (selected?.contact_id) {
+    if (selected?.person_id) {
       setSelected(null);
-      navigate(`/crm/contacts/${selected.contact_id}`);
+      navigate(`/crm/contacts/${selected.person_id}`);
     }
   }
 
@@ -115,7 +115,7 @@ export function ActivityTimeline({ activities, onUpdate, onUncertainWrite }: Pro
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 15 }}>
                   <span style={{ color: INK, textTransform: 'capitalize' }}>{a.activity.replace('_', ' ')}</span>
-                  {a.contact_name && <span style={{ color: INK_MUTE }}> · {a.contact_name}</span>}
+                  {a.person_name && <span style={{ color: INK_MUTE }}> · {a.person_name}</span>}
                 </div>
                 {a.note && <p style={{ color: INK_SOFT, fontSize: 14, marginTop: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.note}</p>}
               </div>
@@ -184,13 +184,13 @@ export function ActivityTimeline({ activities, onUpdate, onUncertainWrite }: Pro
 
               {/* Meta info */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                {selected.contact_name && (
+                {selected.person_name && (
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <span style={{ ...mono(10) }}>Contact</span>
                     <span
                       onClick={handleNavigateToContact}
                       style={{ fontSize: 13, color: ACCENT_TEXT, cursor: 'pointer' }}
-                    >{selected.contact_name}</span>
+                    >{selected.person_name}</span>
                   </div>
                 )}
                 {selected.deal_title && (

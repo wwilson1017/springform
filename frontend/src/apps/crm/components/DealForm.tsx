@@ -43,7 +43,7 @@ export function DealForm({ contactId, onClose, onSaved }: Props) {
   //
   // On a CREATE these start blank and are filled by the picker or, for a deal opened from a
   // contact, by the prefill below. `DealDetailBody`'s inline editor carries the edit-side half of
-  // this contract — that a row reaching a picker must join contact_name AND company_name.
+  // this contract — that a row reaching a picker must join person_name AND organization_name.
   const [contactLabel, setContactLabel] = useState('');
   const [companyLabel, setCompanyLabel] = useState('');
   // Owner (issue #60). The picker shows you as the default, but `owner_id` is only
@@ -94,9 +94,9 @@ export function DealForm({ contactId, onClose, onSaved }: Props) {
           // it is DERIVED from this contact, so once the user has cleared or replaced them
           // the derivation is void — filling from it would either resurrect a link they
           // removed or overwrite the company `pickContact` just took from their new choice.
-          if (!companyTouched.current && c.company_id != null) {
-            setSelectedCompany(c.company_id);
-            setCompanyLabel(c.company_name || c.company || '');
+          if (!companyTouched.current && c.organization_id != null) {
+            setSelectedCompany(c.organization_id);
+            setCompanyLabel(c.organization_name || c.company || '');
           }
         })
         .catch(() => {});
@@ -122,8 +122,8 @@ export function DealForm({ contactId, onClose, onSaved }: Props) {
     // user nor the current contact ever named. Clearing the contact outright is left alone:
     // there is no new contact to derive from, and the company may be all the user has.
     if (c && !companyTouched.current) {
-      setSelectedCompany(c.company_id);
-      setCompanyLabel(c.company_id != null ? (c.company_name || c.company || '') : '');
+      setSelectedCompany(c.organization_id);
+      setCompanyLabel(c.organization_id != null ? (c.organization_name || c.company || '') : '');
     }
   }
 
@@ -139,8 +139,8 @@ export function DealForm({ contactId, onClose, onSaved }: Props) {
         expected_close_date: expectedClose, notes,
       };
       body.stage = stage;
-      body.contact_id = selectedContact;  // always send (null unlinks the contact)
-      body.company_id = selectedCompany;  // always send (null unlinks the company)
+      body.person_id = selectedContact;  // always send (null unlinks the contact)
+      body.organization_id = selectedCompany;  // always send (null unlinks the company)
       // Omitted on an untouched create so the server assigns the caller.
       if (ownerTouched) body.owner_id = ownerId;
       const created = await api<CrmDeal>('/api/crm/deals', { method: 'POST', body: JSON.stringify(body) });

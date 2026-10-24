@@ -488,7 +488,7 @@ export function CrmDashboardPage() {
                       overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                     }}>{d.title}</div>
                     <div style={{ ...mono(10, INK_MUTE), marginTop: 3 }}>
-                      {d.company_name || d.contact_name || 'No contact'}
+                      {d.organization_name || d.person_name || 'No contact'}
                     </div>
                   </div>
                   <div style={{ textAlign: 'right', flexShrink: 0 }}>
@@ -590,12 +590,12 @@ export function CrmDashboardPage() {
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 16, letterSpacing: '-0.005em', color: INK }}>
                       {deal.title}
-                      {!isMobile && <span style={{ color: INK_MUTE }}> · {deal.contact_name || 'No contact'}</span>}
+                      {!isMobile && <span style={{ color: INK_MUTE }}> · {deal.person_name || 'No contact'}</span>}
                     </div>
                     <div style={{
                       ...mono(11, STAGE_COLORS[deal.stage]?.text || INK_DIM),
                       marginTop: 3, textTransform: 'uppercase',
-                    }}>{deal.stage}{isMobile && deal.contact_name ? ` · ${deal.contact_name}` : ''}</div>
+                    }}>{deal.stage}{isMobile && deal.person_name ? ` · ${deal.person_name}` : ''}</div>
                   </div>
                   <div style={{
                     fontFamily: FONT_DISPLAY,

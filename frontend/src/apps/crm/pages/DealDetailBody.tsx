@@ -103,7 +103,7 @@ import { ProvenanceBadge } from './ProvenanceBadge';
  * whose loser silently wins.
  */
 export type DealPatch = Partial<Pick<CrmDeal,
-  'title' | 'value' | 'contact_id' | 'company_id' | 'owner_id'
+  'title' | 'value' | 'person_id' | 'organization_id' | 'owner_id'
   | 'expected_close_date' | 'probability' | 'notes' | 'stage' | 'closed_on'
   // Issue #125. Not a form field — the temperature is written by its own one-click control,
   // here and on the board, so it never joins `formFields` or the dirty comparison. It is in
@@ -119,8 +119,8 @@ interface DealFormState {
   /** #279: the day a Won deal closed. Editable only while the form's stage is Won. */
   closed_on: string;
   notes: string;
-  contact_id: number | null;
-  company_id: number | null;
+  person_id: number | null;
+  organization_id: number | null;
   owner_id: number | null;
   /** The linked records' DISPLAY names, carried in form state rather than looked up from a
    *  fetched list. That is what ends the capped-page hazard the two `<select>`s used to carry
@@ -132,13 +132,13 @@ interface DealFormState {
 
 /** The columns the dirty check and the patch look at. The two `*_label` fields are display state
  *  that always moves WITH its id, so comparing them would only ever double-count a change — and
- *  would report a spurious edit for a deal whose `company_name` the server later joins
+ *  would report a spurious edit for a deal whose `organization_name` the server later joins
  *  differently. */
 function formFields(f: DealFormState) {
   return {
     title: f.title, stage: f.stage, value: f.value, probability: f.probability,
     expected_close_date: f.expected_close_date, closed_on: f.closed_on, notes: f.notes,
-    contact_id: f.contact_id, company_id: f.company_id, owner_id: f.owner_id,
+    person_id: f.person_id, organization_id: f.organization_id, owner_id: f.owner_id,
   };
 }
 
@@ -157,11 +157,11 @@ function toDealForm(deal: CrmDeal): DealFormState {
     expected_close_date: deal.expected_close_date ?? '',
     closed_on: deal.closed_on ?? '',
     notes: deal.notes ?? '',
-    contact_id: deal.contact_id ?? null,
-    company_id: deal.company_id ?? null,
+    person_id: deal.person_id ?? null,
+    organization_id: deal.organization_id ?? null,
     owner_id: deal.owner_id ?? null,
-    contact_label: deal.contact_name ?? '',
-    company_label: deal.company_name ?? '',
+    contact_label: deal.person_name ?? '',
+    company_label: deal.organization_name ?? '',
   };
 }
 
@@ -185,8 +185,8 @@ function buildPatch(form: DealFormState, baseline: DealFormState, stageWritable:
     patch.closed_on = form.closed_on;
   }
   if (form.notes !== baseline.notes) patch.notes = form.notes;
-  if (form.contact_id !== baseline.contact_id) patch.contact_id = form.contact_id;
-  if (form.company_id !== baseline.company_id) patch.company_id = form.company_id;
+  if (form.person_id !== baseline.person_id) patch.person_id = form.person_id;
+  if (form.organization_id !== baseline.organization_id) patch.organization_id = form.organization_id;
   if (form.owner_id !== baseline.owner_id) patch.owner_id = form.owner_id;
   if (stageWritable && form.stage !== baseline.stage) patch.stage = form.stage;
   return patch;
@@ -271,7 +271,7 @@ function DealEditForm({
       <RecordCombobox<CrmContact>
         label="Contact"
         id="deal-contact"
-        value={form.contact_id}
+        value={form.person_id}
         valueLabel={form.contact_label}
         emptyLabel="No contact"
         search={searchContacts}
@@ -285,7 +285,7 @@ function DealEditForm({
       <RecordCombobox<CrmCompany>
         label="Company"
         id="deal-company"
-        value={form.company_id}
+        value={form.organization_id}
         valueLabel={form.company_label}
         emptyLabel="No company"
         search={searchCompanies}
@@ -519,7 +519,7 @@ export function DealDetailBody({
 
   // Canonical values win for every key the host actually carries, so a row patched after a write
   // is authoritative — but keys the host's query never SELECTED (the dashboard's top-deals rows
-  // have no `company_name`) fall through to the detail fetch instead of rendering blank.
+  // have no `organization_name`) fall through to the detail fetch instead of rendering blank.
   //
   // `undefined` is treated as absent, not as a value. Real JSON omits such keys entirely, but a
   // row assembled in memory — an optimistic patch, a spread over a partial — can carry an
@@ -688,9 +688,9 @@ export function DealDetailBody({
   // just cleared is overwritten by a contact change.
   function pickContact(c: CrmContact | null) {
     setForm(prev => {
-      if (c === null) return { ...prev, contact_id: null, contact_label: '' };
+      if (c === null) return { ...prev, person_id: null, contact_label: '' };
       if (companyTouched.current) {
-        return { ...prev, contact_id: c.id, contact_label: c.name };
+        return { ...prev, person_id: c.id, contact_label: c.name };
       }
       // An auto-derived company FOLLOWS the contact it was derived from — INCLUDING to nothing.
       // Filling only when the new contact HAS one would strand the previous contact's company on
@@ -699,10 +699,10 @@ export function DealDetailBody({
       // contact to derive from, and the company may be all the user has.
       return {
         ...prev,
-        contact_id: c.id,
+        person_id: c.id,
         contact_label: c.name,
-        company_id: c.company_id ?? null,
-        company_label: c.company_id != null ? (c.company_name || c.company || '') : '',
+        organization_id: c.organization_id ?? null,
+        company_label: c.organization_id != null ? (c.organization_name || c.company || '') : '',
       };
     });
   }
@@ -713,7 +713,7 @@ export function DealDetailBody({
     companyTouched.current = true;
     setForm(prev => ({
       ...prev,
-      company_id: co?.id ?? null,
+      organization_id: co?.id ?? null,
       // The DECORATED label, so an archived company keeps its marker in the closed control.
       company_label: co ? companyLabelOf(co) : '',
     }));
@@ -725,7 +725,7 @@ export function DealDetailBody({
   function startEditing() {
     // A company already on the deal counts as spoken for; clearing it in `DealEditForm` sets the
     // flag too, which is the case an emptiness test gets wrong.
-    companyTouched.current = record.company_id != null;
+    companyTouched.current = record.organization_id != null;
     const snapshot = toDealForm(record);
     setForm(snapshot);
     setBaseline(snapshot);
@@ -779,7 +779,7 @@ export function DealDetailBody({
         body: JSON.stringify({
           activity: logActivity,
           note: logNote,
-          contact_id: record.contact_id ?? null,
+          person_id: record.person_id ?? null,
           deal_id: record.id,
         }),
       });
@@ -1085,23 +1085,23 @@ export function DealDetailBody({
             <Row label="Deal ID" value={`#${record.id}`} />
             <Row
               label="Contact"
-              value={record.contact_id != null && record.contact_name ? (
+              value={record.person_id != null && record.person_name ? (
                 // A button, not an <a>: leaving the panel is a leave path like any other, and a
                 // link would take a dirty draft with it without asking.
                 <button type="button" style={linkButtonStyle}
-                  onClick={() => void leaveVia(() => navigate(`/crm/contacts/${record.contact_id}`))}>
-                  {record.contact_name}
+                  onClick={() => void leaveVia(() => navigate(`/crm/contacts/${record.person_id}`))}>
+                  {record.person_name}
                 </button>
-              ) : record.contact_name}
+              ) : record.person_name}
             />
             <Row
               label="Company"
-              value={record.company_id != null && record.company_name ? (
+              value={record.organization_id != null && record.organization_name ? (
                 <button type="button" style={linkButtonStyle}
-                  onClick={() => void leaveVia(() => navigate(`/crm/companies/${record.company_id}`))}>
-                  {record.company_name}
+                  onClick={() => void leaveVia(() => navigate(`/crm/companies/${record.organization_id}`))}>
+                  {record.organization_name}
                 </button>
-              ) : record.company_name}
+              ) : record.organization_name}
             />
             {/* `OwnerName`, not a bare name string: an UNASSIGNED owner is a real state (#60) and
                 the muted italic is what keeps the word "Unassigned" from reading as somebody's

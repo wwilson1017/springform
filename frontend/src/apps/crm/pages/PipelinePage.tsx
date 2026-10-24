@@ -2111,7 +2111,7 @@ function DealBoardCard({ deal, columnStage, onOpen, selectable = false, isSelect
         }}>${deal.value.toLocaleString()}</span>
       </div>
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', fontSize: 11, color: INK_DIM }}>
-        {deal.contact_name && <span>{deal.contact_name}</span>}
+        {deal.person_name && <span>{deal.person_name}</span>}
         {deal.probability > 0 && <span>{deal.probability}%</span>}
         {/* Close date is conditional at `compact` (it was always conditional) and PROMOTED to
             always-visible once there is room (issue #182). The promotion is the point: on a
