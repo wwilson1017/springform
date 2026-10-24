@@ -9,15 +9,15 @@
 
 1. **Real temp SQLite.** `db(tmp_path)` runs all migrations (core, then every app) on a fresh file. No services.
 2. **No FakeConn.** Never fake the connection or the database.
-3. **`freeze`**: a fixture that freezes `core.clock` (reminders, scheduler, sweep ages, `at` catch-up).
-4. **`login_as`**: a fixture that authenticates a test client as a given user.
+3. **`freeze(iso)`**: a fixture that freezes `core.clock` at an ISO instant (reminders, scheduler, sweep ages, `at` catch-up).
+4. **`login_as(client, role)`**: a fixture that authenticates a test client as a user of the given role.
 5. **Skip/xfail ban**: conftest fails the run on `skip` / `xfail` (lifted from CakeCRM).
 6. Two-member tests create two real members and one restrictive record.
 7. Providers: a **FakeProvider** stands in for LLM providers; nothing calls a real model.
 8. HTTP to external services is mocked (Google token endpoint) or served locally (a FastMCP stub, `httpx.ASGITransport`).
 9. The contract test runs against every app in `backend/apps/` and against `backend/tests/fixtures/bad_app`, which it must fail.
 
-Open: `freeze` and `login_as` signatures (e.g. `freeze("2026-03-08T07:59:00Z")`, `login_as(client, user)`) are not stated; Step 1 pins them. Open: the user-creation helper for two-member tests.
+Open: the user-creation helper for two-member tests. Both members have the role `member`, so `login_as(client, role)` alone cannot tell them apart.
 
 ### Vitest (`frontend/vitest.config.ts`)
 
@@ -26,7 +26,7 @@ Open: `freeze` and `login_as` signatures (e.g. `freeze("2026-03-08T07:59:00Z")`,
 
 ### Playwright
 
-Runs against a seeded `PREVIEW_MODE=1` build with the FakeProvider and the Google preview stub.
+Runs against a seeded `PREVIEW_MODE=1` build with the FakeProvider and the Google preview stub. It freezes the server clock with `SPRINGFORM_FREEZE_CLOCK=<iso>`, which the server honours only in `PREVIEW_MODE`.
 
 ## 2. pytest, by area
 
@@ -153,8 +153,6 @@ One flow, `PREVIEW_MODE=1`, seeded:
 10. Back up now creates a file.
 11. Password login → enable 2FA (pyotp) → Google login via the preview stub.
 12. Whisk answers with FakeProvider → a write tool shows Approve and runs on approve → zero-key card.
-
-Open: how the browser test freezes the server clock for step 5 is not stated.
 
 ## 5. Live checks (Step 5)
 

@@ -101,6 +101,7 @@ The data directory is `DATA_DIR` (the donor's env var, kept; default `./data` fo
 | `ENCRYPTION_KEY` | Fernet key; when set, no key file is written. | `deploy.md` |
 | `TRUST_PROXY` | `1` → uvicorn `--proxy-headers --forwarded-allow-ips='*'`. | `auth.md`, `deploy.md` |
 | `PREVIEW_MODE` | `1` → seeded preview users, role picker, Google stub. | `auth.md` |
+| `SPRINGFORM_FREEZE_CLOCK` | `<iso>` → the server clock is frozen there, for Playwright. Honoured only in `PREVIEW_MODE`. | `testing.md` |
 | `RESEND_API_KEY`, `MAIL_FROM` | Invite and reset mail via Resend. | `auth.md` |
 | `MCP_ALLOW_PRIVATE` | `1` → outbound MCP may reach private addresses and `http://`. | `mcp.md` |
 | `AGENT_VECTOR` | `1` → optional `core_agent_vectors`. | `agent.md` |
