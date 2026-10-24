@@ -69,6 +69,8 @@ def test_search_ranks_title_then_summary_then_body_and_is_deterministic(tmp_path
     assert library.search(corpus, "the and of") == []
     _, snippet = library.search(corpus, "customer")[0]
     assert snippet == "Send an invoice to the customer."
+    headed = _corpus(tmp_path, {"f-headed.md": _topic("Keys", body="## Customer keys\n\nAsk the customer for a key.")})
+    assert library.search(headed, "customer key")[0][1] == "Ask the customer for a key."  # never a bare heading
 
 
 def test_cap_and_front_matter_rules(tmp_path):

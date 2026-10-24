@@ -193,10 +193,11 @@ def score(topic: Topic, tokens: list[str]) -> int:
 
 
 def snippet(topic: Topic, tokens: list[str]) -> str:
-    """The paragraph covering the most query words (never the query itself); else the summary."""
+    """The paragraph covering the most query words (never the query itself; headings skipped);
+    else the summary."""
     best, best_cover = "", 0
     for para in topic.body.split("\n\n"):
-        text = " ".join(line.lstrip("#").strip() for line in para.splitlines() if line.strip())
+        text = " ".join(line.strip() for line in para.splitlines() if line.strip() and not line.startswith("#"))
         cover = sum(1 for token in tokens if token in text.lower())
         if cover > best_cover:
             best, best_cover = text, cover
