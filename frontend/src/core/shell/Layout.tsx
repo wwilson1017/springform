@@ -16,15 +16,15 @@ const INSTALL_NAME = 'Springform';
 
 /** The signed-in frame: header (nav, theme, notifications slot, user menu) over the routed page. */
 export function Layout() {
-  const { user, signOut } = useAuth();
+  const { user, isAdmin, signOut } = useAuth();
   const { apps } = useCoreApps();
   const isMobile = useIsMobile();
   const location = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
 
-  // App nav only for apps this user receives and that are not hidden; hidden apps stay
-  // reachable for admins from the launcher.
-  const shown = new Set((apps ?? []).filter(a => !a.hidden).map(a => a.slug));
+  // App nav for the apps this user receives. Hiding an app removes its nav for members only
+  // (the server does not send them hidden apps; the filter holds if it ever does).
+  const shown = new Set((apps ?? []).filter(a => !a.hidden || isAdmin).map(a => a.slug));
   const nav: DrawerItem[] = [
     { to: '/', label: 'Home', icon: <IconHome size={18} aria-hidden /> },
     { to: '/people', label: 'People', icon: <IconUsers size={18} aria-hidden /> },

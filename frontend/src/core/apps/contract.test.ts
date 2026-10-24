@@ -40,6 +40,15 @@ describe('app contract', () => {
     expect(manifestSlugs).toContain('example');
   });
 
+  it('no app takes a path the shell reserves for core pages', () => {
+    // The shell's core pages: '/', /login, /setup, /invite/:token, /people(/:id),
+    // /organizations(/:id), /settings/*, /guide, /requests, /changelog, /backups, /jobs, /whisk,
+    // /reminders, /notifications. An app on one of these would be shadowed or shadow core.
+    const reserved = new Set(['', 'login', 'setup', 'invite', 'people', 'organizations', 'settings', 'guide',
+      'requests', 'changelog', 'backups', 'jobs', 'whisk', 'reminders', 'notifications']);
+    for (const m of manifests) expect(reserved.has(m.path.split('/')[1] ?? ''), `${m.slug} path ${m.path}`).toBe(false);
+  });
+
   it('every manifest has contributions.ts and index.tsx, and every app folder a manifest', () => {
     expect(Object.keys(contributions).map(slugOf).sort()).toEqual(manifestSlugs);
     expect(Object.keys(screens).map(slugOf).sort()).toEqual(manifestSlugs);

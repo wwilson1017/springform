@@ -4,7 +4,8 @@ import type { TimelineEntry } from '../api/types';
 import { callsTo, mockFetch } from '../../testing';
 import { Timeline } from './Timeline';
 
-const LIST = '/api/core/timeline?entity_type=example.widget&entity_id=7';
+const BASE = '/api/core/timeline?entity_type=example.widget&entity_id=7';
+const LIST = `${BASE}&limit=50`;
 const entries: TimelineEntry[] = [
   { id: 2, kind: 'field_change', body: null, changes: [{ field: 'color', old: 'red', new: 'blue' }, { field: 'is_private', old: false, new: true }], author: { id: 1, name: 'Ada' }, created_at: '2026-10-20T15:04:05Z' },
   { id: 1, kind: 'note', body: 'First note', changes: null, author: { id: 1, name: 'Ada' }, created_at: '2026-10-20T15:00:00Z' },
@@ -34,5 +35,20 @@ describe('Timeline', () => {
     const [, init] = callsTo(fetchMock, 'POST', '/api/core/timeline')[0];
     expect(JSON.parse(init!.body as string)).toEqual({ entity_type: 'example.widget', entity_id: 7, body: 'Called them' });
     expect((screen.getByLabelText('Add a note') as HTMLTextAreaElement).value).toBe('');
+  });
+
+  it('pages older entries with before=<last id> while full pages keep coming', async () => {
+    const note = (id: number): TimelineEntry => ({ ...entries[1], id, body: `note ${id}` });
+    const firstPage = Array.from({ length: 50 }, (_, i) => note(120 - i)); // 120 … 71
+    const fetchMock = mockFetch({
+      [`GET ${LIST}`]: { body: firstPage },
+      [`GET ${BASE}&before=71&limit=50`]: { body: [note(70), note(69)] },
+    });
+    render(<Timeline entityType="example.widget" entityId={7} />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Show older' }));
+    expect(await screen.findByText('note 69')).toBeTruthy();
+    expect(callsTo(fetchMock, 'GET', `${BASE}&before=71&limit=50`)).toHaveLength(1);
+    // A short page means there is nothing older.
+    expect(screen.queryByRole('button', { name: 'Show older' })).toBeNull();
   });
 });
