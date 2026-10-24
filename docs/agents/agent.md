@@ -72,6 +72,7 @@ ToolSpec(
     targets,            # targets(args) -> list[(entity_type, id)]
     enabled,            # enabled(user) -> bool
     untrusted_source,   # results fenced as untrusted (remote tools)
+    external_effect: bool = False,   # acts outside the install (remote MCP, email, HTTP); run per §6 rule 1
     mcp_exposed=True,
     app,                # owning app slug, or core
     revision,
@@ -102,7 +103,7 @@ In the CakeCRM donor (`assistant/confirm_tier.py`), `confirm_tier` has one legal
 5. A write tool has `handler_in` **and** `targets`, or is marked `external_effect`.
 6. `always_confirm` is allowed on any spec.
 
-Open: `external_effect` is used by rule 5 but is not a field in the `ToolSpec` list. Open: `hides_when`, `revision` and `mcp_exposed` are named but not defined (whether `mcp_exposed=False` removes a tool from `for_source("mcp")` is the natural reading). Open: the prefix rule for core tools (context files, memory) is not stated.
+Open: `hides_when`, `revision` and `mcp_exposed` are named but not defined (whether `mcp_exposed=False` removes a tool from `for_source("mcp")` is the natural reading). Open: the prefix rule for core tools (context files, memory) is not stated.
 
 ### Filtering
 
