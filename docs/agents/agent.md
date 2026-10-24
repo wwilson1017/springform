@@ -234,7 +234,7 @@ The routes under `/api/agent` are in `backend/core/agent/router.py`; the memory 
 
 ## 12. Jobs
 
-`core.agent_nightly` at 02:00, gated by the setting `agent.nightly_enabled`, skipped with zero keys (observer + dreaming). See `scheduler.md`.
+`core.agent_nightly` at 02:00 (timeout 1,800 s), gated by the setting `agent.nightly_enabled`: the observer, then dreaming. With zero keys it is skipped only when the observer reaches a model call (§9). See `scheduler.md`.
 
 ## 13. Step 1 stub
 
