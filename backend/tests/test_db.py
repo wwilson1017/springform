@@ -113,6 +113,15 @@ def test_requires_core_refusal_names_the_app_before_applying_anything(tmp_path):
     assert _tables() == set()
 
 
+def test_a_version_that_is_not_pep_440_stops_the_boot_with_a_clear_message(tmp_path):
+    app_dir = _app(tmp_path / "apps", "fx", {"20261101000000_fx_init.sql": ""})
+    with pytest.raises(MigrationError, match=r"refuses to start: springform-version holds '0\.1\.0-dryrun-b'"):
+        core_db.check_requires_core([app_dir], "0.1.0-dryrun-b")
+    with pytest.raises(MigrationError, match="springform-version"):
+        core_db.check_requires_core([], "0.1.0-dryrun-b")  # even with no app to check
+    core_db.check_requires_core([app_dir], "0.1.0+fork.1")
+
+
 def test_core_migration_may_not_drop_or_rename(tmp_path):
     assert core_db.lint_core_migration("ALTER TABLE core_x DROP COLUMN y;") == ["DROP COLUMN"]
     assert core_db.lint_core_migration("DROP TABLE core_x;\nALTER TABLE a RENAME TO b;") == ["DROP TABLE", "RENAME"]

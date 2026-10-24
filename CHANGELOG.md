@@ -98,6 +98,10 @@ Conventions:
   `timeline.api.add_system_in`.
 - Preview seeds core's sample people and organizations before any app's sample data, so an app's
   sample (the CRM's deals) no longer has to seed them itself.
+- A `springform-version` that is not a PEP 440 version (such as `0.1.0-dryrun-b`) stops the boot
+  with a message naming the file and the value, instead of an uncaught `InvalidVersion`.
+- A boot whose encryption key does not match the newest backup's logs an error with the remedy and
+  records it for the Backups page, instead of serving with every stored secret silently unset.
 
 ### Schema
 

@@ -37,7 +37,7 @@ Reopening a lost deal clears its reason, so it never carries a stale one.
 The expected close date is a forecast; **Closed on** is the fact. It is set when a deal enters Won
 (today, or the day you give), kept if the deal is marked won again, and cleared if the deal leaves
 Won. While a deal is won you can correct the day, but not blank it. Days follow the business's time
-zone (Settings → General), so a deal won late in the evening is dated that evening, not tomorrow.
+zone (Settings → Workspace), so a deal won late in the evening is dated that evening, not tomorrow.
 
 ## Stage checklists
 

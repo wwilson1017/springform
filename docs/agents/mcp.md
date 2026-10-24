@@ -3,7 +3,7 @@
 **What this covers:** §6. Inbound: a per-user MCP link that is an API key for that user, immediate writes, exclusions, the HTTP rules lifted from todo-gtd, the SDK choice, URL forms. Outbound: the servers table, discovery and refresh, naming, every call confirms, untrusted fencing, the address policy enforced at connection time, and the DNS-rebinding test.
 **Who reads it:** W14 (MCP server), W15 (MCP client), W9/W12 (registry and confirmation), the MCP settings cards.
 
-Code: the inbound server is the core package `backend/core/mcp/` (`links.py`, `server.py`, `router.py`, `startup.py`), with `backend/core/ratelimit.py`, running tools through `backend/core/agent/execute.py`; the outbound client is `backend/core/mcp_servers/`, landing with the MCP client workstream. Both work with zero AI keys.
+Code: both halves are built. The inbound server is the core package `backend/core/mcp/` (`links.py` for the links, `router.py` for the link routes and the `/mcp/{token}` and bearer `/mcp` endpoints, `server.py`, `startup.py`), with `backend/core/ratelimit.py` for the limits, running tools through `backend/core/agent/execute.py`. The outbound client is the core package `backend/core/mcp_servers/`: servers CRUD, the discovery job `core.mcp_discover`, the address policy, `<prefix>__<tool>` names, fenced results, and servers shared by the whole install (§2). Links, the endpoint and discovery work with zero AI keys; only Whisk's calls to remote tools wait for one. Settings: **MCP** (`mcp`, order 25, member-visible) holds the links card, and **MCP servers** (`mcp_servers`, order 80, admin-only) the servers card.
 
 ## 1. Inbound (`backend/core/mcp/`)
 
