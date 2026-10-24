@@ -1,232 +1,131 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { api } from '../../core/api/client';
-import { writeMayHaveLanded } from '../usePatchableAssembly';
-import { useIsMobile } from '../../shared/useIsMobile';
-import type { CrmActivity } from '../../core/types';
-import { IconPhone, IconMail, IconUsers, IconFile } from '../../shared/icons';
-import { mono, INK, INK_MUTE, INK_SOFT, INK_DIM, LINE, LINE_STRONG, BG_RAISED, ACCENT, ACCENT_TEXT, ACCENT_INK, FONT_DISPLAY, FONT_SANS } from '../../shared/styles';
-import { modalOverlay, modalContent, mobileDragHandle, btnDanger } from '../styles';
-import { confirmDialog } from '../../shared/confirm';
-import { toast } from '../../shared/toast';
-import { formatDate } from '../../shared/formatDate';
+/**
+ * A deal's activity log: a quick "log a call/email/meeting/note" row on top, then the entries,
+ * newest first. Clicking an entry edits or deletes it. Activity is the CRM's own log (it drives
+ * touch counts and staleness); free-form notes go on the timeline.
+ */
+import { useState, type FormEvent } from 'react';
+import { Link } from 'react-router';
+import { confirmDialog } from '../../../shared/confirm';
+import { formatDate } from '../../../shared/formatDate';
+import { toast } from '../../../shared/toast';
+import { deleteActivity, logActivity, updateActivity, type Activity } from '../api';
+import { btnDanger, btnPrimary, btnSecondary, input, label, muted } from '../ui';
+import { Dialog } from './Dialog';
 
-const ACTIVITY_ICONS: Record<string, React.ComponentType<{ size?: number; strokeWidth?: number }>> = {
-  call: IconPhone,
-  email: IconMail,
-  meeting: IconUsers,
-  note: IconFile,
-  follow_up: IconMail,
-};
+const LOG_TYPES = ['call', 'email', 'meeting', 'note'] as const;
 
-interface Props {
-  activities: CrmActivity[];
-  onUpdate?: () => void;
-  /**
-   * A write here whose outcome is unknown (#77). Activity rows are one of the two signals
-   * behind a contact's derived `last_contact_at`, and deleting the newest one moves that
-   * value BACKWARDS — so a host rendering it has to reconcile rather than assume the
-   * failure means nothing changed. A definite 4xx never fires it.
-   */
-  onUncertainWrite?: () => void;
-}
+const typeLabel = (t: string) => t.charAt(0).toUpperCase() + t.slice(1).replace(/_/g, ' ');
 
-export function ActivityTimeline({ activities, onUpdate, onUncertainWrite }: Props) {
-  const navigate = useNavigate();
-  const isMobile = useIsMobile();
-  const [selected, setSelected] = useState<CrmActivity | null>(null);
-  const [editActivity, setEditActivity] = useState('');
-  const [editNote, setEditNote] = useState('');
-  const [saving, setSaving] = useState(false);
+export function ActivityLog({ dealId, personId, activities, onChanged }: {
+  dealId: number;
+  personId: number | null;
+  activities: Activity[];
+  onChanged: () => void;
+}) {
+  const [kind, setKind] = useState<string>('call');
+  const [note, setNote] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [editing, setEditing] = useState<Activity | null>(null);
 
-  if (activities.length === 0) {
-    return <p style={{ color: INK_DIM, fontSize: 13 }}>No activity yet.</p>;
-  }
-
-  function handleClick(a: CrmActivity) {
-    setSelected(a);
-    setEditActivity(a.activity);
-    setEditNote(a.note || '');
-  }
-
-  function handleNavigateToContact() {
-    if (selected?.person_id) {
-      setSelected(null);
-      navigate(`/crm/contacts/${selected.person_id}`);
-    }
-  }
-
-  async function handleSave() {
-    if (!selected) return;
-    setSaving(true);
+  async function log(e: FormEvent) {
+    e.preventDefault();
+    setBusy(true);
     try {
-      await api(`/api/crm/activity/${selected.id}`, {
-        method: 'PUT',
-        body: JSON.stringify({ activity: editActivity, note: editNote }),
-      });
-      setSelected(null);
-      onUpdate?.();
-    } catch (err) {
-      toast.error('Failed to save activity.');
-      if (writeMayHaveLanded(err)) onUncertainWrite?.();
-    }
-    setSaving(false);
-  }
-
-  async function handleDelete() {
-    if (!selected) return;
-    const ok = await confirmDialog({
-      title: 'Delete activity',
-      message: 'This activity entry will be permanently deleted.',
-      confirmLabel: 'Delete',
-      danger: true,
-    });
-    if (!ok) return;
-    try {
-      await api(`/api/crm/activity/${selected.id}`, { method: 'DELETE' });
-      setSelected(null);
-      onUpdate?.();
-    } catch (err) {
-      toast.error('Failed to delete activity.');
-      if (writeMayHaveLanded(err)) onUncertainWrite?.();
+      await logActivity({ activity: kind, note: note.trim(), deal_id: dealId, person_id: personId });
+      setNote('');
+      onChanged();
+    } catch {
+      toast.error("Couldn't log the activity.");
+    } finally {
+      setBusy(false);
     }
   }
 
   return (
-    <>
-      <div>
-        {activities.map(a => {
-          const Icon = ACTIVITY_ICONS[a.activity] || IconFile;
-          return (
-            <div key={a.id} onClick={() => handleClick(a)} style={{
-              padding: '11px 0', display: 'flex', alignItems: 'center', gap: 12,
-              borderBottom: `1px solid ${LINE}`,
-              cursor: 'pointer',
-            }}>
-              <div style={{
-                width: 28, height: 28, borderRadius: 4,
-                background: BG_RAISED,
-                border: `1px solid ${LINE}`,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                color: INK_MUTE, flexShrink: 0,
-              }}>
-                <Icon size={13} strokeWidth={1.75} />
-              </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 15 }}>
-                  <span style={{ color: INK, textTransform: 'capitalize' }}>{a.activity.replace('_', ' ')}</span>
-                  {a.person_name && <span style={{ color: INK_MUTE }}> · {a.person_name}</span>}
-                </div>
-                {a.note && <p style={{ color: INK_SOFT, fontSize: 14, marginTop: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.note}</p>}
-              </div>
-              <div style={{
-                ...mono(11),
-                flexShrink: 0,
-              }}>{formatDate(a.created_at)}</div>
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Activity detail/edit modal */}
-      {selected && (
-        <div
-          onClick={() => setSelected(null)}
-          style={modalOverlay(isMobile)}
-        >
-          <div
-            onClick={e => e.stopPropagation()}
-            style={modalContent(isMobile, 440)}
-          >
-            {isMobile && (
-              <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 16 }}>
-                <div style={mobileDragHandle} />
-              </div>
-            )}
-
-            <h3 style={{
-              fontFamily: FONT_DISPLAY,
-              fontSize: 18, fontWeight: 400, color: INK, margin: '0 0 16px',
-            }}>Edit Activity</h3>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-              <div>
-                <label style={{ ...mono(10), display: 'block', marginBottom: 6 }}>Activity</label>
-                <textarea
-                  value={editActivity}
-                  onChange={e => setEditActivity(e.target.value)}
-                  rows={2}
-                  style={{
-                    width: '100%', boxSizing: 'border-box',
-                    background: BG_RAISED, border: `1px solid ${LINE_STRONG}`,
-                    color: INK, borderRadius: 4, padding: '8px 12px', fontSize: 13,
-                    outline: 'none', resize: 'none',
-                    fontFamily: FONT_SANS,
-                  }}
-                />
-              </div>
-              <div>
-                <label style={{ ...mono(10), display: 'block', marginBottom: 6 }}>Note</label>
-                <textarea
-                  value={editNote}
-                  onChange={e => setEditNote(e.target.value)}
-                  rows={3}
-                  placeholder="Add a note..."
-                  style={{
-                    width: '100%', boxSizing: 'border-box',
-                    background: BG_RAISED, border: `1px solid ${LINE_STRONG}`,
-                    color: INK, borderRadius: 4, padding: '8px 12px', fontSize: 13,
-                    outline: 'none', resize: 'none',
-                    fontFamily: FONT_SANS,
-                  }}
-                />
-              </div>
-
-              {/* Meta info */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                {selected.person_name && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ ...mono(10) }}>Contact</span>
-                    <span
-                      onClick={handleNavigateToContact}
-                      style={{ fontSize: 13, color: ACCENT_TEXT, cursor: 'pointer' }}
-                    >{selected.person_name}</span>
-                  </div>
-                )}
-                {selected.deal_title && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span style={{ ...mono(10) }}>Deal</span>
-                    <span style={{ fontSize: 13, color: INK }}>{selected.deal_title}</span>
-                  </div>
-                )}
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ ...mono(10) }}>Logged</span>
-                  <span style={{ fontSize: 12, color: INK_MUTE }}>{formatDate(selected.created_at)}</span>
-                </div>
-              </div>
-            </div>
-
-            <div style={{ display: 'flex', gap: 8, marginTop: 20 }}>
-              <button onClick={() => setSelected(null)} style={{
-                padding: '10px 16px', borderRadius: 6,
-                border: `1px solid ${LINE_STRONG}`, background: 'transparent',
-                color: INK_MUTE, fontSize: 13, cursor: 'pointer',
-              }}>Cancel</button>
-              <button onClick={handleDelete} style={{
-                ...btnDanger,
-                padding: '10px 16px', borderRadius: 6, fontSize: 13,
-              }}>Delete</button>
-              <button onClick={handleSave} disabled={saving} style={{
-                flex: 1, padding: '10px 16px', borderRadius: 6,
-                background: ACCENT, color: ACCENT_INK,
-                border: 'none', fontWeight: 500, fontSize: 13, cursor: 'pointer',
-                opacity: saving ? 0.5 : 1,
-              }}>{saving ? 'Saving...' : 'Save'}</button>
-            </div>
-          </div>
-        </div>
+    <div className="flex flex-col gap-3">
+      <form onSubmit={log} className="flex flex-wrap gap-2">
+        <label htmlFor="activity-kind" className="sr-only">Activity type</label>
+        <select id="activity-kind" value={kind} onChange={e => setKind(e.target.value)} className={`${input} w-auto`}>
+          {LOG_TYPES.map(t => <option key={t} value={t}>{typeLabel(t)}</option>)}
+        </select>
+        <label htmlFor="activity-note" className="sr-only">What happened</label>
+        <input id="activity-note" value={note} onChange={e => setNote(e.target.value)} placeholder="What happened?"
+          className={`${input} min-w-40 flex-1`} />
+        <button type="submit" disabled={busy} className={btnPrimary}>Log</button>
+      </form>
+      {activities.length === 0 ? <p className={muted}>No activity yet.</p> : (
+        <ul className="m-0 list-none divide-y divide-sf-line p-0">
+          {activities.map(a => (
+            <li key={a.id}>
+              <button type="button" onClick={() => setEditing(a)}
+                className="flex w-full cursor-pointer items-start gap-3 border-0 bg-transparent px-0 py-2.5 text-left hover:bg-sf-hover">
+                <span className="mt-0.5 rounded bg-sf-raised px-1.5 py-0.5 text-xs text-sf-ink-mute">{typeLabel(a.activity)}</span>
+                <span className="min-w-0 flex-1">
+                  {a.note ? <span className="block truncate text-sm text-sf-ink">{a.note}</span> : <span className="block text-sm text-sf-ink-dim">No note</span>}
+                  <span className="block text-xs text-sf-ink-dim">{a.actor_name ?? 'Someone'}{a.person_name ? ` · ${a.person_name}` : ''}</span>
+                </span>
+                <span className="shrink-0 text-xs text-sf-ink-dim">{formatDate(a.created_at)}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
       )}
-    </>
+      {editing && <EditActivity activity={editing} onClose={() => setEditing(null)} onChanged={() => { setEditing(null); onChanged(); }} />}
+    </div>
   );
 }
 
+function EditActivity({ activity, onClose, onChanged }: { activity: Activity; onClose: () => void; onChanged: () => void }) {
+  const [kind, setKind] = useState(activity.activity);
+  const [note, setNote] = useState(activity.note);
+  const [busy, setBusy] = useState(false);
+  const types = (LOG_TYPES as readonly string[]).includes(activity.activity) ? LOG_TYPES : [...LOG_TYPES, activity.activity];
+
+  async function save() {
+    setBusy(true);
+    try {
+      await updateActivity(activity.id, { activity: kind, note: note.trim() });
+      onChanged();
+    } catch {
+      toast.error("Couldn't save the activity.");
+      setBusy(false);
+    }
+  }
+
+  async function remove() {
+    if (!await confirmDialog({ title: 'Delete activity', message: 'This entry is deleted for good.', confirmLabel: 'Delete', danger: true })) return;
+    setBusy(true);
+    try {
+      await deleteActivity(activity.id);
+      onChanged();
+    } catch {
+      toast.error("Couldn't delete the activity.");
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Dialog title="Activity" subtitle={`${activity.actor_name ?? 'Someone'} · ${formatDate(activity.created_at)}`} onClose={onClose}>
+      <div className="flex flex-col gap-3">
+        <div>
+          <label htmlFor="edit-activity-kind" className={label}>Type</label>
+          <select id="edit-activity-kind" value={kind} onChange={e => setKind(e.target.value)} className={input}>
+            {types.map(t => <option key={t} value={t}>{typeLabel(t)}</option>)}
+          </select>
+        </div>
+        <div>
+          <label htmlFor="edit-activity-note" className={label}>Note</label>
+          <textarea id="edit-activity-note" value={note} onChange={e => setNote(e.target.value)} rows={4} className={`${input} resize-y`} />
+        </div>
+        {activity.person_id && activity.person_name && (
+          <Link to={`/people/${activity.person_id}`} className="text-sm text-sf-accent-text">{activity.person_name}</Link>
+        )}
+        <div className="mt-2 flex flex-wrap justify-end gap-2">
+          <button type="button" onClick={() => void remove()} disabled={busy} className={`${btnDanger} mr-auto`}>Delete</button>
+          <button type="button" onClick={onClose} className={btnSecondary}>Cancel</button>
+          <button type="button" onClick={() => void save()} disabled={busy || !kind.trim()} className={btnPrimary}>Save</button>
+        </div>
+      </div>
+    </Dialog>
+  );
+}

@@ -1,284 +1,162 @@
-import { useState, useRef, useEffect } from 'react';
-import { api } from '../../core/api/client';
-import { useIsMobile } from '../../shared/useIsMobile';
-import {
-  INK, INK_MUTE, INK_SOFT, LINE, LINE_STRONG, BG_RAISED,
-  GOLD_TEXT, SAGE_TEXT, CORAL_TEXT, FONT_DISPLAY, FONT_SANS,
-} from '../../shared/styles';
-import { modalOverlay, modalContent, btnPrimary, btnSecondary } from '../styles';
+/**
+ * Smart import: upload a CSV or vCard, review the people it found (untick any to skip), then
+ * create them in the shared directory with their organizations linked. Nothing is saved until
+ * Import; the server reads recognisable headers itself and uses the AI only when it must.
+ */
+import { useState } from 'react';
+import { Link } from 'react-router';
+import { ApiError } from '../../../core/api/client';
+import { confirmImport, parseImport, type ImportParsed, type ImportResult } from '../api';
+import { btnPrimary, btnSecondary, card, page, pageTitle } from '../ui';
 
-interface ParsedContact {
-  name: string;
-  email: string;
-  phone: string;
-  company: string;
-  title: string;
-  source: string;
-  tags: string;
-  notes: string;
-}
+type Step =
+  | { kind: 'upload' }
+  | { kind: 'parsing' }
+  | { kind: 'preview'; parsed: ImportParsed; selected: Set<number> }
+  | { kind: 'result'; result: ImportResult };
 
-interface ParseResult {
-  contacts: ParsedContact[];
-  ai_used: boolean;
-  warnings: string[];
-}
+const errorText = (e: unknown, fallback: string) => (e instanceof ApiError && e.status < 500 ? e.detail : fallback);
 
-interface ImportResult {
-  imported: number;
-  skipped: number;
-  errors: string[];
-}
-
-interface Props {
-  onClose: () => void;
-  onImported: () => void;
-}
-
-type Step = 'upload' | 'parsing' | 'preview' | 'result';
-
-export function SmartImportModal({ onClose, onImported }: Props) {
-  const isMobile = useIsMobile();
-  const [step, setStep] = useState<Step>('upload');
+export function ImportPage() {
+  const [step, setStep] = useState<Step>({ kind: 'upload' });
   const [file, setFile] = useState<File | null>(null);
-  const [parseResult, setParseResult] = useState<ParseResult | null>(null);
-  const [selected, setSelected] = useState<Set<number>>(new Set());
-  const [importResult, setImportResult] = useState<ImportResult | null>(null);
   const [error, setError] = useState('');
-  const [aiReady, setAiReady] = useState(false);
   const [importing, setImporting] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    // Degrade gracefully: CSV/vCard import always works; only advertise the
-    // any-format AI path when a provider is configured.
-    api<{ ai_ready: boolean }>('/api/setup/status')
-      .then(s => setAiReady(s.ai_ready))
-      .catch(() => setAiReady(false));
-  }, []);
-
-  const accept = aiReady ? '.csv,.vcf,.json,.txt,.tsv' : '.csv,.vcf';
-
-  async function handleParse() {
+  async function parse() {
     if (!file) return;
-    setStep('parsing');
+    setStep({ kind: 'parsing' });
     setError('');
     try {
-      const formData = new FormData();
-      formData.append('file', file);
-      const data = await api<ParseResult>('/api/crm/smart-import/parse', {
-        method: 'POST', body: formData,
-      });
-      setParseResult(data);
-      if (data.contacts.length > 0) {
-        setSelected(new Set(data.contacts.map((_, i) => i)));
-        setStep('preview');
+      const parsed = await parseImport(file);
+      if (parsed.people.length === 0) {
+        setStep({ kind: 'upload' });
+        setError(parsed.warnings.join(' ') || 'No people found in that file.');
       } else {
-        setStep('upload');
-        setError(data.warnings.join(' ') || 'No contacts found in file');
+        setStep({ kind: 'preview', parsed, selected: new Set(parsed.people.map((_, i) => i)) });
       }
-    } catch (err: unknown) {
-      setStep('upload');
-      setError(err instanceof Error ? err.message : 'Parse failed');
+    } catch (e) {
+      setStep({ kind: 'upload' });
+      setError(errorText(e, "Couldn't read that file."));
     }
   }
 
-  async function handleImport() {
-    if (!parseResult || importing) return;  // guard against double-submit
-    setError('');
-    const contacts = parseResult.contacts.filter((_, i) => selected.has(i));
-    if (contacts.length === 0) {
-      setError('No contacts selected');
-      return;
-    }
+  async function confirm(parsed: ImportParsed, selected: Set<number>) {
+    if (importing) return;
     setImporting(true);
+    setError('');
     try {
-      const data = await api<ImportResult>('/api/crm/smart-import/confirm', {
-        method: 'POST', body: JSON.stringify({ contacts }),
-      });
-      setImportResult(data);
-      setStep('result');
-      // Only auto-close on a clean run; if anything was skipped or errored, leave
-      // the result up so the user can read it (they Close manually).
-      if (data.imported > 0 && data.skipped === 0 && data.errors.length === 0) {
-        setTimeout(onImported, 1500);
-      }
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Import failed');
+      setStep({ kind: 'result', result: await confirmImport(parsed.people.filter((_, i) => selected.has(i))) });
+    } catch (e) {
+      setError(errorText(e, "Couldn't finish the import. Check People before importing again."));
     } finally {
       setImporting(false);
     }
   }
 
-  // After any import, closing should refresh the list; before importing it's a plain cancel.
-  const closeAfterResult = () => (importResult && importResult.imported > 0 ? onImported() : onClose());
-
-  function toggleAll() {
-    if (!parseResult) return;
-    setSelected(selected.size === parseResult.contacts.length
-      ? new Set()
-      : new Set(parseResult.contacts.map((_, i) => i)));
-  }
-
-  function toggleOne(idx: number) {
-    const next = new Set(selected);
-    if (next.has(idx)) next.delete(idx); else next.add(idx);
-    setSelected(next);
-  }
-
-  const cellStyle: React.CSSProperties = {
-    padding: '8px 10px', fontSize: 12, color: INK, textAlign: 'left',
-    borderTop: `1px solid ${LINE}`, fontFamily: FONT_SANS,
-  };
-  const headCell: React.CSSProperties = {
-    padding: '8px 10px', fontSize: 11, color: INK_SOFT, textAlign: 'left',
-    fontFamily: FONT_SANS, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em',
-  };
-
   return (
-    <div style={modalOverlay(isMobile)} onClick={onClose}>
-      <div
-        onClick={e => e.stopPropagation()}
-        style={modalContent(isMobile, step === 'preview' ? 760 : 480)}
-      >
-        <h2 style={{
-          fontFamily: FONT_DISPLAY, fontSize: 20, fontWeight: 400,
-          letterSpacing: '-0.02em', color: INK, margin: '0 0 8px',
-        }}>Import Contacts</h2>
+    <div className={`${page} flex max-w-4xl flex-col gap-4`}>
+      <div>
+        <h1 className={pageTitle}>Import people</h1>
+        <p className="m-0 mt-1 text-sm text-sf-ink-mute">From a CSV or vCard (.vcf) file. You review every row before anything is saved.</p>
+      </div>
+      {error && <p role="alert" className="m-0 text-sm text-sf-red-text">{error}</p>}
 
-        {error && <p style={{ color: CORAL_TEXT, fontSize: 12, margin: '0 0 12px', fontFamily: FONT_SANS }}>{error}</p>}
+      {(step.kind === 'upload' || step.kind === 'parsing') && (
+        <div className={`${card} flex flex-col gap-3 p-4`}>
+          <label htmlFor="import-file" className="flex cursor-pointer flex-col items-center gap-1 rounded-lg border-2 border-dashed border-sf-line-strong bg-sf-raised px-4 py-8 text-center text-sm text-sf-ink-mute">
+            {file ? <span className="text-sf-ink">{file.name} ({(file.size / 1024).toFixed(1)} KB)</span> : 'Choose a file'}
+            <input id="import-file" type="file" accept=".csv,.vcf,text/csv,text/vcard" className="sr-only"
+              onChange={e => { setFile(e.target.files?.[0] ?? null); setError(''); }} />
+          </label>
+          <button type="button" onClick={() => void parse()} disabled={!file || step.kind === 'parsing'} className={`${btnPrimary} self-end`}>
+            {step.kind === 'parsing' ? 'Reading…' : 'Preview'}
+          </button>
+        </div>
+      )}
 
-        {step === 'upload' && (
-          <>
-            <p style={{ color: INK_MUTE, fontSize: 13, margin: '0 0 16px', lineHeight: 1.5, fontFamily: FONT_SANS }}>
-              {aiReady
-                ? 'Drop any file — CSV, vCard (.vcf), JSON, or plain text. AI will extract contacts from any format.'
-                : 'Import a CSV or vCard (.vcf) file. Connect an AI provider in AI Setup to import other formats.'}
-            </p>
-            <div
-              onClick={() => inputRef.current?.click()}
-              style={{
-                border: `2px dashed ${LINE_STRONG}`, borderRadius: 10, padding: 28,
-                textAlign: 'center', cursor: 'pointer', marginBottom: 16, background: BG_RAISED,
-              }}
-            >
-              <input
-                ref={inputRef}
-                type="file"
-                accept={accept}
-                style={{ display: 'none' }}
-                onChange={e => setFile(e.target.files?.[0] ?? null)}
-              />
-              {file
-                ? <p style={{ color: INK, fontSize: 13, margin: 0, fontFamily: FONT_SANS }}>{file.name} ({(file.size / 1024).toFixed(1)} KB)</p>
-                : <p style={{ color: INK_SOFT, fontSize: 13, margin: 0, fontFamily: FONT_SANS }}>Click to select a file</p>}
-            </div>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button onClick={onClose} style={{ ...btnSecondary, flex: 1, justifyContent: 'center', display: 'flex' }}>Cancel</button>
-              <button
-                onClick={handleParse}
-                disabled={!file}
-                style={{ ...btnPrimary, flex: 1, justifyContent: 'center', opacity: file ? 1 : 0.5, cursor: file ? 'pointer' : 'not-allowed' }}
-              >Parse Contacts</button>
-            </div>
-          </>
-        )}
+      {step.kind === 'preview' && (
+        <Preview step={step} importing={importing}
+          onToggle={selected => setStep({ ...step, selected })}
+          onCancel={() => setStep({ kind: 'upload' })}
+          onConfirm={() => void confirm(step.parsed, step.selected)} />
+      )}
 
-        {step === 'parsing' && (
-          <div style={{ padding: '32px 0', textAlign: 'center' }}>
-            <div className="border-2 border-ck-line border-t-ck-accent rounded-full animate-spin"
-                 style={{ width: 32, height: 32, margin: '0 auto 16px' }} />
-            <p style={{ color: INK_MUTE, fontSize: 13, fontFamily: FONT_SANS }}>Analyzing contacts…</p>
+      {step.kind === 'result' && (
+        <div className={`${card} flex flex-col gap-2 p-4 text-sm`}>
+          <p className="m-0 font-medium text-sf-green-text">{step.result.created} {step.result.created === 1 ? 'person' : 'people'} imported</p>
+          {step.result.organizations_linked > 0 && <p className="m-0 text-sf-ink-mute">{step.result.organizations_linked} linked to an organization.</p>}
+          {step.result.skipped.length > 0 && (
+            <>
+              <p className="m-0 text-sf-ink-mute">{step.result.skipped.length} skipped:</p>
+              <ul className="m-0 pl-5 text-sf-ink-soft">{step.result.skipped.slice(0, 20).map((s, i) => <li key={i}>{s}</li>)}</ul>
+            </>
+          )}
+          <div className="mt-2 flex gap-2">
+            <Link to="/people" className={btnSecondary}>Go to People</Link>
+            <button type="button" onClick={() => { setFile(null); setStep({ kind: 'upload' }); }} className={btnSecondary}>Import another file</button>
           </div>
-        )}
+        </div>
+      )}
+    </div>
+  );
+}
 
-        {step === 'preview' && parseResult && (
-          <>
-            {parseResult.ai_used && (
-              <p style={{ color: GOLD_TEXT, fontSize: 12, margin: '0 0 6px', fontFamily: FONT_SANS }}>
-                Parsed with AI — please verify the results before importing.
-              </p>
-            )}
-            {parseResult.warnings.map((w, i) => (
-              <p key={i} style={{ color: GOLD_TEXT, fontSize: 12, margin: '0 0 4px', fontFamily: FONT_SANS }}>{w}</p>
+export function Preview({ step, importing, onToggle, onCancel, onConfirm }: {
+  step: { parsed: ImportParsed; selected: Set<number> };
+  importing: boolean;
+  onToggle: (selected: Set<number>) => void;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  const { parsed, selected } = step;
+  const all = selected.size === parsed.people.length;
+  const toggle = (i: number) => {
+    const next = new Set(selected);
+    if (next.has(i)) next.delete(i); else next.add(i);
+    onToggle(next);
+  };
+  return (
+    <div className={`${card} flex flex-col gap-3 p-4`}>
+      {parsed.method === 'ai' && <p className="m-0 text-sm text-sf-amber-text">Read with AI: check the rows before importing.</p>}
+      {parsed.warnings.map((w, i) => <p key={i} className="m-0 text-sm text-sf-amber-text">{w}</p>)}
+      <div className="flex items-center justify-between text-sm text-sf-ink-mute">
+        <label className="flex cursor-pointer items-center gap-2">
+          <input type="checkbox" checked={all} className="accent-sf-accent"
+            onChange={() => onToggle(all ? new Set() : new Set(parsed.people.map((_, i) => i)))} />
+          Select all ({parsed.people.length})
+        </label>
+        <span>{selected.size} selected</span>
+      </div>
+      <div className="max-h-96 overflow-auto rounded border border-sf-line">
+        <table className="w-full border-collapse text-sm">
+          <thead className="sticky top-0 bg-sf-raised text-left text-xs text-sf-ink-dim">
+            <tr>
+              <th className="w-8 px-2 py-2"><span className="sr-only">Import</span></th>
+              <th className="px-2 py-2 font-medium">Name</th>
+              <th className="px-2 py-2 font-medium">Email</th>
+              <th className="px-2 py-2 font-medium">Phone</th>
+              <th className="px-2 py-2 font-medium">Organization</th>
+            </tr>
+          </thead>
+          <tbody>
+            {parsed.people.map((p, i) => (
+              <tr key={i} className={`border-t border-sf-line ${selected.has(i) ? 'text-sf-ink' : 'text-sf-ink-dim'}`}>
+                <td className="px-2 py-2"><input type="checkbox" checked={selected.has(i)} onChange={() => toggle(i)} aria-label={`Import ${p.name}`} className="accent-sf-accent" /></td>
+                <td className="px-2 py-2">{p.name}{p.title && <span className="text-sf-ink-dim"> ({p.title})</span>}</td>
+                <td className="px-2 py-2">{p.email || '—'}</td>
+                <td className="px-2 py-2">{p.phone || '—'}</td>
+                <td className="px-2 py-2">{p.organization || '—'}</td>
+              </tr>
             ))}
-
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', margin: '12px 0 8px' }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: INK_MUTE, cursor: 'pointer', fontFamily: FONT_SANS }}>
-                <input type="checkbox" checked={selected.size === parseResult.contacts.length} onChange={toggleAll} />
-                Select all ({parseResult.contacts.length})
-              </label>
-              <span style={{ fontSize: 12, color: INK_SOFT, fontFamily: FONT_SANS }}>{selected.size} selected</span>
-            </div>
-
-            <div style={{ maxHeight: 320, overflowY: 'auto', border: `1px solid ${LINE}`, borderRadius: 10, marginBottom: 16 }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                <thead style={{ position: 'sticky', top: 0, background: BG_RAISED }}>
-                  <tr>
-                    <th style={{ ...headCell, width: 32 }} />
-                    <th style={headCell}>Name</th>
-                    <th style={headCell}>Email</th>
-                    <th style={headCell}>Phone</th>
-                    <th style={headCell}>Company</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {parseResult.contacts.map((c, i) => (
-                    <tr
-                      key={i}
-                      onClick={() => toggleOne(i)}
-                      style={{ cursor: 'pointer', opacity: selected.has(i) ? 1 : 0.45 }}
-                    >
-                      <td style={{ ...cellStyle, textAlign: 'center' }}>
-                        <input type="checkbox" checked={selected.has(i)} onChange={() => toggleOne(i)} onClick={e => e.stopPropagation()} />
-                      </td>
-                      <td style={cellStyle}>
-                        <span style={{ color: INK, fontWeight: 500 }}>{c.name || '—'}</span>
-                        {c.title && <span style={{ color: INK_SOFT, marginLeft: 4 }}>({c.title})</span>}
-                      </td>
-                      <td style={cellStyle}>{c.email || '—'}</td>
-                      <td style={cellStyle}>{c.phone || '—'}</td>
-                      <td style={cellStyle}>{c.company || '—'}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button onClick={onClose} style={{ ...btnSecondary, flex: 1, justifyContent: 'center', display: 'flex' }}>Cancel</button>
-              <button
-                onClick={handleImport}
-                disabled={selected.size === 0 || importing}
-                style={{ ...btnPrimary, flex: 1, justifyContent: 'center', opacity: (selected.size && !importing) ? 1 : 0.5, cursor: (selected.size && !importing) ? 'pointer' : 'not-allowed' }}
-              >{importing ? 'Importing…' : `Import Selected (${selected.size})`}</button>
-            </div>
-          </>
-        )}
-
-        {step === 'result' && importResult && (
-          <>
-            <div style={{ background: BG_RAISED, borderRadius: 10, padding: 16, marginBottom: 16 }}>
-              <p style={{ color: SAGE_TEXT, fontSize: 14, fontWeight: 500, margin: 0, fontFamily: FONT_SANS }}>
-                {importResult.imported} contacts imported
-              </p>
-              {importResult.skipped > 0 && (
-                <p style={{ color: INK_MUTE, fontSize: 12, margin: '4px 0 0', fontFamily: FONT_SANS }}>
-                  {importResult.skipped} skipped (no name)
-                </p>
-              )}
-              {importResult.errors.length > 0 && (
-                <div style={{ marginTop: 8 }}>
-                  <p style={{ color: CORAL_TEXT, fontSize: 12, margin: 0, fontFamily: FONT_SANS }}>{importResult.errors.length} errors:</p>
-                  {importResult.errors.slice(0, 5).map((e, i) => (
-                    <p key={i} style={{ color: INK_SOFT, fontSize: 12, margin: '2px 0 0', fontFamily: FONT_SANS }}>{e}</p>
-                  ))}
-                </div>
-              )}
-            </div>
-            <button onClick={closeAfterResult} style={{ ...btnSecondary, width: '100%', justifyContent: 'center', display: 'flex' }}>Close</button>
-          </>
-        )}
+          </tbody>
+        </table>
+      </div>
+      <div className="flex justify-end gap-2">
+        <button type="button" onClick={onCancel} className={btnSecondary}>Cancel</button>
+        <button type="button" onClick={onConfirm} disabled={selected.size === 0 || importing} className={btnPrimary}>
+          {importing ? 'Importing…' : `Import ${selected.size}`}
+        </button>
       </div>
     </div>
   );

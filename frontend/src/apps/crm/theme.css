@@ -1,0 +1,38 @@
+/*
+ * CRM-only colour tokens: the pipeline stage hues, read as inline `var(--color-crm-stage-*)`
+ * by constants.ts. Plain custom properties (not a Tailwind @theme), loaded with the CRM's lazy
+ * chunk. Each stage is a FILL (dots, card borders, bars, the 12% wash) and a -text token (the
+ * stage label), the same split as the core status hues in index.css. Light -text values are
+ * darkened to clear 4.5:1 on a 12% wash over the card; dark fills already read as text.
+ */
+:root {
+  --color-crm-stage-lead: #3b6ea5;
+  --color-crm-stage-qualified: #64748b;
+  --color-crm-stage-proposal: #b07c2e;
+  --color-crm-stage-negotiation: #c26b3c;
+  --color-crm-stage-won: #2e7d4f;
+  --color-crm-stage-lost: #c24141;
+
+  --color-crm-stage-lead-text: #2d6096;
+  --color-crm-stage-qualified-text: #505f76;
+  --color-crm-stage-proposal-text: #845600;
+  --color-crm-stage-negotiation-text: #9b4713;
+  --color-crm-stage-won-text: #186b3f;
+  --color-crm-stage-lost-text: #ad2d30;
+}
+
+.dark {
+  --color-crm-stage-lead: #7aa8d8;
+  --color-crm-stage-qualified: #9aa5b6;
+  --color-crm-stage-proposal: #d9a441;
+  --color-crm-stage-negotiation: #e0916a;
+  --color-crm-stage-won: #5fb585;
+  --color-crm-stage-lost: #e8736b;
+
+  --color-crm-stage-lead-text: var(--color-crm-stage-lead);
+  --color-crm-stage-qualified-text: var(--color-crm-stage-qualified);
+  --color-crm-stage-proposal-text: var(--color-crm-stage-proposal);
+  --color-crm-stage-negotiation-text: var(--color-crm-stage-negotiation);
+  --color-crm-stage-won-text: var(--color-crm-stage-won);
+  --color-crm-stage-lost-text: #f07b72;
+}

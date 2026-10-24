@@ -1,85 +1,48 @@
-import {
-  FONT_MONO, INK, INK_SOFT, INK_DIM, tint,
-  CORAL_FILL, CORAL_TEXT, GOLD_FILL, GOLD_TEXT, SAGE_FILL, SAGE_TEXT, AI_FILL, AI_TEXT,
-} from '../../shared/styles';
-import { TOUCH_COLORS, touchBand, scoreBand } from '../constants';
+import { STAGE_COLORS, TOUCH_COLORS, scoreBand, stageLabel, touchBand } from '../constants';
 
-const badgeBase: React.CSSProperties = {
-  fontSize: 12, padding: '4px 12px', borderRadius: 4,
-  fontFamily: FONT_MONO, letterSpacing: '0.1em',
-  textTransform: 'capitalize', fontWeight: 500,
-};
+const pill = 'inline-flex items-center rounded px-2 py-0.5 font-mono text-xs';
 
-// Each row is a wash mixed from the FILL token carrying a glyph in the TEXT token —
-// the pairing issue #119 exists to keep apart. Mixing the wash from the text token
-// instead would darken the chip in step with its own label and undo the fix.
-const PRIORITY_COLORS: Record<string, { bg: string; text: string }> = {
-  urgent: { bg: tint(CORAL_FILL, 15), text: CORAL_TEXT },
-  high: { bg: tint(CORAL_FILL, 12), text: CORAL_TEXT },
-  medium: { bg: tint(GOLD_FILL, 10), text: GOLD_TEXT },
-  low: { bg: tint(INK, 6), text: INK_SOFT },
-};
-
-export function PriorityBadge({ priority }: { priority: string }) {
-  const c = PRIORITY_COLORS[priority] || PRIORITY_COLORS.medium;
-  return <span style={{ ...badgeBase, background: c.bg, color: c.text }}>{priority}</span>;
-}
-
-const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
-  active: { bg: tint(SAGE_FILL, 12), text: SAGE_TEXT },
-  inactive: { bg: tint(INK, 5), text: INK_DIM },
-  archived: { bg: tint(CORAL_FILL, 8), text: CORAL_TEXT },
-};
-
-export function StatusBadge({ status }: { status: string }) {
-  const c = STATUS_COLORS[status] || STATUS_COLORS.inactive;
-  return <span style={{ ...badgeBase, background: c.bg, color: c.text }}>{status}</span>;
-}
-
-// Informational "AI" blue, shared by the touch-count high band and AiBadge (issue #16).
-// Deliberately not the accent: these badges mean "an AI wrote this", not "brand". Now a
-// themed token (`--color-ck-ai`) so it lightens on dark surfaces like every other hue.
-export const AI_BLUE = AI_TEXT;
-export const AI_BLUE_SOFT = tint(AI_FILL, 12);
-
-// The touch-count ramp lives in crm/constants.ts so the dashboard's Weekly Touches
-// card (#76) renders the same number in the same colour as this pill. A NULL count
-// renders nothing here — the zero-keys degradation rule holds by construction (no
-// count is written without a provider).
+/** AI-estimated touches. A null count renders nothing, so a keyless install shows no pill. */
 export function TouchCountPill({ count }: { count?: number | null }) {
   if (count == null) return null;
   const c = TOUCH_COLORS[touchBand(count)];
-  const label = count === 1 ? '1 touch' : `${count} touches`;
   return (
-    <span
-      title="AI-estimated touches, from recent notes & activities. Most deals close between touch 5 and 12."
-      style={{ ...badgeBase, textTransform: 'none', padding: '2px 8px', background: c.bg, color: c.text }}
-    >
-      {label}
+    <span className={pill} style={{ background: c.bg, color: c.text }}
+      title="AI-estimated touches, from recent notes and activity. Most deals close between touch 5 and 12.">
+      {count === 1 ? '1 touch' : `${count} touches`}
     </span>
   );
 }
 
-// Lead score (issue #18): a pure-algorithmic 0-100 "how alive is this?" number on deals and
-// contacts. Three bands — hot (>=70, green), warm (40-69, amber), cool (<40, muted). A NULL
-// score renders nothing (never-scored rows show no pill). NOT an AI feature — always on.
 const SCORE_COLORS = {
-  cool: { bg: tint(INK, 6), text: INK_SOFT },        // <40
-  warm: { bg: tint(GOLD_FILL, 12), text: GOLD_TEXT }, // 40-69
-  hot: { bg: tint(SAGE_FILL, 12), text: SAGE_TEXT },  // >=70
+  cool: { bg: 'color-mix(in srgb, var(--color-sf-ink) 6%, transparent)', text: 'var(--color-sf-ink-soft)' },
+  warm: { bg: 'color-mix(in srgb, var(--color-sf-amber) 12%, transparent)', text: 'var(--color-sf-amber-text)' },
+  hot: { bg: 'color-mix(in srgb, var(--color-sf-green) 12%, transparent)', text: 'var(--color-sf-green-text)' },
 } as const;
 
+/** The computed 0-100 lead score (not AI; always on). A never-scored deal shows nothing. */
 export function ScorePill({ score, compact }: { score?: number | null; compact?: boolean }) {
   if (score == null) return null;
-  // Bands live in crm/constants.ts so the Contacts list's Score facet (#77) selects exactly
-  // the rows this pill colours.
   const c = SCORE_COLORS[scoreBand(score)];
   return (
-    <span
-      title="Computed lead score (0-100) from stage, engagement, value, links & recency. Ask the assistant for the full breakdown."
-      style={{ ...badgeBase, textTransform: 'none', padding: '2px 8px', background: c.bg, color: c.text }}
-    >
+    <span className={pill} style={{ background: c.bg, color: c.text }}
+      title="Lead score (0-100) from stage, engagement, value, links and recency.">
       {compact ? score : `Score ${score}`}
     </span>
   );
+}
+
+export function StageBadge({ stage }: { stage: string }) {
+  const c = STAGE_COLORS[stage];
+  return (
+    <span className="inline-flex items-center gap-1.5 rounded px-2 py-0.5 text-xs font-medium"
+      style={{ background: c?.bg, color: c?.text }}>
+      <span aria-hidden className="h-2 w-2 rounded-full" style={{ background: c?.fill }} />
+      {stageLabel(stage)}
+    </span>
+  );
+}
+
+export function StageDot({ stage }: { stage: string }) {
+  return <span aria-hidden className="inline-block h-2 w-2 shrink-0 rounded-full" style={{ background: STAGE_COLORS[stage]?.fill }} />;
 }

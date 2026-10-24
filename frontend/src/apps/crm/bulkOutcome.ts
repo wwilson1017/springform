@@ -1,5 +1,5 @@
 /**
- * What actually happened during a bulk stage move, and how to say it honestly (issue #55).
+ * What actually happened during a bulk stage move, and how to say it honestly.
  *
  * Split in two on purpose. `classifyBulkMove` decides WHAT happened from the response alone;
  * `describeBulkMove` writes the sentence, and it needs one fact the classifier cannot know
@@ -12,7 +12,7 @@
  *   written. The caller reverts the optimistic move to the board's server-confirmed truth and
  *   keeps the ids selected so the operator can fix the cause and retry.
  * - `unconfirmed` — the request threw with a 5xx or never completed. The outcome is genuinely
- *   UNKNOWN: a connection can drop after Postgres has committed but before the ack arrives.
+ *   UNKNOWN: a connection can drop after the database has committed but before the ack arrives.
  *   The caller must NOT revert (that would claim knowledge it doesn't have) and the notice
  *   must not auto-dismiss.
  *
@@ -21,7 +21,7 @@
  * would manufacture doubt about deals that certainly did not change.
  *
  * Note what is absent: any message about deals moving while their history didn't. The stage
- * events ride the deal transaction (`service.bulk_move_deals`), so that state is unreachable.
+ * events ride the deal transaction (`deals.bulk_move_in`), so that state is unreachable.
  * If this module ever needs such a message back, the atomicity guarantee has regressed.
  */
 

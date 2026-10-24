@@ -1,7 +1,13 @@
 /**
- * Closed on (#279) — the pure rules the Mark Won dialog and the deal edit form share, kept
- * out of the component files so they test in Node.
+ * Closed on: the pure rules the Mark Won dialog and the deal edit form share. The forecast is a
+ * guess; the day a deal closed is a fact, and reps record wins late, so a win asks for the day.
  */
+
+/** The viewer's local day as `YYYY-MM-DD` (never `toISOString()`, which is the UTC day). */
+export function ymd(d: Date): string {
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
 
 /** A typed value that may be sent: a whole `YYYY-MM-DD` that is not after `today`. */
 export function closedOnIsValid(value: string, today: string): boolean {
@@ -16,8 +22,7 @@ export function closedOnEditError(
 ): string {
   if (form.stage !== 'won') return '';
   if (!form.closed_on) {
-    return baseline.closed_on
-      ? 'Closed on cannot be blank — move the deal out of Won to clear it.' : '';
+    return baseline.closed_on ? 'Closed on cannot be blank. Move the deal out of Won to clear it.' : '';
   }
   return closedOnIsValid(form.closed_on, today) ? '' : 'Closed on cannot be in the future.';
 }

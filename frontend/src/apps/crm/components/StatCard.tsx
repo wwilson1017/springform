@@ -1,23 +1,16 @@
-import { INK, INK_MUTE, INK_DIM, FONT_DISPLAY, mono } from '../../shared/styles';
-import { cardStyle } from '../styles';
-
-/** A small metric tile for the dashboard Snapshot row (issue #20). Presentational
- *  only — the parent passes already-formatted strings. `color` tints the value
- *  (e.g. SAGE_TEXT/GOLD_TEXT/CORAL_TEXT for a win-rate or overdue signal); defaults to INK. */
-export function StatCard({ label, value, sub, color }: {
+/** A metric tile. Presentational: the parent passes formatted strings; `tone` colours the value. */
+export function StatCard({ label, value, sub, tone }: {
   label: string;
   value: string;
   sub?: string;
-  color?: string;
+  tone?: 'good' | 'warn' | 'bad';
 }) {
+  const color = tone === 'good' ? 'text-sf-green-text' : tone === 'warn' ? 'text-sf-amber-text' : tone === 'bad' ? 'text-sf-red-text' : 'text-sf-ink';
   return (
-    <div style={{ ...cardStyle, padding: '14px 16px', flex: '1 1 150px', minWidth: 132 }}>
-      <div style={mono(10, INK_DIM)}>{label}</div>
-      <div style={{
-        fontFamily: FONT_DISPLAY, fontSize: 26, letterSpacing: '-0.01em',
-        lineHeight: 1.1, margin: '6px 0 0', color: color ?? INK,
-      }}>{value}</div>
-      {sub && <div style={{ fontSize: 12, color: INK_MUTE, marginTop: 4 }}>{sub}</div>}
+    <div className="min-w-[132px] flex-[1_1_150px] rounded-lg border border-sf-line bg-sf-card px-4 py-3">
+      <div className="text-xs font-medium tracking-wide text-sf-ink-dim uppercase">{label}</div>
+      <div className={`mt-1.5 font-display text-2xl leading-tight ${color}`}>{value}</div>
+      {sub && <div className="mt-1 text-xs text-sf-ink-mute">{sub}</div>}
     </div>
   );
 }
