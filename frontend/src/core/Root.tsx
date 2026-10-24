@@ -15,7 +15,7 @@ import { AppRoute } from './shell/AppRoute';
 import { coreRoutes } from './shell/coreRoutes';
 import { Launcher } from './shell/Launcher';
 import { Layout } from './shell/Layout';
-import { ComingSoon, NotFound } from './shell/Pages';
+import { NotFound } from './shell/Pages';
 
 /**
  * The composition root. The core shell is eager (it is small and every signed-in visit needs
@@ -38,8 +38,6 @@ export default function Root() {
               {coreRoutes('public').map(r => <Route key={r.path} path={r.path} element={r.element} />)}
               <Route element={<RequireAuth><CoreAppsProvider><Layout /></CoreAppsProvider></RequireAuth>}>
                 <Route index element={<Launcher />} />
-                <Route path="people" element={<ComingSoon title="People" />} />
-                <Route path="organizations" element={<ComingSoon title="Organizations" />} />
                 <Route path="settings/*" element={<SettingsPage />} />
                 {coreRoutes('shell').map(r => (
                   <Route key={r.path} path={r.path} element={r.admin ? <RequireAdmin>{r.element}</RequireAdmin> : r.element} />

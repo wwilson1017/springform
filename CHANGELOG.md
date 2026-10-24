@@ -22,6 +22,8 @@ Conventions:
 
 - Repository tooling: CI for upstream and forks, Docker image with SQLite 3.51.3, one-script VPS
   deploy, fork scripts and release workflow.
+- Outbound MCP: admins connect Whisk to other MCP servers (Settings, MCP servers); every remote
+  tool call asks for approval, results are treated as untrusted, and private addresses are refused.
 - Setting `agent.context_budget_chars`: how much business memory Whisk reads per turn.
 - The workspace API returns the install's public URL (`PUBLIC_URL`) for Settings to show read-only.
 - Settings: editable workspace name and timezone, app hide/show and reorder, GitHub and Google Sheets
@@ -30,6 +32,12 @@ Conventions:
 - MCP connector: each person can make a link in Settings that lets claude.ai, Claude Desktop or
   Claude Code use Whisk's tools as them. Links can be revoked, and stop working when the person is
   deactivated.
+- People and Organizations pages: search, tag, organization and archived filters, duplicates and
+  merge, contact details and addresses with a primary, roles between people and organizations,
+  and a contact picker other screens can reuse.
+- Whisk chat at `/whisk`: streamed answers, an approval card before any write, and a conversation
+  list with search, rename, private and delete. Settings, AI holds the provider keys, the agent,
+  memory (context files and facts) and the nightly run.
 
 ### Changed
 

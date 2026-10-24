@@ -13,7 +13,7 @@ export interface IconProps {
   'aria-hidden'?: boolean | 'true' | 'false';
 }
 
-function Ico({ size = 18, strokeWidth = 1.75, className, style, children, 'aria-hidden': ariaHidden }: IconProps & { children: ReactNode }) {
+export function Ico({ size = 18, strokeWidth = 1.75, className, style, children, 'aria-hidden': ariaHidden }: IconProps & { children: ReactNode }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor"
          strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round"
