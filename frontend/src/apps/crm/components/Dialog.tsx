@@ -1,7 +1,8 @@
 /**
  * The CRM's modal shell: a portal to `document.body` (so no ancestor's stacking context traps
- * it), Escape to cancel (capture phase, so it never also closes something underneath), a Tab
- * trap, the first field focused, and focus restored on close.
+ * it), one layer under the shared confirm (z 150) so a confirm it opens shows on top, Escape to
+ * cancel, a Tab trap, the first field focused, and focus restored on close. While focus is in
+ * a dialog opened over it, the keys are that dialog's.
  */
 import { useEffect, useId, useRef, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
@@ -26,6 +27,9 @@ export function Dialog({ title, subtitle, onClose, children, wide }: {
     (focusable().find(el => el.matches('input, textarea, select')) ?? focusable()[0])?.focus();
 
     function onKeyDown(e: KeyboardEvent) {
+      // A dialog opened over this one (the shared confirm) owns the keyboard while it has focus.
+      const active = document.activeElement;
+      if (active instanceof Element && !ref.current?.contains(active) && active.closest('[role="dialog"]')) return;
       if (e.key === 'Escape') {
         e.preventDefault();
         e.stopPropagation();
@@ -37,7 +41,6 @@ export function Dialog({ title, subtitle, onClose, children, wide }: {
       if (els.length === 0) return;
       const first = els[0];
       const last = els[els.length - 1];
-      const active = document.activeElement;
       if (!(active instanceof Node && ref.current?.contains(active))) {
         e.preventDefault();
         (e.shiftKey ? last : first).focus();
@@ -57,7 +60,7 @@ export function Dialog({ title, subtitle, onClose, children, wide }: {
   }, []);
 
   return createPortal(
-    <div onClick={onClose} className="fixed inset-0 z-[150] flex items-end justify-center bg-sf-scrim md:items-center md:p-4">
+    <div onClick={onClose} className="fixed inset-0 z-[140] flex items-end justify-center bg-sf-scrim md:items-center md:p-4">
       <div
         ref={ref}
         role="dialog"

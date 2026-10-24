@@ -62,6 +62,8 @@ export function DealDetailBody({ deal, onSaved, reload }: { deal: DealDetail; on
   const [dialog, setDialog] = useState<Dialogs>(null);
   const [busy, setBusy] = useState(false);
   const archived = Boolean(deal.archived_at);
+  // Health and touch evidence read the deal's activity too, so an activity change refetches them.
+  const evidenceKey = `${deal.updated_at}|${deal.activity.map(a => `${a.id}:${a.activity}:${a.note.length}`).join(',')}`;
 
   async function run(write: () => Promise<Deal>, done?: string) {
     setDialog(null);
@@ -126,7 +128,7 @@ export function DealDetailBody({ deal, onSaved, reload }: { deal: DealDetail; on
         <aside className="flex min-w-0 flex-col gap-6">
           <section className={`${card} p-4`}>
             <h2 className={sectionTitle}>Health</h2>
-            <Health key={deal.updated_at} dealId={deal.id} />
+            <Health key={evidenceKey} dealId={deal.id} />
           </section>
           <section className={`${card} p-4`}>
             <h2 className={sectionTitle}>Stage history</h2>
@@ -143,7 +145,7 @@ export function DealDetailBody({ deal, onSaved, reload }: { deal: DealDetail; on
           </section>
           <section className={`${card} p-4`}>
             <h2 className={sectionTitle}>Touches</h2>
-            <TouchEvidence key={deal.updated_at} dealId={deal.id} />
+            <TouchEvidence key={evidenceKey} dealId={deal.id} />
           </section>
           <section className={`${card} p-4`}>
             <h2 className={sectionTitle}>Files</h2>
