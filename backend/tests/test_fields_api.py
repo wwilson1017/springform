@@ -200,3 +200,10 @@ def test_merge_keeps_the_targets_non_empty_values_else_the_sources(login_as):
     assert fields.values_for(member.principal, W, target) == {"a": "target a", "b": "target b", "c": "source c"}
     assert fields.values_for(member.principal, W, source) == {}
     assert fields.values_for(member.principal, W, bystander) == {"d": "untouched"}
+
+
+def test_entity_types_lists_the_registry_for_the_definition_picker(login_as):
+    types = login_as("member").get("/api/core/fields/entity-types").json()
+    assert {"type": W, "label": "Widget", "label_plural": "Widgets"} in types
+    assert {"type": "core.person", "label": "Person", "label_plural": "People"} in types
+    assert [t["type"] for t in types] == [e.type for e in entities.all_entities()]

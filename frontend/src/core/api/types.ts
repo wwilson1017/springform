@@ -77,4 +77,6 @@ export interface FileRecord {
   sha256: string;
   created_at: string;
   uploaded_by: UserRef | null;
+  /** A JPEG thumbnail is served at /api/core/files/{id}/thumb. */
+  has_thumb: boolean;
 }

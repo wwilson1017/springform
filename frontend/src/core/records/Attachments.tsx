@@ -1,13 +1,15 @@
 /**
- * Files attached to a record: list, upload (multipart POST /api/core/files), download (a plain
- * link, the session cookie authorises it) and delete.
+ * Files attached to a record: list (with a thumbnail when the server made one), upload
+ * (multipart POST /api/core/files), download (a plain link, the session cookie authorises it)
+ * and delete (needs write access to the record; a 403 says so).
  */
 import { useState, type ChangeEvent } from 'react';
-import { del, upload } from '../api/client';
+import { ApiError, del, upload } from '../api/client';
 import type { FileRecord } from '../api/types';
 import { useJson } from '../api/useJson';
 import { confirmDialog } from '../../shared/confirm';
 import { formatDate } from '../../shared/formatDate';
+import { IconFile } from '../../shared/icons';
 import { LoadError } from '../../shared/LoadError';
 import { toast } from '../../shared/toast';
 
@@ -53,8 +55,8 @@ export function Attachments({ entityType, entityId }: AttachmentsProps) {
     try {
       await del(`/api/core/files/${f.id}`);
       reload();
-    } catch {
-      toast.error(`Couldn't delete ${f.filename}.`);
+    } catch (err) {
+      toast.error(err instanceof ApiError && err.status === 403 ? "You can't delete files on this record." : `Couldn't delete ${f.filename}.`);
     }
   }
 
@@ -70,15 +72,20 @@ export function Attachments({ entityType, entityId }: AttachmentsProps) {
         : (
           <ul className="m-0 list-none divide-y divide-sf-line p-0">
             {files.map(f => (
-              <li key={f.id} className="flex items-start gap-3 py-2 text-sm">
+              <li key={f.id} className="flex items-center gap-3 py-2 text-sm">
+                {f.has_thumb
+                  ? <img src={`/api/core/files/${f.id}/thumb`} alt="" loading="lazy" className="h-10 w-10 shrink-0 rounded border border-sf-line object-cover" />
+                  : <span aria-hidden className="flex h-10 w-10 shrink-0 items-center justify-center rounded border border-sf-line text-sf-ink-dim"><IconFile size={18} /></span>}
                 <div className="min-w-0 flex-1">
-                  <a href={`/api/core/files/${f.id}/download`} className="block truncate text-sf-accent-text">{f.filename}</a>
+                  <span className="block truncate text-sf-ink">{f.filename}</span>
                   <span className="text-xs text-sf-ink-dim">
                     {formatBytes(f.byte_size)} · {f.uploaded_by?.name ?? 'Unknown'} · {formatDate(f.created_at)}
                   </span>
                 </div>
-                <button type="button" onClick={() => void remove(f)}
-                  className="cursor-pointer border-0 bg-transparent p-1 font-sans text-xs text-sf-red-text">
+                <a href={`/api/core/files/${f.id}/download`} download={f.filename} aria-label={`Download ${f.filename}`}
+                  className="p-1 text-xs text-sf-accent-text no-underline hover:underline">Download</a>
+                <button type="button" onClick={() => void remove(f)} aria-label={`Delete ${f.filename}`}
+                  className="cursor-pointer border-0 bg-transparent p-1 font-sans text-xs text-sf-red-text hover:underline">
                   Delete
                 </button>
               </li>
