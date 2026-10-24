@@ -36,9 +36,9 @@
 |---|---|
 | Launcher | Tiles by role from `GET /api/core/apps`; hidden tiles shown to admins (`hidden: true`); **badge polling every 60 s while visible**. |
 | Layout / Nav | Core layout; apps' `nav` items from `contributions.ts`. |
-| Settings | Cards: Workspace (incl. timezone, and `PUBLIC_URL` shown read-only), Apps (order/hide), GitHub token, Sheets key, Backups, Export, AI, MCP, Security, Users. Plus one section per app from `contributions.ts` `settingsCards`, keyed by the manifest's `settings_cards[].id`; `admin_only` cards for admins only. |
-| Guide | `core/docs.py` ports CakeCRM `help/library.py`: front matter, **8k cap**, lazy warm, **deterministic search** over core docs (`backend/core/docs/`) and every app's `docs/`. |
-| Requests | Form: title, app, description, plus configurable warning text → a GitHub issue labelled `app:<slug>`, created with a fine-grained token stored in settings (`core/github.py`). Board from `core_requests`, refreshed every 15 min (`core.requests_refresh`). |
+| Settings | Cards: Workspace (incl. timezone), Apps (order/hide), GitHub token, Sheets key, Backups, Export, AI, MCP, Security, Users. Plus one section per app from `contributions.ts` `settingsCards`, keyed by the manifest's `settings_cards[].id`; `admin_only` cards for admins only. |
+| Guide | `backend/core/guide/library.py` ports CakeCRM `help/library.py`. Core topics are `backend/core/docs/*.md`, slugged by file name. An app's `docs/index.md` is the topic `<slug>`, and its other `docs/<name>.md` files are `<slug>.<name>`. Each file opens with front matter: `title` (required, at most 80 characters), `summary` (optional, at most 200) and `order` (optional integer, default 1000). The body cap is **8,000 characters**. A bad topic (too long, an unknown key, a bad file name, a duplicate slug) is skipped and logged at runtime; a test loads strictly and fails CI on it. The library loads at startup and searches deterministically: title beats summary beats body, and ties break on slug. Routes: `GET /api/core/guide` (topics of core and of the apps on the caller's launcher), `GET /api/core/guide/search?q=&limit=` (at most 20), `GET /api/core/guide/{slug}` (`{slug, title, summary, body_markdown, app}`). |
+| Requests | Form: title, app, description, plus the warning text from the setting `requests.warning_text` → a GitHub issue in `github.repo`, labelled `request` and `app:<slug>` (`app` defaults to `core`), created with the token in the setting `github.token` (`backend/core/requests/github.py`). Routes: `POST /api/core/requests`, `GET /api/core/requests`, `GET /api/core/requests/config`, `POST /api/core/requests/refresh`. Board from `core_requests`, refreshed every 15 min (`core.requests_refresh`). |
 | ChangeLog | Filters: app, user, entity. Rows authorized per row (`records.md` §8). |
 | Backups | List, back up now, download, show the encryption key once (`deploy.md`). |
 | Jobs | Runs, run now; dead outbox rows (`scheduler.md`, `database-and-transactions.md`). |
@@ -46,13 +46,21 @@
 
 W6 owns the settings registry and `settings/`. W1 (Security, Users) and W9 (AI, MCP) contribute cards **through the registry W6 defines in Step 1**; they do not edit `settings/`.
 
-Core page paths: `/`, `/login`, `/setup`, `/invite/:token`, `/people`, `/people/:id`, `/organizations`, `/organizations/:id`, `/settings/*`, `/guide`, `/requests`, `/changelog`, `/backups`, `/jobs`, `/whisk`, `/reminders`, `/notifications`. Each first segment is a reserved slug (`apps-and-contracts.md` §1).
+Core areas contribute to the shell by discovery, like apps; nobody edits `Root.tsx`, `Layout.tsx` or `settings/` to add one. Each module is an eager glob, so it holds only data and `lazy()` loaders:
 
-Open (pinned by the implementing workstream, which updates this doc): the Sheets admin page's path (it is not in the list above; `sheets` is reserved). The settings registry's card interface, and where core cards are declared. The `core_requests` columns, the Requests routes, and where the "configurable warning text" is stored. The Guide's routes. (The 8k cap is the donor's `MAX_TOPIC_CHARS = 8000`, characters per topic.)
+| File | Default export | Contract |
+|---|---|---|
+| `src/core/<area>/routes.tsx` | `CoreRoute[]`, `{path, element, public?, admin?}` | Shell routes render inside the signed-in Layout, admin ones behind `RequireAdmin`; `public` ones (an invite or reset link) render beside `/login`. Paths have no leading slash, and the first segment must be a reserved slug. |
+| `src/core/<area>/nav.tsx` | `CoreNavItem[]`, `{to, label, icon, placement: "primary" \| "menu", adminOnly?, order?}` | `primary` items sit in the header nav; `menu` items in the user menu and the mobile drawer. Lower `order` first, default 100. |
+| `src/core/<area>/settingsCards.ts` | `SettingsSection[]`, `{id, label, order?, cards: [{id, title, adminOnly, Card}]}` | The section id is the URL segment `/settings/<id>`. A section shows only when one of its cards does. |
+
+Core page paths: `/`, `/login`, `/setup`, `/invite/:token`, `/reset-password/:token`, `/people`, `/people/:id`, `/organizations`, `/organizations/:id`, `/settings/*`, `/guide`, `/guide/:slug`, `/reports`, `/requests`, `/changelog`, `/backups`, `/jobs`, `/whisk`, `/reminders`, `/notifications`. The backend mails `PUBLIC_URL/invite/<token>` and `PUBLIC_URL/reset-password/<token>` links. Each first segment is a reserved slug (`apps-and-contracts.md` §1).
+
+Open (pinned by the implementing workstream, which updates this doc): the Sheets admin page's path (it is not in the list above; `sheets` is reserved).
 
 ## 4. Type generation (§12)
 
-1. `scripts/gen-types.sh` dumps `app.openapi()` **without a DB** (routers are mounted at import), runs `openapi-typescript`, and writes `frontend/src/core/api/types.gen.ts`.
+1. `scripts/gen-types.sh` builds the app with `create_app()` and a throwaway `DATA_DIR`, never running the lifespan, so **no database** is opened; building the app registers the routes. It dumps `app.openapi()`, runs `openapi-typescript` from the frontend's devDependencies, and writes `frontend/src/core/api/types.gen.ts`.
 2. `types.gen.ts` is **committed**. CI regenerates it and fails on diff.
 3. `core/api/client.ts` uses `openapi-fetch` `createClient<paths>()`.
 4. Apps use `paths['/api/todos/…']` and `components['schemas'][…]`.
@@ -101,16 +109,17 @@ Badge routes return {count, label?}. Errors: `{detail}`; 401 not signed in, 403 
 
 Pinned since the block was written (the block stays verbatim; these refine it):
 
-- **Errors:** 404 when a record is missing or not readable, for reads and writes alike; 403 only when the record is readable but not writable, or a role-guarded route refuses the caller (`authorization.md` §2).
-- **Timeline:** `GET` pages with `?before=<id>&limit=50`, newest first. `POST` also accepts `kind` (`note` by default, `comment` allowed). Mentions in `body` are `@[Name](user:ID)` (`records.md` §1).
-- **Files:** `POST` of the same bytes to the same record returns 200 with the existing row. `DELETE` requires write access to the parent record (`records.md` §2).
+- **Errors:** 404 when a record is missing or not readable, for reads and writes alike; 403 only when the record is readable but not writable, or a role-guarded route refuses the caller (`authorization.md` §2). The code also answers 409 for conflicts (`stale_view`, `duplicate_name`, `backup_in_progress`), 410 (`file_missing`, `key_already_shown`), 413 `file_too_large`, 429 for rate limits and throttles, 502 (`sheets_unavailable`, `github_error`) and 503 (`push_unavailable`, `scheduler_not_running`).
+- **Login:** with 2FA on and an untrusted browser, `POST /api/auth/login` answers 200 `{totp_required: true, challenge}` with no cookie; `POST /api/auth/login/totp` finishes it (`auth.md` §6).
+- **Timeline:** `GET` pages with `?before=<id>&limit=` (default 50, at most 200), newest first. `POST` also accepts `kind` (`note` by default, `comment` allowed). Mentions in `body` are `@[Name](user:ID)`, and `GET /api/core/timeline/mentionable?q=` feeds the picker (`records.md` §1).
+- **Files:** `File` also carries `has_thumb`, and `GET /api/core/files/{id}/thumb` serves the thumbnail. `POST` returns 201 for a new attachment and 200 with the existing row for the same bytes on the same record. Download answers 410 `file_missing` when the bytes are gone. `DELETE` requires write access to the parent record (`records.md` §2).
 
 ### Routes named elsewhere in the plan (shape to be pinned by the implementing workstream)
 
 | Route | Doc | Workstream |
 |---|---|---|
 | `/api/core/contacts/{people,organizations,links,addresses,channels}` | `contacts.md` | W2 |
-| `GET /api/core/reports/{key}?format=csv` | `records.md` | W2 |
+| `GET /api/core/reports/{key}/csv` | `records.md` | W2 |
 | `/api/core/changelog` | `records.md` | W3 |
 | `GET /api/core/export` (ZIP) | `sheets-and-export.md` | W4 |
 | `POST /api/core/sheets/{id}/refresh` | `sheets-and-export.md` | W4 |
@@ -121,7 +130,7 @@ Pinned since the block was written (the block stays verbatim; these refine it):
 | Google start/callback, invites, reset, TOTP, users admin | `auth.md` | W1 |
 | `POST /api/core/jobs/{name}/run` (admin run now) | `scheduler.md` | W3 |
 
-Open (pinned by the implementing workstream, which updates this doc): `/api/todos/badge` and `/api/todos/for/...` are the plan's `/badge` and `/for/...` under the Todos mount; the full paths are inferred from the mount rule.
+The Todos routes `/api/todos/badge` and `/api/todos/for/{entity_type}/{entity_id}` are the app router's `/badge` and `/for/...` under its `/api/todos` mount.
 
 ## Tests that pin this
 

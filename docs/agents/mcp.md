@@ -93,8 +93,8 @@ Open (pinned by the implementing workstream, which updates this doc): the hourly
 
 1. Remote specs have `always_confirm=True`.
 2. Remote annotations are **untrusted metadata**: `readOnlyHint` is recorded for display but never trusted to skip confirmation.
-3. Remote specs have `untrusted_source=True`: results are fenced with `delimiters.wrap_untrusted_external` and taint the turn.
-4. Remote tools are external-effect: claimed in one transaction, executed outside, resolved in another; a timeout marks `uncertain` (`agent.md` §6).
+3. Remote specs have `untrusted_source=True`: results are fenced with `delimiters.wrap_untrusted_external` and taint the whole conversation, so every later write in it confirms (`agent.md` §5).
+4. Remote tools are external-effect: claimed in one transaction, executed outside, resolved in another; any failure, a timeout included, marks `uncertain` (`agent.md` §6).
 5. `tool_def_sha256` for a remote tool includes the server id **and URL**.
 6. Remote tools are never exposed inbound and never run from jobs.
 7. The Approve card shows the full args.

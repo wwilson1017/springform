@@ -5,7 +5,7 @@
 
 ## 1. `Entity`
 
-`backend/core/entities.py` (~260 lines, new).
+`backend/core/entities.py` (about 195 lines, new).
 
 ```python
 @dataclass(frozen=True)
@@ -44,7 +44,7 @@ Entity type strings are `<slug>.<name>`; core's use `core.`. The format is enfor
 | `core.organization` | core | Any active member. |
 | `crm.deal` | `crm` | Any member. |
 | `todos.item` | `todos` | The Todos permission model (§6 below). |
-| example's widget | `example` | A restrictive `can_read` (private widgets). Rule and type name: Open (pinned by the implementing workstream, which updates this doc; `apps-and-contracts.md` §7). |
+| `example.widget` | `example` | Read: anyone unless the widget is private, then only its owner. Write: the owner or an admin. |
 
 ## 2. Functions
 
@@ -53,13 +53,11 @@ Entity type strings are `<slug>.<name>`; core's use `core.`. The format is enfor
 | `get(type)` | The registered `Entity`, or an error for an unknown type. Replaces CakeCRM's `VALID_ENTITY_TYPES` checks. |
 | `assert_exists(conn, type, id)` | Raises when the record does not exist. |
 | **`authorize(user, conn, type, id, "read" \| "write")`** | `read`: **404** when the record is missing **or** not readable, so existence never leaks. `write`: **404** when missing or not readable, **403** when readable but not writable. Called by every core service and router **before touching a record**. |
-| `url_for(type, id)` | The record's URL via `url_fn`. |
+| `url_for(entity_type, entity_id) -> str` | The record's URL via `url_fn`. |
 | `titles_for(user, conn, type, ids)` | Titles via `title_fn`, **dropping titles the user may not read**. |
 | `delete_record_in(conn, type, id)` | Deletes the record and runs the `on_entity_deleted` subscribers (through `on_entity_deleted_in`) **in the same transaction**. |
 
 `entities.delete_record_in` is the only delete function; there is no form without `_in`, and it always runs on the caller's `conn`.
-
-Open (pinned by the implementing workstream, which updates this doc): `url_for`'s exact signature is not stated.
 
 Role-guarded routes refuse with **403**: a member calling an admin-only app's API (§4).
 
@@ -79,7 +77,7 @@ HOOKS = {
 
 | `HOOKS` key | Kind | Subscriber | Runs | Use |
 |---|---|---|---|---|
-| `on_entity_deleted` | Sync | `fn(conn, entity_type, entity_id)` | Inside the deleting transaction. | Cascade owned rows (core uses it for timeline, files, fields, reminders, notifications; the change log stamps `deleted_at`). |
+| `on_entity_deleted` | Sync | `fn(conn, entity_type, entity_id)` | Inside the deleting transaction. | Clean up after the record. Core deletes its timeline rows, files and field values, voids its reminders, hides its notifications (`suppressed_at`) and stamps `deleted_at` on its change-log rows. |
 | `on_entity_merged` | Sync | `fn(conn, entity_type, target_id, source_id)` | Inside the merge transaction. | Repoint or reconcile app rows (CRM keeps the higher `crm_person_scores` score). |
 | `on_record_changed` | Sync | `fn(conn, entity_type, entity_id, changes, user_id)` | Inside the changing transaction. | Cheap bookkeeping (CRM sets `crm_deals.touch_dirty`). |
 | `after_record_changed` | Durable, via the outbox | `fn(conn, payload)` | After `COMMIT`: the single drainer runs it inside its own transaction, which also sets `processed_at`, so it runs exactly once. Each subscriber gets its own outbox row. | Follow-up DB work that must survive a crash. It runs inside a transaction, so no network or LLM call: external work goes to an `external=True` outbox consumer or the app's own job (`database-and-transactions.md` §4). |
@@ -100,9 +98,9 @@ Rules:
 
 ## 4. Manifest roles reach the API
 
-1. `registry.mount()` adds `Depends(require_roles(manifest.roles))` to each app's router. A member calling an admin-only app's API directly gets **403**.
+1. `registry.mount_app()` adds `Depends(require_roles(manifest.roles))` to each app's router. A member calling an admin-only app's API directly gets **403**.
 2. Entities, reports and tools registered by an app **default their `can_read` / `can_write` to "user has one of the app's roles"**, applied **before** the app's own check.
-3. `registry.for_user(user)` filters tools by `enabled(user)` and app roles (`agent.md`).
+3. `backend.core.agent.registry.for_user(user)` filters tools by `enabled(user)`. The app's roles reach it because `mount_app` wraps each app tool's `enabled` with the role check (`agent.md`).
 4. `Report.admin_only` restricts a report to admins (`records.md`).
 
 ## 5. Stored copies and deliveries obey the same rules
@@ -111,7 +109,7 @@ A copy of record data (an audit row, a notification, a reminder, an export) is c
 
 | Surface | Rule |
 |---|---|
-| Change log | The ChangeLog viewer and `/api/core/changelog` apply `authorize(read)` **per row** and hide the rest. |
+| Change log | The ChangeLog viewer and `/api/core/changelog` apply `authorize(read)` **per row** and hide the rest. A row about a deleted record, or an uninstalled entity type, is shown only to its author, admins included (`records.md` §8). |
 | @-mentions | An @-mention notifies only users who `can_read` the record. |
 | Reminders | Re-check `authorize(read)` for their owner **at fire time** and void themselves otherwise. |
 | Notifications | Listing and reading re-run `authorize(read)` on `(entity_type, entity_id)` and hide rows that fail (setting `suppressed_at`); `flush` re-checks before sending a queued external delivery and drops it if access is gone. A message already delivered externally cannot be recalled. |
@@ -133,7 +131,13 @@ The restrictive entity the two-member test uses. `apps/todos/entities.py` regist
 1. Private todos: owner only (read, write, complete).
 2. Team todos: any active member may view, edit, complete, reassign.
 3. Admins see team todos and their own, never others' private ones.
-4. Deactivating a user hides their private todos (an admin "transfer" moves them to another owner) and leaves team todos in place.
+4. Only the owner makes a row private. The owner or an admin gives a row to someone else or deletes it.
+5. An admin may create a private row for another person; anyone else creates private rows only for themselves.
+6. A private row's assignee is nobody or its owner.
+7. The system principal (a job calling `api.create`) may create team todos only; with no other owner given, they are owned by user 0.
+8. Deactivating a user hides their private todos and leaves team todos in place. Nothing is written: an inactive user reads nothing, and only an owner reads a private row. An admin moves them to another owner with `POST /api/todos/transfer`.
+
+The same rules cover the app's projects and areas.
 
 ## 7. The system principal
 
@@ -149,7 +153,7 @@ The restrictive entity the two-member test uses. `apps/todos/entities.py` regist
 | Agent | Unattended runs (`source='job'`) run as the system principal and may only call tools that are `writes=False`, not `always_confirm`, not remote, not `untrusted_source`, enforced in `registry.for_source` (`agent.md`). |
 | Bootstrap | First-run checks look for the absence of **human** accounts (`WHERE role != 'system'`), not an empty table (`auth.md`). |
 
-The Todos team rev is stored in `todos_sync` at `user_id = 0` on purpose: 0 is the system principal's id, because the team rev belongs to no human.
+The Todos team rev is stored in `todos_sync` at `user_id = 0` on purpose: 0 is the system principal's id, because the team rev belongs to no human. `todos_sync` has one row per audience: 0 for the team, otherwise that user's private rows. Its `rev` is the audience's head in `todos_journal`, and `floor` (team row only) marks the first stamp since install or the last app reset, so an older cursor gets a full resend. Clients read the change feed with `since_rev` and continue from the returned `next_since_rev`.
 
 ## 8. The two-member test
 
