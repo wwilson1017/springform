@@ -4,8 +4,8 @@ Seeds two accounts with a random password nobody knows (the picker, `POST /api/a
 the only way in; the hash makes them count as signed-up accounts, not pending invites, so the
 last-admin guard sees the preview admin) and runs each app's idempotent `sample(conn)` on every
 preview boot, after core's sample directory (people and organizations), which app samples
-build on. Refuses to start when real
-secrets are present, so a preview can never hold a real business's keys.
+build on. Refuses to start when real secrets are present, so a preview can never hold a real
+business's keys.
 """
 
 import os
