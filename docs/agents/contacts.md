@@ -138,6 +138,14 @@ The four pages and forms are ~1,350 lifted lines. Detail pages also host the cor
 
 Pages: `/people`, `/people/:id`, `/organizations`, `/organizations/:id` (`frontend-shell.md` §3).
 
+Pinned by the contacts frontend:
+
+- `ContactPicker` (`ContactPicker.tsx`): `{ kind: 'person' | 'organization'; value: {id, name} | null; onChange(v); allowCreate?; placeholder?; label?; exclude?: number[] }`. It searches `GET /search?q=&kind=`; an empty query searches nothing. Creating an organization whose name is taken links to the holder named in the 409.
+- One list page and one detail page serve both kinds (`ListPage.tsx`, `DetailPage.tsx`, routed in `routes.tsx`). List filters live in the URL (`q`, `tag`, `archived`, `organization_id`, `page`).
+- The detail page is a header plus two columns built from `SECTIONS` in `DetailPage.tsx`; each section gets `SectionProps` (`types.ts`), a superset of `RecordPanelProps`, so a core record component joins with one line. Apps' record panels follow, only for apps the server lists for the user.
+- A merged id redirects to the survivor with "Person #n was merged into this record." (router state `mergedFrom`). Merges from the duplicates panel and from "Merge into…" land there the same way.
+- Owner choices: admins pick from `GET /api/auth/users`; members can pick only themselves (there is no member-readable user list), and another owner shows as "User #n".
+
 ## Tests that pin this
 
 - Person ↔ two organizations with roles, primary uniqueness.

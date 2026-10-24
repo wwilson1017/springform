@@ -22,6 +22,9 @@ Conventions:
 
 - Repository tooling: CI for upstream and forks, Docker image with SQLite 3.51.3, one-script VPS
   deploy, fork scripts and release workflow.
+- People and Organizations pages: search, tag, organization and archived filters, duplicates and
+  merge, contact details and addresses with a primary, roles between people and organizations,
+  and a contact picker other screens can reuse.
 
 ### Schema
 
