@@ -109,7 +109,7 @@ ID token checks, all required:
 5. `nonce` equals the one in the signed state cookie;
 6. `email_verified == true`.
 
-Configuration: client id and secret in encrypted `core_settings`. Redirect URI built from `PUBLIC_URL`, **never the Host header**. Each install needs its own Google Cloud OAuth client (a Guide topic says how).
+Configuration: client id and secret in encrypted `core_settings`. Redirect URI built from the `PUBLIC_URL` environment variable, **never the Host header**. Each install needs its own Google Cloud OAuth client (a Guide topic says how).
 
 ### Linking rule
 

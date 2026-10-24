@@ -17,7 +17,8 @@ Lifted from todo-gtd `backend/db.py` 499–540 and 782–825.
 | `PRAGMA synchronous` | `NORMAL` (the todo-gtd donor sets `FULL`; Springform's contract is `NORMAL`). |
 | `PRAGMA foreign_keys` | `ON` |
 | `PRAGMA busy_timeout` | `5000` |
-| Data-dir probe | At init, write and delete a probe file in the data directory; refuse to start with an actionable error if it is not writable (donor's `DATA_DIR` probe). |
+| Data-dir probe | At init, write and delete a probe file in the data directory (`DATA_DIR`, default `./data`; `/data` in the container); refuse to start with an actionable error if it is not writable (the donor's probe). |
+| Database file | `<DATA_DIR>/springform.sqlite`, so `/data/springform.sqlite` in the container. |
 | `db.log_db()` | A seam that returns the main connection in v0.1 (one DB file). |
 
 ## 2. `transaction()`

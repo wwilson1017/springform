@@ -70,19 +70,17 @@ The image follows ONCE's contract: **one port, `/up`, data in `/data`, configura
 
 | Item | Contract |
 |---|---|
-| Port | One HTTP port. The plan names it only in the Caddy line `reverse_proxy app:8000`. |
+| Port | One HTTP port: `PORT` from the environment, default 8000. Railway sets `PORT`; Caddy proxies to `app:8000`. |
 | `/up` | `SELECT 1`, then `200 "ok"`. No auth. Docker `HEALTHCHECK` and Railway's healthcheck use it. |
 | `/api/health` | `{version, sqlite_version, fts5, preview, apps:[slug], last_backup_at}`. No auth. `version` is read from `springform-version`. |
 | `/data` | The only state. Everything a restore needs is in it (see below). |
 | Env config | No configuration is baked into the image. |
 
-Open: whether a `PORT` environment variable overrides 8000 (Railway injects `PORT`) is not stated.
-
 ### `/data` layout (every path the plan names)
 
 | Path | What |
 |---|---|
-| `/data/<db file>` | The SQLite database. |
+| `/data/springform.sqlite` | The SQLite database. |
 | `/data/.springform.lock` | The single-process `flock`. |
 | `/data/.encryption-key` | Fernet key, generated on first boot when `ENCRYPTION_KEY` is not set. |
 | `/data/setup-token` | One-time first-admin token, mode 0600 (`auth.md`). |
@@ -90,12 +88,15 @@ Open: whether a `PORT` environment variable overrides 8000 (Railway injects `POR
 | `/data/files/tmp/<uuid>` | Upload staging. |
 | `/data/backups/<stamp>.sqlite`, `/data/backups/<stamp>.manifest.json` | Backup recovery sets (`deploy.md`). |
 
-Open: the database file name is not stated (the todo-gtd donor uses `todo.db` under `DATA_DIR`). Open: whether `DATA_DIR` (the donor's env var, used by the write probe the plan lifts) is kept, and its default.
+The data directory is `DATA_DIR` (the donor's env var, kept; default `./data` for development). In the container it is `/data`, so the database is `/data/springform.sqlite`.
 
-### Environment variables named by the plan
+### Environment variables
 
 | Variable | Effect | Doc |
 |---|---|---|
+| `PORT` | The HTTP port, default `8000`. Railway sets it. | `deploy.md` |
+| `DATA_DIR` | The data directory, default `./data`; `/data` in the container. | `database-and-transactions.md` |
+| `PUBLIC_URL` | The install's public URL: Google redirect URI, CSRF origin, scheme warning. Shown read-only in Settings; not a `core_settings` key. | `auth.md` |
 | `ENCRYPTION_KEY` | Fernet key; when set, no key file is written. | `deploy.md` |
 | `TRUST_PROXY` | `1` → uvicorn `--proxy-headers --forwarded-allow-ips='*'`. | `auth.md`, `deploy.md` |
 | `PREVIEW_MODE` | `1` → seeded preview users, role picker, Google stub. | `auth.md` |
@@ -105,8 +106,6 @@ Open: the database file name is not stated (the todo-gtd donor uses `todo.db` un
 | `DOMAIN` | Caddy site address in `deploy/`. | `deploy.md` |
 | `IMAGE` | Image `compose.yml` and `railway.json` run. | `deploy.md`, `forks.md` |
 | `RAILWAY_DEPLOYMENT_DRAINING_SECONDS` | `15`, documented for Railway. | `deploy.md` |
-
-Open: `PUBLIC_URL` is called "the `PUBLIC_URL` setting" in §2 (redirect URI, CSRF origin, scheme warning). Whether it is an environment variable, a `core_settings` key, or both is not stated.
 
 ## Roles
 
