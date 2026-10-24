@@ -71,7 +71,7 @@ Runs against a seeded `PREVIEW_MODE=1` build with the FakeProvider and the Googl
 
 ### Record services
 
-- `record_changes_in` writes one timeline row + one change-log row and fires the hook after commit.
+- `record_changes_in` writes one timeline row + one change-log row per changed field and fires the hook after commit.
 - File upload round-trips sha256, dedupes; a fresh blob survives `sweep`; an unreferenced blob survives 6 days and goes at 8.
 - Deterministic interleaving: sweep claims the lock, an upload of the same bytes waits, sweep deletes, upload republishes; the file ends present and referenced.
 - Download refused without `can_read`; served as attachment.

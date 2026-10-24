@@ -47,8 +47,10 @@ Apps declare `JOBS = [Job(name="<slug>.<job>", fn, every=…|at="HH:MM")]` in `j
 ## 5. `core_job_runs`
 
 ```sql
-core_job_runs(id, job, started_at, finished_at, status, error, triggered_by)
+core_job_runs(id, job, app, trigger, status, scheduled_for, started_at, finished_at, error)
 ```
+
+`trigger` is `schedule`, `manual` or `nudge`. `scheduled_for` is the install-local day an `at` job's run covers.
 
 `status`:
 

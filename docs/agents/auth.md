@@ -77,7 +77,7 @@ One seeded row: `id=0`, `role='system'`, email `system@springform.local`, `passw
 ## 5. First run and the setup token
 
 1. No "first visitor becomes admin".
-2. On boot with **no human user** in `core_users` (`WHERE role != 'system'`; not "an empty table", because the system row exists), `bootstrap.py` generates a **setup token**:
+2. On **every boot** while there is **no human user** in `core_users` (`WHERE role != 'system'`; not "an empty table", because the system row exists), `bootstrap.py` generates a fresh **setup token**, replacing any earlier one:
    - printed once in the log;
    - written to `/data/setup-token`, mode 0600;
    - `deploy/setup.sh` prints it at the end.

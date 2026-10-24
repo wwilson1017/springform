@@ -29,10 +29,10 @@ core_timeline_mentions     -- mention rows
 record_changes_in(conn, type, id, before, after, user_id)
 ```
 
-In the caller's transaction it writes:
+A change is a key present in both `before` and `after` whose value differs (`id`, `created_at` and `updated_at` are not tracked). When nothing changed it writes nothing. Otherwise, in the caller's transaction, it writes:
 
-1. one `field_change` row in `core_timeline`;
-2. one `core_change_log` row;
+1. one `field_change` row in `core_timeline`, whose `changes` holds the list `[{field, old, new}]`;
+2. one `core_change_log` row **per changed field**;
 3. one `core_outbox` row per `after_record_changed` subscriber, with the payload `{entity_type, entity_id, changes: [{field, old, new}], user_id}`;
 
 and runs the sync `on_record_changed` subscribers (through `on_record_changed_in`) with the same fields. The CRM sets `touch_dirty` from that sync hook (`authorization.md` §3). The scoring and touch-count imports at CakeCRM `chatter_service.py:25` become CRM subscribers.
@@ -231,13 +231,13 @@ core_change_log(id, at, user_id, app, entity, entity_id, field, old, new, reason
                 deleted_at TEXT NULL)
 ```
 
-1. `record_changes_in` writes one row per change, alongside the timeline `field_change` row.
-2. `core.changelog.record_in` is a frozen Step 1 stub signature that W3 fills.
+1. `record_changes_in` writes one row per changed field, alongside the single timeline `field_change` row.
+2. `core.changelog.record_in(conn, entity_type, entity_id, field, old, new, user_id, *, reason=None, request_id=None)` writes one row; `old` and `new` are stored as JSON.
 3. Rows written before a delete are kept: they keep `entity_id`, and the delete cascade sets their `deleted_at`, so history stays distinguishable from any later record.
 4. The ChangeLog viewer and `/api/core/changelog` apply `authorize(read)` per row and hide the rest. Filters: app, user, entity (`frontend-shell.md`).
 5. `user_id` may be the system principal (`id=0`) for unattended actions.
 
-Open (pinned by the implementing workstream, which updates this doc): `record_in`'s signature, whether `field` holds one field per row or a set, and `/api/core/changelog`'s query and response shape (shape to be pinned by W3).
+Open (pinned by the implementing workstream, which updates this doc): `/api/core/changelog`'s query and response shape (shape to be pinned by W3).
 
 ## 9. Frontend (`frontend/src/core/records/`)
 
@@ -261,7 +261,7 @@ Open (pinned by the implementing workstream, which updates this doc): every prop
 
 ## Tests that pin this
 
-- `record_changes_in` writes one timeline row + one change-log row and fires the hook after commit.
+- `record_changes_in` writes one timeline row + one change-log row per changed field and fires the hook after commit.
 - File upload round-trips sha256, dedupes, a fresh blob survives `sweep`, an unreferenced blob survives 6 days and goes at 8.
 - A deterministic interleaving (sweep claims the lock, an upload of the same bytes waits, sweep deletes, upload republishes) ends with the file present and referenced.
 - Download refused without `can_read`, served as attachment.
