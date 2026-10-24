@@ -54,7 +54,7 @@ springform/
       agent/       providers/ spec.py registry.py engine.py history.py assembly.py compaction.py llm.py delimiters.py write_budget.py
                    deferred.py agents.py router.py startup.py
       mcp/         the inbound MCP server (landing with the MCP workstream)
-      mcp_servers/ the outbound MCP client (landing with the MCP workstream)
+      mcp_servers/ the outbound MCP client: client.py transport.py service.py router.py jobs.py startup.py
       memory/      facts.py context_files.py observer.py dreaming.py jobs.py tools.py router.py startup.py
       migrations/  20261020HHMMSS_core_<name>.sql
       docs/        core Guide topics (*.md)

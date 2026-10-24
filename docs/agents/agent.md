@@ -45,7 +45,7 @@ core_agent_context_files(agent_slug, filename COLLATE NOCASE, content, is_protec
   -- UNIQUE(agent_slug, filename); agent_slug matches core_agents.slug by value; + FTS
 core_agent_providers(provider PK, api_key_enc, model_default, model_light, enabled, updated_at)
 core_agent_mcp_links           -- mcp.md; not built yet
-core_agent_mcp_servers         -- mcp.md; not built yet
+core_agent_mcp_servers         -- mcp.md §2
 ```
 
 Memory search is FTS5 only; there is no vector table.
@@ -228,7 +228,8 @@ conversation_id, compacted, text, tool_start, tool_args, tool_end, usage, confir
 | `GET /api/agent/providers`, `PUT /api/agent/providers/{provider}`, `POST /api/agent/providers/{provider}/test` (admin) | Provider keys and default and light models, one `core_agent_providers` row per vendor. |
 | `GET /api/core/context-files[?agent=<slug>]`, `GET` / `PUT /api/core/context-files/{filename}[?agent=<slug>]` | Context files per agent (default `whisk`). Members list them and read the unprotected ones; admins read all and write through `PUT`. Protected files (`soul.md`, `MEMORY.md`) refuse the REST editor: they change only through the confirmed chat tool. |
 | `GET /api/core/memory/facts[?q=&limit=&offset=&history=]`, `POST /api/core/memory/facts {text, tags, valid_from?}`, `DELETE /api/core/memory/facts/{id}` (admin) | Install-shared facts, not per agent. Admins see provenance, and `history=true` (admins only) adds ended facts. `DELETE` ends the fact's validity (§3). |
-| MCP links, MCP servers | Not built yet; shape to be pinned by W14/W15 (`mcp.md`). |
+| MCP links | Not built yet; shape to be pinned by W14 (`mcp.md`). |
+| MCP servers | `/api/core/mcp/servers` (admin; `mcp.md` §2), not under `/api/agent`. |
 
 The routes under `/api/agent` are in `backend/core/agent/router.py`; the memory routes are in `backend/core/memory/router.py`.
 
