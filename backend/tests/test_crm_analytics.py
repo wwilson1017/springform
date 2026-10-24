@@ -165,3 +165,28 @@ def test_duplicates_are_title_and_person(me):
         "match_on": "title+person", "value": "spring order", "count": 2,
         "records": [{"id": first["id"], "label": "Spring order (lead)"}, {"id": second["id"], "label": "spring ORDER (lead)"}],
     }]  # fmt: skip
+
+
+# ── Fixes on top of the port ──────────────────────────────────────────────────
+
+
+def test_conversion_counts_a_stage_reentered_inside_the_window(me, freeze):
+    """The first entry into a stage INSIDE the window counts, even when the deal was in that
+    stage once before the window began."""
+    at(freeze, "2026-06-01T15:00:00Z")
+    deal = deals.create(me, {"title": "Back again", "stage": "qualified"})
+    for when, stage in (("2026-06-02T15:00:00Z", "lead"), ("2026-10-20T15:00:00Z", "qualified"), ("2026-10-25T15:00:00Z", "proposal")):
+        at(freeze, when)
+        deals.update(me, deal["id"], {"stage": stage})
+    at(freeze, "2026-11-02T18:00:00Z")
+    conv = {c["stage"]: c for c in analytics.pipeline_analytics(me, days=30)["conversion"]}
+    assert (conv["qualified"]["entered"], conv["qualified"]["advanced"]) == (1, 1)
+    assert (conv["lead"]["entered"], conv["proposal"]["entered"], conv["proposal"]["still_here"]) == (0, 1, 1)
+
+
+def test_duplicate_titles_fold_case_beyond_ascii(me):
+    with core_db.transaction() as conn:
+        zoe = contacts.create_person_in(conn, me, name="Zoë Démo")["id"]
+    ids = [deals.create(me, {"title": t, "person_id": zoe})["id"] for t in ("Café pastry", "CAFÉ PASTRY")]
+    groups = analytics.duplicates(me)
+    assert [(g["value"], g["count"], [r["id"] for r in g["records"]]) for g in groups] == [("café pastry", 2, ids)]
