@@ -19,6 +19,7 @@ if TYPE_CHECKING:
     from backend.core.auth.deps import User
 
 MAX_BODY = 10_000
+NOTE_KINDS = ("note", "comment")
 UNTRACKED = frozenset({"id", "created_at", "updated_at"})
 _SELECT = """SELECT t.id, t.kind, t.body, t.changes, t.created_at, t.author_user_id, u.name AS author_name
                FROM core_timeline t LEFT JOIN core_users u ON u.id = t.author_user_id"""
@@ -44,30 +45,31 @@ def _insert_in(conn: db.Conn, entity_type: str, entity_id: int, kind: str, body:
     return _entry(conn.execute(f"{_SELECT} WHERE t.id = ?", (cur.lastrowid,)).fetchone())
 
 
-def add_note_in(conn: db.Conn, user: User, entity_type: str, entity_id: int, body: str) -> dict:
+def add_note_in(conn: db.Conn, user: User, entity_type: str, entity_id: int, body: str, kind: str = "note") -> dict:
     entities.authorize(user, conn, entity_type, entity_id, "write")
+    if kind not in NOTE_KINDS:
+        raise Invalid(f"kind must be one of {', '.join(NOTE_KINDS)}")
     text = (body or "").strip()
     if not text:
         raise Invalid("A note needs some text.")
     if len(text) > MAX_BODY:
         raise Invalid(f"A note can be at most {MAX_BODY} characters.")
-    return _insert_in(conn, entity_type, entity_id, "note", text, None, user.id)
+    return _insert_in(conn, entity_type, entity_id, kind, text, None, user.id)
 
 
-def add_note(user: User, entity_type: str, entity_id: int, body: str) -> dict:
+def add_note(user: User, entity_type: str, entity_id: int, body: str, kind: str = "note") -> dict:
     with db.transaction() as conn:
-        return add_note_in(conn, user, entity_type, entity_id, body)
+        return add_note_in(conn, user, entity_type, entity_id, body, kind)
 
 
-def list_for(user: User, entity_type: str, entity_id: int, limit: int | None = None, offset: int | None = None) -> list[dict]:
-    """Newest first."""
+def list_for(user: User, entity_type: str, entity_id: int, before: int | None = None, limit: int | None = None) -> list[dict]:
+    """Newest first; `before` (an entry id) pages back from there."""
     conn = db.get_conn()
     entities.authorize(user, conn, entity_type, entity_id, "read")
-    limit, offset = pagination.window(limit, offset)
     rows = conn.execute(
-        f"""{_SELECT} WHERE t.entity_type = ? AND t.entity_id = ? AND t.archived_at IS NULL
-            ORDER BY t.created_at DESC, t.id DESC LIMIT ? OFFSET ?""",
-        (entity_type, entity_id, limit, offset),
+        f"""{_SELECT} WHERE t.entity_type = ? AND t.entity_id = ? AND t.archived_at IS NULL AND t.id < ?
+            ORDER BY t.id DESC LIMIT ?""",
+        (entity_type, entity_id, before if before is not None else 2**62, pagination.limit(limit)),
     )
     return [_entry(r) for r in rows]
 
@@ -88,8 +90,9 @@ def record_changes_in(
     entry = _insert_in(conn, entity_type, entity_id, "field_change", "", changes, user_id)
     for c in changes:
         changelog.record_in(conn, entity_type, entity_id, c["field"], c["old"], c["new"], user_id)
-    entities.on_record_changed_in(conn, entity_type, entity_id, changes, user_id)
-    entities.after_record_changed_in(conn, entity_type, entity_id, changes, user_id)
+    by_field = {c["field"]: [c["old"], c["new"]] for c in changes}
+    entities.on_record_changed_in(conn, entity_type, entity_id, by_field, user_id)
+    entities.after_record_changed_in(conn, entity_type, entity_id, by_field, user_id)
     return entry
 
 
@@ -98,7 +101,7 @@ def on_entity_deleted_in(conn: db.Conn, entity_type: str, entity_id: int) -> Non
 
 
 def on_entity_merged_in(conn: db.Conn, entity_type: str, target_id: int, source_id: int) -> None:
-    """Rows move to the survivor keeping their author and time."""
+    """Subscriber: rows move to the survivor keeping their author and time."""
     conn.execute(
         "UPDATE core_timeline SET entity_id = ? WHERE entity_type = ? AND entity_id = ?",
         (target_id, entity_type, source_id),

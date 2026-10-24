@@ -40,7 +40,7 @@ _AT = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
 class Job:
     name: str
     fn: Callable[[threading.Event], Any]
-    every: float | None = None
+    every: int | None = None  # seconds
     at: str | None = None
     app: str = "core"
     timeout: float = 300
@@ -50,8 +50,8 @@ class Job:
             raise ValueError(f"Job {self.name!r}: give exactly one of every= or at=")
         if self.at is not None and not _AT.match(self.at):
             raise ValueError(f"Job {self.name!r}: at must be 'HH:MM'")
-        if self.every is not None and self.every <= 0:
-            raise ValueError(f"Job {self.name!r}: every must be positive")
+        if self.every is not None and (not isinstance(self.every, int) or self.every <= 0):
+            raise ValueError(f"Job {self.name!r}: every must be a positive number of seconds (int)")
 
 
 _JOBS: dict[str, Job] = {}
@@ -121,7 +121,7 @@ def _insert_run(job: Job, trigger: str, status: str, scheduled_for: str | None) 
     now = clock.now_iso()
     with db.transaction() as conn:
         return conn.execute(
-            """INSERT INTO core_job_runs (job, app, trigger, status, scheduled_for, started_at, finished_at)
+            """INSERT INTO core_job_runs (job, app, triggered_by, status, scheduled_for, started_at, finished_at)
                VALUES (?, ?, ?, ?, ?, ?, ?)""",
             (job.name, job.app, trigger, status, scheduled_for, now, now if status == "skipped" else None),
         ).lastrowid

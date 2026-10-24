@@ -11,7 +11,9 @@ from backend.core.scheduler import Job, Scheduler
 
 
 def _runs(job: str) -> list[dict]:
-    return core_db.rows("SELECT trigger, status, scheduled_for, finished_at, error FROM core_job_runs WHERE job = ? ORDER BY id", (job,))
+    return core_db.rows(
+        "SELECT triggered_by, status, scheduled_for, finished_at, error FROM core_job_runs WHERE job = ? ORDER BY id", (job,)
+    )
 
 
 def test_run_now_records_ok_and_error(db):
@@ -25,7 +27,7 @@ def test_run_now_records_ok_and_error(db):
 
     asyncio.run(go())
     assert ran == [1]
-    assert [(r["trigger"], r["status"]) for r in _runs("core.ok")] == [("manual", "ok")]
+    assert [(r["triggered_by"], r["status"]) for r in _runs("core.ok")] == [("manual", "ok")]
     bad = _runs("core.bad")[0]
     assert bad["status"] == "error" and "ZeroDivisionError" in bad["error"]
 
@@ -86,7 +88,7 @@ def test_stale_running_rows_become_interrupted_on_start(db):
     with core_db.transaction() as conn:
         for status in ("running", "timed_out", "ok"):
             conn.execute(
-                "INSERT INTO core_job_runs (job, app, trigger, status, started_at) VALUES ('core.x', 'core', 'schedule', ?, 'x')",
+                "INSERT INTO core_job_runs (job, app, triggered_by, status, started_at) VALUES ('core.x', 'core', 'schedule', ?, 'x')",
                 (status,),
             )
 
@@ -150,7 +152,7 @@ def test_every_jobs_are_due_after_their_interval(db, freeze):
 def test_a_commit_with_outbox_rows_wakes_the_drainer(db):
     outbox.clear()
     done = threading.Event()
-    outbox.register("t.wake", lambda conn, payload: done.set())
+    outbox.consumer("t.wake")(lambda conn, payload: done.set())
     drain = Job("core.outbox_drain", outbox.drain, every=3600)
 
     async def go():
@@ -173,7 +175,7 @@ def test_a_commit_with_outbox_rows_wakes_the_drainer(db):
     asyncio.run(go())
     outbox.clear()
     assert done.is_set()
-    assert [r["trigger"] for r in _runs("core.outbox_drain")] == ["schedule", "nudge"]
+    assert [r["triggered_by"] for r in _runs("core.outbox_drain")] == ["schedule", "nudge"]
 
 
 def test_job_validation():
@@ -181,7 +183,35 @@ def test_job_validation():
         Job("core.x", print)
     with pytest.raises(ValueError, match="HH:MM"):
         Job("core.x", print, at="3am")
+    with pytest.raises(ValueError, match="int"):
+        Job("core.x", print, every=0.5)
     scheduler.clear()
     with pytest.raises(ValueError, match="core.<job>"):
         scheduler.register(Job("tidy", print, every=1))
     assert clock.now_iso()
+
+
+def test_run_now_route(app, monkeypatch):
+    from fastapi.testclient import TestClient
+
+    from backend.core.auth import bootstrap, service as auth_service
+
+    release = threading.Event()
+    scheduler.register(Job("core.slow", lambda cancel: release.wait(5), every=86400))
+    with TestClient(app, headers={"Sec-Fetch-Site": "same-origin"}) as client:  # runs the real lifespan
+        token = bootstrap.ensure_setup_token()
+        client.post("/api/auth/setup", json={"token": token, "email": "a@example.com", "password": "long-enough-1"})
+        time.sleep(0.3)  # the first tick has started core.slow, which waits on `release`
+        assert client.post("/api/core/jobs/core.slow/run").json() == {"detail": "already_running"}
+        assert client.post("/api/core/jobs/nope/run").status_code == 404
+        with core_db.transaction() as conn:
+            auth_service.create_user_in(conn, "m@example.com", "M", "member", "long-enough-1")
+        member = TestClient(app, headers={"Sec-Fetch-Site": "same-origin"})
+        member.post("/api/auth/login", json={"email": "m@example.com", "password": "long-enough-1"})
+        assert member.post("/api/core/jobs/core.slow/run").status_code == 403
+        release.set()
+        deadline, status = time.time() + 5, None
+        while status != 202 and time.time() < deadline:
+            status = client.post("/api/core/jobs/core.slow/run").status_code
+            time.sleep(0.05)
+        assert status == 202

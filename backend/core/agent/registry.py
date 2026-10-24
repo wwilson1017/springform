@@ -39,7 +39,7 @@ class ToolRegistry:
         return list(self._specs.values())
 
     def for_user(self, user: User) -> list[ToolSpec]:
-        return [s for s in self._specs.values() if s.enabled(user)]
+        return [s for s in self._specs.values() if s.enabled(user) and not (s.hides_when and s.hides_when(user))]
 
     def for_source(self, source: Source) -> list[ToolSpec]:
         if source == "chat":

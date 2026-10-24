@@ -23,6 +23,19 @@ def test_note_round_trip(login_as, freeze):
     assert listed.json() == [entry]
 
 
+def test_comment_kind_and_paging(login_as):
+    member = login_as("member")
+    w = _widget(member)
+    q = {"entity_type": "example.widget", "entity_id": w["id"]}
+    ids = [member.post("/api/core/timeline", json={**q, "body": f"n{i}"}).json()["id"] for i in range(3)]
+    assert member.post("/api/core/timeline", json={**q, "body": "c", "kind": "comment"}).json()["kind"] == "comment"
+    assert member.post("/api/core/timeline", json={**q, "body": "x", "kind": "system"}).status_code == 422
+    page = member.get("/api/core/timeline", params={**q, "limit": 2}).json()
+    assert [e["kind"] for e in page] == ["comment", "note"] and page[1]["id"] == ids[2]
+    older = member.get("/api/core/timeline", params={**q, "before": page[-1]["id"]}).json()
+    assert [e["id"] for e in older] == [ids[1], ids[0]]
+
+
 def test_note_validation_and_missing_records(login_as):
     member = login_as("member")
     w = _widget(member)

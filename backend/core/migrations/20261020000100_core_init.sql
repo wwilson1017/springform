@@ -102,7 +102,7 @@ CREATE TABLE core_job_runs (
     id            INTEGER PRIMARY KEY AUTOINCREMENT,
     job           TEXT NOT NULL,
     app           TEXT NOT NULL,
-    trigger       TEXT NOT NULL CHECK (trigger IN ('schedule', 'manual', 'nudge')),
+    triggered_by  TEXT NOT NULL CHECK (triggered_by IN ('schedule', 'manual', 'nudge')),
     status        TEXT NOT NULL CHECK (status IN ('running', 'ok', 'error', 'timed_out', 'interrupted', 'skipped')),
     scheduled_for TEXT,                                -- install-local day an `at` job's run covers
     started_at    TEXT NOT NULL,

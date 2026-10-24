@@ -33,7 +33,11 @@ from backend.core.errors import Forbidden, NotFound
 from backend.core.reports import registry as reports
 from backend.core.timeline import service as timeline_service
 
-RESERVED_SLUGS = frozenset({"core", "api", "auth", "mcp", "up", "assets"})
+RESERVED_SLUGS = frozenset({
+    "core", "api", "auth", "mcp", "up", "assets", "agent", "me", "health", "settings", "people", "organizations",
+    "guide", "requests", "login", "setup", "invite", "changelog", "backups", "jobs", "sheets", "notifications",
+    "reminders", "whisk", "files", "timeline", "export",
+})
 MODULES = ("router", "seed", "api", "entities", "hooks", "reports", "tools", "jobs", "settings")
 
 
@@ -77,6 +81,8 @@ class AppManifest(BaseModel):
     def _not_reserved(cls, v: str) -> str:
         if v in RESERVED_SLUGS:
             raise ValueError(f"slug {v!r} is reserved")
+        if v.startswith("core_"):
+            raise ValueError("slug may not start with 'core_' (core owns that table prefix)")
         return v
 
     @field_validator("version")
@@ -142,7 +148,15 @@ def discover(apps_dir: Path = db.APPS_DIR) -> list[App]:
         package = package_for(app_dir)
         modules = {m: importlib.import_module(f"{package}.{m}") for m in MODULES if (app_dir / f"{m}.py").is_file()}
         apps.append(App(manifest, app_dir, modules))
+    check_slug_prefixes([a.slug for a in apps])
     return apps
+
+
+def check_slug_prefixes(slugs: list[str]) -> None:
+    """No slug may be another slug + '_' + anything: table ownership is by prefix."""
+    for slug in slugs:
+        if clash := [o for o in slugs if o != slug and o.startswith(f"{slug}_")]:
+            raise AppContractError(f"App slug(s) {clash} start with '{slug}_', so table ownership would be ambiguous")
 
 
 CORE_JOBS = [
@@ -182,6 +196,10 @@ def mount_app(fastapi_app: FastAPI, app: App) -> list[ToolSpec]:
     """Mount one app; returns its tool specs (validated together by the caller)."""
     m, mods = app.manifest, app.modules
     roles = tuple(m.roles)
+    for name in m.publishes:
+        for fn in (name, f"{name}_in"):
+            if not callable(getattr(mods.get("api"), fn, None)):
+                raise AppContractError(f"App '{m.slug}' publishes {name!r} but api.py has no {fn}")
     fastapi_app.include_router(
         mods["router"].router, prefix=f"/api/{m.slug}", tags=[m.slug], dependencies=[Depends(require_roles(roles))]
     )
@@ -268,11 +286,19 @@ def reset_app_in(conn: db.Conn, slug: str) -> None:
         conn.execute(f"DELETE FROM {table}")
 
 
-def factory_reset_in(conn: db.Conn) -> None:
-    """Clear every table and every sequence, then re-seed. Only in PREVIEW_MODE or before any
-    human account exists; refused otherwise."""
-    if not settings.preview_mode() and auth_service.human_users_exist(conn):
-        raise Forbidden("Factory reset is only allowed in preview mode or on an install with no accounts.")
+def _holds_data(conn: db.Conn, caller: User | None) -> bool:
+    others = conn.execute(
+        "SELECT 1 FROM core_users WHERE role != 'system' AND id != ? LIMIT 1", (caller.id if caller else -1,)
+    ).fetchone()
+    tables = ["core_people", "core_organizations"] + [t for a in _APPS for t in a.modules["seed"].RESET_TABLES]
+    return others is not None or any(conn.execute(f"SELECT 1 FROM {t} LIMIT 1").fetchone() for t in tables)
+
+
+def factory_reset_in(conn: db.Conn, caller: User | None = None) -> None:
+    """Clear every table and every sequence, then re-seed. Allowed only in PREVIEW_MODE, or when no
+    human account but the caller exists and every app table and the contacts directory are empty."""
+    if not settings.preview_mode() and _holds_data(conn, caller):
+        raise Forbidden("Factory reset is only allowed in preview mode or on an install that holds no data.")
     conn.execute("PRAGMA defer_foreign_keys = ON")
     virtual = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type = 'table' AND sql LIKE 'CREATE VIRTUAL%'")}
     shadow = {f"{v}_{s}" for v in virtual for s in ("data", "idx", "content", "docsize", "config")}

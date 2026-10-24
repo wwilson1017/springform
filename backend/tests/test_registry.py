@@ -57,11 +57,20 @@ def test_reset_keeps_ids_climbing_and_old_content_unreachable(app, make_user):
     assert timeline.list_for(other, "example.widget", fresh["id"]) == []
 
 
-def test_factory_reset_is_refused_once_a_human_exists(app, make_user):
-    make_user("admin")
-    with pytest.raises(Forbidden):
+def test_factory_reset_only_on_an_install_holding_no_data(app, make_user):
+    admin = make_user("admin")
+    with core_db.transaction() as conn:
+        registry.factory_reset_in(conn, caller=admin)  # the caller is the only human, no records yet
+    admin = make_user("admin")
+    with pytest.raises(Forbidden):  # someone else's account exists
         with core_db.transaction() as conn:
             registry.factory_reset_in(conn)
+    with core_db.transaction() as conn:
+        conn.execute("DELETE FROM core_users WHERE id != ? AND id != 0", (admin.id,))
+    service.create_widget(admin, WidgetIn(name="Kept"))
+    with pytest.raises(Forbidden):  # an app holds data
+        with core_db.transaction() as conn:
+            registry.factory_reset_in(conn, caller=admin)
 
 
 def test_factory_reset_in_preview_clears_everything_and_reseeds(app, monkeypatch):

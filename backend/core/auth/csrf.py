@@ -30,5 +30,5 @@ def install(app: FastAPI) -> None:
     @app.middleware("http")
     async def csrf(request: Request, call_next):
         if not allowed(request):
-            return JSONResponse({"detail": "csrf_refused"}, status_code=403)
+            return JSONResponse({"detail": "csrf"}, status_code=403)
         return await call_next(request)

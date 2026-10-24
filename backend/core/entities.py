@@ -4,14 +4,17 @@ An entity type is `<app>.<name>` (`core.person`, `example.widget`) backed by one
 owns. Every core service and router calls `authorize` before touching a record:
 - missing record, unknown type, or not readable -> NotFound (404: existence is not leaked)
 - readable but the action is "write" and not writable -> Forbidden (403)
+- the system principal never writes, whatever the entity says
 
-Hooks (docs/agents/authorization.md):
-- sync, in the caller's transaction, cheap bookkeeping only; a failing subscriber rolls the
-  whole write back: on_entity_deleted(conn, type, id), on_entity_merged(conn, type, target_id,
-  source_id), on_record_changed(conn, type, id, changes, user_id).
-- durable, after commit, through the outbox: after_record_changed(conn, payload) where payload
-  is {entity_type, entity_id, changes, user_id}. Each subscriber gets its own outbox row.
-`changes` is always a list of {field, old, new}.
+Hooks (an app's hooks.py `HOOKS`):
+- sync, in the caller's transaction, cheap bookkeeping only; a failing subscriber rolls the whole
+  write back. Called as `fn(conn, entity_type, entity_id, **kw)`:
+  on_entity_deleted (no kw), on_entity_merged (entity_id is the survivor; kw source_id),
+  on_record_changed (kw changes, user_id).
+- durable, through the outbox: after_record_changed `fn(payload)`, run after COMMIT outside any
+  transaction (it may open its own); payload = {entity_type, entity_id, changes, user_id, at, outbox_id}.
+  Each subscriber gets its own outbox row.
+`changes` in hooks is `{field: [old, new]}`.
 """
 
 from __future__ import annotations
@@ -22,7 +25,7 @@ from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Literal
 
-from backend.core import outbox
+from backend.core import clock, outbox
 from backend.core.errors import Forbidden, NotFound
 
 if TYPE_CHECKING:
@@ -103,7 +106,7 @@ def subscribe(hook: str, fn: Callable) -> None:
         raise ValueError(f"Unknown hook {hook!r}; expected one of {', '.join(HOOKS)}")
     if hook == "after_record_changed":
         name = f"{_AFTER}{fn.__module__}.{fn.__qualname__}"
-        outbox.register(name, fn)
+        outbox.consumer(name, external=True)(fn)
         _AFTER_HOOKS.append(name)
     else:
         _SUBSCRIBERS[hook].append(fn)
@@ -145,7 +148,7 @@ def authorize(user: User, conn: Conn, entity_type: str, entity_id: int, action: 
     entity = assert_exists(conn, entity_type, entity_id)
     if not entity.can_read(user, conn, entity_id):
         raise NotFound()
-    if action == "write" and not entity.can_write(user, conn, entity_id):
+    if action == "write" and (user.role == "system" or not entity.can_write(user, conn, entity_id)):
         raise Forbidden()
     return entity
 
@@ -176,16 +179,21 @@ def on_entity_deleted_in(conn: Conn, entity_type: str, entity_id: int) -> None:
 
 def on_entity_merged_in(conn: Conn, entity_type: str, target_id: int, source_id: int) -> None:
     for fn in _SUBSCRIBERS["on_entity_merged"]:
-        fn(conn, entity_type, target_id, source_id)
+        fn(conn, entity_type, target_id, source_id=source_id)
 
 
-def on_record_changed_in(conn: Conn, entity_type: str, entity_id: int, changes: list[dict], user_id: int | None) -> None:
+def on_record_changed_in(
+    conn: Conn, entity_type: str, entity_id: int, changes: dict[str, list], user_id: int | None
+) -> None:
     for fn in _SUBSCRIBERS["on_record_changed"]:
-        fn(conn, entity_type, entity_id, changes, user_id)
+        fn(conn, entity_type, entity_id, changes=changes, user_id=user_id)
 
 
-def after_record_changed_in(conn: Conn, entity_type: str, entity_id: int, changes: list[dict], user_id: int | None) -> None:
+def after_record_changed_in(
+    conn: Conn, entity_type: str, entity_id: int, changes: dict[str, list], user_id: int | None
+) -> None:
     """Queue one durable outbox row per after_record_changed subscriber; they run after COMMIT."""
-    payload = {"entity_type": entity_type, "entity_id": entity_id, "changes": changes, "user_id": user_id}
+    payload = {"entity_type": entity_type, "entity_id": entity_id, "changes": changes, "user_id": user_id,
+               "at": clock.now_iso()}
     for hook in _AFTER_HOOKS:
         outbox.enqueue_in(conn, hook, payload)

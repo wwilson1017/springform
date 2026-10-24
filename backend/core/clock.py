@@ -44,9 +44,9 @@ def later(seconds: float) -> str:
     return to_iso(now() + timedelta(seconds=seconds))
 
 
-def normalize(value: str | datetime, tz: str | ZoneInfo | None = None) -> str:
-    """A user-supplied instant in canonical form. Values without an offset are read in `tz`,
-    which defaults to the install timezone."""
+def normalize(value: str | datetime, tz: str) -> str:
+    """A user-supplied instant in canonical form. A value without an offset is read in `tz`
+    (an IANA name: the user's zone, or `localtime.tz().key` for the install's)."""
     if isinstance(value, str):
         text = value.strip()
         try:
@@ -56,13 +56,7 @@ def normalize(value: str | datetime, tz: str | ZoneInfo | None = None) -> str:
     else:
         dt = value
     if dt.tzinfo is None:
-        if tz is None:
-            from backend.core.localtime import tz as install_tz
-
-            zone = install_tz()
-        else:
-            zone = ZoneInfo(tz) if isinstance(tz, str) else tz
-        dt = dt.replace(tzinfo=zone)
+        dt = dt.replace(tzinfo=ZoneInfo(tz))
     return to_iso(dt.replace(microsecond=0))
 
 

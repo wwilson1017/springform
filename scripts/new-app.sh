@@ -12,7 +12,14 @@ name=$2
 root=$(cd "$(dirname "$0")/.." && pwd)
 
 [[ $slug =~ ^[a-z][a-z0-9_]{1,29}$ ]] || { echo "slug must match ^[a-z][a-z0-9_]{1,29}\$ (it becomes the table prefix)" >&2; exit 1; }
-case " core api auth mcp up assets " in *" $slug "*) echo "slug '$slug' is reserved" >&2; exit 1;; esac
+reserved=" core api auth mcp up assets agent me health settings people organizations guide requests login setup invite changelog backups jobs sheets notifications reminders whisk files timeline export "
+case "$reserved" in *" $slug "*) echo "slug '$slug' is reserved" >&2; exit 1;; esac
+# A slug may not extend another's table prefix (core's included), or the other way round.
+for other in core $(ls "$root/backend/apps"); do
+  [ -f "$root/backend/apps/$other/app.json" ] || [ "$other" = core ] || continue
+  case "$slug" in "${other}_"*) echo "slug '$slug' starts with '${other}_', which '$other' owns" >&2; exit 1;; esac
+  case "$other" in "${slug}_"*) echo "app '$other' already uses the '${slug}_' prefix" >&2; exit 1;; esac
+done
 [[ $name =~ ^[A-Za-z0-9][A-Za-z0-9\ -]{0,39}$ ]] || { echo "name: letters, digits, spaces and hyphens, up to 40" >&2; exit 1; }
 backend="$root/backend/apps/$slug"
 frontend="$root/frontend/src/apps/$slug"
@@ -133,7 +140,7 @@ EOF
 cat > "$backend/seed.py" <<EOF
 RESET_TABLES = ["${slug}_items"]  # every real table the app owns, in creation order
 EXPORT = {
-    "${slug}_items": {"entity": "$slug.item", "columns": ["id", "name", "owner_user_id", "created_at", "updated_at"]},
+    "${slug}_items": {"entity_type": "$slug.item", "columns": ["id", "name", "owner_user_id", "created_at", "updated_at"]},
 }
 
 
@@ -142,7 +149,7 @@ def seed(conn) -> None:
 
 
 def sample(conn) -> None:
-    """Demo data for PREVIEW_MODE."""
+    """Demo data for PREVIEW_MODE; runs on each preview boot, so keep it idempotent."""
 EOF
 
 cat > "$backend/settings.py" <<EOF

@@ -2,13 +2,14 @@
 
 A write that needs follow-up work after it commits calls `enqueue_in(conn, hook, payload)` in
 its own transaction, so the row exists exactly when the write does. One drainer, the scheduler
-job `core.outbox_drain`, claims rows one at a time and runs the hook's consumer:
+job `core.outbox_drain`, claims rows one at a time and runs the hook's consumer, registered with
+`@outbox.consumer(hook, external=False)`. The payload it receives also carries `outbox_id`.
 - local consumer `fn(conn, payload)`: its DB effects and `processed_at` commit in one
   transaction, so it runs exactly once. It must use `_in` functions, never `transaction()`.
-- external consumer `fn(outbox_id, payload)` (HTTP, LLM): runs outside any transaction and is
-  at-least-once; use the outbox id as the idempotency key where the remote supports one.
-A failure bumps `attempts` and backs off; after MAX_ATTEMPTS the row is dead (`dead_at`). A
-claim older than CLAIM_TIMEOUT (a crashed drainer) is claimed again.
+- external consumer `fn(payload)` (HTTP, LLM, or work that opens its own transaction): runs
+  outside any transaction and is at-least-once; use `outbox_id` as the idempotency key.
+A failure bumps `attempts` and backs off (BACKOFF); the 5th failure makes the row dead
+(`dead_at`). A claim older than CLAIM_TIMEOUT (a crashed drainer) is claimed again.
 """
 
 from __future__ import annotations
@@ -24,8 +25,8 @@ from backend.core import clock, db
 logger = logging.getLogger(__name__)
 
 MAX_ATTEMPTS = 5
-CLAIM_TIMEOUT = 300  # seconds; the core.outbox_drain job timeout
-BACKOFF = 30  # seconds before the first retry, doubling after each failure
+CLAIM_TIMEOUT = 600  # seconds before a claim is presumed abandoned
+BACKOFF = (30, 120, 600, 3600, 21600)  # seconds before the retry after failure 1, 2, 3, ...
 
 
 @dataclass(frozen=True)
@@ -41,10 +42,16 @@ class ClaimLost(RuntimeError):
 _CONSUMERS: dict[str, Consumer] = {}
 
 
-def register(hook: str, fn: Callable, *, external: bool = False) -> None:
-    if hook in _CONSUMERS:
-        raise ValueError(f"Outbox hook {hook!r} already has a consumer")
-    _CONSUMERS[hook] = Consumer(fn, external)
+def consumer(hook: str, *, external: bool = False) -> Callable[[Callable], Callable]:
+    """Decorator registering the one consumer of `hook`."""
+
+    def register(fn: Callable) -> Callable:
+        if hook in _CONSUMERS:
+            raise ValueError(f"Outbox hook {hook!r} already has a consumer")
+        _CONSUMERS[hook] = Consumer(fn, external)
+        return fn
+
+    return register
 
 
 def clear() -> None:
@@ -94,18 +101,18 @@ def _mark_processed_in(conn: db.Conn, row: dict) -> None:
 
 def process(row: dict) -> bool:
     """Run one claimed row's consumer. True when it was processed."""
-    consumer = _CONSUMERS.get(row["hook"])
-    payload = json.loads(row["payload"])
+    registered = _CONSUMERS.get(row["hook"])
+    payload = {**json.loads(row["payload"]), "outbox_id": row["id"]}
     try:
-        if consumer is None:
+        if registered is None:
             raise LookupError(f"no consumer registered for outbox hook {row['hook']!r}")
-        if consumer.external:
-            consumer.fn(row["id"], payload)
+        if registered.external:
+            registered.fn(payload)
             with db.transaction() as conn:
                 _mark_processed_in(conn, row)
         else:
             with db.transaction() as conn:
-                consumer.fn(conn, payload)
+                registered.fn(conn, payload)
                 _mark_processed_in(conn, row)
         return True
     except ClaimLost:
@@ -125,7 +132,7 @@ def _fail(row: dict, error: Exception) -> None:
             """UPDATE core_outbox SET attempts = ?, last_error = ?, claimed_at = NULL, available_at = ?, dead_at = ?
                 WHERE id = ? AND claimed_at = ?""",
             (
-                attempts, repr(error)[:2000], clock.later(BACKOFF * 2 ** (attempts - 1)),
+                attempts, repr(error)[:2000], clock.later(BACKOFF[min(attempts, len(BACKOFF)) - 1]),
                 clock.now_iso() if dead else None, row["id"], row["claimed_at"],
             ),
         )

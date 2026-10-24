@@ -101,6 +101,10 @@ def test_core_migration_may_not_drop_or_rename(tmp_path):
     with pytest.raises(MigrationError, match="core_bad.sql uses RENAME"):
         core_db.migrate([], core_dir)
     assert "core_settings" in _tables()
+    (core_dir / "20261020000200_core_bad.sql").unlink()
+    (core_dir / "20261020000300_core_v1_baseline.sql").write_text("DROP TABLE core_requests;")  # a major's baseline
+    core_db.migrate([], core_dir)
+    assert "core_requests" not in _tables()
 
 
 def test_no_sql_reads_the_database_clock():
@@ -135,7 +139,7 @@ def test_clock_canonical_and_normalize(freeze):
     assert clock.now_iso() == "2026-11-02T09:00:00Z"
     assert clock.ago(3600) == "2026-11-02T08:00:00Z"
     assert clock.normalize("2026-03-08T02:30:00", "America/Chicago") == "2026-03-08T08:30:00Z"  # DST gap
-    assert clock.normalize("2026-07-01T12:00:00.123456+02:00") == "2026-07-01T10:00:00Z"
-    assert clock.normalize("2026-07-01T12:00:00Z") == "2026-07-01T12:00:00Z"
+    assert clock.normalize("2026-07-01T12:00:00.123456+02:00", "UTC") == "2026-07-01T10:00:00Z"
+    assert clock.normalize("2026-07-01T12:00:00Z", "America/Chicago") == "2026-07-01T12:00:00Z"
     with pytest.raises(ValueError):
-        clock.normalize("next tuesday")
+        clock.normalize("next tuesday", "UTC")

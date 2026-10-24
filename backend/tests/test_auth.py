@@ -6,7 +6,7 @@ import pytest
 from fastapi import HTTPException
 
 from backend import cli
-from backend.core import db as core_db, preview
+from backend.core import db as core_db, preview, settings
 from backend.core.auth import bootstrap, jwt, service
 from backend.core.auth.deps import COOKIE, require_admin
 
@@ -116,7 +116,7 @@ def test_csrf_rules_for_cookie_sessions(login_as, monkeypatch):
     body = {"name": "Gear"}
     cross = make_client(member.app, **{"Sec-Fetch-Site": "cross-site"})
     cross.cookies.set(COOKIE, cookie)
-    assert cross.post("/api/example/widgets", json=body).json() == {"detail": "csrf_refused"}
+    assert cross.post("/api/example/widgets", json=body).json() == {"detail": "csrf"}
     bare = make_client(member.app)
     del bare.headers["Sec-Fetch-Site"]
     bare.cookies.set(COOKIE, cookie)
@@ -150,11 +150,16 @@ def test_preview_role_picker(client, db, monkeypatch):
     assert _login(client, "preview-admin@example.com", "!").status_code == 401  # no password to guess
 
 
-def test_preview_refuses_real_secrets(monkeypatch):
+def test_preview_refuses_real_secrets(db, monkeypatch):
     monkeypatch.setenv("PREVIEW_MODE", "1")
     preview.check_startup()
-    monkeypatch.setenv("ENCRYPTION_KEY", "anything")
-    with pytest.raises(RuntimeError, match="ENCRYPTION_KEY"):
+    for key in ("ENCRYPTION_KEY", "RESEND_API_KEY"):
+        monkeypatch.setenv(key, "anything")
+        with pytest.raises(RuntimeError, match=key):
+            preview.check_startup()
+        monkeypatch.delenv(key)
+    settings.set_setting("core.mail_key", "re_123", None, is_secret=True)
+    with pytest.raises(RuntimeError, match="a secret in core_settings"):
         preview.check_startup()
 
 
