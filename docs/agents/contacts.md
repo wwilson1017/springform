@@ -76,16 +76,16 @@ Open: whether `core_organizations.email` / `phone` are mirrored the same way (`_
 | Custom field values | The target's non-empty value wins, else the source's. |
 | Timeline rows | Repointed, keeping their original author and time, plus one `system` row on the survivor: "merged #<source> into this record". |
 | Reminders | Repointed. |
+| Notifications | Repointed, like reminders. |
 | App data | Through `on_entity_merged` subscribers (dispatched by `on_entity_merged_in`) in the same transaction. Example: the CRM's subscriber repoints deals and keeps the higher `crm_person_scores` score. |
 
 **After the move**
 
 1. The source gets `merged_into_id = target` and `archived_at`.
 2. **Every older alias that pointed at the source is re-pointed at the target.** Aliases are kept flat, so a read of any merged id resolves in one hop.
-3. Reads of a merged id return `{"merged_into": head}`.
-4. A failing subscriber rolls the whole merge back.
-
-Open: the HTTP status of a read that returns `{"merged_into": head}` is not stated. Open: whether a merge writes a `core_change_log` row, and how notifications that point at the source are handled, are not stated.
+3. Reads of a merged id return **200** `{"merged_into": head}`.
+4. The merge writes one `core_change_log` row per record.
+5. A failing subscriber rolls the whole merge back.
 
 ## 4. Published `contacts.api`
 

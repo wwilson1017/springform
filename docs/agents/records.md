@@ -195,6 +195,7 @@ deliver_in(conn, title, message, user_id=None, entity=None, link=None)
 1. Listing and reading re-run `entities.authorize(read)` on `(entity_type, entity_id)` and hide rows that fail, setting `suppressed_at`.
 2. `flush` re-checks the same before sending a queued delivery and drops it if access is gone.
 3. **A message already delivered externally cannot be recalled.** The contract says so.
+4. Merges repoint notifications on the source to the target, like reminders (`contacts.md`).
 
 ### External delivery (`core.notifications.flush`, every 30 s)
 
