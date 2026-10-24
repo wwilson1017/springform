@@ -57,6 +57,7 @@ Conventions:
 - Report CSV downloads check and default their params like the report page (bad params are 422).
 - The settings API lists only keys an admin can change, so saving every listed value works.
 - Example widget links open the widget page.
+- Preview accounts no longer show as pending invites, and the last-admin guard counts them.
 
 ### Schema
 
