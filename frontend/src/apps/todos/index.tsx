@@ -1,9 +1,14 @@
 import type { AppModule } from '../../core/apps/types';
 
-/** Placeholder until the Todos screens land; the API is live at /api/todos. */
+/** Placeholder screen until the Todos UI lands; mounted by Root under `/todos/*`. */
 // eslint-disable-next-line react-refresh/only-export-components -- the contract is a default-exported { slug, App }
 function App() {
-  return <p className="m-0 p-6 text-sm text-sf-ink-mute">Todos screens are coming soon.</p>;
+  return (
+    <div className="mx-auto max-w-3xl px-4 py-10 md:px-7">
+      <h1 className="m-0 text-xl font-medium text-sf-ink">Todos</h1>
+      <p className="mt-2 text-sm text-sf-ink-mute">The Todos screens are on their way. The API at <code>/api/todos</code> already works.</p>
+    </div>
+  );
 }
 
 export default { slug: 'todos', App } satisfies AppModule;

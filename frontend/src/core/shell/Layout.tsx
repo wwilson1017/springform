@@ -8,6 +8,7 @@ import { navItems } from '../apps/registry';
 import { useAuth } from '../auth/AuthContext';
 import BootFallback from '../components/BootFallback';
 import ChunkErrorBoundary from '../components/ChunkErrorBoundary';
+import { coreNavItems } from './coreNav';
 import { ThemeToggle } from './ThemeToggle';
 import { UserMenu } from './UserMenu';
 
@@ -29,9 +30,12 @@ export function Layout() {
     { to: '/', label: 'Home', icon: <IconHome size={18} aria-hidden /> },
     { to: '/people', label: 'People', icon: <IconUsers size={18} aria-hidden /> },
     { to: '/organizations', label: 'Organizations', icon: <IconBuilding size={18} aria-hidden /> },
+    ...coreNavItems('primary', isAdmin),
     ...navItems().filter(n => shown.has(n.slug))
       .map(n => ({ to: n.to, label: n.label, icon: <AppIcon name={n.icon} size={18} aria-hidden /> })),
   ];
+  // Core pages that live behind the user menu (and in the drawer), not in the header.
+  const menu: DrawerItem[] = coreNavItems('menu', isAdmin);
 
   return (
     <div className="flex min-h-svh flex-col">
@@ -61,10 +65,10 @@ export function Layout() {
           className="flex h-8 w-8 items-center justify-center text-sf-ink-dim">
           <IconBell size={16} />
         </span>
-        {!isMobile && user && <UserMenu user={user} onSignOut={() => void signOut()} />}
+        {!isMobile && user && <UserMenu user={user} items={menu} onSignOut={() => void signOut()} />}
       </header>
       {menuOpen && (
-        <MobileMenuDrawer items={[...nav, { to: '/settings', label: 'Settings', icon: <IconSliders size={18} aria-hidden /> }]}
+        <MobileMenuDrawer items={[...nav, ...menu, { to: '/settings', label: 'Settings', icon: <IconSliders size={18} aria-hidden /> }]}
           onClose={() => setMenuOpen(false)} onSignOut={() => void signOut()} />
       )}
       <main className="flex-1">

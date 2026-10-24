@@ -37,7 +37,8 @@ RESERVED_SLUGS = frozenset(
     {
         "core", "api", "auth", "mcp", "up", "assets", "agent", "me", "health", "settings", "people",
         "organizations", "guide", "requests", "login", "setup", "invite", "changelog", "backups", "jobs",
-        "sheets", "notifications", "reminders", "whisk", "files", "timeline", "export",
+        "sheets", "notifications", "reminders", "whisk", "files", "timeline", "export", "reports",
+        "reset-password",
     }
 )  # fmt: skip
 MODULES = ("router", "seed", "api", "entities", "hooks", "reports", "tools", "jobs", "settings")
