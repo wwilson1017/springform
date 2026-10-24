@@ -227,7 +227,7 @@ Written for the CRM port (§7); grep each before a ported module is done.
 
 - Migrations apply in order (core before apps), checksums enforced, a failing fixture leaves no partial DDL.
 - Fresh apply; an upgrade from the previous tagged release plus a private fixture app applies cleanly on both a fresh and an upgraded database, with a fixture whose historical migration references a deprecated core column.
-- The DROP/RENAME lint fails a core migration not named `*_baseline.sql`; the `requires_core` refusal is tested with a fixture declaring `<0.1`.
+- The DROP/RENAME lint fails a core migration not named `*_baseline.sql`, and a baseline file may drop a table; the `requires_core` refusal is tested with a fixture declaring `<0.1`.
 - `now_iso` is the only timestamp writer (grep test).
 - No `httpx` inside `transaction()` (an autouse fixture makes `httpx` sends raise inside one).
 - Nested `transaction()` raises.

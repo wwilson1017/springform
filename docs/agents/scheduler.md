@@ -62,7 +62,7 @@ running | ok | error | timed_out | interrupted | skipped
 
 | Kind | Rule |
 |---|---|
-| `at` | Once per install-local day, computed in the install timezone, **DST-safe**. A **single catch-up** if the slot was missed (restart or downtime). |
+| `at` | Once per install-local day, computed in the install timezone, **DST-safe**. A **single catch-up** if the slot was missed (restart or downtime). A job with no prior run, as on first boot, waits for its next slot instead of catching up. |
 | `every` | Not caught up. |
 
 Timezone: `core_settings.timezone` (IANA, default `UTC`). Nothing hardcoded.
