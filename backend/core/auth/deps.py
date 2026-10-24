@@ -1,4 +1,4 @@
-"""Request authentication: who is calling, and may they.
+"""Request authentication: who is calling, and may they; and the session cookie that says so.
 
 `current_user` reads the session from the `sf_session` cookie (the browser) or an
 `Authorization: Bearer` header (tests, CLI), then loads the live user row, so a deactivation,
@@ -11,8 +11,9 @@ from __future__ import annotations
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 
-from fastapi import Depends, HTTPException, Request, status
+from fastapi import Depends, HTTPException, Request, Response, status
 
+from backend.core import clock, db
 from backend.core.auth import jwt, service
 
 COOKIE = "sf_session"
@@ -81,6 +82,18 @@ def current_user(request: Request) -> User:
     ):
         raise _unauthorized("invalid_session")
     return User.from_row(row)
+
+
+def start_session(request: Request, response: Response, row: dict) -> dict:
+    """Sign `row` in: set the session cookie on `response` and stamp last_login_at. Every route that
+    completes a sign-in (password, TOTP step, Google, invite, reset, setup, preview) ends here."""
+    with db.transaction() as conn:
+        conn.execute("UPDATE core_users SET last_login_at = ? WHERE id = ?", (clock.now_iso(), row["id"]))
+    response.set_cookie(
+        COOKIE, jwt.mint(row["id"], row["token_epoch"]), max_age=jwt.SESSION_HOURS * 3600,
+        httponly=True, samesite="lax", secure=request.url.scheme == "https", path="/",
+    )
+    return {"user": User.from_row(row).public()}
 
 
 def require_admin(user: User = Depends(current_user)) -> User:
