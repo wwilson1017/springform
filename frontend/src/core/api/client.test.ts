@@ -39,7 +39,7 @@ describe('client', () => {
 
   it('keeps detail a string when FastAPI sends a 422 array, and maps 204 to undefined', async () => {
     stub(422, { detail: [{ msg: 'field required' }] });
-    const err = await fetchJson('/api/x').catch(e => e);
+    const err = await fetchJson<never>('/api/x').catch((e: ApiError) => e);
     expect(err).toBeInstanceOf(ApiError);
     expect(typeof err.detail).toBe('string');
     stub(204);

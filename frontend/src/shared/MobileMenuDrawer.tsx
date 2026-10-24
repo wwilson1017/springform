@@ -1,12 +1,12 @@
-import type { ComponentType, ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { Link } from 'react-router';
-import type { IconProps } from './icons';
 import { IconX } from './icons';
 
 export interface DrawerItem {
   to: string;
   label: string;
-  icon: ComponentType<IconProps>;
+  /** An icon element, sized 18. */
+  icon: ReactNode;
 }
 
 interface Props {
@@ -31,7 +31,7 @@ export function MobileMenuDrawer({ items, onClose, onSignOut, children }: Props)
         {items.map(item => (
           <Link key={item.to} to={item.to} onClick={onClose}
             className="flex items-center gap-2.5 rounded px-2 py-3 text-sm text-sf-ink no-underline hover:text-sf-accent-text">
-            <item.icon size={18} aria-hidden />
+            {item.icon}
             {item.label}
           </Link>
         ))}

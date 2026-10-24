@@ -1,4 +1,4 @@
-import type { ComponentType, CSSProperties, ReactNode } from 'react';
+import { createElement, type ComponentType, type CSSProperties, type ReactNode } from 'react';
 
 export interface IconProps {
   size?: number;
@@ -61,6 +61,6 @@ const APP_ICONS: Record<string, ComponentType<IconProps>> = {
   settings: IconSliders, bell: IconBell, grid: IconGrid,
 };
 
-export function appIcon(name: string): ComponentType<IconProps> {
-  return APP_ICONS[name] ?? IconGrid;
+export function AppIcon({ name, ...props }: IconProps & { name: string }) {
+  return createElement(APP_ICONS[name] ?? IconGrid, props);
 }
