@@ -1,0 +1,226 @@
+/**
+ * Mark-as-Lost reason dialog (issue #128).
+ *
+ * Ported from the blueprint CRM's `LostReasonModal`, restyled onto CakeCRM's inline theme
+ * tokens (the blueprint's Tailwind `bg-cream`/`text-charcoal` classes were removed by #54).
+ * Two deliberate divergences from it:
+ *
+ *  - The blueprint checks `e.key === 'Enter' && (e.metaKey || e.ctrlKey)` inline. This reuses
+ *    `composerKeyAction` instead, so the chord inherits the two guards #57 established for
+ *    the note composer: `isComposing` off the NATIVE event (an IME uses Enter to commit its
+ *    candidate, and React's synthetic event does not carry the flag), and `altKey`
+ *    disqualifying the chord (Windows synthesizes AltGr as Ctrl+Alt). One definition of
+ *    "what Enter means in a multi-line box" for the whole app.
+ *  - The blueprint's field is unbounded; this one carries `maxLength` because
+ *    `service.mark_deal_lost` truncates at MAX_LOST_REASON and the route rejects past it.
+ *
+ * #301: `variant="archive"` reuses the same dialog for the Archive button —
+ * different copy, a REQUIRED reason (the server refuses a blank one, #239) and the archive cap.
+ *
+ * It renders through a PORTAL, which is not decoration: the surface it opens over is deliberately
+ * BELOW the assistant launcher — `DealDetailSheet`'s root set `zIndex: 39`, and since #75 its
+ * replacement is `DetailModal` in `underLauncher` mode (`z-50 dock:z-[39]`) — and either one
+ * establishes a stacking context a descendant cannot escape at any z-index. The portal lifts the
+ * overlay to `document.body` at `ConfirmHost`'s z-index instead. It stays a React CHILD of the
+ * panel, because React propagates events along the React tree rather than the DOM tree, and the
+ * panel's inner `onClick={e => e.stopPropagation()}` is what keeps a click in here from reaching
+ * the backdrop behind it.
+ */
+
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+
+import { composerKeyAction } from '../chatterComposer';
+import { MAX_ARCHIVE_REASON, MAX_LOST_REASON } from '../constants';
+import {
+  BG_ELEV, FONT_DISPLAY, INK, INK_DIM, INK_MUTE, LINE_STRONG,
+  SCRIM, SHADOW, inputStyle, mono,
+} from '../../shared/styles';
+import { btnDanger, btnPrimary, btnSecondary } from '../styles';
+
+export interface LostReasonModalProps {
+  dealTitle: string;
+  /** Called at most once with the typed reason — `''` when the user wrote nothing. */
+  onConfirm: (reason: string) => void;
+  onCancel: () => void;
+  /** `'archive'` asks why a deal is being put away (reason required); default is Mark Lost. */
+  variant?: 'lost' | 'archive';
+}
+
+export function LostReasonModal({ dealTitle, onConfirm, onCancel, variant = 'lost' }: LostReasonModalProps) {
+  const [reason, setReason] = useState('');
+  const archive = variant === 'archive';
+  // Archiving without a reason is refused server-side, so the dialog does not offer it.
+  const blocked = archive && reason.trim() === '';
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  // Synchronous latch, deliberately a ref and not the `submitting` state: a held
+  // Cmd/Ctrl+Enter (or a double-click) fires again before React re-renders, and
+  // `mark_deal_lost` appends its "Deal lost —" note on every call that finds the deal —
+  // including a repeat that changes no column, since `_write_deal_update` returns True for
+  // a no-op. So a second submit writes a second note.
+  const submitted = useRef(false);
+  // The focus/key effect below must run ONCE, on mount. Its host passes `onCancel` as an
+  // inline arrow, so a plain dependency on it re-runs the effect on every parent re-render
+  // — and the sheet re-renders on its own detail/activity/touch-count fetches. Each re-run
+  // tears down and re-arms: the cleanup restores focus to whatever held it before the
+  // dialog opened, then setup pulls focus back to the textarea, so a rep who had tabbed to
+  // Cancel gets yanked mid-dialog by a background request landing. Read the latest callback
+  // through a ref instead, so the effect never needs it as a dependency.
+  const onCancelRef = useRef(onCancel);
+  useEffect(() => { onCancelRef.current = onCancel; });
+
+  const confirm = useCallback(() => {
+    if (submitted.current || blocked) return;
+    submitted.current = true;
+    onConfirm(reason);
+  }, [onConfirm, reason, blocked]);
+
+  useEffect(() => {
+    const previouslyFocused = document.activeElement;
+    textareaRef.current?.focus();
+
+    // Capture phase, like ConfirmHost: Escape closes THIS dialog and nothing underneath.
+    // Since #75 the panel underneath DOES have its own Escape handling — `DetailModal` traps
+    // Tab and `closePolicy` refuses an Escape close outright — so stopping propagation here is
+    // what keeps one keypress from being read by two dialogs.
+    //
+    // Tab is trapped for the same reason ConfirmHost traps it, and here it is more than an
+    // a11y nicety: `aria-modal` promises the background is inert, but the panel underneath
+    // is a live DOM subtree, so a Shift+Tab out of this dialog lands on its Mark Won button
+    // — one keystroke from closing the deal the OPPOSITE way while the Lost dialog is still
+    // open. ConfirmHost can toggle between two known buttons; this dialog has a textarea
+    // too, so cycle the real focusable list instead.
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        e.stopPropagation();
+        onCancelRef.current();
+        return;
+      }
+      if (e.key !== 'Tab') return;
+      // Read the `disabled` PROPERTY, not the attribute: they diverge the moment anything
+      // sets it imperatively, and the property is the one the browser actually skips on.
+      // Deliberately no visibility test — nothing in this dialog is conditionally hidden,
+      // and an offsetWidth/offsetHeight check reports 0 for every element under jsdom,
+      // which would silently turn the whole trap off in the tests that prove it works.
+      const focusable = [...(dialogRef.current?.querySelectorAll<HTMLElement>(
+        'textarea, button, [href], input, select, [tabindex]:not([tabindex="-1"])',
+      ) ?? [])].filter(el => !(el as HTMLButtonElement).disabled);
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      const active = document.activeElement;
+      // Also catches focus already sitting OUTSIDE the dialog, which is how it would
+      // otherwise stay stuck on the sheet behind once it escaped.
+      const inside = active instanceof Node && dialogRef.current?.contains(active);
+      if (!inside) {
+        e.preventDefault();
+        e.stopPropagation();
+        (e.shiftKey ? last : first).focus();
+      } else if (e.shiftKey && active === first) {
+        e.preventDefault();
+        e.stopPropagation();
+        last.focus();
+      } else if (!e.shiftKey && active === last) {
+        e.preventDefault();
+        e.stopPropagation();
+        first.focus();
+      }
+    }
+    document.addEventListener('keydown', onKeyDown, { capture: true });
+    return () => {
+      document.removeEventListener('keydown', onKeyDown, { capture: true });
+      if (previouslyFocused instanceof HTMLElement && document.contains(previouslyFocused)) {
+        previouslyFocused.focus();
+      }
+    };
+  }, []);
+
+  return createPortal(
+    <div
+      onClick={onCancel}
+      style={{
+        position: 'fixed', inset: 0, background: SCRIM,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        zIndex: 150, padding: 16,
+      }}
+    >
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="crm-lost-reason-title"
+        onClick={e => e.stopPropagation()}
+        style={{
+          background: BG_ELEV, borderRadius: 6, boxShadow: SHADOW,
+          border: `1px solid ${LINE_STRONG}`,
+          padding: 24, width: '100%', maxWidth: 420,
+          maxHeight: '85dvh', overflowY: 'auto',
+        }}
+      >
+        <h2
+          id="crm-lost-reason-title"
+          style={{
+            fontFamily: FONT_DISPLAY, fontSize: 18, fontWeight: 400,
+            color: INK, margin: '0 0 4px',
+          }}
+        >{archive ? 'Archive deal' : 'Mark as Lost'}</h2>
+        <p style={{ fontSize: 13, color: INK_MUTE, margin: '0 0 16px', lineHeight: 1.5 }}>
+          {dealTitle}
+        </p>
+
+        <label
+          htmlFor="crm-lost-reason-input"
+          style={{ ...mono(10), color: INK_DIM, display: 'block', marginBottom: 6 }}
+        >{archive ? 'Why archive? *' : 'Reason (optional)'}</label>
+        <textarea
+          id="crm-lost-reason-input"
+          ref={textareaRef}
+          value={reason}
+          onChange={e => setReason(e.target.value)}
+          // Enter inserts a newline — reasons are prose, and a rep starting a second
+          // sentence must not close the deal mid-thought.
+          onKeyDown={e => {
+            if (composerKeyAction({
+              key: e.key, metaKey: e.metaKey, ctrlKey: e.ctrlKey, altKey: e.altKey,
+              isComposing: e.nativeEvent.isComposing,
+            }) === 'submit') { e.preventDefault(); confirm(); }
+          }}
+          rows={3}
+          maxLength={archive ? MAX_ARCHIVE_REASON : MAX_LOST_REASON}
+          placeholder={archive
+            ? 'e.g. Test record, entered twice, created by mistake'
+            : 'e.g. Budget constraints, chose a competitor'}
+          style={{
+            ...inputStyle, width: '100%', fontSize: 13, lineHeight: 1.5,
+            resize: 'vertical', minHeight: 72,
+          }}
+        />
+
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 8, marginTop: 16, flexWrap: 'wrap',
+        }}>
+          <span style={{ ...mono(10), color: INK_DIM, flex: 1 }}>
+            Cmd/Ctrl+Enter to submit
+          </span>
+          <button
+            type="button"
+            onClick={onCancel}
+            style={{ ...btnSecondary, padding: '8px 14px', fontSize: 13 }}
+          >Cancel</button>
+          <button
+            type="button"
+            onClick={confirm}
+            disabled={blocked}
+            style={{
+              ...(archive ? btnPrimary : btnDanger), padding: '8px 14px', fontSize: 13,
+              cursor: blocked ? 'default' : 'pointer', opacity: blocked ? 0.5 : 1,
+            }}
+          >{archive ? 'Archive' : 'Mark Lost'}</button>
+        </div>
+      </div>
+    </div>,
+    document.body,
+  );
+}
