@@ -4,6 +4,8 @@ export interface Workspace {
   timezone: string;
   version: string;
   preview: boolean;
+  /** The server's PUBLIC_URL (invite and sign-in links). Older servers omit it. */
+  public_url?: string;
 }
 
 /** GET/PUT /api/core/settings (admin). Secret values are never returned; `secrets` says whether one is set. */
