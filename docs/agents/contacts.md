@@ -106,7 +106,7 @@ Each function has an `_in(conn, …)` form.
 
 `resolve(id)` (follows `merged_into_id` to the chain head) is a service function the merge uses; the plan does not list it among the published functions.
 
-Open: full signatures (person vs organization variants, argument names) are not stated; W2 pins them before W10/W11 start.
+Open: full signatures (person vs organization variants, argument names) are not stated (to be pinned by W2).
 
 ## 5. Routes
 

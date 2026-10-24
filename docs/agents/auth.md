@@ -128,7 +128,7 @@ Configuration: client id and secret in encrypted `core_settings`. Redirect URI b
 
 A Google sign-in **skips local TOTP**. Springform does not verify that the Google account used 2-step verification. The admin setting **`auth.require_totp_for_google`** (default off) adds the local TOTP step for installs that want it.
 
-Open: the Google route paths are not stated. The plan refers to `google/start` (and a callback); `/api/auth/google/start` and `/api/auth/google/callback` are the likely shape. Open: Settings has a "Test sign-in" action (Risks §6) with no stated contract.
+Open: the Google route paths are not stated. The plan refers to `google/start` (and a callback); `/api/auth/google/start` and `/api/auth/google/callback` are the likely shape. Open: Settings has a "Test sign-in" action (Risks, item 6) with no stated contract.
 
 ## 8. Proxy
 
