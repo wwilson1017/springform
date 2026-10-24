@@ -1,7 +1,7 @@
 """Whisk's contacts tools: find, read, create and link people and organizations through the
 published contacts API, as the acting user (the chat's or the MCP link's). Writes confirm (an
-Approve card) and run through `handler_in` in the approval transaction. Every record in a result
-carries `url`, the link that opens it."""
+Approve card: they add directory records every member sees) and run through `handler_in` in the
+approval transaction. Every record in a result carries `url`, the link that opens it."""
 
 from backend.core import db, entities
 from backend.core.agent.spec import ToolSpec

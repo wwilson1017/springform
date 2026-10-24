@@ -1,9 +1,9 @@
 """Whisk's reminder tools: set a reminder on a record for the acting user (its owner), and list
 theirs. A date-time without an offset is read in the install timezone, the one Whisk is told
-today's date in. The write confirms (an Approve card) and runs through `handler_in`."""
+today's date in. The write is routine (no Approve card) and runs through `handler_in`."""
 
 from backend.core import clock, db, entities, localtime, settings
-from backend.core.agent.spec import ToolSpec
+from backend.core.agent.spec import ROUTINE, ToolSpec
 from backend.core.errors import Invalid
 from backend.core.reminders import api as reminders
 from backend.core.timeline.tools import RECORD, human, record
@@ -55,6 +55,7 @@ def get_tools() -> list[ToolSpec]:
                 "required": ["entity_type", "entity_id", "due_at"],
             },
             writes=True,
+            confirm_tier=ROUTINE,
             handler_in=_set,
             targets=lambda args: [],  # changes no record; create_in checks the record is readable
             enabled=human,

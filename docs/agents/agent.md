@@ -148,7 +148,7 @@ Deferred tools (`deferred.py`): groups keyed by app slug, deferral threshold 100
 
 ### Core tools
 
-Every install has these, from core packages' `tools.py`. The contacts, note and reminder tools are enabled for any active admin or member (never the system principal), every write among them confirms (no `confirm_tier`), and each result carries the record's `url`.
+Every install has these, from core packages' `tools.py`. The contacts, note and reminder tools are enabled for any active admin or member (never the system principal), and each result carries the record's `url`. The three directory writes confirm, since they add records every member sees; `core_add_note` and `core_set_reminder` are routine (no Approve card, like `crm_create_deal`): small, the user's own, and reversible.
 
 | Tool | Kind | What it does |
 |---|---|---|
@@ -158,8 +158,8 @@ Every install has these, from core packages' `tools.py`. The contacts, note and 
 | `core_create_person` | write | Creates a person, optionally linked to `organization_id` with `role` (that organization is the target). A live person with the same name returns `{created: false, existing}` unless `allow_duplicate`. |
 | `core_create_organization` | write | Creates an organization; a live one with the same name returns `{created: false, existing}`. |
 | `core_link_person_organization` | write | Links a person and an organization with a role (`primary` optional); both are targets. |
-| `core_add_note` | write | A timeline note on any registered record, authored by the user; the record is the target, so it needs write access. An unknown `entity_type` is refused with the registered types listed. |
-| `core_set_reminder` | write | A reminder on a readable record, owned by the user and titled with the record's name; a `due_at` without an offset is read in the install timezone. No targets (the record does not change). |
+| `core_add_note` | routine write | A timeline note on any registered record, authored by the user; the record is the target, so it needs write access. An unknown `entity_type` is refused with the registered types listed. |
+| `core_set_reminder` | routine write | A reminder on a readable record, owned by the user and titled with the record's name; a `due_at` without an offset is read in the install timezone. No targets (the record does not change). |
 | `core_list_my_reminders` | read | The user's reminders, soonest first: `open` (default, snoozed included) or `done`, with `due_local`. |
 | `core_memory_search` | read | Facts and Whisk's context files. |
 | `core_memory_remember` | write | Records one business fact. |

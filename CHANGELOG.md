@@ -53,8 +53,8 @@ Conventions:
 - The CRM weekly touches window carries `start_day` and `end_day`, the install-local days it
   covers, which a client can send back as the `start`/`end` range.
 - Whisk can find, read, create and link people and organizations, add a note to any record and set
-  or list the user's reminders; each write waits for the user's approval, and MCP links get the
-  same tools.
+  or list the user's reminders. Creating or linking contacts waits for the user's approval; notes
+  and reminders happen at once. MCP links get the same tools.
 
 ### Changed
 

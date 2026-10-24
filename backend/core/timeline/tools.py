@@ -1,10 +1,10 @@
 """Whisk's note tool: a note on any registered record's timeline, written as the acting user (the
-chat's or the MCP link's), who needs write access to the record. The write confirms (an Approve
-card) and runs through `handler_in` in the approval transaction. `human`, `url` and `record` are
-shared with the contacts and reminders tools."""
+chat's or the MCP link's), who needs write access to the record. The write is routine (no Approve
+card: small, the user's own, and reversible) and runs through `handler_in` in one transaction.
+`human`, `url` and `record` are shared with the contacts and reminders tools."""
 
 from backend.core import entities, settings
-from backend.core.agent.spec import ToolSpec
+from backend.core.agent.spec import ROUTINE, ToolSpec
 from backend.core.errors import Invalid
 from backend.core.timeline import api as timeline
 
@@ -54,6 +54,7 @@ def get_tools() -> list[ToolSpec]:
                 "required": ["entity_type", "entity_id", "body"],
             },
             writes=True,
+            confirm_tier=ROUTINE,
             handler_in=_add_note,
             targets=record,
             enabled=human,

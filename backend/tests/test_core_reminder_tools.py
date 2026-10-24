@@ -1,6 +1,6 @@
-"""core_set_reminder and core_list_my_reminders: the reminder belongs to the acting user, a local
-time is read in the install timezone and stored in UTC, the write waits for its owner's approval,
-and each user lists only their own."""
+"""core_set_reminder and core_list_my_reminders: the reminder is a routine write (inline in the chat
+turn) owned by the acting user, a local time is read in the install timezone and stored in UTC, and
+each user lists only their own."""
 
 import pytest
 
@@ -9,7 +9,7 @@ from backend.core import db as core_db, settings
 from backend.core.agent.providers import fake
 from backend.core.contacts import api as contacts
 from backend.core.reminders import api as reminders
-from backend.tests.test_core_contact_tools import Refused, approve, call, chat_write, propose
+from backend.tests.test_core_contact_tools import Refused, call, inline
 
 
 @pytest.fixture(autouse=True)
@@ -29,12 +29,10 @@ def jane(login_as, freeze):
     return member
 
 
-def test_a_reminder_is_the_user_s_and_due_in_utc(jane, login_as):
-    other = login_as("member")
-    run = propose(jane, "core_set_reminder", entity_type="core.person", entity_id=jane.jane, due_at="2026-10-30T09:00", note="Call about the spring order")
-    assert core_db.rows("SELECT * FROM core_reminders") == [], "nothing happens before approval"
-    assert other.post("/api/agent/confirm", json={"tool_run_id": run, "decision": "approve"}).status_code == 403
-    made = approve(jane, run)["result"]
+def test_a_reminder_is_the_user_s_and_due_in_utc(jane):
+    end = inline(jane, "core_set_reminder", entity_type="core.person", entity_id=jane.jane, due_at="2026-10-30T09:00", note="Call about the spring order")
+    made = end["result"]
+    assert end["status"] == "done", "routine: it runs in the chat turn, no Approve card"
     assert (made["due_at"], made["due_local"]) == ("2026-10-30T14:00:00Z", "2026-10-30T09:00:00-05:00")  # 09:00 CDT
     assert (made["title"], made["url"]) == ("Jane Example", f"http://localhost:8000/people/{jane.jane}")
     row = core_db.one("SELECT * FROM core_reminders")
@@ -42,10 +40,11 @@ def test_a_reminder_is_the_user_s_and_due_in_utc(jane, login_as):
         jane.principal.id, "2026-10-30T14:00:00Z", "core.person", jane.jane, "Call about the spring order",
     )  # fmt: skip
 
-    utc = chat_write(jane, "core_set_reminder", entity_type="core.person", entity_id=jane.jane, due_at="2026-11-03T15:00:00Z")
+    utc = inline(jane, "core_set_reminder", entity_type="core.person", entity_id=jane.jane, due_at="2026-11-03T15:00:00Z")["result"]
     assert (utc["due_at"], utc["due_local"]) == ("2026-11-03T15:00:00Z", "2026-11-03T09:00:00-06:00")  # CST after the change
-    bad = approve(jane, propose(jane, "core_set_reminder", entity_type="core.person", entity_id=jane.jane, due_at="next Friday"))
-    assert bad["status"] == "error" and bad["error"].startswith("due_at must be an ISO date-time")
+    bad = inline(jane, "core_set_reminder", entity_type="core.person", entity_id=jane.jane, due_at="next Friday")
+    assert bad["status"] == "error" and bad["result"]["error"].startswith("due_at must be an ISO date-time")
+    assert len(core_db.rows("SELECT * FROM core_reminders")) == 2
 
 
 def test_each_user_lists_their_own(jane, login_as):

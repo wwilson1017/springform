@@ -1,7 +1,8 @@
 """Core contacts tools for Whisk: the specs validate and reach human users only, reads work for a
-member and an admin, every write waits for its owner's approval on the real chat -> confirm path,
-duplicate names come back as a result, and an inbound MCP link lists them. The chat helpers here
-serve the timeline and reminder tool tests too."""
+member and an admin, the directory writes wait for their owner's approval on the real chat ->
+confirm path (notes and reminders are routine and run inline), duplicate names come back as a
+result, and an inbound MCP link lists them. The chat helpers here serve the timeline and reminder
+tool tests too."""
 
 import json
 
@@ -15,7 +16,8 @@ from backend.core.contacts import api as contacts
 from backend.tests.test_mcp_links import at, list_tools, mint
 
 READS = {"core_search_contacts", "core_get_person", "core_get_organization", "core_list_my_reminders"}
-WRITES = {"core_create_person", "core_create_organization", "core_link_person_organization", "core_add_note", "core_set_reminder"}
+CONFIRMED = {"core_create_person", "core_create_organization", "core_link_person_organization"}
+WRITES = CONFIRMED | {"core_add_note", "core_set_reminder"}
 
 
 class Refused(Exception):
@@ -38,15 +40,27 @@ def chat(monkeypatch):
     fake.reset()
 
 
-def propose(client, tool: str, /, **args) -> int:
-    """One chat turn in which the model calls `tool`; the write waits for approval. Returns the run id."""
+def turn(client, tool: str, args: dict) -> list[dict]:
+    """The events of one chat turn in which the model calls `tool` with `args`."""
     fake.reset()
     fake.script({"tool": tool, "args": args}, "Done.")
     r = client.post("/api/agent/chat", json={"message": "go"})
     assert r.status_code == 200, r.text
-    events = [json.loads(line[6:]) for line in r.text.splitlines() if line.startswith("data: ")]
-    assert not [e for e in events if e["type"] == "tool_end"], "a write never runs before approval"
+    return [json.loads(line[6:]) for line in r.text.splitlines() if line.startswith("data: ")]
+
+
+def propose(client, tool: str, /, **args) -> int:
+    """A chat turn whose write waits for approval. Returns the run id."""
+    events = turn(client, tool, args)
+    assert not [e for e in events if e["type"] == "tool_end"], "a confirmed write never runs before approval"
     return next(e for e in events if e["type"] == "confirm")["tool_run_id"]
+
+
+def inline(client, tool: str, /, **args) -> dict:
+    """A chat turn whose routine write runs at once. Returns its tool_end event (status, result)."""
+    events = turn(client, tool, args)
+    assert not [e for e in events if e["type"] == "confirm"], "a routine write shows no Approve card"
+    return next(e for e in events if e["type"] == "tool_end")
 
 
 def approve(client, run_id: int) -> dict:
@@ -76,7 +90,8 @@ def test_the_specs_validate_and_reach_active_humans_only(app, make_user):
     assert specs.keys() == READS | WRITES
     assert [p for s in specs.values() for p in registry._problems(s)] == []
     assert {n for n, s in specs.items() if s.writes} == WRITES
-    assert all(engine.needs_confirmation(specs[n], {}, tainted=False) for n in WRITES), "every write shows the Approve card"
+    assert {n for n in WRITES if engine.needs_confirmation(specs[n], {}, tainted=False)} == CONFIRMED
+    assert all(engine.needs_confirmation(specs[n], {}, tainted=True) for n in WRITES), "a tainted turn confirms every write"
     for user in (member, admin):
         assert READS | WRITES <= {s.name for s in registry.for_user(user)}
     assert not {s.name for s in registry.for_user(system_user())} & (READS | WRITES)
