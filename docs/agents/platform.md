@@ -57,12 +57,12 @@ springform/
   docs/agents/*.md   docs/AUTO_ISSUES.md   docs/PROVENANCE.md   docs/apps/ (fork-owned)
   deploy/   setup.sh  deploy.sh  compose.yml  Caddyfile  .env.example
   scripts/  new-fork.sh  check-fork-scope.sh  seed-labels.sh  gen-types.sh  new-app.sh  update-from-upstream.sh
-  .github/workflows/  ci.yml  release.yml  fork-ci.yml.template
+  .github/workflows/  ci.yml  release.yml
 ```
 
 `scripts/restore.sh` (§1) is not drawn in the plan's tree but is named in §1 and Step 1; it lives in `scripts/`.
 
-Open: the tree lists `.github/workflows/fork-ci.yml.template`, but §13 says there is one `ci.yml` for upstream and forks and "no fork-specific workflow file". Whether the template file exists at all is unresolved.
+There is no fork workflow template: one `ci.yml` serves upstream and forks, with the conditional Fork scope job (`forks.md` §5).
 
 ## Hosting contract
 

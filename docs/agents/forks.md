@@ -75,8 +75,6 @@ Open: `FORK.md`'s format (how the script reads the tag) and `fork-allow.txt`'s f
 2. So a fork's `.github/` stays byte-identical to upstream, and there is no fork-specific workflow file.
 3. Other jobs: SHA-pinned actions, ruff, an import check, pytest, frontend build / lint / test + types diff, gitleaks (Secret scan), the image test (`testing.md` §6).
 
-Open: the plan's repo tree lists `.github/workflows/fork-ci.yml.template`, which contradicts "no fork-specific workflow file".
-
 ## 6. Releases and fork images
 
 1. `vX.Y.Z` tags trigger `release.yml`, which builds and pushes `ghcr.io/${{ github.repository }}:<tag>,latest`.
