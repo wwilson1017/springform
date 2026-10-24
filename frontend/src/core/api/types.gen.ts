@@ -4892,15 +4892,32 @@ export interface components {
         StageConversion: {
             /** Advanced */
             advanced: number;
-            /** Entered */
+            /**
+             * Entered
+             * @description Deals whose first entry into the stage is in the window
+             */
             entered: number;
-            /** Rate Pct */
-            rate_pct: number | null;
+            /** Lost */
+            lost: number;
+            /**
+             * Progression Rate
+             * @description (advanced + won) / entered, 0-1
+             */
+            progression_rate: number | null;
             /**
              * Stage
              * @enum {string}
              */
             stage: "lead" | "qualified" | "proposal" | "negotiation" | "won" | "lost";
+            /** Still Here */
+            still_here: number;
+            /**
+             * Win Rate
+             * @description won / entered, 0-1
+             */
+            win_rate: number | null;
+            /** Won */
+            won: number;
         };
         /** StageCriteria */
         StageCriteria: {
@@ -4929,10 +4946,13 @@ export interface components {
         StageDuration: {
             /** Avg Days */
             avg_days: number | null;
-            /** Deals */
-            deals: number;
             /** Median Days */
             median_days: number | null;
+            /**
+             * Samples
+             * @description Finished stays in the stage that started in the window
+             */
+            samples: number;
             /**
              * Stage
              * @enum {string}
@@ -5063,21 +5083,70 @@ export interface components {
             /** Rev */
             rev: number;
         };
+        /** TouchEvent */
+        TouchEvent: {
+            /**
+             * Event At
+             * @description Canonical instant; empty for the deal's own notes field
+             */
+            event_at: string;
+            /**
+             * Line
+             * @description The live evidence line
+             */
+            line: string;
+            /**
+             * Reason
+             * @description Why it is not a touch (not_touch, stage_move)
+             */
+            reason: string;
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "note" | "activity" | "deal_notes" | "stage_move";
+            /** Source Id */
+            source_id: number | null;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "touch" | "not_touch" | "not_evaluated" | "edited_since" | "excluded_empty" | "stage_move";
+        };
         /** TouchEvidence */
         TouchEvidence: {
+            /** Ai Touch Count */
+            ai_touch_count: number | null;
             /** Computed At */
             computed_at: string | null;
-            /** Count */
-            count: number | null;
-            /**
-             * Current
-             * @description The verdicts still describe the deal's evidence
-             */
-            current: boolean;
+            /** Counted */
+            counted: number | null;
             /** Deal Id */
             deal_id: number;
-            /** Items */
-            items: components["schemas"]["TouchVerdict"][];
+            /** Evaluated */
+            evaluated: number;
+            /** Events */
+            events: components["schemas"]["TouchEvent"][];
+            /**
+             * Open
+             * @description Live and open: only these are still counted
+             */
+            open: boolean;
+            /**
+             * Stage
+             * @enum {string}
+             */
+            stage: "lead" | "qualified" | "proposal" | "negotiation" | "won" | "lost";
+            /**
+             * Truncated
+             * @description The deal has older evidence than the window shows
+             */
+            truncated: boolean;
+            /**
+             * Verdict State
+             * @enum {string}
+             */
+            verdict_state: "none" | "current" | "stale" | "superseded";
         };
         /** TouchRep */
         TouchRep: {
@@ -5094,30 +5163,6 @@ export interface components {
              * @description null: the unassigned pile
              */
             user_id: number | null;
-        };
-        /** TouchVerdict */
-        TouchVerdict: {
-            /**
-             * Changed
-             * @description The line was edited after the model judged it
-             */
-            changed: boolean;
-            /** Reason */
-            reason: string;
-            /**
-             * Source
-             * @enum {string}
-             */
-            source: "note" | "activity" | "deal_notes";
-            /** Source Id */
-            source_id: number | null;
-            /**
-             * Text
-             * @description The live evidence line; null when it no longer exists
-             */
-            text: string | null;
-            /** Touch */
-            touch: boolean;
         };
         /** TouchWindow */
         TouchWindow: {

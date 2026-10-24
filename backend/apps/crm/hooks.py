@@ -22,7 +22,9 @@ def record_changed(conn, entity_type: str, entity_id: int, changes: list[dict], 
             "UPDATE crm_deals SET touch_dirty = 1 WHERE id IN (SELECT value FROM json_each(?))",
             (json.dumps(deal_ids),),
         )
-    scoring.refresh_in(conn, deal_ids=deal_ids, person_ids=[entity_id] if entity_type == "core.person" else [])
+    people = [entity_id] if entity_type == "core.person" else []
+    people += [c["old"] for c in changes if c["field"] == "person_id"]  # a re-linked deal's old person
+    scoring.refresh_in(conn, deal_ids=deal_ids, person_ids=people)
 
 
 def merged(conn, entity_type: str, target_id: int, source_id: int) -> None:
