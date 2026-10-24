@@ -6,14 +6,11 @@ import { confirmDialog } from '../../shared/confirm';
 import { formatDate } from '../../shared/formatDate';
 import { LoadError } from '../../shared/LoadError';
 import { toast } from '../../shared/toast';
+import { buttonClass, inputClass, labelClass, secondaryButtonClass } from '../settings/ui';
 import { suggestPrefix, validateDraft } from './form';
 import type { McpServer, ServerDraft } from './types';
 
 const BASE = '/api/core/mcp/servers';
-const INPUT = 'w-full rounded-md border border-solid border-sf-line-strong bg-sf-card px-2.5 py-1.5 text-sm text-sf-ink placeholder:text-sf-ink-dim';
-const LABEL = 'flex min-w-0 flex-col gap-1 text-xs text-sf-ink-dim';
-const BUTTON = 'cursor-pointer rounded-md border border-solid border-sf-line-strong bg-transparent px-3 py-1.5 text-sm text-sf-ink-mute hover:text-sf-ink disabled:cursor-default disabled:opacity-50';
-const PRIMARY = 'cursor-pointer rounded-md border-0 bg-sf-accent px-3 py-1.5 text-sm font-medium text-sf-accent-ink disabled:cursor-default disabled:opacity-50';
 const EMPTY: ServerDraft = { name: '', url: '', token: '', prefix: '' };
 
 function failure(e: unknown, what: string): string {
@@ -96,9 +93,9 @@ function ServerRow({ s, onChanged, onRemoved }: { s: McpServer; onChanged: (s: M
         </details>
       )}
       <div className="flex flex-wrap items-center gap-2">
-        <button type="button" disabled={busy || !s.enabled} className={BUTTON} onClick={() => void refresh()}>Refresh</button>
-        <button type="button" disabled={busy} className={BUTTON} onClick={() => void runTest()}>Test</button>
-        <button type="button" disabled={busy} className={BUTTON} onClick={() => void remove()}>Remove</button>
+        <button type="button" disabled={busy || !s.enabled} className={secondaryButtonClass} onClick={() => void refresh()}>Refresh</button>
+        <button type="button" disabled={busy} className={secondaryButtonClass} onClick={() => void runTest()}>Test</button>
+        <button type="button" disabled={busy} className={secondaryButtonClass} onClick={() => void remove()}>Remove</button>
         {test && <span role="status" className={`min-w-0 break-words text-sm ${test.ok ? 'text-sf-green-text' : 'text-sf-red-text'}`}>{test.text}</span>}
       </div>
     </li>
@@ -140,9 +137,9 @@ export function AddServerForm({ onAdded }: { onAdded: (s: McpServer) => void }) 
 
   const field = (key: keyof ServerDraft, label: string, extra: { placeholder?: string; type?: string } = {}) => (
     <div className="flex min-w-0 flex-col gap-1">
-      <label className={LABEL}>
+      <label className={labelClass}>
         {label}
-        <input value={draft[key]} onChange={e => set(key, e.target.value)} className={INPUT} autoComplete="off"
+        <input value={draft[key]} onChange={e => set(key, e.target.value)} className={inputClass} autoComplete="off"
           aria-invalid={shown[key] ? true : undefined} {...extra} />
       </label>
       {shown[key] && <span className="text-xs text-sf-red-text">{shown[key]}</span>}
@@ -161,7 +158,7 @@ export function AddServerForm({ onAdded }: { onAdded: (s: McpServer) => void }) 
       <p className="m-0 text-xs text-sf-ink-dim">
         Whisk names this server's tools <code>{draft.prefix || 'prefix'}.tool_name</code>. The token is stored encrypted and never shown again.
       </p>
-      <div><button type="submit" disabled={busy} className={PRIMARY}>{busy ? 'Connecting…' : 'Add server'}</button></div>
+      <div><button type="submit" disabled={busy} className={buttonClass}>{busy ? 'Connecting…' : 'Add server'}</button></div>
     </form>
   );
 }

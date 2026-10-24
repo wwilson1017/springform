@@ -26,6 +26,9 @@ Conventions:
   tool call asks for approval, results are treated as untrusted, and private addresses are refused.
 - Setting `agent.context_budget_chars`: how much business memory Whisk reads per turn.
 - The workspace API returns the install's public URL (`PUBLIC_URL`) for Settings to show read-only.
+- Settings: editable workspace name and timezone, app hide/show and reorder, GitHub and Google Sheets
+  integrations, export download and upload limit; a Backups page with "Back up now", downloads and the
+  one-time encryption-key reveal.
 
 ### Changed
 
