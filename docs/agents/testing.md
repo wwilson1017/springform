@@ -81,6 +81,7 @@ Runs against a seeded `PREVIEW_MODE=1` build with the FakeProvider and the Googl
 
 - Stale `running` → `interrupted`.
 - Missed `at` catches up once.
+- A never-run `at` job waits for its next slot; a manual run after the slot is not followed by a catch-up.
 - Overlapping job skipped.
 - A job that ignores its timeout: no second instance starts, and the slot is released only when it ends.
 
