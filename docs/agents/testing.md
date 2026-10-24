@@ -214,7 +214,7 @@ CI job (beside Frontend in `.github/workflows/ci.yml`):
 
 ## 6. CI (`.github/workflows/ci.yml`)
 
-Structure copied from CakeCRM: SHA-pinned actions, ruff, an import check, pytest, frontend build / lint / test + the types diff, gitleaks, the image test. Required checks for branch protection: **Backend**, **Frontend**, **Secret scan**, and **Fork scope** (which always runs and passes upstream, where there is no `FORK.md`; `forks.md`).
+Structure copied from CakeCRM: SHA-pinned actions, ruff, an import check, pytest, frontend build / lint / test + the types diff, the browser smoke (§4), gitleaks, the image test. Required checks for branch protection: **Backend**, **Frontend**, **Secret scan**, and **Fork scope** (which always runs and passes upstream, where there is no `FORK.md`; `forks.md`).
 
 ## Tests that pin this
 

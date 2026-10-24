@@ -109,8 +109,8 @@ only when a core rule changes.
 - A new repo-wide guard test needs a self-test on synthetic input (one case it must flag, one it
   must not) and an assertion that it reached the real code.
 - CI (`.github/workflows/ci.yml`, one file for upstream and forks) runs **Backend**, **Frontend**
-  (incl. the `types.gen.ts` diff), **Secret scan**, **Image test** and **Fork scope** (a no-op
-  without `FORK.md`). Required checks are Backend, Frontend, Secret scan and Fork scope.
+  (incl. the `types.gen.ts` diff), **Browser smoke** (`scripts/e2e.sh`), **Secret scan**, **Image
+  test** and **Fork scope** (a no-op without `FORK.md`). Required checks are Backend, Frontend, Secret scan and Fork scope.
 - Gitleaks scans full history. For a verified false positive add its exact fingerprint to
   `.gitleaksignore` with a reason; never a path-keyed allowlist.
 - Workflows trigger on `pull_request`, never `pull_request_target`; third-party actions are
