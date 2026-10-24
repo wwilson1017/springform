@@ -8,7 +8,6 @@ exists, and the token is consumed. `python -m backend.cli create-admin EMAIL` is
 
 from __future__ import annotations
 
-import hashlib
 import logging
 import os
 import secrets
@@ -20,10 +19,6 @@ from backend.core.errors import NotFound
 logger = logging.getLogger(__name__)
 
 TOKEN_FILE = "setup-token"
-
-
-def _hash(token: str) -> str:
-    return hashlib.sha256(token.encode()).hexdigest()
 
 
 def setup_required() -> bool:
@@ -40,7 +35,7 @@ def ensure_setup_token() -> str | None:
             conn.execute("DELETE FROM core_login_tokens WHERE purpose = 'setup'")
             conn.execute(
                 "INSERT INTO core_login_tokens (token_hash, purpose, created_at) VALUES (?, 'setup', ?)",
-                (_hash(token), clock.now_iso()),
+                (service.token_hash(token), clock.now_iso()),
             )
     if not needed:
         path.unlink(missing_ok=True)
@@ -61,14 +56,14 @@ def complete_setup(token: str, email: str, name: str, password: str) -> dict:
             raise NotFound()
         found = conn.execute(
             "SELECT 1 FROM core_login_tokens WHERE token_hash = ? AND purpose = 'setup' AND used_at IS NULL",
-            (_hash(token or ""),),
+            (service.token_hash(token),),
         ).fetchone()
         if not found:
             raise NotFound()
         user = service.create_user_in(conn, email, name, "admin", password)
         conn.execute(
             "UPDATE core_login_tokens SET used_at = ?, user_id = ? WHERE token_hash = ?",
-            (clock.now_iso(), user["id"], _hash(token)),
+            (clock.now_iso(), user["id"], service.token_hash(token)),
         )
     (db.data_dir() / TOKEN_FILE).unlink(missing_ok=True)
     logger.warning("Created the first admin account: %s", user["email"])
