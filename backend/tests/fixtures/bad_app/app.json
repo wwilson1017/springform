@@ -1,0 +1,10 @@
+{
+  "slug": "api",
+  "name": "",
+  "path": "/bad",
+  "roles": ["owner"],
+  "version": "not-a-version",
+  "requires_core": ">=0.1,<1",
+  "publishes": ["get_thing"],
+  "colour": "red"
+}

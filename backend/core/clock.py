@@ -1,7 +1,7 @@
 """The single timestamp writer. Canonical form: `YYYY-MM-DDTHH:MM:SSZ` (UTC, second precision).
 
 Canonical strings sort chronologically, so SQL compares them as text against bounds computed
-here. Never write `datetime('now')` or `CURRENT_TIMESTAMP` in SQL (a test greps for them).
+here. SQL never reads the database's own clock (test_db greps for it).
 """
 
 from __future__ import annotations
