@@ -2,6 +2,7 @@ name: CI
 
 # One workflow for upstream and every fork: a fork's .github/ stays byte-identical to upstream.
 # Required checks: Backend, Frontend, Secret scan, Fork scope (a no-op upstream).
+# release.yml calls this whole workflow on a v* tag and publishes only if every job passes.
 
 on:
   pull_request:
@@ -9,6 +10,7 @@ on:
   push:
     branches: [master]
   workflow_dispatch:
+  workflow_call:
 
 concurrency:
   group: ci-${{ github.ref }}
