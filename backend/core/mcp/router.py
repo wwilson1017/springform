@@ -25,7 +25,7 @@ from starlette.types import Receive, Scope, Send
 
 from backend.core.auth.deps import User, current_user
 from backend.core.errors import Forbidden
-from backend.core.mcp import links, server
+from backend.core.mcp import links, models, server
 from backend.core.ratelimit import RateLimiter
 
 router = APIRouter(tags=["core"])
@@ -40,7 +40,7 @@ class McpLinkIn(BaseModel):
     label: str = Field(min_length=1, max_length=80, pattern=r"\S")
 
 
-@router.get("/api/core/mcp/links")
+@router.get("/api/core/mcp/links", response_model=list[models.McpLink] | list[models.McpLinkWithOwner])
 def list_mcp_links(all_: bool = Query(False, alias="all"), user: User = Depends(current_user)) -> list[dict]:
     if not all_:
         return links.list_mine(user)
@@ -49,7 +49,7 @@ def list_mcp_links(all_: bool = Query(False, alias="all"), user: User = Depends(
     return links.list_all()
 
 
-@router.post("/api/core/mcp/links", status_code=201)
+@router.post("/api/core/mcp/links", status_code=201, response_model=models.NewMcpLink)
 def create_mcp_link(body: McpLinkIn, user: User = Depends(current_user)) -> dict:
     return links.mint(user, body.label)
 

@@ -95,6 +95,12 @@ describe('app contract', () => {
     expect(appBySlug('example')?.manifest.path).toBe('/example');
     expect(settingsCardsFor('example').map(c => c.id)).toEqual(['example']);
     expect(recordPanelsFor('core.person').map(p => p.slug)).toContain('example');
-    expect(navItems().find(n => n.slug === 'example')).toMatchObject({ to: '/example', icon: 'flask' });
+    expect(navItems([{ slug: 'example' }]).find(n => n.slug === 'example')).toMatchObject({ to: '/example', icon: 'flask' });
+  });
+
+  it('orders app nav as the server lists the apps, not by manifest order, and skips unknown slugs', () => {
+    // Manifest order is crm (10), todos (20), example (900); an admin moved example first.
+    const shown = [{ slug: 'example' }, { slug: 'gone' }, { slug: 'todos' }, { slug: 'crm' }];
+    expect(navItems(shown).map(n => n.slug)).toEqual(['example', 'todos', 'crm']);
   });
 });

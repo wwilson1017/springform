@@ -11,14 +11,15 @@ import { ApiError } from '../api/client';
 import { useJson } from '../api/useJson';
 import { useCoreApps } from '../apps/CoreAppsContext';
 import { appBySlug, recordPanelsFor } from '../apps/registry';
-import { useAuth } from '../auth/AuthContext';
 import { Attachments } from '../records/Attachments';
+import { RecordServices } from '../records/RecordServices';
 import { Timeline } from '../records/Timeline';
 import { confirmDialog } from '../../shared/confirm';
 import { formatDate } from '../../shared/formatDate';
 import { IconArrowLeft } from '../../shared/icons';
 import { LoadError } from '../../shared/LoadError';
 import { toast } from '../../shared/toast';
+import { useUserNames } from '../../shared/users';
 import {
   archiveRecord, errorText, KINDS, mergeRecords, pageOf, recordUrl, restoreRecord, splitTags, updateRecord, type RecordInput,
 } from './api';
@@ -33,7 +34,8 @@ import * as ui from './ui';
 
 interface Section {
   id: string;
-  title: string | ((kind: ContactKind) => string);
+  /** Omitted when the component titles its own parts (RecordServices' Fields and Reminders). */
+  title?: string | ((kind: ContactKind) => string);
   column: 'main' | 'side';
   Component: ComponentType<SectionProps>;
 }
@@ -49,6 +51,7 @@ const SECTIONS: Section[] = [
   { id: 'channels', title: 'Contact details', column: 'side', Component: ChannelsSection },
   { id: 'addresses', title: 'Addresses', column: 'side', Component: AddressesSection },
   { id: 'files', title: 'Files', column: 'side', Component: Attachments },
+  { id: 'services', column: 'side', Component: RecordServices },
 ];
 
 const STATUS_SUGGEST = ['lead', 'active', 'inactive'];
@@ -107,14 +110,21 @@ function Columns({ kind, props }: { kind: ContactKind; props: SectionProps }) {
     id: `app:${p.slug}`, title: appBySlug(p.slug)?.manifest.name ?? p.slug, column: 'side', Component: p.Panel,
   }));
   const all = [...SECTIONS, ...panels];
-  const column = (c: Section['column']) => all.filter(s => s.column === c).map(({ id, title, Component }) => (
-    <section key={id} aria-label={typeof title === 'function' ? title(kind) : title}>
-      <h2 className={ui.sectionTitle}>{typeof title === 'function' ? title(kind) : title}</h2>
+  const column = (c: Section['column']) => all.filter(s => s.column === c).map(({ id, title, Component }) => {
+    const body = (
       <Suspense fallback={<p className="m-0 text-sm text-sf-ink-dim">Loading…</p>}>
         <Component {...props} />
       </Suspense>
-    </section>
-  ));
+    );
+    if (!title) return <div key={id}>{body}</div>;
+    const text = typeof title === 'function' ? title(kind) : title;
+    return (
+      <section key={id} aria-label={text}>
+        <h2 className={ui.sectionTitle}>{text}</h2>
+        {body}
+      </section>
+    );
+  });
   return (
     <div className="mt-8 grid grid-cols-1 gap-8 md:grid-cols-[minmax(0,1fr)_340px]">
       <div className="flex min-w-0 flex-col gap-8">{column('main')}</div>
@@ -125,21 +135,8 @@ function Columns({ kind, props }: { kind: ContactKind; props: SectionProps }) {
 
 // ── Header ──────────────────────────────────────────────────────────────────
 
-/** Owner choices: admins can read the user list; a member can pick only themselves. */
-function useOwners(): { owners: ContactRef[]; nameOf: (id: number) => string } {
-  const { user, isAdmin } = useAuth();
-  const { data } = useJson<ContactRef[]>(isAdmin ? '/api/auth/users?status=active' : null);
-  // simplification: members have no readable user directory, so another owner shows as
-  // "User #n"; upgrade when core publishes a member-readable user list.
-  const owners = data ?? (user ? [{ id: user.id, name: user.name }] : []);
-  return { owners, nameOf: id => owners.find(o => o.id === id)?.name ?? `User #${id}` };
-}
-
-function editFields(kind: ContactKind, owners: ContactRef[], current: ContactRef | null): FieldSpec[] {
-  // The current owner stays a choice even when this user can't list them, or the select would
-  // show "Nobody" for a record someone owns.
-  const choices = current && !owners.some(o => o.id === current.id) ? [...owners, current] : owners;
-  const own: FieldSpec = { key: 'owner_user_id', label: 'Owner', type: 'select', options: [['', 'Nobody'], ...choices.map(o => [String(o.id), o.name] as [string, string])] };
+function editFields(kind: ContactKind): FieldSpec[] {
+  const own: FieldSpec = { key: 'owner_user_id', label: 'Owner', type: 'user', options: [['', 'Nobody']] };
   const common: FieldSpec[] = [
     { key: 'status', label: 'Status', suggest: STATUS_SUGGEST },
     { key: 'source', label: 'Source', suggest: SOURCE_SUGGEST },
@@ -158,11 +155,11 @@ const asText = (v: unknown) => (Array.isArray(v) ? v.join(', ') : v == null ? ''
 
 function Header({ kind, record, onSaved }: { kind: ContactKind; record: ContactDetail; onSaved: (d: ContactDetail) => void }) {
   const navigate = useNavigate();
-  const { owners, nameOf } = useOwners();
+  const nameOf = useUserNames([record.owner_user_id]);
   const [mode, setMode] = useState<'view' | 'edit' | 'merge'>('view');
   const [busy, setBusy] = useState(false);
   const noun = KINDS[kind].noun;
-  const fields = editFields(kind, owners, record.owner_user_id ? { id: record.owner_user_id, name: nameOf(record.owner_user_id) } : null);
+  const fields = editFields(kind);
   const rec = record as unknown as Record<string, unknown>;
 
   /** PATCH only what changed; a blank clears (null), tags go as a list. */

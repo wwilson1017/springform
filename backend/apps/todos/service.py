@@ -907,12 +907,14 @@ def review(user: User, limit: int = 100) -> dict:
 # ── The change feed ───────────────────────────────────────────────────────────
 
 
-def changes(user: User, since_rev: int = 0, limit: int = 500) -> dict:
+def changes(user: User, since_rev: int = 0, limit: int = 500, head_only: bool = False) -> dict:
     """What changed for this user after `since_rev`, oldest first: the rows they can see, whole,
     and tombstones ({id, rev}) for rows that left their view (went private, changed hands,
     deleted). Send `next_since_rev` next time; `more` means call again at once. A tombstone may
     name a row the caller never had; ignore it. `reset` means the cursor predates an app reset or
     is ahead of this database: everything comes back, and the caller drops its copy first.
+    `head_only` answers with the current cursor in `next_since_rev` and nothing else, for a client
+    that has just loaded its lists and polls from now on.
 
     # simplification: tombstones are kept for good (one journal row per row and audience); prune
     # old ones and raise the floor if the journal ever grows large.
@@ -926,8 +928,8 @@ def changes(user: User, since_rev: int = 0, limit: int = 500) -> dict:
     # Read first and used as the ceiling, so a write landing mid-call waits whole for the next one.
     head = max((r["rev"] for r in heads.values()), default=0)
     team = heads.get(0)
-    reset = since_rev > head or (since_rev > 0 and (team is None or since_rev <= team["floor"]))
-    found = conn.execute(
+    reset = not head_only and (since_rev > head or (since_rev > 0 and (team is None or since_rev <= team["floor"])))
+    found = [] if head_only else conn.execute(
         """SELECT kind, row_id, max(rev) AS rev FROM todos_journal
             WHERE audience IN (0, ?) AND rev > ? AND rev <= ?
             GROUP BY kind, row_id ORDER BY rev LIMIT ?""",

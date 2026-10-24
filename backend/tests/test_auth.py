@@ -8,6 +8,7 @@ from backend import cli
 from backend.core import db as core_db, preview, settings
 from backend.core.auth import bootstrap, jwt, service
 from backend.core.auth.deps import COOKIE, require_admin
+from backend.core.notifications import push
 
 from .conftest import PASSWORD, make_client
 
@@ -146,7 +147,19 @@ def test_preview_role_picker(client, db, monkeypatch):
     assert r.json()["user"]["email"] == "preview-member@example.com"
     assert client.get("/api/me").json()["role"] == "member"
     assert client.get("/api/auth/status").json() == {"setup_required": False, "google": True, "preview": True}  # the stub
-    assert _login(client, "preview-admin@example.com", "!").status_code == 401  # no password to guess
+    assert _login(client, "preview-admin@example.com", "!").status_code == 401  # a random password nobody knows
+
+
+def test_preview_accounts_are_signed_up_not_pending(client, db, monkeypatch):
+    monkeypatch.setenv("PREVIEW_MODE", "1")
+    preview.seed()
+    client.post("/api/auth/preview", json={"role": "admin"})
+    rows = {r["email"]: r for r in client.get("/api/auth/users").json()}
+    assert [rows[e]["invite_pending"] for e in preview.EMAILS.values()] == [False, False]
+    admin_id = rows[preview.EMAILS["admin"]]["id"]
+    assert client.patch(f"/api/auth/users/{admin_id}", json={"role": "member"}).json() == {"detail": "last_admin"}
+    client.patch(f"/api/auth/users/{rows[preview.EMAILS['member']]['id']}", json={"role": "admin"})
+    assert client.patch(f"/api/auth/users/{admin_id}", json={"role": "member"}).json()["role"] == "member"
 
 
 def test_preview_refuses_real_secrets(db, monkeypatch):
@@ -158,6 +171,10 @@ def test_preview_refuses_real_secrets(db, monkeypatch):
         with pytest.raises(RuntimeError, match=key):
             preview.check_startup()
         monkeypatch.delenv(key)
+    # The VAPID key pair the install generates when someone turns push on is not a real secret.
+    settings.set_setting(push.PRIVATE_KEY, "generated", None, is_secret=True)
+    assert preview.GENERATED_SECRETS == (push.PRIVATE_KEY,)
+    preview.check_startup()
     settings.set_setting("core.mail_key", "re_123", None, is_secret=True)
     with pytest.raises(RuntimeError, match="a secret in core_settings"):
         preview.check_startup()

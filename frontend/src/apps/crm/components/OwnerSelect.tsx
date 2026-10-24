@@ -1,21 +1,16 @@
-import type { UserRef } from '../../../core/api/types';
+import { UserPicker } from '../../../shared/UserPicker';
 import { input } from '../ui';
 
 /** Owner is an assignment and a filter, never a permission; `null` is a real state (unassigned). */
-export function OwnerSelect({ id, value, onChange, users, currentName }: {
+export function OwnerSelect({ id, value, onChange, currentName }: {
   id: string;
   value: number | null;
   onChange: (value: number | null) => void;
-  users: UserRef[];
-  /** The deal's owner name, so an owner outside the user list still reads correctly. */
+  /** The stored owner's name, so it reads correctly before any search. */
   currentName?: string | null;
 }) {
-  const known = value === null || users.some(u => u.id === value);
   return (
-    <select id={id} value={value ?? ''} onChange={e => onChange(e.target.value ? Number(e.target.value) : null)} className={input}>
-      <option value="">Unassigned</option>
-      {!known && <option value={value!}>{currentName ?? `User ${value}`}</option>}
-      {users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
-    </select>
+    <UserPicker id={id} className={input} value={value === null ? '' : String(value)} valueName={currentName}
+      onChange={v => onChange(v ? Number(v) : null)} options={[['', 'Unassigned']]} />
   );
 }

@@ -19,7 +19,7 @@ Go to **Settings → Apps** and switch an app to hidden.
 
 ## Changing the order (admins)
 
-In **Settings → Apps**, drag the apps into the order you want. That order is the same for everyone. Apps you have not placed follow, in their default order.
+In **Settings → Apps**, move each app up or down with its arrow buttons until the order is right. That order is the same for everyone. Apps you have not placed follow, in their default order.
 
 ## Getting a new app
 

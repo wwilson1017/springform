@@ -202,7 +202,7 @@ def get_tools() -> list[ToolSpec]:
         _write(
             "crm_create_deal",
             "Create a deal. value_cents is money in cents ($1,250.00 is 125000). Link it to a person and/or organization by id "
-            "(find them with the contacts tools first)." + URL_GUIDANCE,
+            "(find them with core_search_contacts first; add a missing one with core_create_person or core_create_organization)." + URL_GUIDANCE,
             _create, _schema(DealIn)["properties"], ("title",), lambda args: [],  # links are checked for read access
         ),  # fmt: skip
         _write(

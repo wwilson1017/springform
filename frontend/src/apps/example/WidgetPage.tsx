@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router';
 import { ApiError } from '../../core/api/client';
 import { useJson } from '../../core/api/useJson';
 import { Attachments } from '../../core/records/Attachments';
+import { RecordServices } from '../../core/records/RecordServices';
 import { Timeline } from '../../core/records/Timeline';
 import { LoadError } from '../../shared/LoadError';
 import { toast } from '../../shared/toast';
@@ -36,9 +37,12 @@ export function WidgetPage() {
           {/* Remounts after a save, so the server's field-change entry shows up. */}
           <Timeline key={widget.updated_at} entityType={WIDGET_ENTITY} entityId={widget.id} />
         </div>
-        <div>
-          <h2 className="m-0 mb-3 font-display text-base font-medium text-sf-ink">Files</h2>
-          <Attachments entityType={WIDGET_ENTITY} entityId={widget.id} />
+        <div className="flex flex-col gap-8">
+          <RecordServices entityType={WIDGET_ENTITY} entityId={widget.id} />
+          <div>
+            <h2 className="m-0 mb-3 font-display text-base font-medium text-sf-ink">Files</h2>
+            <Attachments entityType={WIDGET_ENTITY} entityId={widget.id} />
+          </div>
         </div>
       </div>
     </Shell>
@@ -48,7 +52,7 @@ export function WidgetPage() {
 function Shell({ children }: { children: React.ReactNode }) {
   return (
     <div className="mx-auto max-w-4xl px-4 py-8 md:px-8">
-      <Link to=".." relative="path" className="text-sm text-sf-accent-text">← All widgets</Link>
+      <Link to=".." className="text-sm text-sf-accent-text">← All widgets</Link>
       <div className="mt-4">{children}</div>
     </div>
   );

@@ -2,7 +2,8 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from backend.core.auth.deps import User, current_user
-from backend.core.notifications import push, service
+from backend.core.notifications import models, push, service
+from backend.core.platform.models import Ok, Updated
 
 router = APIRouter(prefix="/api/core/notifications", tags=["core"])
 
@@ -38,12 +39,12 @@ def list_notifications(unread: bool = False, limit: int | None = None, user: Use
     return service.list_for(user, unread=unread, limit=limit)
 
 
-@router.get("/unread-count")
+@router.get("/unread-count", response_model=models.UnreadCount)
 def notifications_unread_count(user: User = Depends(current_user)) -> dict:
     return {"count": service.unread_count(user)}
 
 
-@router.post("/read-all")
+@router.post("/read-all", response_model=Updated)
 def read_all_notifications(user: User = Depends(current_user)) -> dict:
     return {"updated": service.mark_all_read(user)}
 
@@ -53,7 +54,7 @@ def read_notification(notification_id: int, user: User = Depends(current_user)) 
     return service.mark_read(user, notification_id)
 
 
-@router.get("/push/public-key")
+@router.get("/push/public-key", response_model=models.PushPublicKey)
 def push_public_key(user: User = Depends(current_user)) -> dict:
     """The VAPID public key for `pushManager.subscribe({applicationServerKey})`."""
     try:
@@ -62,12 +63,12 @@ def push_public_key(user: User = Depends(current_user)) -> dict:
         raise HTTPException(503, detail="push_unavailable") from None
 
 
-@router.post("/push/subscribe")
+@router.post("/push/subscribe", response_model=Ok)
 def push_subscribe(body: SubscribeIn, user: User = Depends(current_user)) -> dict:
     push.subscribe(user, body.endpoint, body.keys.p256dh, body.keys.auth)
     return {"ok": True}
 
 
-@router.delete("/push/subscribe")
+@router.delete("/push/subscribe", response_model=models.PushRemoved)
 def push_unsubscribe(body: UnsubscribeIn, user: User = Depends(current_user)) -> dict:
     return {"removed": push.unsubscribe(user, body.endpoint)}

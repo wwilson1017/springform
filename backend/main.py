@@ -16,6 +16,7 @@ from backend.core import REPO_ROOT, VERSION, db, errors, preview, registry, sche
 from backend.core.auth import bootstrap, csrf
 from backend.core.auth.deps import User, current_user
 from backend.core.backup import service as backup
+from backend.core.platform.models import CoreApp, Health
 
 FRONTEND_DIST = REPO_ROOT / "frontend" / "dist"
 
@@ -55,7 +56,7 @@ def create_app(apps_dir: Path = db.APPS_DIR) -> FastAPI:
         db.get_conn().execute("SELECT 1")
         return "ok"
 
-    @app.get("/api/health", tags=["core"])
+    @app.get("/api/health", tags=["core"], response_model=Health)
     def health() -> dict:
         conn = db.get_conn()
         return {
@@ -67,7 +68,7 @@ def create_app(apps_dir: Path = db.APPS_DIR) -> FastAPI:
             "last_backup_at": backup.last_backup_at(),
         }
 
-    @app.get("/api/core/apps", tags=["core"])
+    @app.get("/api/core/apps", tags=["core"], response_model=list[CoreApp])
     def list_apps(user: User = Depends(current_user)) -> list[dict]:
         return registry.list_for_user(user)
 

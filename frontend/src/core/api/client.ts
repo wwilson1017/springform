@@ -66,7 +66,9 @@ export const fetchJson = <T>(path: string, signal?: AbortSignal) => request<T>(p
 export const postJson = <T>(path: string, body?: unknown) => send<T>('POST', path, body);
 export const patchJson = <T>(path: string, body: unknown) => send<T>('PATCH', path, body);
 export const putJson = <T>(path: string, body: unknown) => send<T>('PUT', path, body);
-export const del = (path: string) => request<void>(path, { method: 'DELETE' });
+/** DELETE; a few routes (push unsubscribe) take a JSON body. */
+export const del = (path: string, body?: unknown) =>
+  body === undefined ? request<void>(path, { method: 'DELETE' }) : send<void>('DELETE', path, body);
 /** Multipart POST; the browser sets the boundary, so no Content-Type header here. */
 export const upload = <T>(path: string, form: FormData) => request<T>(path, { method: 'POST', body: form });
 

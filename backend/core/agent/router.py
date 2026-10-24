@@ -16,7 +16,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, ConfigDict, Field
 
-from backend.core.agent import agents, engine, history, providers
+from backend.core.agent import agents, engine, history, models, providers
 from backend.core.agent.providers import ProviderError, collect_text, credentials
 from backend.core.auth.deps import User, current_user, require_admin
 
@@ -66,7 +66,7 @@ class AgentPatch(BaseModel):
 # ── Status and chat ───────────────────────────────────────────────────────────
 
 
-@router.get("/status")
+@router.get("/status", response_model=models.AgentStatus)
 def status(user: User = Depends(current_user)) -> dict:
     s = providers.status()
     return {
@@ -98,7 +98,7 @@ def chat(body: ChatIn, user: User = Depends(current_user)) -> StreamingResponse:
     return StreamingResponse(stream, media_type="text/event-stream", headers=_SSE_HEADERS)
 
 
-@router.post("/confirm")
+@router.post("/confirm", response_model=models.ConfirmResponse, response_model_exclude_unset=True)
 def confirm(body: ConfirmIn, user: User = Depends(current_user)) -> dict:
     return engine.confirm(user, body.tool_run_id, body.decision)
 
@@ -106,12 +106,12 @@ def confirm(body: ConfirmIn, user: User = Depends(current_user)) -> dict:
 # ── Conversations ─────────────────────────────────────────────────────────────
 
 
-@router.get("/conversations")
+@router.get("/conversations", response_model=list[models.Conversation])
 def list_conversations(q: str | None = None, limit: int = 50, offset: int = 0, user: User = Depends(current_user)) -> list[dict]:
     return history.list_conversations(user.id, q=q, limit=limit, offset=offset)
 
 
-@router.post("/conversations")
+@router.post("/conversations", response_model=models.Conversation)
 def create_conversation(body: ConversationIn, user: User = Depends(current_user)) -> dict:
     return history.create_conversation(user.id, agents.get(body.agent_slug)["id"])
 
@@ -124,7 +124,7 @@ def _preview(stored: str | None):
     return json.loads(stored)
 
 
-@router.get("/conversations/{conversation_id}")
+@router.get("/conversations/{conversation_id}", response_model=models.ConversationDetail)
 def get_conversation(conversation_id: int, user: User = Depends(current_user)) -> dict:
     """The conversation with its messages; each tool call carries its run (status, capped result)."""
     conv = history.get_conversation(conversation_id, user.id)
@@ -145,7 +145,7 @@ def get_conversation(conversation_id: int, user: User = Depends(current_user)) -
     return {**conv, "messages": out}
 
 
-@router.patch("/conversations/{conversation_id}")
+@router.patch("/conversations/{conversation_id}", response_model=models.Conversation)
 def update_conversation(conversation_id: int, body: ConversationPatch, user: User = Depends(current_user)) -> dict:
     conv = history.update_conversation(conversation_id, user.id, title=body.title, is_private=body.is_private)
     if conv is None:
@@ -153,7 +153,7 @@ def update_conversation(conversation_id: int, body: ConversationPatch, user: Use
     return conv
 
 
-@router.delete("/conversations/{conversation_id}")
+@router.delete("/conversations/{conversation_id}", response_model=models.ConversationDeleted)
 def delete_conversation(conversation_id: int, user: User = Depends(current_user)) -> dict:
     if not history.delete_conversation(conversation_id, user.id):
         raise HTTPException(404, detail="conversation_not_found")
@@ -163,12 +163,12 @@ def delete_conversation(conversation_id: int, user: User = Depends(current_user)
 # ── Agents ────────────────────────────────────────────────────────────────────
 
 
-@router.get("/agents")
+@router.get("/agents", response_model=list[models.AgentRow])
 def list_agents(user: User = Depends(current_user)) -> list[dict]:
     return agents.list_agents()
 
 
-@router.patch("/agents/{slug}")
+@router.patch("/agents/{slug}", response_model=models.AgentRow)
 def update_agent(slug: str, body: AgentPatch, user: User = Depends(require_admin)) -> dict:
     return agents.update(slug, body.model_dump(exclude_unset=True))
 
@@ -182,18 +182,18 @@ def _known(provider: str) -> str:
     return provider
 
 
-@router.get("/providers")
+@router.get("/providers", response_model=list[models.ProviderInfo])
 def list_providers(user: User = Depends(require_admin)) -> list[dict]:
     return credentials.list_providers()
 
 
-@router.put("/providers/{provider}")
+@router.put("/providers/{provider}", response_model=models.ProviderInfo)
 def update_provider(provider: str, body: ProviderPatch, user: User = Depends(require_admin)) -> dict:
     """`api_key: ""` removes the key; an omitted field is left as it is. Never returns the key."""
     return credentials.update(_known(provider), **body.model_dump(exclude_unset=True))
 
 
-@router.post("/providers/{provider}/test")
+@router.post("/providers/{provider}/test", response_model=models.ProviderTest)
 async def test_provider(provider: str, user: User = Depends(require_admin)) -> dict:
     """One tiny completion with this provider's key and light model; 400 with the provider's message."""
     row = await asyncio.to_thread(credentials.usable, _known(provider))

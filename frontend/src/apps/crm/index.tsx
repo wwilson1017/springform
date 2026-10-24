@@ -14,7 +14,6 @@ import { TouchesPage } from './pages/TouchesPage';
 import './theme.css';
 
 /** Mounted by Root under `/crm/*`, so these routes are relative to it. */
-// eslint-disable-next-line react-refresh/only-export-components -- the contract is a default-exported { slug, App }
 function App() {
   return (
     <>

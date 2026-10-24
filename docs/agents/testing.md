@@ -10,17 +10,18 @@
 1. **Real temp SQLite.** `db(tmp_path)` runs all migrations (core, then every app) on a fresh file. No services.
 2. **No FakeConn.** Never fake the connection or the database.
 3. **`freeze(iso)`**: a fixture that freezes `core.clock` at an ISO instant (reminders, scheduler, sweep ages, `at` catch-up).
-4. **`login_as(role, email=None, on=app)`**: a fixture that creates a new user of that role and returns a new signed-in `TestClient` with `.user`. The first account goes through the real setup-token path as an admin; later ones sign in through `/api/auth/login`. **`make_user(role, email=None, password=…)`** creates a user directly, without HTTP.
+4. **`login_as(role, email=None, on=app)`**: a fixture that creates a new user of that role and returns a new signed-in `TestClient` with `.user` (the `/api/me` shape) and `.principal` (the `User`). The first account goes through the real setup-token path as an admin; later ones sign in through `/api/auth/login`. **`make_user(role, email=None, password=…)`** creates a user directly, without HTTP.
 5. **Skip/xfail ban**: conftest fails collection when a test carries a `skip`, `skipif` or `xfail` marker (lifted from CakeCRM). `ALLOWED_SUPPRESSIONS` lists node ids allowed one, each with a reason; it is empty. `test_conftest_guards.py` self-tests it.
 6. Two-member tests create two real members and one restrictive record: every `login_as("member")` call makes a new, distinct member.
 7. Providers: a **FakeProvider** stands in for LLM providers; nothing calls a real model.
-8. HTTP to external services is mocked (Google token endpoint) or served locally (a FastMCP stub, `httpx.ASGITransport`).
+8. HTTP to external services is mocked (Google token endpoint) or served locally: inbound MCP runs through `httpx2.ASGITransport`, and the outbound client talks to `backend/tests/fixtures/mcp_stub.py`, a two-tool `MCPServer` on a loopback port (with `MCP_ALLOW_PRIVATE=1`).
 9. The contract test runs against every app in `backend/apps/` and against `backend/tests/fixtures/bad_app`, which it must fail.
 
 ### Vitest (`frontend/vitest.config.ts`)
 
 1. A **non-UTC `TZ` pin**, so date code that assumes UTC fails.
 2. Guards: apps contract, bootSplit, contrast, grep guards.
+3. Fail closed: `passWithNoTests: false`, `allowOnly: false` and `expect.requireAssertions`, so an empty run or an assertion-free test is red.
 
 ### Playwright
 
@@ -37,7 +38,7 @@ Runs against a seeded `PREVIEW_MODE=1` build with the FakeProvider and the Googl
 - A lint fails any core migration not named `*_baseline.sql` that contains `DROP COLUMN`, `DROP TABLE` or `RENAME`, and a test proves a `*_baseline.sql` file may drop a table.
 - The `requires_core` refusal, with a fixture declaring `<0.1`.
 - `now_iso` is the only timestamp writer (grep test for `datetime('now')` / `CURRENT_TIMESTAMP`).
-- No `httpx` inside `transaction()` (an autouse fixture makes `httpx` sends raise inside one, in every test).
+- No `httpx` inside `transaction()` (an autouse fixture makes `httpx` and `httpx2` sends raise inside one, in every test).
 - Nested `transaction()` raises.
 - A merge with a failing subscriber rolls back entirely (a core merge invoking a failing CRM subscriber leaves no partial change).
 - After-commit hooks run after `COMMIT` only.
@@ -112,7 +113,7 @@ Runs against a seeded `PREVIEW_MODE=1` build with the FakeProvider and the Googl
 - MCP link lists role-filtered tools and executes an attributed write via a real `ClientSession` over `httpx2.ASGITransport` (the `mcp` 2.x client speaks `httpx2`).
 - Revoked and deactivated links 404.
 - Origin refused.
-- Outbound against a local FastMCP stub: discovery, prefixing, every call confirms, private address refused, fenced result.
+- Outbound against the loopback `MCPServer` stub (`fixtures/mcp_stub.py`): discovery, prefixing, every call confirms, private address refused, fenced result.
 - DNS rebinding: a stub resolver that returns a public address first and a private one second.
 
 ### Export
@@ -134,7 +135,7 @@ Runs against a seeded `PREVIEW_MODE=1` build with the FakeProvider and the Googl
 - `CustomFields` by type.
 - `SavedViewBar` stale-version refusal.
 - A grep guard that `apps/crm` contains no `contact_id|company_id`.
-- `gen-types` diff clean.
+- `gen-types` diff clean (a CI step in the Frontend job, not a vitest).
 
 ## 4. Playwright smoke
 
@@ -152,6 +153,56 @@ One flow, `PREVIEW_MODE=1`, seeded:
 10. Back up now creates a file.
 11. Password login → enable 2FA (pyotp) → Google login via the preview stub.
 12. Whisk answers with FakeProvider → a write tool shows Approve and runs on approve → zero-key card.
+
+### Browser smoke
+
+`frontend/e2e/`, one spec per area, run with `npm run e2e` (that is `scripts/e2e.sh`; extra arguments go to `playwright test`). The script builds the SPA, boots two `PREVIEW_MODE=1` backends on fresh temp data dirs with `SPRINGFORM_FREEZE_CLOCK` (port 8160 with `AGENT_FAKE_PROVIDER=1`, port 8161 with no AI key), runs Chromium at 1280 and 390 px, stops both by PID and exits with Playwright's status. The HTML report, traces (first retry) and server logs land in `E2E_ARTIFACTS` (a temp dir by default; the script prints it). Against a backend you started yourself: `E2E_BASE_URL=… npx playwright test`.
+
+- Sign-in: `e2e/fixtures.ts` gives a test `admin` and `member` sessions (`POST /api/auth/preview`), each its own context with `page`, `api` and `user`, and fails a test on any uncaught page error. Cookie-authenticated API calls send `Sec-Fetch-Site: same-origin`, as a browser does.
+- Frozen clock: reminders fire by "Run now" on the Jobs page (`core.reminders_fire_due`), since the scheduler's own tick is frozen too. TOTP codes are computed for `E2E_FREEZE_CLOCK` (`e2e/totp.ts`), one step apart for enrolment and sign-in.
+- Install-wide state runs in the desktop project only: Back up now (a frozen clock gives every set the same stamp) and hiding an app (on the keyless backend).
+- A spec a known bug blocks is `test.fixme('<finding id>: …')`, never `skip`.
+
+CI job (beside Frontend in `.github/workflows/ci.yml`):
+
+```yaml
+  browser-smoke:
+    name: Browser smoke
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up Node 22
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Set up uv and Python 3.12
+        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          version: "0.12.24"
+          python-version: "3.12"
+          enable-cache: true
+      - name: Install dependencies and Chromium
+        run: |
+          uv sync --frozen
+          cd frontend && npm ci && npx playwright install --with-deps chromium
+      - name: Smoke (Playwright)
+        env:
+          E2E_ARTIFACTS: ${{ runner.temp }}/e2e
+        run: scripts/e2e.sh
+      - name: Upload the report, traces and server logs
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: playwright-report
+          path: ${{ runner.temp }}/e2e
+          retention-days: 14
+```
 
 ## 5. Live checks (Step 5)
 

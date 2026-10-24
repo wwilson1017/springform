@@ -9,18 +9,18 @@ Code: the engine is `backend/core/agent/`; memory, context files, the observer, 
 
 Base: CakeCRM `backend/assistant/` (Chatty's loop already trimmed, with server-side confirmation) + CakeCRM `backend/providers/` (lazy SDK imports, zero-key start) + CakeCRM `backend/memory/` (Chatty's memory as CakeCRM ported it) + Chatty `deferred_tools.py` and context-file layout.
 
-| Module | Source | Lines |
+| Module | Source | Lines (built) |
 |---|---|---|
-| `providers/` | CakeCRM `providers/`, Anthropic and OpenAI only; `credentials.py` rewritten so keys and the default and light models live only in `core_agent_providers` rows; `fake.py` (FakeProvider) and `windows.py` new | about 590 |
-| `spec.py`, `registry.py` | CakeCRM `assistant/registry.py` (212); sources = core + discovered apps + MCP servers; atomic swap on refresh | 150 / 160 new |
-| `engine.py`, `history.py`, `assembly.py`, `compaction.py`, `delimiters.py`, `write_budget.py`, `llm.py` | CakeCRM `assistant/` (its `confirm_tier.py` folded into `spec.py` as the `ROUTINE` constant); JSONB → TEXT, array ops in Python; Gmail/page bindings cut; `turns.py` skipped in v1 | ~2,500 |
-| `deferred.py` | Chatty `deferred_tools.py`; group key = app slug, threshold 100 | 350 |
-| `agents.py` | CakeCRM `assistant/identity.py` prompt builder; agents are rows, not a singleton | 300 |
-| `backend/core/memory/facts.py`, `context_files.py`, `tools.py`, `router.py` | `facts.py` from CakeCRM `backend/memory/service.py` (FTS5, temporal facts, soft invalidation); `context_files.py` from CakeCRM `backend/context_files/service.py`, tsvector → FTS5 | 1,800 |
-| `backend/core/memory/observer.py`, `dreaming.py`, `jobs.py` | The observer from Chatty plus CakeCRM `backend/memory/observer.py`; dreaming is new, plain Python with no model call (it merges duplicate facts); nightly and setting-gated | 580 |
-| `router.py`; the inbound server `backend/core/mcp/` and the outbound client `backend/core/mcp_servers/` (landing with the MCP workstream) | CakeCRM `assistant/router.py` and `providers/router.py`, minus uploads; new; new | 250 / 250 / 320 |
+| `providers/` | CakeCRM `providers/` (`windows.py` included), Anthropic and OpenAI only; `credentials.py` rewritten so keys live only in `core_agent_providers` rows, with the default and light models taken from the row or, when it leaves them empty, from `DEFAULT_MODELS`; `fake.py` (FakeProvider, `AGENT_FAKE_PROVIDER=1`) new | 672 |
+| `spec.py`, `registry.py` | CakeCRM `assistant/registry.py` (212); sources = core + discovered apps + MCP servers; atomic swap on refresh | 76 / 131 |
+| `engine.py`, `history.py`, `assembly.py`, `compaction.py`, `delimiters.py`, `write_budget.py`, `llm.py` | CakeCRM `assistant/` (its `confirm_tier.py` folded into `spec.py` as the `ROUTINE` constant); JSONB → TEXT, array ops in Python; Gmail/page bindings cut; `turns.py` skipped in v1 | 1,108 |
+| `deferred.py` | Chatty `deferred_tools.py`; group key = app slug, threshold 100 | 64 |
+| `agents.py` | CakeCRM `assistant/identity.py` prompt builder; agents are rows, not a singleton | 137 |
+| `backend/core/memory/facts.py`, `context_files.py`, `tools.py`, `router.py` | `facts.py` from CakeCRM `backend/memory/service.py` (FTS5, temporal facts, soft invalidation); `context_files.py` from CakeCRM `backend/context_files/service.py`, tsvector → FTS5 | 523 |
+| `backend/core/memory/observer.py`, `dreaming.py`, `jobs.py` | The observer from Chatty plus CakeCRM `backend/memory/observer.py`; dreaming is new, plain Python with no model call (it merges duplicate facts); nightly and setting-gated | 275 |
+| `router.py`; the inbound server `backend/core/mcp/` and the outbound client `backend/core/mcp_servers/` | CakeCRM `assistant/router.py` and `providers/router.py`, minus uploads; todo-gtd `backend/mcp_server.py` HTTP section plus new code; new | 207 / 303 / 557 |
 
-Inbound MCP landed as its own core package, `backend/core/mcp/` (`mcp.md` §1), not `agent/mcp_server.py`. `execute.py` (`run_tool(user, spec, args, *, source)`) is the one path that runs a tool call and records its tool run: the turn loop's ungated calls, `confirm` (which passes the pending run's id to claim it), and inbound MCP.
+Inbound MCP landed as its own core package, `backend/core/mcp/` (`mcp.md` §1), not `agent/mcp_server.py`. `execute.py` (`run_tool(user, spec, args, *, source)`) is the one path that runs a registry tool and records its tool run: the turn loop's ungated calls, `confirm` (which passes the pending run's id to claim it), and inbound MCP. The turn loop writes two kinds of run itself, with no handler: `core_find_tools` (deferred loading, `done`) and refusals (an unknown or unloaded tool, a call past the write budget; `error`).
 
 ## 2. Tables
 
@@ -46,7 +46,7 @@ core_agent_observations(conversation_id PK, through_message_id, pending, marked_
 core_agent_context_files(agent_slug, filename COLLATE NOCASE, content, is_protected, updated_at, updated_by)
   -- UNIQUE(agent_slug, filename); agent_slug matches core_agents.slug by value; + FTS
 core_agent_providers(provider PK, api_key_enc, model_default, model_light, enabled, updated_at)
-core_agent_mcp_links           -- mcp.md; not built yet
+core_agent_mcp_links           -- mcp.md §1
 core_agent_mcp_servers         -- mcp.md §2
 ```
 
@@ -59,8 +59,8 @@ Memory search is FTS5 only; there is no vector table.
 3. `observer.py` extracts business facts only, from conversations **not** marked `is_private`, under a prompt that forbids personal details about members.
 4. Extracted facts carry provenance: `source_conversation_id` and date. The observer writes them as the system principal (`author_user_id = 0`) tagged `observed`, so the member is traceable only through the conversation id.
 5. **An admin sees that provenance metadata and can "delete" the fact; nobody but its user can read the conversation itself.** Deleting a fact ends its validity (`invalid_from`, `invalidated_by`); the row and its text stay, and an admin's history search still finds it.
-6. Context files are admin-edited. `is_protected` files (soul, MEMORY) are writable **only through a confirmed chat tool by an admin**, never through MCP or jobs.
-7. Unattended runs (`source='job'`) run as the **system principal** (`core_users.id=0`, role `system`, member-level reads only, no private records, cannot authenticate) and may only call tools that are `writes=False`, not `always_confirm`, not remote, and not `untrusted_source`. **Enforced in `registry.for_source`, not by convention.**
+6. Context files are admin-edited. `is_protected` files (soul, MEMORY) are writable **only through a confirmed chat tool by an admin**, never through MCP or jobs. That tool acts on Whisk's files only (`backend/core/memory/tools.py`), so another agent's protected files cannot be written yet.
+7. Unattended runs (`source='job'`) run as the **system principal** (`core_users.id=0`, role `system`, member-level reads only, no private records, cannot authenticate) and may only call tools that are `writes=False`, not `always_confirm`, not remote, and not `untrusted_source`. **Enforced in `registry.for_source`, not by convention.** No job runs tools yet: the nightly job calls the model directly, so the filter is exercised only by tests.
 
 ## 4. Tool contract
 
@@ -142,9 +142,29 @@ The hash is the sha256 hex of `json.dumps(fields, sort_keys=True)` over the fiel
 
 ### Registry sources and refresh
 
-Sources: core packages' `tools.py` (context files, memory; `apps-and-contracts.md` §9), discovered apps' `get_tools()`, and MCP servers (`mcp.md`). Outbound MCP servers are the one source that changes after boot: `registry.swap_server(server_id, specs)` replaces one server's specs, rebuilds and validates the whole registry, and **swaps it in atomically** (a refused build changes nothing). Old specs stay valid for already-pending approvals only until their `tool_def_sha256` check fails. `build_registry` also refuses a remote spec (`server_url` set) that is not `always_confirm`, `untrusted_source` and `external_effect`.
+Sources: core packages' `tools.py` (contacts, notes, reminders, memory and context files, listed below; `apps-and-contracts.md` §9), discovered apps' `get_tools()`, and MCP servers (`mcp.md`). Outbound MCP servers are the one source that changes after boot: `registry.swap_server(server_id, specs)` replaces one server's specs, rebuilds and validates the whole registry, and **swaps it in atomically** (a refused build changes nothing). Old specs stay valid for already-pending approvals only until their `tool_def_sha256` check fails. `build_registry` also refuses a remote spec (`server_url` set) that is not `always_confirm`, `untrusted_source` and `external_effect`.
 
 Deferred tools (`deferred.py`): groups keyed by app slug, deferral threshold 100 tools.
+
+### Core tools
+
+Every install has these, from core packages' `tools.py`. The contacts, note and reminder tools are enabled for any active admin or member (never the system principal), and each result carries the record's `url`. The three directory writes confirm, since they add records every member sees; `core_add_note` and `core_set_reminder` are routine (no Approve card, like `crm_create_deal`): small, the user's own, and reversible.
+
+| Tool | Kind | What it does |
+|---|---|---|
+| `core_search_contacts` | read | FTS search over people and organizations (`kind` person, organization or any); people come with their organizations and roles. |
+| `core_get_person` | read | A person with organizations and roles, channels and one-line addresses; a merged id answers with the survivor plus `merged_from`. |
+| `core_get_organization` | read | An organization with its people and roles, channels and addresses. |
+| `core_create_person` | write | Creates a person, optionally linked to `organization_id` with `role` (that organization is the target). A live person with the same name returns `{created: false, existing}` unless `allow_duplicate`. |
+| `core_create_organization` | write | Creates an organization; a live one with the same name returns `{created: false, existing}`. |
+| `core_link_person_organization` | write | Links a person and an organization with a role (`primary` optional); both are targets. |
+| `core_add_note` | routine write | A timeline note on any registered record, authored by the user; the record is the target, so it needs write access. An unknown `entity_type` is refused with the registered types listed. |
+| `core_set_reminder` | routine write | A reminder on a readable record, owned by the user and titled with the record's name; a `due_at` without an offset is read in the install timezone. No targets (the record does not change). |
+| `core_list_my_reminders` | read | The user's reminders, soonest first: `open` (default, snoozed included) or `done`, with `due_local`. |
+| `core_memory_search` | read | Facts and Whisk's context files. |
+| `core_memory_remember` | write | Records one business fact. |
+| `core_context_file_read` | read | One of Whisk's context files. |
+| `core_context_file_write` | write | Replaces a context file, protected ones included: admin only, `always_confirm`, not over MCP. |
 
 ## 5. Turn loop
 
@@ -216,7 +236,7 @@ conversation_id, compacted, text, tool_start, tool_args, tool_end, usage, confir
 
 ## 10. Default `soul.md`
 
-`soul.md` is a protected context file of each agent (`core_agent_context_files`, keyed by `agent_slug`), with its default text in `backend/core/memory/context_files.py`. It is the only soul: the agent row has no soul column. The default says Whisk is the business assistant for this install; knows the installed apps, the contacts directory and each app's records; answers from them, says what it changed, proposes a write before making it; plain-spoken, brief, careful with anything that leaves the install or hides a record.
+`soul.md` is a protected context file of an agent (`core_agent_context_files`, keyed by `agent_slug`), with its default text in `backend/core/memory/context_files.py`. Startup seeds it for Whisk only (`context_files.seed_defaults_in`, default agent `whisk`). It is the only soul: the agent row has no soul column. The default says Whisk is the business assistant for this install; knows the installed apps, the contacts directory and each app's records; answers from them, says what it changed, proposes a write before making it; plain-spoken, brief, careful with anything that leaves the install or hides a record.
 
 ## 11. Routes
 
@@ -229,7 +249,7 @@ conversation_id, compacted, text, tool_start, tool_args, tool_end, usage, confir
 | `GET /api/agent/agents`; `PATCH /api/agent/agents/{slug}` (admin) | The PATCH takes `name`, `personality`, `provider_override` (`anthropic` or `openai`), `model_override` and `model_tier` (`default` or `light`). |
 | `GET /api/agent/providers`, `PUT /api/agent/providers/{provider}`, `POST /api/agent/providers/{provider}/test` (admin) | Provider keys and default and light models, one `core_agent_providers` row per vendor. |
 | `GET /api/core/context-files[?agent=<slug>]`, `GET` / `PUT /api/core/context-files/{filename}[?agent=<slug>]` | Context files per agent (default `whisk`). Members list them and read the unprotected ones; admins read all and write through `PUT`. Protected files (`soul.md`, `MEMORY.md`) refuse the REST editor: they change only through the confirmed chat tool. |
-| `GET /api/core/memory/facts[?q=&limit=&offset=&history=]`, `POST /api/core/memory/facts {text, tags, valid_from?}`, `DELETE /api/core/memory/facts/{id}` (admin) | Install-shared facts, not per agent. Admins see provenance, and `history=true` (admins only) adds ended facts. `DELETE` ends the fact's validity (§3). |
+| `GET /api/core/memory/facts[?q=&limit=&offset=&history=]`, `POST /api/core/memory/facts {text, tags, valid_from?}`, `DELETE /api/core/memory/facts/{id}` (admin) | Install-shared facts, not per agent. Any signed-in user may list and add; only admins end one. Admins see provenance, and `history=true` (admins only) adds ended facts. `offset` applies only without `q`. `DELETE` ends the fact's validity (§3). |
 | MCP links | `GET` / `POST /api/core/mcp/links`, `DELETE /api/core/mcp/links/{id}` (`mcp.md` §1). |
 | MCP servers | `/api/core/mcp/servers` (admin; `mcp.md` §2), not under `/api/agent`. |
 
@@ -239,9 +259,9 @@ The routes under `/api/agent` are in `backend/core/agent/router.py`; the memory 
 
 `core.agent_nightly` at 02:00 (timeout 1,800 s), gated by the setting `agent.nightly_enabled`: the observer, then dreaming. With zero keys it is skipped only when the observer reaches a model call (§9). See `scheduler.md`.
 
-## 13. Step 1 stub
+## 13. FakeProvider
 
-Step 1 ships `agent/spec.py` + `registry.py` + a **FakeProvider** engine stub that can run one confirmed `handler_in` tool. Step 1b's slice runs a FakeProvider tool call that confirms and runs via `handler_in`.
+The Step 1 engine stub is gone; the full engine (`engine.py`, `chat()` and `confirm()`) runs every turn. `providers/fake.py` is a scripted provider for tests and keyless local runs: `AGENT_FAKE_PROVIDER=1` makes `get_provider` return it and `/api/agent/status` report `configured: true`. With nothing scripted, a user message `/tool <name> <json args>` calls that tool, so a confirmed `handler_in` write can be driven by hand.
 
 ## 14. Frontend (`frontend/src/core/agent/`)
 
@@ -256,7 +276,7 @@ Step 1 ships `agent/spec.py` + `registry.py` + a **FakeProvider** engine stub th
 | `MarkdownContent` | shared with the Guide (`src/shared/`) | GFM, no highlighting; in-app links stay in the tab through `Link`, external ones open a new tab; images never load. |
 | `ZeroKeyCard` | new | `status.configured:false`: replaces the composer; admins get a link to Settings, AI, members are told to ask an admin. Old threads still open. |
 | `settingsCards.ts`, section `ai` (admin, order 70) | CakeCRM `ProviderSetup` (Providers), Chatty `AgentContextEditor` (Memory) | Providers (key set/replace/remove via `has_key`, both model tiers, enabled, Test), Agents (name, personality, provider and model override, tier), Memory (context files with protected ones read-only; facts with provenance and "End validity"), Nightly run (`agent.nightly_enabled`). |
-| MCP links card, MCP servers card | new | Not built yet (`mcp.md`). |
+| `McpLinksCard` (`src/core/mcp/`), `McpServersCard` (`src/core/mcp_servers/`) | new | Settings → MCP (member-visible: the caller's links; a new link's URL is shown once, with a `claude mcp add` command) and Settings → MCP servers (admin: add, edit, enable, Refresh, Test, Remove). Each area has its own `settingsCards.ts`; see `mcp.md`. |
 
 Rules the frontend keeps:
 

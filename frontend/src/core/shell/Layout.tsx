@@ -1,6 +1,6 @@
 import { Suspense, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation } from 'react-router';
-import { AppIcon, IconBell, IconBuilding, IconHome, IconMenu, IconSliders, IconUsers } from '../../shared/icons';
+import { AppIcon, IconBuilding, IconHome, IconMenu, IconSliders, IconUsers } from '../../shared/icons';
 import { MobileMenuDrawer, type DrawerItem } from '../../shared/MobileMenuDrawer';
 import { useIsMobile } from '../../shared/useIsMobile';
 import { useCoreApps } from '../apps/CoreAppsContext';
@@ -8,6 +8,7 @@ import { navItems } from '../apps/registry';
 import { useAuth } from '../auth/AuthContext';
 import BootFallback from '../components/BootFallback';
 import ChunkErrorBoundary from '../components/ChunkErrorBoundary';
+import { NotificationBell } from '../records/NotificationBell';
 import { useWorkspace } from '../settings/useWorkspace';
 import { coreNavItems } from './coreNav';
 import { ThemeToggle } from './ThemeToggle';
@@ -22,16 +23,15 @@ export function Layout() {
   const [menuOpen, setMenuOpen] = useState(false);
   const workspace = useWorkspace();
 
-  // App nav for the apps this user receives. Hiding an app removes its nav for members only
-  // (the server does not send them hidden apps; the filter holds if it ever does).
-  const shown = new Set((apps ?? []).filter(a => !a.hidden || isAdmin).map(a => a.slug));
+  // App nav for the apps this user receives, in the server's order. Hiding an app removes its nav
+  // for members only (the server does not send them hidden apps; the filter holds if it ever does).
+  const shown = (apps ?? []).filter(a => !a.hidden || isAdmin);
   const nav: DrawerItem[] = [
     { to: '/', label: 'Home', icon: <IconHome size={18} aria-hidden /> },
     { to: '/people', label: 'People', icon: <IconUsers size={18} aria-hidden /> },
     { to: '/organizations', label: 'Organizations', icon: <IconBuilding size={18} aria-hidden /> },
     ...coreNavItems('primary', isAdmin),
-    ...navItems().filter(n => shown.has(n.slug))
-      .map(n => ({ to: n.to, label: n.label, icon: <AppIcon name={n.icon} size={18} aria-hidden /> })),
+    ...navItems(shown).map(n => ({ to: n.to, label: n.label, icon: <AppIcon name={n.icon} size={18} aria-hidden /> })),
   ];
   // Core pages that live behind the user menu (and in the drawer), not in the header.
   const menu: DrawerItem[] = coreNavItems('menu', isAdmin);
@@ -59,11 +59,7 @@ export function Layout() {
         )}
         <div className="flex-1" />
         <ThemeToggle />
-        {/* Slot for the notification bell, which arrives with the notifications service. */}
-        <span title="Notifications arrive in a later release" aria-hidden
-          className="flex h-8 w-8 items-center justify-center text-sf-ink-dim">
-          <IconBell size={16} />
-        </span>
+        <NotificationBell />
         {!isMobile && user && <UserMenu user={user} items={menu} onSignOut={() => void signOut()} />}
       </header>
       {menuOpen && (

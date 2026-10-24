@@ -3,7 +3,7 @@
 **What this covers:** the §4 record services every entity gets: timeline (and `record_changes_in`), files (publication, sweep, crash cases, safe serving), custom fields, saved views, the reports registry, notifications, reminders, the change log, and the frontend `records/` components.
 **Who reads it:** W2 (record-service backends), W3 (change log), W11 (record-services frontend), any app that shows a record page.
 
-Every service checks `entities.authorize` before touching a record (`authorization.md`). Every service and published function comes as `fn` / `fn_in(conn, …)` (`database-and-transactions.md`), with these exceptions: `timeline.api.list_for` has no `_in` form, `record_changes_in` has only the `_in` form, and a report's `run` needs none because it opens no transaction. Most services live in `backend/core/<service>/{service.py, api.py, router.py}`. Two do not: the change-log writer is the single module `backend/core/changelog.py`, with its route in `backend/core/platform/`, and reports are `backend/core/reports/{registry.py, service.py, router.py}` with no `api.py` (apps import `Report` from `backend.core.reports.registry`).
+Every service checks `entities.authorize` before touching a record (`authorization.md`). Every service and published function comes as `fn` / `fn_in(conn, …)` (`database-and-transactions.md`), with these exceptions: `timeline.api.list_for` has no `_in` form, `record_changes_in` and `add_system_in` have only the `_in` form, and a report's `run` needs none because it opens no transaction. Most services live in `backend/core/<service>/{service.py, api.py, router.py}`. Two do not: the change-log writer is the single module `backend/core/changelog.py`, with its route in `backend/core/platform/`, and reports are `backend/core/reports/{registry.py, service.py, router.py}` with no `api.py` (apps import `Report` from `backend.core.reports.registry`).
 
 ## 1. Timeline
 
@@ -40,7 +40,7 @@ and runs the sync `on_record_changed` subscribers (through `on_record_changed_in
 ### Rules
 
 1. Listing and adding notes go through `entities.authorize`; a note needs write access to its record. `record_changes_in`, `add_system_in` and the delete and merge hooks do not authorize: the caller has already authorized the edit.
-2. `system` rows record platform actions (e.g. "merged #<source> into this record"). Core writes them with `timeline.add_system_in(conn, entity_type, entity_id, body)`; the author is the system principal (`id=0`), and the acting user is in the change log.
+2. `system` rows record platform actions (e.g. "merged #<source> into this record"). Core and apps write them with `timeline.api.add_system_in(conn, entity_type, entity_id, body)` (the CRM's deal merge does); the author is the system principal (`id=0`), and the acting user is in the change log. A system row is not a note, so it is not a CRM touch.
 3. Merges repoint timeline rows keeping the original author and time (`contacts.md`).
 4. A mention in `body` is written `@[Name](user:ID)`. Each mentioned active human user who can read the record gets a `core_timeline_mentions(timeline_id, user_id, display_name)` row and a notification (`deliver_in`, in the note's transaction), except the author. Anyone else named in the body gets neither.
 5. A comment is stored and listed exactly like a note; only its `kind` differs.
@@ -159,6 +159,7 @@ PATCH  /api/core/fields/definitions/{id}
 DELETE /api/core/fields/definitions/{id}    204
 GET    /api/core/fields/values
 PUT    /api/core/fields/values
+GET    /api/core/fields/entity-types         [{type, label, label_plural}] from the entity registry (the admin's type picker)
 ```
 
 ## 4. Saved views
@@ -172,6 +173,7 @@ core_saved_views(id, surface, entity_type, name, version, payload JSON, owner_us
 
 1. Views store filters, not rows, so there is no record authorization beyond ownership and `is_shared`. The owner or any admin may edit, share or delete a view. Someone else's private view is 404; a shared view the caller may not edit is 403.
 2. The server refuses a stale edit: `PATCH` must send the `version` it was based on, a mismatch answers **409** `stale_view`, and every edit bumps `version` (sharing does not).
+3. The screen's own schema lives in the payload: `SavedViewBar` stores `{schema_version, value}` and refuses to apply a view whose `schema_version` differs from the screen's (shown disabled with the reason, so its owner can still overwrite or delete it). On 409 `stale_view` it reloads the list and asks the user to retry.
 
 ```
 GET    /api/core/views
@@ -303,25 +305,24 @@ GET /api/core/changelog?app=&user_id=&entity_type=&entity_id=&before=<id>&limit=
 
 ## 9. Frontend (`frontend/src/core/records/`)
 
-~2,700 lifted + ~400 new. **Props take `entityType: string` and `entityId: number`.**
+**Record props are `{entityType: string; entityId: number}`.** Sources are CakeCRM unless noted; `docs/PROVENANCE.md` has the rows.
 
-| Component | Source (CakeCRM `frontend/src/crm/…` unless noted) | Contract |
+| Export | Props | Contract |
 |---|---|---|
-| `Timeline` | Merge of `components/NotesThread.tsx` (276) + `components/ActivityTimeline.tsx` (232) | Lists timeline rows for a record; used as `<Timeline entityType="crm.deal" entityId={id} />`. |
-| `NoteComposer` | `components/NoteComposer.tsx` (323) | Posts a note. |
-| `MentionPicker` | `components/MentionPicker.tsx` (185) | @-mention users. |
-| `Attachments` | `components/NoteAttachments.tsx` (137) and `chatterAttachments.ts` | Lists, uploads, downloads files. |
-| `CustomFields` | `components/CustomFieldsSection.tsx` (165) + `CustomFieldInputs.tsx` (72) + `useCustomFieldsForm.ts` | One generic renderer for every field type. |
-| `CustomFieldSettings` | `components/CustomFieldSettings.tsx` (215) | Field definitions per entity type. |
-| `SavedViewBar` | `frontend/src/shared/collection/SavedViewsMenu.tsx` (396) + `savedViews.ts` | Refuses a stale-version view. |
-| `ReportTable` | new | Renders `(columns, rows)`; CSV download. |
-| `NotificationBell` | `components/NotificationsBell.tsx` | In-app notifications. |
-| `ReminderPicker` | `components/ReminderForm.tsx` (205) | Set a reminder on a record. |
-| `RemindersPage` | `RemindersPage.tsx` (206) | The user's reminders. |
+| `RecordServices` | `{entityType, entityId}` | `CustomFields` + `RemindersPanel`, stacked. What a record page adds beside its own fields; `Timeline` and `Attachments` stay separate so the page places them. |
+| `CustomFields` | `{entityType, entityId}` | The type's fields and values; nothing when the type has none. Edit sends only changed values in one all-or-nothing `PUT` (empty clears with null). A 403 turns it read-only. |
+| `CustomFieldSettings` (default export) | none | Settings → Records → Custom fields (admin): type picker, create, edit, archive, restore, reorder. |
+| `SavedViewBar<T>` | `{surface, entityType?, value: T, onChange(value: T), schemaVersion: number}` | Apply, save as, rename, overwrite, share/unshare, delete. Every edit sends the server `version`; schema mismatch refused (§4). |
+| `ReportsPage` (default, `/reports`), `ReportParamsForm`, `ReportTable` | `ReportParamsForm {schema, values, onChange}`, `ReportTable {result}` | Role-filtered list, a form generated from the `params` schema (§5), run, and "Download CSV" to `/api/core/reports/{key}/csv` with the same query. |
+| `NotificationBell` | none | In the header (`shell/Layout.tsx`). Unread count polled every 60 s while visible; latest 10; opening one marks it read and follows its same-origin `link`. |
+| `NotificationsPage` (default, `/notifications`) | none | All or unread, mark read, mark all read. |
+| `PushCard` (default) | none | Settings → Notifications → Push notifications (members). Registers `/sw.js` only on opt-in. `public/sw.js` shows `{title, body}` tagged with `notification_id` and opens `url` on click. |
+| `RemindersPage` (default, `/reminders`) | none | The caller's reminders: status and date filters (a `SavedViewBar` on surface `core.reminders`), create without a record, edit, snooze presets, done, delete. |
+| `RemindersPanel` | `{entityType, entityId}` | `GET /for`: everyone's reminders on the record; actions only on `mine`; add one for this record. |
+| `NoteComposer`, `MentionPicker`, `useMentionPicker` | `NoteComposer {entityType, entityId, onPosted}` | `@` lists `/api/core/timeline/mentionable?q=`; picking inserts `@[Name](user:ID)`. `Timeline` renders mentions as chips. |
+| `Timeline`, `Attachments` | `{entityType, entityId}` | `Attachments` shows `/thumb` when `has_thumb`, download and delete (a 403 says the record isn't writable). `Timeline` reads a field change as "Value changed from 4,800.00 to 5,000.00" (`changeText.ts`): custom fields by label (definitions fetched once per entity type, archived included), `*_cents` as amounts, `*_user_id` and user fields by name, other columns humanized. It refetches when `recordChanged(entityType, entityId)` (`recordEvents.ts`) fires, which `CustomFields` does after a save. |
 
-`Timeline`, `NoteComposer` and `Attachments` take `{entityType, entityId}`.
-
-Open (pinned by the implementing workstream, which updates this doc): the other components' props, which are not built yet. The donor files listed are the likely sources by name; the plan gives only the totals and the `NotesThread` + `ActivityTimeline` merge.
+Core pages, nav and settings come through the shell seams: `routes.tsx` (`reports`, `reminders`, `notifications`, lazy), `nav.tsx` (Reminders and Reports in the user menu), `settingsCards.ts` (`notifications` order 8, member; `records` order 35, admin).
 
 ## Tests that pin this
 

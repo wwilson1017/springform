@@ -36,6 +36,13 @@ export interface InviteLink {
   mailed: boolean;
 }
 
+/** POST /api/auth/users/{id}/reset-link (admin): a one-time password reset link for that user. */
+export interface ResetLink {
+  reset_url: string;
+  /** True when it was also emailed to them. */
+  mailed: boolean;
+}
+
 export interface TotpStatus {
   enabled: boolean;
   backup_codes_left: number;

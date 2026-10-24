@@ -161,13 +161,17 @@ A failure redirects with `error=` one of `not_invited`, `link_required`, `google
 2. An invite token (`core_login_tokens` purpose `invite`, **1 h**) makes the link `PUBLIC_URL/invite/<token>`. The link is always returned to the admin to copy, and is also mailed via Resend when `RESEND_API_KEY` and `MAIL_FROM` are set.
 3. The invitee sets a password or presses Google (the linking rule's invite case).
 4. The same token mechanism serves "forgot password" (purpose `reset`, a one-hour `PUBLIC_URL/reset-password/<token>` link). `POST /api/auth/forgot` answers 202 whether or not the account exists.
+   Without mail nothing is sent, so an admin issues the same `reset` link for an active member (`POST /api/auth/users/{id}/reset-link`) and passes it on; it is also mailed when mail is configured, and `mailed` says whether Resend accepted it.
 5. Links are single use. Resending an invite issues a new link and the old one stops working.
 6. A reset or a password change ends every other session and forgets trusted devices. Accepting an invite or resetting a password ends like a password sign-in: a session, or the TOTP challenge.
 
 ```
 POST  /api/auth/users                         (admin) invite -> {user, invite_url, mailed}
 POST  /api/auth/users/{id}/resend-invite      (admin)
-GET   /api/auth/users                         (admin)
+POST  /api/auth/users/{id}/reset-link         (admin) -> {reset_url, mailed}; 404 for an unknown, system or deactivated user
+GET   /api/auth/users[?status=active|inactive] (admin) -> [{id, email, name, role, tz, is_active, invite_pending, has_password,
+                                                 google_linked, totp_enabled, invited_by, last_login_at, deactivated_at, created_at}];
+                                                 never the system principal; invite_pending = no password and no Google link
 PATCH /api/auth/users/{id}                    (admin) name, role, tz
 POST  /api/auth/users/{id}/deactivate         (admin)
 POST  /api/auth/users/{id}/reactivate         (admin)
@@ -187,7 +191,7 @@ Deactivating a user:
 
 1. bumps `token_epoch` (kills every session);
 2. deletes the user's trusted devices and unused invite and reset links;
-3. will revoke the user's MCP links (`core_agent_mcp_links.revoked_at`) once MCP exists; nothing registers that yet;
+3. revokes the user's MCP links (`core_agent_mcp_links.revoked_at`), through the `ON_DEACTIVATE` hook `core/mcp/links.py` registers;
 4. sets `is_active` false and `deactivated_at`, then runs the `ON_DEACTIVATE` hooks.
 
 Private todos are hidden because an inactive user fails `can_read`; an admin may transfer them with `POST /api/todos/transfer`. Team todos stay in place. Deactivating, or demoting, the last active admin who can sign in is refused with **409** `last_admin`.
@@ -196,7 +200,7 @@ Revoked and deactivated MCP links return 404 (`mcp.md`).
 
 ## 11. `PREVIEW_MODE`
 
-1. `PREVIEW_MODE=1` seeds `preview-admin@example.com` and `preview-member@example.com`.
+1. `PREVIEW_MODE=1` seeds `preview-admin@example.com` and `preview-member@example.com`, each with a random password nobody knows, so the Users card shows them as signed up (not invite pending) and the last-admin guard counts them.
 2. `LoginPage` shows a role picker → `POST /api/auth/preview {role}`.
 3. `google/start` redirects to a local stub, so Playwright covers the Google path.
 4. **Startup refuses preview mode if real secrets are present**: `ENCRYPTION_KEY` or `RESEND_API_KEY` set (non-empty) in the environment, or any `core_settings` row with `is_secret=1`. The check runs after migrations, because it reads `core_settings`.

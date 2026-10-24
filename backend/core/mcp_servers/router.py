@@ -13,7 +13,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 from backend.core import registry as app_registry
 from backend.core.auth.deps import require_admin
 from backend.core.errors import NotFound
-from backend.core.mcp_servers import client, service, transport
+from backend.core.mcp_servers import client, models, service, transport
 
 router = APIRouter(prefix="/api/core/mcp/servers", tags=["core"], dependencies=[Depends(require_admin)])
 
@@ -72,19 +72,19 @@ def _row(server_id: int) -> dict:
     return row
 
 
-@router.get("")
+@router.get("", response_model=list[models.McpServer])
 def mcp_servers_list() -> list[dict]:
     return [service.view(r) for r in service.rows()]
 
 
-@router.post("")
+@router.post("", response_model=models.McpServer)
 def mcp_servers_create(body: ServerIn) -> dict:
     server_id = service.create(**{**body.model_dump(), "name": body.name.strip(), "token": body.token.strip()})
     client.refresh(server_id)
     return service.get(server_id)
 
 
-@router.patch("/{server_id}")
+@router.patch("/{server_id}", response_model=models.McpServer)
 def mcp_servers_update(server_id: int, body: ServerPatch) -> dict:
     fields = {k: v.strip() if isinstance(v, str) else v for k, v in body.model_dump(exclude_unset=True).items() if v is not None}
     if fields:
@@ -100,13 +100,13 @@ def mcp_servers_delete(server_id: int) -> Response:
     return Response(status_code=204)
 
 
-@router.post("/{server_id}/refresh")
+@router.post("/{server_id}/refresh", response_model=models.McpServer)
 def mcp_servers_refresh(server_id: int) -> dict:
     client.refresh(_row(server_id)["id"])
     return service.get(server_id)
 
 
-@router.post("/{server_id}/test")
+@router.post("/{server_id}/test", response_model=models.McpServerCheck, response_model_exclude_unset=True)
 def mcp_servers_test(server_id: int) -> dict:
     """{ok, tools: n, error?}: connect and list tools; changes nothing."""
     row = _row(server_id)

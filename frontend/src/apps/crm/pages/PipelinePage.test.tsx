@@ -19,7 +19,8 @@ const deals = [
 function setup(extra: Record<string, Reply> = {}, list: Deal[] = deals) {
   const fetchMock = mockFetch({
     'GET /api/me': { body: { id: 1, email: 'a@example.com', name: 'Ada Admin', role: 'admin', tz: 'UTC' } },
-    'GET /api/core/timeline/mentionable': { body: [{ id: 1, name: 'Ada Admin' }] },
+    'GET /api/core/timeline/mentionable?q=': { body: [{ id: 1, name: 'Ada Admin' }, { id: 4, name: 'Bea Rep' }] },
+    'GET /api/core/timeline/mentionable?q=bea': { body: [{ id: 4, name: 'Bea Rep' }] },
     'GET /api/crm/stage-criteria': { body: [] },
     [`GET ${BOARD}`]: { body: { deals: list, stage_summary: [], total_pipeline_value_cents: 0, deals_truncated: false } },
     ...extra,
@@ -39,6 +40,28 @@ describe('pipeline board', () => {
     expect(within(proposal).getAllByText('$4,800').length).toBeGreaterThan(0);
     expect(screen.queryByRole('region', { name: /^Won/ })).toBeNull();
     expect(screen.getByText('$26,300')).toBeTruthy(); // open pipeline: 4,800 + 12,500 + 9,000
+  });
+
+  it('filters by owner: Mine, Unassigned, or anyone found by typing', async () => {
+    setup({}, [deals[0], { ...deals[1], owner_user_id: null, owner_name: null }, { ...deals[2], owner_user_id: 4, owner_name: 'Bea Rep' }]);
+    await screen.findByText('Spring order');
+    const owner = screen.getByLabelText('Owner') as HTMLInputElement;
+    expect(owner.value).toBe('Any owner');
+    fireEvent.focus(owner);
+    // Me as "Mine" among the fixed choices, never again among the people.
+    await screen.findByRole('option', { name: 'Bea Rep' });
+    expect(within(screen.getByRole('listbox', { name: 'People' })).getAllByRole('option').map(o => o.textContent))
+      .toEqual(['Any owner', 'Mine', 'Unassigned', 'Bea Rep']);
+    fireEvent.click(screen.getByRole('option', { name: 'Unassigned' }));
+    expect(screen.queryByText('Spring order')).toBeNull();
+    expect(screen.getByText('Café subscription')).toBeTruthy();
+
+    fireEvent.focus(owner);
+    fireEvent.change(owner, { target: { value: 'bea' } });
+    fireEvent.click(await screen.findByRole('option', { name: 'Bea Rep' }));
+    expect(owner.value).toBe('Bea Rep');
+    expect(screen.getByText('Shelf placement')).toBeTruthy();
+    expect(screen.queryByText('Café subscription')).toBeNull();
   });
 
   it('moves a deal with its Move menu: the card moves at once and the PATCH carries the stage', async () => {

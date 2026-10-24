@@ -60,6 +60,12 @@ export const settingsCardsFor = (slug: string): RegisteredSettingsCard[] => card
 /** Panels other apps contribute to a record page of this entity type, in app order. */
 export const recordPanelsFor = (entityType: string): RegisteredRecordPanel[] => panels.filter(p => p.entityType === entityType);
 
-/** Every app's nav items with the owning slug, so the shell can drop apps the user can't see. */
-export const navItems = (): Array<NavItem & { slug: string; icon: string }> =>
-  apps.flatMap(app => (app.contributions.nav ?? []).map(item => ({ ...item, slug: app.slug, icon: item.icon ?? app.manifest.icon })));
+/**
+ * The nav items of `shown` (the user's apps as GET /api/core/apps lists them), in that list's
+ * order, so the header follows the order an admin sets in Settings, as the launcher does.
+ */
+export const navItems = (shown: ReadonlyArray<{ slug: string }>): Array<NavItem & { slug: string; icon: string }> =>
+  shown.flatMap(({ slug }) => {
+    const app = appBySlug(slug);
+    return (app?.contributions.nav ?? []).map(item => ({ ...item, slug, icon: item.icon ?? app!.manifest.icon }));
+  });

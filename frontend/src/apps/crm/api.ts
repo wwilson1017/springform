@@ -18,6 +18,7 @@ export type BulkMoveOut = S['BulkMoveOut'];
 export type Dashboard = S['Dashboard'];
 export type Today = S['Today'];
 export type TodayItem = S['TodayItem'];
+export type TouchWindow = S['TouchWindow'];
 export type WeeklyTouches = S['WeeklyTouches'];
 export type WeeklyTouchDetail = S['WeeklyTouchDetail'];
 export type TouchedDeal = S['TouchedDeal'];
@@ -110,6 +111,3 @@ export const settingsUrl = `${BASE}/settings`;
 export const saveSettings = (body: Partial<CrmSettings>) => patchJson<CrmSettings>(settingsUrl, body);
 export const resetCrm = () => postJson<{ deals: number; activity: number }>(`${BASE}/reset`, { confirm: 'RESET' });
 
-/** Active users, for the owner picker. Any member may read it (the mention list). */
-// simplification: at most 20 users (the mention route's cap), upgrade path: a paged core users directory.
-export const usersUrl = '/api/core/timeline/mentionable';
