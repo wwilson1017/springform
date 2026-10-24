@@ -75,10 +75,13 @@ class Entity:
 
 
 CORE_ENTITIES = [
-    Entity("core.person", "core_people", "Person", "People", lambda i: f"/people/{i}", title_from("core_people")),
+    Entity(
+        "core.person", "core_people", "Person", "People", lambda i: f"/people/{i}", title_from("core_people"),
+        archived_column="archived_at",
+    ),
     Entity(
         "core.organization", "core_organizations", "Organization", "Organizations",
-        lambda i: f"/organizations/{i}", title_from("core_organizations"),
+        lambda i: f"/organizations/{i}", title_from("core_organizations"), archived_column="archived_at",
     ),
 ]
 
