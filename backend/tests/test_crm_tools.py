@@ -2,11 +2,14 @@
 for write, then handler_in, in one transaction): deal links, provenance badges, open-stage
 moves, confirm tiers and the role filters."""
 
+import json
+
 import pytest
 
-from backend.apps.crm import provenance
+from backend.apps.crm import deals, provenance
 from backend.core import db as core_db
-from backend.core.agent import engine, registry
+from backend.core.agent import engine, history, registry
+from backend.core.agent.providers import fake
 from backend.core.auth.deps import system_user
 from backend.core.contacts import api as contacts
 from backend.core.errors import Forbidden, Invalid, NotFound
@@ -100,3 +103,29 @@ def test_the_write_path_authorizes_its_targets(me):
     with pytest.raises(Forbidden):  # the system principal never writes (core refuses before the handler)
         call(system_user(), "crm_update_deal", deal_id=deal["id"], title="x")
     assert call(system_user(), "crm_get_deal", deal_id=deal["id"])["title"] == "Wedding cakes"
+
+
+def test_through_chat_mine_reads_inline_and_archive_waits_for_the_owner_s_approval(login_as, monkeypatch):
+    monkeypatch.setenv("AGENT_FAKE_PROVIDER", "1")
+    fake.reset()
+    member, other = login_as("member"), login_as("member")
+    mine = deals.create(member.principal, {"title": "Wedding cakes", "owner_user_id": member.principal.id})
+    deals.create(member.principal, {"title": "Café order"})
+
+    def turn(client, step):
+        fake.script(step, "Done.")
+        r = client.post("/api/agent/chat", json={"message": "go"})
+        assert r.status_code == 200, r.text
+        return [json.loads(line[6:]) for line in r.text.splitlines() if line.startswith("data: ")]
+
+    ends = [e for e in turn(member, {"tool": "crm_search_deals", "args": {"mine": True}}) if e["type"] == "tool_end"]
+    assert ends[0]["status"] == "done" and [d["id"] for d in ends[0]["result"]] == [mine["id"]]
+
+    evs = turn(member, {"tool": "crm_archive_deal", "args": {"deal_id": mine["id"], "reason": "Created by mistake"}})
+    run_id = next(e for e in evs if e["type"] == "confirm")["tool_run_id"]
+    assert deals.get(member.principal, mine["id"])["archived_at"] is None, "nothing happens before approval"
+    assert other.post("/api/agent/confirm", json={"tool_run_id": run_id, "decision": "approve"}).status_code == 403
+    done = member.post("/api/agent/confirm", json={"tool_run_id": run_id, "decision": "approve"}).json()
+    assert done["status"] == "done" and done["result"]["archived_reason"] == "Created by mistake"
+    assert history.get_tool_run(run_id)["status"] == "done"
+    fake.reset()
