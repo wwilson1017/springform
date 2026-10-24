@@ -108,6 +108,8 @@ Each function has an `_in(conn, …)` form.
 
 Open (pinned by the implementing workstream, which updates this doc): the full argument lists of the remaining functions (see `backend/core/contacts/api.py`).
 
+Whisk reaches the directory through `backend/core/contacts/tools.py` (`core_search_contacts`, `core_get_person`, `core_get_organization`, `core_create_person`, `core_create_organization`, `core_link_person_organization`; `agent.md` §4), which calls only these functions, as the acting user.
+
 ## 5. Routes
 
 All under `/api/core/contacts`, behind `current_user`:

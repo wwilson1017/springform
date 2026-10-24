@@ -46,6 +46,9 @@ Conventions:
 - Whisk chat at `/whisk`: streamed answers, an approval card before any write, and a conversation
   list with search, rename, private and delete. Settings, AI holds the provider keys, the agent,
   memory (context files and facts) and the nightly run.
+- Whisk can find, read, create and link people and organizations, add a note to any record and set
+  or list the user's reminders; each write waits for the user's approval, and MCP links get the
+  same tools.
 
 ### Changed
 
