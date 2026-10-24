@@ -186,7 +186,7 @@ def test_boot_flags_a_key_that_is_not_the_newest_backups(db, caplog):
     assert settings.get_setting(startup.KEY_MISMATCH) is None
     _out().mkdir(parents=True, exist_ok=True)
     (_out() / "20261001T030000Z.manifest.json").write_text(json.dumps({"key_fingerprint": secrets.key_fingerprint()}))
-    (_out() / "20261002T030000Z.manifest.json").write_text(json.dumps({"key_fingerprint": "0123456789abcdef"}))
+    (_out() / "20261002T030000Z.manifest.json").write_text(json.dumps({"key_fingerprint": "wrong-key"}))
     startup.on_startup()  # a hand-copied /data under another key: boots, flags, logs the remedy
     assert settings.get_setting(startup.KEY_MISMATCH) == "20261002T030000Z.manifest.json"
     [error] = [r for r in caplog.records if r.levelname == "ERROR"]
