@@ -173,7 +173,7 @@ Pinned by the contacts frontend:
 - One list page and one detail page serve both kinds (`ListPage.tsx`, `DetailPage.tsx`, routed in `routes.tsx`). List filters live in the URL (`q`, `tag`, `archived`, `organization_id`, `page`).
 - The detail page is a header plus two columns built from `SECTIONS` in `DetailPage.tsx`; each section gets `SectionProps` (`types.ts`), a superset of `RecordPanelProps`, so a core record component joins with one line. Apps' record panels follow, only for apps the server lists for the user.
 - A merged id redirects to the survivor with "Person #n was merged into this record." (router state `mergedFrom`). Merges from the duplicates panel and from "Merge into…" land there the same way.
-- Owner choices: admins pick from `GET /api/auth/users`; members can pick only themselves (there is no member-readable user list), and another owner shows as "User #n".
+- Owner choices: the shared `UserPicker` (`src/shared/UserPicker.tsx`) searches `GET /api/core/timeline/mentionable?q=`, which members may read, so anyone picks any active user. The owner's name comes from the shared name cache (`src/shared/users.ts`); past the directory's first 20 people an owner nobody has searched for still reads "User #n".
 
 ## Tests that pin this
 

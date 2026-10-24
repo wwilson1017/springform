@@ -31,7 +31,6 @@ import { TouchEvidence } from '../components/TouchEvidence';
 import { buildPatch, toForm, type Form } from '../dealPatch';
 import { DEAL_TEMPERATURES, temperatureLabel } from '../dealTemperature';
 import { formatCents } from '../money';
-import { useUsers } from '../useUsers';
 import { btn, btnDanger, btnPrimary, btnSecondary, card, field, input, label, muted, sectionTitle } from '../ui';
 
 export function DealDetailPage() {
@@ -200,7 +199,6 @@ export function StageControls({ deal, busy, onStage, onWon, onLost, onArchive, o
 }
 
 function DealFields({ deal, readOnly, onSave }: { deal: Deal; readOnly: boolean; onSave: (patch: DealPatch) => Promise<void> }) {
-  const users = useUsers();
   const [base] = useState(() => toForm(deal));
   const [f, setF] = useState(base);
   const set = <K extends keyof Form>(k: K, v: Form[K]) => setF(x => ({ ...x, [k]: v }));
@@ -256,7 +254,7 @@ function DealFields({ deal, readOnly, onSave }: { deal: Deal; readOnly: boolean;
         </div>
         <div>
           <label htmlFor="f-owner" className={label}>Owner</label>
-          <OwnerSelect id="f-owner" value={f.owner} onChange={v => set('owner', v)} users={users} currentName={deal.owner_name} />
+          <OwnerSelect id="f-owner" value={f.owner} onChange={v => set('owner', v)} currentName={deal.owner_name} />
         </div>
         <div className="md:col-span-2">
           <label htmlFor="f-notes" className={label}>Notes</label>

@@ -26,4 +26,10 @@ export default tseslint.config(
       ],
     },
   },
+  {
+    // Modules whose contract is a non-component export: an app's default `{ slug, App }`, a core
+    // area's route list, and a context's provider beside its hook. Fast refresh reloads them whole.
+    files: ['src/apps/*/index.tsx', 'src/core/*/routes.tsx', 'src/core/*/*Context.tsx'],
+    rules: { 'react-refresh/only-export-components': 'off' },
+  },
 )

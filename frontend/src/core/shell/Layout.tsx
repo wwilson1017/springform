@@ -23,16 +23,15 @@ export function Layout() {
   const [menuOpen, setMenuOpen] = useState(false);
   const workspace = useWorkspace();
 
-  // App nav for the apps this user receives. Hiding an app removes its nav for members only
-  // (the server does not send them hidden apps; the filter holds if it ever does).
-  const shown = new Set((apps ?? []).filter(a => !a.hidden || isAdmin).map(a => a.slug));
+  // App nav for the apps this user receives, in the server's order. Hiding an app removes its nav
+  // for members only (the server does not send them hidden apps; the filter holds if it ever does).
+  const shown = (apps ?? []).filter(a => !a.hidden || isAdmin);
   const nav: DrawerItem[] = [
     { to: '/', label: 'Home', icon: <IconHome size={18} aria-hidden /> },
     { to: '/people', label: 'People', icon: <IconUsers size={18} aria-hidden /> },
     { to: '/organizations', label: 'Organizations', icon: <IconBuilding size={18} aria-hidden /> },
     ...coreNavItems('primary', isAdmin),
-    ...navItems().filter(n => shown.has(n.slug))
-      .map(n => ({ to: n.to, label: n.label, icon: <AppIcon name={n.icon} size={18} aria-hidden /> })),
+    ...navItems(shown).map(n => ({ to: n.to, label: n.label, icon: <AppIcon name={n.icon} size={18} aria-hidden /> })),
   ];
   // Core pages that live behind the user menu (and in the drawer), not in the header.
   const menu: DrawerItem[] = coreNavItems('menu', isAdmin);

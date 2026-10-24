@@ -111,3 +111,5 @@ export const markReviewDone = () => postJson<ReviewStatus>(`${API}/review/done`)
 
 /** What changed for this user after `sinceRev` (sync.ts). */
 export const getChanges = (sinceRev: number) => fetchJson<Changes>(`${API}/changes${qs({ since_rev: sinceRev })}`);
+/** The feed's current rev as `next_since_rev`, with nothing in it: where a fresh page starts. */
+export const getChangesHead = () => fetchJson<Changes>(`${API}/changes?head=1`);

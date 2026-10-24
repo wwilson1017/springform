@@ -178,7 +178,6 @@ cat > "$frontend/index.tsx" <<EOF
 import type { AppModule } from '../../core/apps/types';
 
 /** Mounted by Root under \`/$slug/*\`, so routes in here are relative to it. */
-// eslint-disable-next-line react-refresh/only-export-components -- the contract is a default-exported { slug, App }
 function App() {
   return (
     <div className="mx-auto max-w-4xl px-4 py-8 md:px-8">

@@ -320,7 +320,7 @@ GET /api/core/changelog?app=&user_id=&entity_type=&entity_id=&before=<id>&limit=
 | `RemindersPage` (default, `/reminders`) | none | The caller's reminders: status and date filters (a `SavedViewBar` on surface `core.reminders`), create without a record, edit, snooze presets, done, delete. |
 | `RemindersPanel` | `{entityType, entityId}` | `GET /for`: everyone's reminders on the record; actions only on `mine`; add one for this record. |
 | `NoteComposer`, `MentionPicker`, `useMentionPicker` | `NoteComposer {entityType, entityId, onPosted}` | `@` lists `/api/core/timeline/mentionable?q=`; picking inserts `@[Name](user:ID)`. `Timeline` renders mentions as chips. |
-| `Timeline`, `Attachments` | `{entityType, entityId}` | `Attachments` shows `/thumb` when `has_thumb`, download and delete (a 403 says the record isn't writable). |
+| `Timeline`, `Attachments` | `{entityType, entityId}` | `Attachments` shows `/thumb` when `has_thumb`, download and delete (a 403 says the record isn't writable). `Timeline` reads a field change as "Value changed from 4,800.00 to 5,000.00" (`changeText.ts`): custom fields by label (definitions fetched once per entity type, archived included), `*_cents` as amounts, `*_user_id` and user fields by name, other columns humanized. It refetches when `recordChanged(entityType, entityId)` (`recordEvents.ts`) fires, which `CustomFields` does after a save. |
 
 Core pages, nav and settings come through the shell seams: `routes.tsx` (`reports`, `reminders`, `notifications`, lazy), `nav.tsx` (Reminders and Reports in the user menu), `settingsCards.ts` (`notifications` order 8, member; `records` order 35, admin).
 

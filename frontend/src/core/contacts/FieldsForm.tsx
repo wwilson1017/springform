@@ -3,13 +3,14 @@
  * channels, addresses and links. Values are strings; the caller maps them to the API.
  */
 import { useId, useState, type FormEvent } from 'react';
+import { UserPicker } from '../../shared/UserPicker';
 import * as ui from './ui';
 
 export interface FieldSpec {
   key: string;
   label: string;
-  type?: 'text' | 'email' | 'tel' | 'url' | 'date' | 'textarea' | 'select';
-  /** For a select: [value, label] pairs. */
+  type?: 'text' | 'email' | 'tel' | 'url' | 'date' | 'textarea' | 'select' | 'user';
+  /** For a select: [value, label] pairs. For a user: the fixed choices above the people (`['', 'Nobody']`). */
   options?: Array<[string, string]>;
   /** Suggestions for a free-text field. */
   suggest?: string[];
@@ -55,7 +56,8 @@ export function FieldsForm({ fields, initial, submitLabel, onSubmit, onCancel, c
                 <select {...common} onChange={e => change(e.target.value)}>
                   {f.options!.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
                 </select>
-              ) : (
+              ) : f.type === 'user' ? <UserPicker {...common} onChange={change} options={f.options} />
+              : (
                 <>
                   <input {...common} type={f.type ?? 'text'} list={f.suggest ? `${id}-list` : undefined} onChange={e => change(e.target.value)} />
                   {f.suggest && <datalist id={`${id}-list`}>{f.suggest.map(s => <option key={s} value={s} />)}</datalist>}

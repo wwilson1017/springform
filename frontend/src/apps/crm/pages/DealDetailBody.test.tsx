@@ -16,7 +16,7 @@ function setup(d: DealDetail, extra: Record<string, Reply> = {}) {
     [`GET ${URL}`]: { body: d },
     [`GET ${URL}/health`]: { body: { deal: d, score: null, factors: {}, stale_days: 14, flags: [] } },
     [`GET ${URL}/touch-evidence`]: { body: { deal_id: 7, open: true, stage: d.stage, ai_touch_count: null, computed_at: null, verdict_state: 'none', counted: null, evaluated: 0, truncated: false, events: [] } },
-    'GET /api/core/timeline/mentionable': { body: [] },
+    'GET /api/core/timeline/mentionable?q=': { body: [] },
     'GET /api/core/timeline?entity_type=crm.deal&entity_id=7&limit=50': { body: [] },
     'GET /api/core/files?entity_type=crm.deal&entity_id=7': { body: [] },
     ...extra,
@@ -107,5 +107,23 @@ describe('deal page stage controls', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
     await vi.waitFor(() => expect(callsTo(fetchMock, 'PATCH', URL)).toHaveLength(1));
     expect(body(fetchMock, 'PATCH', URL)).toEqual({ value_cents: 525_050, expected_close: '2026-12-01' });
+  });
+
+  it("shows the owner by the deal's owner_name and saves a new owner found by typing", async () => {
+    // Owner 31 is past the directory's first page; the deal answers the name.
+    const d = detail({ id: 7, owner_user_id: 31, owner_name: 'Zed Late' });
+    const fetchMock = setup(d, {
+      'GET /api/core/timeline/mentionable?q=bea': { body: [{ id: 4, name: 'Bea Rep' }] },
+      [`PATCH ${URL}`]: { body: deal({ ...d, owner_user_id: 4, owner_name: 'Bea Rep' }) },
+    });
+    const owner = await screen.findByLabelText('Owner') as HTMLInputElement;
+    expect(owner.value).toBe('Zed Late');
+    fireEvent.focus(owner);
+    fireEvent.change(owner, { target: { value: 'bea' } });
+    fireEvent.click(await screen.findByRole('option', { name: 'Bea Rep' }));
+    expect(owner.value).toBe('Bea Rep');
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await vi.waitFor(() => expect(callsTo(fetchMock, 'PATCH', URL)).toHaveLength(1));
+    expect(body(fetchMock, 'PATCH', URL)).toEqual({ owner_user_id: 4 });
   });
 });

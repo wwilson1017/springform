@@ -17,7 +17,6 @@ export function CoreAppsProvider({ children }: { children: ReactNode }) {
   return <CoreAppsContext.Provider value={{ apps: data, error, reload }}>{children}</CoreAppsContext.Provider>;
 }
 
-// eslint-disable-next-line react-refresh/only-export-components
 export function useCoreApps(): CoreAppsValue {
   const ctx = useContext(CoreAppsContext);
   if (!ctx) throw new Error('useCoreApps must be used within CoreAppsProvider');
