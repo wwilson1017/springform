@@ -98,7 +98,7 @@ Open (pinned by the implementing workstream, which updates this doc): signatures
 
 `DEFAULTS = {key: value}` provides defaults for `core_settings(key PK, value, is_secret, updated_at, updated_by)`.
 
-App setting keys are `<slug>.<key>`.
+App setting keys are `<slug>.<key>`. An admin sets them through `PUT /api/core/settings`, which accepts any JSON value for an app key; core keys are listed in `platform.md`.
 
 ### `migrations/`
 

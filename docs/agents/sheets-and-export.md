@@ -9,7 +9,7 @@ Code: the `backend/core/sheets/` package (`api.py` the published client, `servic
 
 Lifted from cake_os (private) `backend/core/google_sheets.py` (261).
 
-1. The service-account JSON is stored encrypted in `core_settings['sheets.service_account_json']`.
+1. The service-account JSON is stored encrypted in `core_settings['sheets.service_account_json']`, written by the admin-only `PUT /api/core/sheets/credentials {service_account_json}`.
 2. `service_account_email()` is shown in the UI as: "share with this address: Viewer for read, Editor for write".
 3. Settings has a Sheets key card; the Sheets admin page lists connected sheets (`frontend-shell.md`).
 

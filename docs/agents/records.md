@@ -185,7 +185,7 @@ core_notifications(
 )
 core_notification_deliveries(notification_id, channel, status, attempts, last_error, sent_at)
 core_push_subscriptions
--- VAPID keys live in core_settings
+-- VAPID keys live in core_settings (notifications.vapid_public_key / _private_key), generated
 ```
 
 ### `deliver_in`
