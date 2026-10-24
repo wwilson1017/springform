@@ -22,6 +22,9 @@ Conventions:
 
 - Repository tooling: CI for upstream and forks, Docker image with SQLite 3.51.3, one-script VPS
   deploy, fork scripts and release workflow.
+- Settings: editable workspace name and timezone, app hide/show and reorder, GitHub and Google Sheets
+  integrations, export download and upload limit; a Backups page with "Back up now", downloads and the
+  one-time encryption-key reveal.
 
 ### Schema
 

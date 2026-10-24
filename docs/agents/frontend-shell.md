@@ -48,7 +48,9 @@ W6 owns the settings registry and `settings/`. W1 (Security, Users) and W9 (AI, 
 
 Core page paths: `/`, `/login`, `/setup`, `/invite/:token`, `/people`, `/people/:id`, `/organizations`, `/organizations/:id`, `/settings/*`, `/guide`, `/requests`, `/changelog`, `/backups`, `/jobs`, `/whisk`, `/reminders`, `/notifications`. Each first segment is a reserved slug (`apps-and-contracts.md` §1).
 
-Open (pinned by the implementing workstream, which updates this doc): the Sheets admin page's path (it is not in the list above; `sheets` is reserved). The settings registry's card interface, and where core cards are declared. The `core_requests` columns, the Requests routes, and where the "configurable warning text" is stored. The Guide's routes. (The 8k cap is the donor's `MAX_TOPIC_CHARS = 8000`, characters per topic.)
+Pinned (Settings and Backups): there is no Sheets admin page; connected sheets are administered in Settings → Integrations (`/settings/integrations`), so `sheets` stays reserved but unrouted. Settings cards are declared per core area in `src/core/<area>/settingsCards.ts` (`SettingsSection[]`, see `settingsSections.ts`): Workspace (10) and Apps (20) from `settings/`, Integrations (50: GitHub, Google Sheets) from `integrations/`, Data (60: Export, Files) from `settings/`. Workspace and Apps are member-visible read-only; admins edit them. The Requests warning text is the `requests.warning_text` setting, edited on the GitHub card. `/backups` is `src/core/backups/` (route and an admin-only user-menu item). The header's install name comes from `GET /api/core/workspace` through `useWorkspace()`.
+
+Open (pinned by the implementing workstream, which updates this doc): the `core_requests` columns and the Requests routes. The Guide's routes. (The 8k cap is the donor's `MAX_TOPIC_CHARS = 8000`, characters per topic.)
 
 ## 4. Type generation (§12)
 
