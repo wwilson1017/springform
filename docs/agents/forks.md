@@ -65,7 +65,7 @@ An upstream-update PR passes the scope check because it moves the tag in the sam
 | `pyproject.toml`, `uv.lock`, `package.json`, `package-lock.json` | Dependency manifests and lockfiles. |
 | Globs listed in `fork-allow.txt` | Branding, README, and other allow-listed paths, each with a reason. |
 
-Note that `backend/apps/crm`, `backend/apps/todos` and `backend/apps/example` sit under `backend/apps/`, so the rule as written exempts edits to the built-in apps in a fork.
+`backend/apps/**` and `frontend/src/apps/**` are fork-editable in full, built-in apps included. That is intended: a fork may customise CRM or Todos, and upstream updates to them then merge like any other change.
 
 Open: `FORK.md`'s format (how the script reads the tag) and `fork-allow.txt`'s format (one glob per line, reason syntax) are not stated.
 
