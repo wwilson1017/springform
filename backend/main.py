@@ -14,8 +14,6 @@ from fastapi.routing import APIRoute
 from backend.core import REPO_ROOT, VERSION, db, errors, preview, registry, scheduler, settings
 from backend.core.auth import bootstrap, csrf
 from backend.core.auth.deps import User, current_user
-from backend.core.auth.router import router as auth_router
-from backend.core.timeline.router import router as timeline_router
 
 FRONTEND_DIST = REPO_ROOT / "frontend" / "dist"
 
@@ -34,6 +32,7 @@ def create_app(apps_dir: Path = db.APPS_DIR) -> FastAPI:
         registry.seed_apps()
         preview.seed()
         bootstrap.ensure_setup_token()
+        registry.run_startup_hooks()
         app.state.scheduler = scheduler.Scheduler(scheduler.jobs())
         await app.state.scheduler.start()
         try:
@@ -45,8 +44,8 @@ def create_app(apps_dir: Path = db.APPS_DIR) -> FastAPI:
     app = FastAPI(title="Springform", version=VERSION, lifespan=lifespan, generate_unique_id_function=_operation_id)
     errors.install(app)
     csrf.install(app)
-    app.include_router(auth_router)
-    app.include_router(timeline_router)
+    # Core routers (`backend/core/<pkg>/router.py`), hooks, jobs and tools are picked up by
+    # registry.install(), like an app's; nobody edits this file to add one.
 
     @app.get("/up", response_class=PlainTextResponse, include_in_schema=False)
     def up() -> str:

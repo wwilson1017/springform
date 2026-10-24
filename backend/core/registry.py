@@ -33,8 +33,43 @@ from backend.core.errors import Forbidden, NotFound
 from backend.core.reports import registry as reports
 from backend.core.timeline import service as timeline_service
 
-RESERVED_SLUGS = frozenset({"core", "api", "auth", "mcp", "up", "assets"})
+RESERVED_SLUGS = frozenset(
+    {
+        "core", "api", "auth", "mcp", "up", "assets", "agent", "me", "health", "settings", "people",
+        "organizations", "guide", "requests", "login", "setup", "invite", "changelog", "backups", "jobs",
+        "sheets", "notifications", "reminders", "whisk", "files", "timeline", "export",
+    }
+)  # fmt: skip
 MODULES = ("router", "seed", "api", "entities", "hooks", "reports", "tools", "jobs", "settings")
+
+CORE_DIR = Path(__file__).resolve().parent
+CORE_MODULES = ("router", "hooks", "jobs", "tools", "startup")
+
+
+def run_startup_hooks() -> None:
+    """`backend/core/<pkg>/startup.py` may export `on_startup()`; called from the lifespan after
+    migrations and seeds, inside the process lock, before the scheduler starts."""
+    for mods in core_packages().values():
+        fn = getattr(mods.get("startup"), "on_startup", None)
+        if fn:
+            fn()
+
+
+def core_packages() -> dict[str, dict[str, ModuleType]]:
+    """Core packages (`backend/core/<pkg>/`) contribute like apps do: `router.py` (exports `router`,
+    included as-is, it sets its own `/api/...` prefix), `hooks.py` (HOOKS), `jobs.py` (JOBS) and
+    `tools.py` (get_tools(), names prefixed `core_`). A workstream adds a package and never edits
+    this file or main.py."""
+    out: dict[str, dict[str, ModuleType]] = {}
+    for p in sorted(CORE_DIR.iterdir()):
+        if not (p.is_dir() and (p / "__init__.py").is_file()):
+            continue
+        mods = {
+            m: importlib.import_module(f"backend.core.{p.name}.{m}") for m in CORE_MODULES if (p / f"{m}.py").is_file()
+        }
+        if mods:
+            out[p.name] = mods
+    return out
 
 
 class AppContractError(RuntimeError):
@@ -168,9 +203,19 @@ def install(fastapi_app: FastAPI, apps_dir: Path = db.APPS_DIR) -> list[App]:
     entities.subscribe("on_entity_merged", timeline_service.on_entity_merged_in)
     for job in CORE_JOBS:
         scheduler.register(job)
+    specs: list[ToolSpec] = []
+    for mods in core_packages().values():
+        if "router" in mods:
+            fastapi_app.include_router(mods["router"].router)
+        for hook, fns in getattr(mods.get("hooks"), "HOOKS", {}).items():
+            for fn in fns:
+                entities.subscribe(hook, fn)
+        for job in getattr(mods.get("jobs"), "JOBS", []):
+            scheduler.register(job)
+        if "tools" in mods:
+            specs += [replace(t, app="core") for t in mods["tools"].get_tools()]
 
     apps = discover(apps_dir)
-    specs: list[ToolSpec] = []
     for app in apps:
         specs += mount_app(fastapi_app, app)
     agent_registry.set_current(agent_registry.build_registry(specs))
