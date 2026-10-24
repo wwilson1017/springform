@@ -154,6 +154,56 @@ One flow, `PREVIEW_MODE=1`, seeded:
 11. Password login → enable 2FA (pyotp) → Google login via the preview stub.
 12. Whisk answers with FakeProvider → a write tool shows Approve and runs on approve → zero-key card.
 
+### Browser smoke
+
+`frontend/e2e/`, one spec per area, run with `npm run e2e` (that is `scripts/e2e.sh`; extra arguments go to `playwright test`). The script builds the SPA, boots two `PREVIEW_MODE=1` backends on fresh temp data dirs with `SPRINGFORM_FREEZE_CLOCK` (port 8160 with `AGENT_FAKE_PROVIDER=1`, port 8161 with no AI key), runs Chromium at 1280 and 390 px, stops both by PID and exits with Playwright's status. The HTML report, traces (first retry) and server logs land in `E2E_ARTIFACTS` (a temp dir by default; the script prints it). Against a backend you started yourself: `E2E_BASE_URL=… npx playwright test`.
+
+- Sign-in: `e2e/fixtures.ts` gives a test `admin` and `member` sessions (`POST /api/auth/preview`), each its own context with `page`, `api` and `user`, and fails a test on any uncaught page error. Cookie-authenticated API calls send `Sec-Fetch-Site: same-origin`, as a browser does.
+- Frozen clock: reminders fire by "Run now" on the Jobs page (`core.reminders_fire_due`), since the scheduler's own tick is frozen too. TOTP codes are computed for `E2E_FREEZE_CLOCK` (`e2e/totp.ts`), one step apart for enrolment and sign-in.
+- Install-wide state runs in the desktop project only: Back up now (a frozen clock gives every set the same stamp) and hiding an app (on the keyless backend).
+- A spec a known bug blocks is `test.fixme('<finding id>: …')`, never `skip`.
+
+CI job (beside Frontend in `.github/workflows/ci.yml`):
+
+```yaml
+  browser-smoke:
+    name: Browser smoke
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up Node 22
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Set up uv and Python 3.12
+        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          version: "0.12.24"
+          python-version: "3.12"
+          enable-cache: true
+      - name: Install dependencies and Chromium
+        run: |
+          uv sync --frozen
+          cd frontend && npm ci && npx playwright install --with-deps chromium
+      - name: Smoke (Playwright)
+        env:
+          E2E_ARTIFACTS: ${{ runner.temp }}/e2e
+        run: scripts/e2e.sh
+      - name: Upload the report, traces and server logs
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: playwright-report
+          path: ${{ runner.temp }}/e2e
+          retention-days: 14
+```
+
 ## 5. Live checks (Step 5)
 
 - Fresh-VPS dry run in a Multipass Ubuntu 24.04 VM: `setup.sh` with `DOMAIN=localhost`, `/up`, `deploy.sh` to a second tag, including a restore drill into an empty volume.
