@@ -9,7 +9,7 @@ The directory is core so every app points at the same people. People and organiz
 
 ## 1. Tables
 
-Migration: the core init migration, `20261020000100_core_init.sql`. There is no separate contacts migration.
+Migrations: the tables are in the core init migration, `20261020000100_core_init.sql`. `20261020000300_core_contacts.sql` adds two partial unique indexes: one primary channel per (owner, kind), and one primary address per owner.
 
 ```sql
 core_people(
@@ -45,7 +45,7 @@ core_contact_channels(owner_type, owner_id,
 core_contacts_fts   -- FTS5, tokenize = unicode61, over both people and organizations, maintained by triggers
 ```
 
-Open (pinned by the implementing workstream, which updates this doc): the `…` columns of `core_people` (timestamps), the enum values of `source` and `status`, and the FTS column list are not stated. Whether `core_addresses` and `core_contact_channels` have their own primary-uniqueness index per owner (the plan states one only for links).
+Open (pinned by the implementing workstream, which updates this doc): the `…` columns of `core_people` (timestamps), the enum values of `source` and `status`, and the FTS column list are not stated.
 
 ## 2. Primary-channel sync
 
@@ -57,21 +57,22 @@ Open (pinned by the implementing workstream, which updates this doc): whether `c
 
 ## 3. Merge
 
-`merge_people_in(conn, target_id, source_id, actor)` and the organization twin.
+The service forms are `contacts.service.merge_people_in(conn, target_id, source_id, actor)` and `merge_organizations_in`. The published `contacts.api` forms put the user first: `merge_people_in(conn, user, target_id, source_id)` and `merge_organizations_in(conn, user, target_id, source_id)`.
 
 **Preconditions**
 
 1. Both ids are first resolved to their chain heads: `resolve(id)` follows `merged_into_id` with a cycle guard.
-2. Self-merge is refused.
-3. Merging into an archived record is refused.
-4. The survivor is the **target**.
+2. Self-merge is refused (422).
+3. Merging into an archived record is refused (409).
+4. The actor needs write access to both records.
+5. The survivor is the **target**.
 
 **Per-table rules**
 
 | Data | Rule |
 |---|---|
-| Person–organization links | The source's primary flag is cleared **before** rows move (so the partial unique index is never violated mid-transaction). On a `UNIQUE(person, org, role)` collision the target's row is kept and the source's dropped. |
-| Addresses, channels | Moved to the target; source primaries demoted. |
+| Person–organization links | The source's primary flags are cleared **before** rows move, so the partial unique index is never violated mid-transaction. On a `UNIQUE(person, org, role)` collision the target's row is kept and the source's dropped. A cleared primary comes back on the moved or kept row only when that person has no other primary. |
+| Addresses, channels | Moved to the target. A source channel equal to one of the target's (same kind and value, ignoring case) is dropped. A source primary is demoted where the target already has a primary for that slot (per kind for channels, one per owner for addresses); otherwise it stays primary on the target. |
 | Files | Repointed; on an `(entity, sha256)` collision the source row is dropped (same bytes). |
 | Custom field values | The target's non-empty value wins, else the source's. |
 | Timeline rows | Repointed, keeping their original author and time, plus one `system` row on the survivor: "merged #<source> into this record". |
@@ -84,7 +85,7 @@ Open (pinned by the implementing workstream, which updates this doc): whether `c
 1. The source gets `merged_into_id = target` and `archived_at`.
 2. **Every older alias that pointed at the source is re-pointed at the target.** Aliases are kept flat, so a read of any merged id resolves in one hop.
 3. Reads of a merged id return **200** `{"merged_into": head}`.
-4. The merge writes one `core_change_log` row per record.
+4. The merge writes one `core_change_log` row, on the survivor: `field` is `merged_from` and `new` is the source id.
 5. A failing subscriber rolls the whole merge back.
 
 ## 4. Published `contacts.api`
