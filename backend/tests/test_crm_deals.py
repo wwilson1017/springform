@@ -288,7 +288,7 @@ def test_a_person_merge_repoints_deals_and_keeps_the_higher_score(me, people):
     activity.log(me, "call", person_id=people["ada"])
     with core_db.transaction() as conn:
         conn.executemany(
-            "INSERT INTO crm_person_scores (person_id, lead_score, lead_score_at) VALUES (?, ?, ?)",
+            "INSERT OR REPLACE INTO crm_person_scores (person_id, lead_score, lead_score_at) VALUES (?, ?, ?)",
             [(people["zoe"], 40, NOW), (people["ada"], 75, NOW)],
         )
         contacts.merge_people_in(conn, me, people["zoe"], people["ada"])
@@ -313,7 +313,7 @@ def test_a_failing_crm_subscriber_rolls_the_core_merge_back(me, people, monkeypa
 def test_deleting_a_person_clears_its_score_and_unlinks_its_deals(me, people):
     deal = new(me, person_id=people["ada"])
     with core_db.transaction() as conn:
-        conn.execute("INSERT INTO crm_person_scores (person_id, lead_score, lead_score_at) VALUES (?, 50, ?)", (people["ada"], NOW))
+        conn.execute("INSERT OR REPLACE INTO crm_person_scores (person_id, lead_score, lead_score_at) VALUES (?, 50, ?)", (people["ada"], NOW))
         provenance.record_fields_in(conn, "core.person", people["ada"], ["title"])
         entities.delete_record_in(conn, "core.person", people["ada"])
     assert deals.get(me, deal["id"])["person_id"] is None
