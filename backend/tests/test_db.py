@@ -55,8 +55,9 @@ def test_migrations_order_core_first_then_timestamp(tmp_path):
     b = _app(tmp_path, "bbb", {"20261101000000_bbb_init.sql": ""})
     a = _app(tmp_path, "aaa", {"20261102000000_aaa_init.sql": "", "20261101000000_aaa_init.sql": ""})
     names = [f.name for f in core_db.migration_files([b, a])]
-    assert names[0].startswith("20261020") and "core" in names[0]
-    assert names[1:] == ["20261101000000_aaa_init.sql", "20261101000000_bbb_init.sql", "20261102000000_aaa_init.sql"]
+    core = sorted(f.name for f in core_db.CORE_MIGRATIONS.glob("*.sql"))
+    assert names[: len(core)] == core and all(n.startswith("20261020") and "_core_" in n for n in core)
+    assert names[len(core) :] == ["20261101000000_aaa_init.sql", "20261101000000_bbb_init.sql", "20261102000000_aaa_init.sql"]
 
 
 def test_changed_applied_migration_fails_startup(tmp_path):
@@ -78,7 +79,7 @@ def test_failing_migration_leaves_no_partial_ddl(tmp_path):
         core_db.migrate([app_dir])
     assert "fx_a" not in _tables()
     applied = [r["filename"] for r in core_db.rows("SELECT filename FROM _migrations_applied")]
-    assert applied == ["20261020000100_core_init.sql"]
+    assert applied == sorted(f.name for f in core_db.CORE_MIGRATIONS.glob("*.sql"))  # core applied, the app not
     assert not core_db.get_conn().in_transaction
 
 
