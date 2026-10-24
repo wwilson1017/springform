@@ -71,7 +71,7 @@ function Sections({ a }: { a: Analytics }) {
         ) : <p className={`${muted} mt-3`}>No closed deals yet.</p>}
       </section>
 
-      <div className="grid gap-6 md:grid-cols-2">
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
         <section className={`${card} p-4`}>
           <h2 className={sectionTitle}>Activity · {a.activity.total} in {a.window_days} days</h2>
           {a.activity.total === 0 ? <p className={muted}>No activity logged in this window.</p> : (

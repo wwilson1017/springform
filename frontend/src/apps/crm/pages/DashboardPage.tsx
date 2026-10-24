@@ -70,7 +70,7 @@ export function DashboardPage() {
         </ul>
       </section>
 
-      <div className="grid gap-6 md:grid-cols-2">
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
         <section className={`${card} p-4`}>
           <h2 className={sectionTitle}>Deals to watch</h2>
           {data.top_deals.length === 0 ? <p className={muted}>No open deals past lead yet.</p> : (

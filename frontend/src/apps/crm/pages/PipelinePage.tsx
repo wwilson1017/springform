@@ -229,7 +229,9 @@ export function PipelinePage() {
             {data.deals.length === 0 && (
               <p className={`${muted} px-4 pb-4 md:px-8`}>No deals yet. <button type="button" onClick={() => setCreating(true)} className={btnLink}>Create the first one</button>.</p>
             )}
-            <div className="flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-24 md:snap-none md:px-8">
+            {/* relative: the cards' sr-only labels are absolutely positioned; without a positioned ancestor
+                their spot inside the scrolled board widens the whole document on a phone. */}
+            <div className="relative flex scroll-px-4 snap-x snap-mandatory items-start gap-3 overflow-x-auto px-4 pb-24 md:snap-none md:px-8">
               {columns.map(col => (
                 <Column key={col.stage} stage={col.stage} count={col.count} totalCents={col.totalCents}
                   summary={criteria?.find(c => c.stage === col.stage)?.summary}
