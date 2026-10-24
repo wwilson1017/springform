@@ -89,7 +89,7 @@ The image follows ONCE's contract: **one port, `/up`, data in `/data`, configura
 |---|---|
 | Port | One HTTP port: `PORT` from the environment, default 8000. Railway sets `PORT`; Caddy proxies to `app:{$PORT}`. |
 | `/up` | `SELECT 1`, then `200 "ok"`. No auth. Docker `HEALTHCHECK` and Railway's healthcheck use it. |
-| `/api/health` | `{version, sqlite_version, fts5, preview, apps:[slug], last_backup_at}`. No auth. `version` is read from `springform-version`. |
+| `/api/health` | `{version, sqlite_version, fts5, preview, apps:[slug], last_backup_at, key_mismatch}`. No auth. `version` is read from `springform-version`. |
 | `/data` | The only state. Everything a restore needs is in it (see below). |
 | Env config | Configuration comes from the environment. The image bakes in only `DATA_DIR=/data` and `SPRINGFORM_REQUIRE_SQLITE=1`. |
 

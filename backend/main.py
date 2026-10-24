@@ -66,6 +66,7 @@ def create_app(apps_dir: Path = db.APPS_DIR) -> FastAPI:
             "preview": settings.preview_mode(),
             "apps": [a.slug for a in registry.installed()],
             "last_backup_at": backup.last_backup_at(),
+            "key_mismatch": backup.key_mismatch() is not None,
         }
 
     @app.get("/api/core/apps", tags=["core"], response_model=list[CoreApp])

@@ -1,10 +1,11 @@
 from pathlib import Path
 
 import pytest
+from fastapi.testclient import TestClient
 
 from backend.apps.example import service
 from backend.apps.example.models import WidgetIn
-from backend.core import db as core_db, registry
+from backend.core import db as core_db, registry, scheduler
 from backend.core.agent import registry as tools
 from backend.core.errors import Forbidden
 from backend.core.timeline import api as timeline
@@ -41,6 +42,29 @@ def test_apps_listing_by_role_and_hidden_state(login_as):
         conn.execute("INSERT INTO core_apps_state (slug, hidden) VALUES ('example', 1)")
     assert example(member) is None
     assert example(admin)["hidden"] is True
+
+
+def test_an_app_hidden_by_default_stays_hidden_until_an_admin_shows_it(app, login_as, monkeypatch):
+    monkeypatch.setattr(scheduler, "jobs", lambda: {})  # boot without the scheduler's catch-up runs
+    admin, member = login_as("admin"), login_as("member")
+
+    def listed(client) -> dict[str, bool]:
+        return {a["slug"]: a["hidden"] for a in client.get("/api/core/apps").json()}
+
+    assert registry.get_app("example").manifest.hidden_by_default is True
+    assert registry.load_manifest(ADMIN_ONLY_APPS / "adminonly").hidden_by_default is False
+    with TestClient(app):  # first boot: each app's state row is created from its manifest
+        assert "example" not in listed(member) and listed(member)["todos"] is False
+        assert listed(admin)["example"] is True
+        assert admin.patch("/api/core/apps/example", json={"hidden": False}).status_code == 200
+    with TestClient(app):  # a later boot keeps the admin's choice
+        assert listed(member)["example"] is False
+        admin.patch("/api/core/apps/todos", json={"hidden": True})
+        monkeypatch.setenv("PREVIEW_MODE", "1")
+        with core_db.transaction() as conn:
+            registry.factory_reset_in(conn)  # a reset install starts from the manifests again
+        hidden = core_db.rows("SELECT slug, hidden FROM core_apps_state WHERE slug IN ('example', 'todos') ORDER BY slug")
+        assert hidden == [{"slug": "example", "hidden": 1}, {"slug": "todos", "hidden": 0}]
 
 
 def test_reset_keeps_ids_climbing_and_old_content_unreachable(app, make_user):

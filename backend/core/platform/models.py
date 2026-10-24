@@ -36,6 +36,7 @@ class Health(Out):
     preview: bool
     apps: list[str]
     last_backup_at: str | None
+    key_mismatch: bool  # the boot found the newest backup taken under another encryption key
 
 
 class CoreApp(Out):

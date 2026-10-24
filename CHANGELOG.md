@@ -56,6 +56,10 @@ Conventions:
   longer walks the whole change journal.
 - The CRM weekly touches window carries `start_day` and `end_day`, the install-local days it
   covers, which a client can send back as the `start`/`end` range.
+- App manifest field `hidden_by_default`: the app starts hidden from members on an install that has
+  not seen it before; an admin's later show or hide always wins.
+- The Backups overview carries `key_mismatch`, the newest backup manifest taken under another
+  encryption key (null when they match), and `/api/health` carries `key_mismatch` as true or false.
 
 ### Changed
 
@@ -103,6 +107,9 @@ Conventions:
   sample (the CRM's deals) no longer has to seed them itself.
 - A `springform-version` that is not a PEP 440 version (such as `0.1.0-dryrun-b`) stops the boot
   with a message naming the file and the value, instead of an uncaught `InvalidVersion`.
+- A second backup in the same second (a frozen clock, a double click on "Back up now") is saved as
+  `<stamp>-2`, `-3`, … instead of failing with "already exists".
+- The Example app is hidden from members on a fresh install, as its tile and the docs say.
 - A boot whose encryption key does not match the newest backup's logs an error with the remedy and
   records it for the Backups page, instead of serving with every stored secret silently unset.
 

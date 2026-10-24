@@ -6,6 +6,7 @@
   "icon": "flask",
   "roles": ["admin", "member"],
   "order": 900,
+  "hidden_by_default": true,
   "badge": "/api/example/badge",
   "docs": "docs/index.md",
   "version": "0.1.0",
