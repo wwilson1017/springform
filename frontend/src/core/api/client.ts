@@ -65,6 +65,7 @@ function send<T>(method: string, path: string, body?: unknown): Promise<T> {
 export const fetchJson = <T>(path: string, signal?: AbortSignal) => request<T>(path, { signal });
 export const postJson = <T>(path: string, body?: unknown) => send<T>('POST', path, body);
 export const patchJson = <T>(path: string, body: unknown) => send<T>('PATCH', path, body);
+export const putJson = <T>(path: string, body: unknown) => send<T>('PUT', path, body);
 export const del = (path: string) => request<void>(path, { method: 'DELETE' });
 /** Multipart POST; the browser sets the boundary, so no Content-Type header here. */
 export const upload = <T>(path: string, form: FormData) => request<T>(path, { method: 'POST', body: form });
