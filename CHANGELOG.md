@@ -68,6 +68,8 @@ Conventions:
 - Report CSV downloads check and default their params like the report page (bad params are 422).
 - The settings API lists only keys an admin can change, so saving every listed value works.
 - Example widget links open the widget page.
+- Timeline field changes name custom fields by their label, show amounts as money and columns in
+  words ("Value", not "value_cents"), and a custom field save shows up in the timeline at once.
 - The header's app links follow the order set in Settings, like the launcher.
 - Person and organization pages show the Fields and Reminders headings once, without a "Services"
   heading over them.

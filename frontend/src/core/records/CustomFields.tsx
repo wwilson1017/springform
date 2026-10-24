@@ -15,6 +15,7 @@ import { LoadError } from '../../shared/LoadError';
 import { toast } from '../../shared/toast';
 import { FieldInput } from './FieldInput';
 import { displayValue, draftChanged, fromDraft, toDraft, type Draft } from './fieldValues';
+import { recordChanged } from './recordEvents';
 import type { FieldDefinition, FieldValue } from './types';
 import { BTN_LINK, BTN_PRIMARY, BTN_SECONDARY, H_SECTION, LABEL, errorText } from './ui';
 
@@ -66,6 +67,7 @@ export function CustomFields({ entityType, entityId }: CustomFieldsProps) {
     try {
       values.setData(await putJson<Values>('/api/core/fields/values', { entity_type: entityType, entity_id: entityId, values: changed }));
       setDrafts(null);
+      recordChanged(entityType, entityId);
     } catch (err) {
       if (err instanceof ApiError && err.status === 403) {
         setReadOnly(true);

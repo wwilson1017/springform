@@ -4,17 +4,49 @@
  * Minimal on purpose; a later wave lifts CakeCRM's richer NotesThread/ActivityTimeline onto the
  * same props.
  */
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { fetchJson } from '../api/client';
-import type { FieldChange, TimelineEntry } from '../api/types';
+import type { TimelineEntry } from '../api/types';
 import { useJson } from '../api/useJson';
 import { formatDate } from '../../shared/formatDate';
 import { LoadError } from '../../shared/LoadError';
 import { toast } from '../../shared/toast';
+import { describeChange } from './changeText';
 import { bodySegments } from './mentions';
 import { NoteComposer } from './NoteComposer';
+import { onRecordChanged } from './recordEvents';
+import type { FieldDefinition } from './types';
 
 const PAGE = 50;
+
+// Custom field labels by key, one fetch per entity type for the page's life (archived fields
+// included, so an old change still reads by its label). A key added since shows humanized.
+const labelCache = new Map<string, Promise<Record<string, string>>>();
+
+function fieldLabels(entityType: string): Promise<Record<string, string>> {
+  let labels = labelCache.get(entityType);
+  if (!labels) {
+    const url = `/api/core/fields/definitions?${new URLSearchParams({ entity_type: entityType, include_archived: 'true' })}`;
+    labels = fetchJson<FieldDefinition[]>(url).then(
+      defs => Object.fromEntries(defs.map(d => [d.key, d.label])),
+      () => { labelCache.delete(entityType); return {}; },
+    );
+    labelCache.set(entityType, labels);
+  }
+  return labels;
+}
+
+/** The labels, fetched only once a custom field change is on screen. */
+function useFieldLabels(entityType: string, needed: boolean): Record<string, string> {
+  const [loaded, setLoaded] = useState<{ entityType: string; labels: Record<string, string> } | null>(null);
+  useEffect(() => {
+    if (!needed) return;
+    let live = true;
+    void fieldLabels(entityType).then(labels => { if (live) setLoaded({ entityType, labels }); });
+    return () => { live = false; };
+  }, [entityType, needed]);
+  return loaded?.entityType === entityType ? loaded.labels : {};
+}
 
 export interface TimelineProps {
   entityType: string;
@@ -30,6 +62,12 @@ export function Timeline({ entityType, entityId }: TimelineProps) {
   const olderHere = older?.base === base ? older : null;
   const entries = first && [...first, ...(olderHere?.entries ?? [])];
   const more = olderHere ? olderHere.more : first?.length === PAGE;
+  const labels = useFieldLabels(entityType, entries?.some(e => e.changes?.some(c => c.field.startsWith('field.'))) ?? false);
+
+  // A custom field save on this record writes a change entry; show it.
+  useEffect(() => onRecordChanged((type, id) => {
+    if (type === entityType && id === entityId) { setOlder(null); reload(); }
+  }), [entityType, entityId, reload]);
 
   async function showOlder() {
     const last = entries![entries!.length - 1];
@@ -56,7 +94,7 @@ export function Timeline({ entityType, entityId }: TimelineProps) {
         : entries.length === 0 ? <p className="m-0 text-sm text-sf-ink-dim">No activity yet.</p>
         : (
           <ol className="m-0 flex list-none flex-col gap-3 p-0">
-            {entries.map(entry => <Entry key={entry.id} entry={entry} />)}
+            {entries.map(entry => <Entry key={entry.id} entry={entry} labels={labels} />)}
           </ol>
         )}
       {more && (
@@ -69,14 +107,14 @@ export function Timeline({ entityType, entityId }: TimelineProps) {
   );
 }
 
-function Entry({ entry }: { entry: TimelineEntry }) {
+function Entry({ entry, labels }: { entry: TimelineEntry; labels: Record<string, string> }) {
   const who = entry.author?.name ?? 'System';
   return (
     <li className="border-l-2 border-sf-line-strong pl-3">
       <div className="text-xs text-sf-ink-dim">{who} · {formatDate(entry.created_at)}</div>
       {entry.kind === 'field_change' ? (
         <ul className="m-0 list-none p-0 text-sm text-sf-ink-mute">
-          {(entry.changes ?? []).map(c => <li key={c.field}>{describeChange(c)}</li>)}
+          {(entry.changes ?? []).map(c => <li key={c.field}>{describeChange(c, labels)}</li>)}
         </ul>
       ) : (
         <p className={`m-0 whitespace-pre-wrap text-sm ${entry.kind === 'system' ? 'text-sf-ink-soft' : 'text-sf-ink'}`}>
@@ -87,15 +125,4 @@ function Entry({ entry }: { entry: TimelineEntry }) {
       )}
     </li>
   );
-}
-
-function show(value: unknown): string {
-  if (value === null || value === undefined || value === '') return 'empty';
-  if (typeof value === 'boolean') return value ? 'yes' : 'no';
-  return typeof value === 'object' ? JSON.stringify(value) : String(value);
-}
-
-/** "changed color from red to blue" */
-function describeChange(c: FieldChange): string {
-  return `changed ${c.field.replace(/_/g, ' ')} from ${show(c.old)} to ${show(c.new)}`;
 }

@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { callsTo, mockFetch } from '../../testing';
 import { CustomFields } from './CustomFields';
 import { fromDraft, toDraft } from './fieldValues';
+import { onRecordChanged } from './recordEvents';
 import type { FieldDefinition, FieldType } from './types';
 
 const DEFS = '/api/core/fields/definitions?entity_type=example.widget';
@@ -48,6 +49,8 @@ describe('CustomFields', () => {
 
   it('renders the editor each type needs and PUTs only what changed, typed, in one request', async () => {
     const fetchMock = renderAll({ notes: 'Handle with care', tier: 'Gold', tags: ['a'] });
+    const changed = vi.fn();
+    const unsubscribe = onRecordChanged(changed);
     fireEvent.click(await screen.findByRole('button', { name: 'Edit' }));
     expect((screen.getByLabelText('size') as HTMLInputElement).type).toBe('number');
     expect((screen.getByLabelText('ships on') as HTMLInputElement).type).toBe('date');
@@ -70,6 +73,9 @@ describe('CustomFields', () => {
       entity_type: 'example.widget', entity_id: 7,
       values: { size: 12, fragile: false, ships_on: '2026-12-01', tags: ['a', 'b'], rep: 2, tier: null },
     });
+    // The record's Timeline hears about the save, so the change entry shows.
+    await vi.waitFor(() => expect(changed).toHaveBeenCalledWith('example.widget', 7));
+    unsubscribe();
   });
 
   it('turns read-only when the server says the record is not writable', async () => {
