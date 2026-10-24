@@ -21,7 +21,7 @@
 1. `vite-plugin-apps.ts` provides `virtual:springform-apps` from `backend/apps/*/app.json`.
 2. `src/core/apps/registry.ts` zips the manifests with `import.meta.glob('../../apps/*/contributions.ts', { eager: true })` and `import.meta.glob('../../apps/*/index.tsx')` (lazy).
 3. `Root.tsx` emits one `<Route path={`${path}/*`}>` per manifest.
-4. Record pages render apps' `recordPanels` for their entity type.
+4. Record pages render apps' `recordPanels` for their entity type, passing `{entityType, entityId}`.
 5. Full contract in `apps-and-contracts.md` §5.
 
 ### bootSplit rule
@@ -46,7 +46,9 @@
 
 W6 owns the settings registry and `settings/`. W1 (Security, Users) and W9 (AI, MCP) contribute cards **through the registry W6 defines in Step 1**; they do not edit `settings/`.
 
-Open: core page paths (`/settings`, `/people`, `/organizations`, `/guide`, `/requests`, `/changelog`, `/backups`, `/jobs`, `/sheets`, `/whisk`, `/login`, `/setup`, `/invite`, `/reminders`) are not stated. Open: the settings registry's card interface, and where core cards are declared. Open: the `core_requests` columns, the Requests routes, and where the "configurable warning text" is stored. Open: the Guide's routes. (The 8k cap is the donor's `MAX_TOPIC_CHARS = 8000`, characters per topic.)
+Core page paths: `/`, `/login`, `/setup`, `/invite/:token`, `/people`, `/people/:id`, `/organizations`, `/organizations/:id`, `/settings/*`, `/guide`, `/requests`, `/changelog`, `/backups`, `/jobs`, `/whisk`, `/reminders`, `/notifications`. Each first segment is a reserved slug (`apps-and-contracts.md` §1).
+
+Open: the Sheets admin page's path (it is not in the list above; `sheets` is reserved). Open: the settings registry's card interface, and where core cards are declared. Open: the `core_requests` columns, the Requests routes, and where the "configurable warning text" is stored. Open: the Guide's routes. (The 8k cap is the donor's `MAX_TOPIC_CHARS = 8000`, characters per topic.)
 
 ## 4. Type generation (§12)
 

@@ -136,7 +136,7 @@ Lifted from CakeCRM `backend/crm/service.py:315-1031` (~650 lines) plus `backend
 
 The four pages and forms are ~1,350 lifted lines. Detail pages also host the core record components (`records.md`).
 
-Open: core page paths (`/people`, `/organizations`, …) are not stated.
+Pages: `/people`, `/people/:id`, `/organizations`, `/organizations/:id` (`frontend-shell.md` §3).
 
 ## Tests that pin this
 

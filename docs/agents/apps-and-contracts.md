@@ -139,7 +139,7 @@ Badge routes return {count, label?}. Errors: `{detail}`; 401 not signed in, 403 
 
 | File | Contract |
 |---|---|
-| `frontend/src/apps/<slug>/contributions.ts` | A **light** module (no screen code), loaded eagerly. Exports `{ slug, settingsCards?: Record<id, () => Promise<Component>>, recordPanels?: Record<entityType, () => Promise<Component>>, nav?: NavItem[] }`. |
+| `frontend/src/apps/<slug>/contributions.ts` | A **light** module (no screen code), loaded eagerly. Default-exports `{ slug, settingsCards?: Record<id, () => Promise<Component>>, recordPanels?: Record<entityType, () => Promise<Component>>, nav?: NavItem[] }`. |
 | `frontend/src/apps/<slug>/index.tsx` | Default-exports `{ slug, App }`. Loaded **only** when the app's route is visited. |
 | `frontend/src/apps/<slug>/api.ts`, `pages/`, `components/` | App-internal. API types from `types.gen.ts` (`paths['/api/<slug>/…']`, `components['schemas'][…]`). |
 
@@ -165,7 +165,7 @@ How it is wired:
 5. **Settings cards**: the settings registry renders core cards plus one section per app, built from `contributions.ts` `settingsCards`, keyed by the manifest's `settings_cards[].id`; `admin_only` cards are shown to admins only.
 6. bootSplit rule: every app's `index.tsx` is lazy; `contributions.ts` is eager but tiny (`frontend-shell.md`).
 
-Open: the `NavItem` type, whether `contributions.ts` uses a default or named export, and the props a record panel receives (an entity id at least) are not stated. The snippet above shows shape only.
+Both files use `export default`. `NavItem = {label, to, icon?}`. A record panel receives the props `{entityType, entityId}`.
 
 ## 6. The contract test (`backend/tests/test_app_contract.py`)
 
