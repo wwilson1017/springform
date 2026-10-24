@@ -30,6 +30,7 @@ MAX_MENTIONS = 20  # a note naming more people than this is a broadcast, not a m
 EXCERPT_LEN = 200
 MENTION = re.compile(r"@\[([^\]\n]{1,100})\]\(user:(\d{1,12})\)")
 UNTRACKED = frozenset({"id", "created_at", "updated_at"})
+SYSTEM_USER_ID = 0  # core_users.id of the system principal (authorization.md §7)
 _SELECT = """SELECT t.id, t.kind, t.body, t.changes, t.created_at, t.author_user_id, u.name AS author_name
                FROM core_timeline t LEFT JOIN core_users u ON u.id = t.author_user_id"""
 
@@ -52,6 +53,12 @@ def _insert_in(conn: db.Conn, entity_type: str, entity_id: int, kind: str, body:
         (entity_type, entity_id, kind, body, json.dumps(changes) if changes is not None else None, user_id, clock.now_iso()),
     )
     return _entry(conn.execute(f"{_SELECT} WHERE t.id = ?", (cur.lastrowid,)).fetchone())
+
+
+def add_system_in(conn: db.Conn, entity_type: str, entity_id: int, body: str) -> dict:
+    """A `system` row reporting something core did to the record (a merge), authored by the system
+    principal. No authorize: the caller already authorized the action it reports."""
+    return _insert_in(conn, entity_type, entity_id, "system", body, None, SYSTEM_USER_ID)
 
 
 def add_note_in(conn: db.Conn, user: User, entity_type: str, entity_id: int, body: str, kind: str = "note") -> dict:

@@ -718,8 +718,7 @@ def merge_in(conn: db.Conn, kind: str, target_id: int, source_id: int, actor: Us
         (target, now, now, source),
     )
     conn.execute(f"UPDATE {k.table} SET merged_into_id = ? WHERE merged_into_id = ?", (target, source))  # flat aliases
-    # timeline publishes no system-row writer yet; _insert_in is its one insert path.
-    timeline._insert_in(conn, k.entity, target, "system", f"merged #{source} into this record", None, actor.id)
+    timeline.add_system_in(conn, k.entity, target, f"merged #{source} into this record")
     changelog.record_in(conn, k.entity, target, "merged_from", None, source, actor.id)
     return _detail_in(conn, kind, target)
 
