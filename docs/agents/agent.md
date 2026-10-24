@@ -69,7 +69,7 @@ ToolSpec(
     writes,             # bool
     confirm_tier,       # only when writes
     always_confirm,     # forces confirmation, even for reads (remote tools set it)
-    hides_when,         # Callable[[User], bool] | None
+    hides_when,         # Callable[[dict], bool] | None, called with the args
     handler | handler_in,
     targets,            # targets(args) -> list[(entity_type, id)]
     enabled,            # enabled(user) -> bool
@@ -105,7 +105,9 @@ In the CakeCRM donor (`assistant/confirm_tier.py`), `confirm_tier` has one legal
 5. A write tool has `handler_in` **and** `targets`, or is marked `external_effect`.
 6. `always_confirm` is allowed on any spec.
 
-Open (pinned by the implementing workstream, which updates this doc): what `hides_when` hides, beside `enabled`, and whether `mcp_exposed=False` removes a tool from `for_source("mcp")` (the natural reading).
+`hides_when(args)` puts the Approve card back on a routine write whose args would take a record out of view. It confirms when it returns true, and also when it raises (it fails closed).
+
+Open (pinned by the implementing workstream, which updates this doc): whether `mcp_exposed=False` removes a tool from `for_source("mcp")` (the natural reading).
 
 ### Filtering
 
@@ -165,9 +167,7 @@ Further rules:
 3. A double approve returns **`already_resolved`**; the tool runs once.
 4. A deny is recorded (`denied`, `resolved_by`, `resolved_at`).
 
-`POST /api/agent/confirm {tool_run_id, decision: "approve" | "deny"}` returns `{status, result?}`. `already_resolved` is a response status, never a row status.
-
-Open (pinned by the implementing workstream, which updates this doc): the HTTP status code that accompanies `stale` and `already_resolved`.
+`POST /api/agent/confirm {tool_run_id, decision: "approve" | "deny"}` answers **200** with `{status, result?, error?}`. `status` is one of `done`, `error`, `uncertain`, `stale`, `denied` or `already_resolved`; `already_resolved` comes with `current`, the run's actual status. `already_resolved` is a response status, never a row status. A missing run, or one that is not a chat run, is 404, and a conversation the caller does not own is 403 `not_your_conversation`.
 
 ## 7. Tool-run status enum
 
@@ -192,7 +192,7 @@ Open (pinned by the implementing workstream, which updates this doc): the other 
 ## 9. Zero keys
 
 1. `GET /api/agent/status` → `{configured: false}`.
-2. Chat returns **400** "add a key".
+2. `POST /api/agent/chat` returns **400** `{detail: "no_provider"}`.
 3. The Whisk page shows the card with an admin link to Settings → AI.
 4. The registry and inbound MCP still work.
 5. The nightly job `core.agent_nightly` (observer, dreaming) exits early. The CRM's `crm.touch_count` LLM work is skipped too.
