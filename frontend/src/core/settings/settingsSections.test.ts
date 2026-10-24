@@ -7,14 +7,14 @@ const example = { slug: 'example', name: 'Example' } as CoreApp;
 describe('settingsSections', () => {
   it('adds one section per app with settings cards, after the core sections', () => {
     const sections = settingsSections([example]);
-    expect(sections.map(s => s.id)).toEqual(['workspace', 'mcp', 'apps', 'example']);
+    expect(sections.map(s => s.id)).toEqual(['workspace', 'apps', 'mcp', 'example']);
     expect(sections[3].cards.map(c => [c.id, c.adminOnly])).toEqual([['example', true]]);
   });
 
   it('derives section visibility from card visibility, so members never see an empty section', () => {
     const sections = settingsSections([example]);
     expect(visibleSections(sections, false).map(s => s.id)).toEqual(['workspace', 'mcp']);
-    expect(visibleSections(sections, true).map(s => s.id)).toEqual(['workspace', 'mcp', 'apps', 'example']);
-    expect(visibleCards(sections[2], false)).toEqual([]);
+    expect(visibleSections(sections, true).map(s => s.id)).toEqual(['workspace', 'apps', 'mcp', 'example']);
+    expect(visibleCards(sections[1], false)).toEqual([]);
   });
 });
