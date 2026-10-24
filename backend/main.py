@@ -12,7 +12,7 @@ from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse
 from fastapi.routing import APIRoute
 
-from backend.core import REPO_ROOT, VERSION, db, errors, preview, registry, scheduler, settings
+from backend.core import REPO_ROOT, VERSION, db, errors, preview, registry, scheduler, secrets, settings
 from backend.core.auth import bootstrap, csrf
 from backend.core.auth.deps import User, current_user, require_admin
 from backend.core.auth.router import router as auth_router
@@ -30,6 +30,7 @@ def create_app(apps_dir: Path = db.APPS_DIR) -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         db.init(settings.data_dir())
+        secrets.key(), settings.secret_key()  # first boot writes both key files; a bad one stops startup here
         db.migrate(db.app_dirs(apps_dir))
         preview.check_startup()
         registry.seed_apps()
