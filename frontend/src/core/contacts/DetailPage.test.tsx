@@ -10,7 +10,7 @@ import type { PersonDetail } from './types';
 
 const ada: PersonDetail = {
   id: 1, name: 'Ada Example', given_name: null, family_name: null, email: 'ada@example.com', phone: null,
-  title: 'Owner', source: null, status: null, tags: ['supplier'], notes: null, owner_user_id: null,
+  title: 'Owner', source: null, status: null, tags: ['supplier'], notes: null, owner_user_id: null, owner_name: null,
   archived_at: null, merged_into_id: null, created_at: '2026-10-20T15:00:00Z', updated_at: '2026-10-20T15:00:00Z',
   organizations: [{ organization_id: 4, name: 'Example Bakery Supply', archived_at: null, role: 'Owner', is_primary: true, started_on: null, ended_on: null }],
   channels: [{ id: 1, owner_type: 'person', owner_id: 1, kind: 'email', value: 'ada@example.com', label: 'work', is_primary: true,
@@ -74,10 +74,11 @@ describe('Person page', () => {
   });
 
   it("shows a member the owner's name and lets them pick another owner by typing", async () => {
-    const owned = { ...ada, owner_user_id: 5 };
+    // The owner is past the directory's first page; the record's owner_name answers the name.
+    const owned = { ...ada, owner_user_id: 5, owner_name: 'Olive Owner' };
     const fetchMock = renderAt('/people/1', {
       'GET /api/core/contacts/people/1': owned,
-      'GET /api/core/timeline/mentionable?q=': [{ id: 5, name: 'Olive Owner' }],
+      'GET /api/core/timeline/mentionable?q=': [{ id: 7, name: 'Uma Other' }],
       'GET /api/core/timeline/mentionable?q=pat': [{ id: 9, name: 'Pat Partner' }],
       'PATCH /api/core/contacts/people/1': { ...owned, owner_user_id: 9 },
     });

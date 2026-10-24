@@ -8,7 +8,7 @@ import type { PersonPage, PersonRow } from './types';
 const PEOPLE = '/api/core/contacts/people';
 const person = (id: number, name: string, extra: Partial<PersonRow> = {}): PersonRow => ({
   id, name, given_name: null, family_name: null, email: null, phone: null, title: null, source: null, status: null,
-  tags: [], notes: null, owner_user_id: null, archived_at: null, merged_into_id: null,
+  tags: [], notes: null, owner_user_id: null, owner_name: null, archived_at: null, merged_into_id: null,
   created_at: '2026-10-20T15:00:00Z', updated_at: '2026-10-20T15:00:00Z',
   primary_organization_id: null, primary_organization_name: null, ...extra,
 });

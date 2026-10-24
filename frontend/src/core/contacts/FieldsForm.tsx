@@ -16,6 +16,8 @@ export interface FieldSpec {
   suggest?: string[];
   /** Spans the whole row of the grid. */
   wide?: boolean;
+  /** For a user: the stored user's name when the record carries it (`owner_name`). */
+  valueName?: string | null;
 }
 
 export function FieldsForm({ fields, initial, submitLabel, onSubmit, onCancel, columns = 2, label }: {
@@ -56,7 +58,7 @@ export function FieldsForm({ fields, initial, submitLabel, onSubmit, onCancel, c
                 <select {...common} onChange={e => change(e.target.value)}>
                   {f.options!.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
                 </select>
-              ) : f.type === 'user' ? <UserPicker {...common} onChange={change} options={f.options} />
+              ) : f.type === 'user' ? <UserPicker {...common} onChange={change} options={f.options} valueName={f.valueName} />
               : (
                 <>
                   <input {...common} type={f.type ?? 'text'} list={f.suggest ? `${id}-list` : undefined} onChange={e => change(e.target.value)} />

@@ -19,7 +19,6 @@ import { formatDate } from '../../shared/formatDate';
 import { IconArrowLeft } from '../../shared/icons';
 import { LoadError } from '../../shared/LoadError';
 import { toast } from '../../shared/toast';
-import { useUserNames } from '../../shared/users';
 import {
   archiveRecord, errorText, KINDS, mergeRecords, pageOf, recordUrl, restoreRecord, splitTags, updateRecord, type RecordInput,
 } from './api';
@@ -135,8 +134,8 @@ function Columns({ kind, props }: { kind: ContactKind; props: SectionProps }) {
 
 // ── Header ──────────────────────────────────────────────────────────────────
 
-function editFields(kind: ContactKind): FieldSpec[] {
-  const own: FieldSpec = { key: 'owner_user_id', label: 'Owner', type: 'user', options: [['', 'Nobody']] };
+function editFields(kind: ContactKind, ownerName: string | null): FieldSpec[] {
+  const own: FieldSpec = { key: 'owner_user_id', label: 'Owner', type: 'user', options: [['', 'Nobody']], valueName: ownerName };
   const common: FieldSpec[] = [
     { key: 'status', label: 'Status', suggest: STATUS_SUGGEST },
     { key: 'source', label: 'Source', suggest: SOURCE_SUGGEST },
@@ -155,11 +154,10 @@ const asText = (v: unknown) => (Array.isArray(v) ? v.join(', ') : v == null ? ''
 
 function Header({ kind, record, onSaved }: { kind: ContactKind; record: ContactDetail; onSaved: (d: ContactDetail) => void }) {
   const navigate = useNavigate();
-  const nameOf = useUserNames([record.owner_user_id]);
   const [mode, setMode] = useState<'view' | 'edit' | 'merge'>('view');
   const [busy, setBusy] = useState(false);
   const noun = KINDS[kind].noun;
-  const fields = editFields(kind);
+  const fields = editFields(kind, record.owner_name);
   const rec = record as unknown as Record<string, unknown>;
 
   /** PATCH only what changed; a blank clears (null), tags go as a list. */
@@ -225,7 +223,7 @@ function Header({ kind, record, onSaved }: { kind: ContactKind; record: ContactD
   const org = kind === 'organization' ? record as OrganizationDetail : null;
   const primaryOrg = person?.organizations.find(o => o.is_primary);
   const facts: Array<[string, React.ReactNode]> = [
-    ['Status', record.status], ['Source', record.source], ['Owner', record.owner_user_id ? nameOf(record.owner_user_id) : 'Nobody'],
+    ['Status', record.status], ['Source', record.source], ['Owner', record.owner_name ?? 'Nobody'],
   ];
 
   return (
