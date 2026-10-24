@@ -76,8 +76,8 @@ An admin downloads a ZIP of CSVs.
 ### Column allow-list
 
 1. Core tables and columns listed in `core/export_policy.py`.
-2. Plus each app's `EXPORT` map from `seed.py` (table → column allow-list; each entry names its entity type).
-3. Nothing else. The contract test checks that `EXPORT` names only owned tables, real columns and a registered entity type.
+2. Plus each app's `EXPORT` map from `seed.py`: `{"<table>": {"entity_type": "<slug>.<name>" | None, "columns": [...]}}`.
+3. Nothing else. The contract test checks that `EXPORT` names only owned tables, real columns and a registered entity type (or `None`).
 
 ### Never exported
 
@@ -91,17 +91,17 @@ An admin downloads a ZIP of CSVs.
 
 ### Rows follow the same rules as the screen (decided)
 
-1. Each `EXPORT` entry names its entity type.
+1. Each `EXPORT` entry names its entity type, or `None`.
 2. Rows the exporting admin cannot `can_read` are left out (other members' private todos, private timeline rows on them).
 3. The export is a business-data export. The full `/data` backup remains the privileged recovery path (`deploy.md`).
 
-Open: the ZIP's file naming (one CSV per table?) and how core tables without an entity type are row-filtered.
+Open: the ZIP's file naming (one CSV per table?) and how tables without an entity type (core tables, and app entries with `"entity_type": None`) are row-filtered.
 
 ## Tests that pin this
 
 - Export ZIP columns pinned and secrets absent.
 - A two-user test proves a private todo is absent from the other admin's export.
-- Contract test: `EXPORT` names only owned tables, real columns and a registered entity type.
+- Contract test: `EXPORT` names only owned tables, real columns and a registered entity type (or `None`).
 
 ## Source
 

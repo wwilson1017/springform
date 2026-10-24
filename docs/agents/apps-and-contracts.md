@@ -92,9 +92,7 @@ Open: signatures for the example's `get_widget` / `widgets_for_person` are not s
 | `seed(conn)` | The app's reference data. Runs at **every startup** and must be idempotent. Writes through published APIs (the CRM seed writes through `contacts.api`). |
 | `sample(conn)` | Sample data. Runs at startup only in `PREVIEW_MODE`, and must be idempotent. |
 | `RESET_TABLES` | The app's owned **real tables** (no indexes, views or FTS shadow tables). Must **equal** that set (contract test). Used by `registry.reset_app_in`. |
-| `EXPORT` | Table → column allow-list for the admin export, separate from reset ownership. Each entry names its entity type (`sheets-and-export.md`). |
-
-Open: the exact Python shape of `EXPORT` (how the entity type is attached to a table's entry) is not stated.
+| `EXPORT` | `{"<table>": {"entity_type": "<slug>.<name>" \| None, "columns": [...]}}`: the column allow-list for the admin export, separate from reset ownership. Each entry names its entity type, or `None` (`sheets-and-export.md`). |
 
 ### `settings.py`
 
@@ -198,7 +196,7 @@ Falsifiable against `backend/tests/fixtures/bad_app` (the test must fail it). It
 **Seed and export**
 
 12. `RESET_TABLES` lists the app's owned **real tables** (no indexes, views or shadow tables) and must **equal** that set.
-13. `EXPORT` names only owned tables, real columns and a registered entity type.
+13. `EXPORT` names only owned tables, real columns and a registered entity type (or `None`).
 
 **Everything else**
 
