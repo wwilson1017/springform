@@ -164,6 +164,8 @@ class Scheduler:
             event.set()
         if self._tasks:
             await asyncio.wait(self._tasks, timeout=grace)
+        # simplification: a job thread that ignores cancel_event keeps the process alive at exit (the
+        # default executor joins its threads); core jobs bound their I/O. Upgrade path: a daemon-thread executor.
         for task in list(self._tasks):
             task.cancel()
         await asyncio.to_thread(mark_interrupted)
@@ -198,6 +200,9 @@ class Scheduler:
             except TimeoutError:
                 continue
             self._nudged.clear()
+            # simplification: a nudge that lands while the drain is already running is dropped, so a row
+            # committed after the drain's last claim waits for the next tick (<= TICK s); upgrade path: a
+            # "run again" flag on the in-flight guard.
             if drain := self.jobs.get("core.outbox_drain"):
                 self._spawn(drain, "nudge", None)
 
