@@ -13,7 +13,8 @@ CRM = Path(__file__).resolve().parents[1] / "apps" / "crm"
 CHECKLIST = [
     ("row locks", r"\bFOR\s+UPDATE\b|\bSKIP\s+LOCKED\b|pg_advisory"),
     ("TRUNCATE (use registry.reset_app_in)", r"\bTRUNCATE\b|RESTART\s+IDENTITY"),
-    ("now() (use clock.now_iso)", r"(?<![\w.])now\(\)|datetime\('now'\)|CURRENT_TIMESTAMP"),
+    # The SQLite clock idioms are refused repo-wide by test_db.test_no_sql_reads_the_database_clock.
+    ("now() (use clock.now_iso)", r"(?<![\w.])now\(\)"),
     ("AT TIME ZONE / ::date (Python bounds)", r"AT\s+TIME\s+ZONE|::date\b"),
     ("date_trunc / substr(col, 1, 10) (bucket in Python, install timezone)", r"date_trunc|substr\(\s*[\w.]+\s*,\s*1\s*,\s*10\s*\)"),
     ("EXTRACT(EPOCH) (julianday)", r"EXTRACT\s*\(\s*EPOCH"),
