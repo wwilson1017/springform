@@ -3,7 +3,7 @@
 **What this covers:** all of §2: the session cookie and why, CSRF, the auth tables, the system principal, first run and the setup token, password login and rate limits, Google OIDC and the linking rule, TOTP policy, the proxy constraint, invites and password reset, deactivation, `PREVIEW_MODE`, the frontend pieces, and the auth routes of the API block.
 **Who reads it:** W1 (Login), the Step 1 minimal auth, anyone writing `current_user` / `require_admin` / `require_roles` call sites, and the frontend shell.
 
-Code lives in `backend/core/auth/`: `service.py jwt.py deps.py router.py totp.py google.py invites.py mail.py bootstrap.py users_router.py csrf.py`.
+Code lives in `backend/core/auth/`: `service.py jwt.py deps.py router.py totp.py trusted.py google.py invites.py mail.py bootstrap.py users_router.py csrf.py`, plus `backend/cli.py` (`create-admin`).
 
 ## 1. What is lifted
 
@@ -33,9 +33,9 @@ Port **only SQL**: `%s` → `?`, `FOR UPDATE` → `transaction()`, `now()` → `
 
 Why a cookie: the Google callback is a top-level redirect; fetch-based SSE sends cookies for free; XSS cannot read an httpOnly cookie.
 
-Dependencies (`deps.py`): `current_user`, `require_admin`, `require_roles(roles)` (used by `registry.mount()` with the manifest's roles; `authorization.md`).
+Dependencies (`deps.py`): `current_user`, `require_admin`, `require_roles(roles)` (used by `registry.mount_app()` with the manifest's roles; `authorization.md`).
 
-The JWT signing key is the `SECRET_KEY` environment variable.
+The JWT signing key is the `SECRET_KEY` environment variable, else `<DATA_DIR>/.secret-key`, generated at first boot.
 
 ## 3. CSRF (`csrf.py`)
 
@@ -45,7 +45,7 @@ The JWT signing key is the `SECRET_KEY` environment variable.
 4. A request carrying **both** a cookie and a bearer header is treated as cookie-authenticated (rule 1 applies).
 5. Preflights (`OPTIONS`) are not authenticated and pass.
 
-A refusal is **403** `{detail: "csrf"}`. State-changing means every method except `GET`, `HEAD` and `OPTIONS`.
+A refusal is **403** `{detail: "csrf_refused"}`. State-changing means every method except `GET`, `HEAD` and `OPTIONS`.
 
 ## 4. Tables
 
@@ -58,17 +58,18 @@ core_users(
   password_hash DEFAULT '!',          -- '!' never authenticates
   google_sub UNIQUE NULL,
   is_active, token_epoch, tz,
-  invited_by, last_login_at, deactivated_at, …
+  invited_by, last_login_at, deactivated_at, created_at, updated_at
 )
 -- plus a unique index on lower(trim(email))
 
-core_totp                 -- per-user TOTP: encrypted secret, bcrypt backup codes (CakeCRM shape)
-core_trusted_devices      -- hashed trusted-device cookie (CakeCRM shape)
-core_login_tokens(token_hash PK, user_id, purpose CHECK (purpose IN ('invite','reset','setup')), expires_at, used_at)
+core_totp(user_id PK, enabled, secret_enc, backup_codes JSON, last_used_at, created_at, updated_at)
+  -- secret encrypted; backup codes are bcrypt hashes; last_used_at holds the last accepted step (replay slot)
+core_trusted_devices(token_hash PK, user_id, label, expires_at, created_at)
+core_login_tokens(token_hash PK, user_id NULL, purpose CHECK (purpose IN ('invite','reset','setup')),
+                  expires_at NULL, used_at, created_by, created_at)
+  -- the setup token has no user and no expiry
 core_login_attempts(key, at)   -- DB-backed rate limits; pruned hourly by core.login_attempts_prune
 ```
-
-Open (pinned by the implementing workstream, which updates this doc): `core_totp` and `core_trusted_devices` columns are not listed in the plan (lift CakeCRM's shape). The "…" columns of `core_users` (e.g. `created_at`, `updated_at`).
 
 ### The system principal
 
@@ -91,10 +92,17 @@ One seeded row: `id=0`, `role='system'`, email `system@springform.local`, `passw
 
 1. `POST /api/auth/login {email, password}`. Wrong password and unknown email take equal time (bcrypt timing equalizer).
 2. An invited user with `password_hash='!'` cannot log in by password.
-3. Account and IP rate limits are DB-backed in `core_login_attempts(key, at)`; over the limit → **429**.
-4. A user with TOTP enrolled completes a second step (TOTP code or backup code), unless a valid trusted-device cookie is present.
+3. Account and IP rate limits are DB-backed in `core_login_attempts(key, at)`; over the limit → **429** `{detail: "rate_limited"}`.
+4. A user with TOTP enrolled completes a second step (TOTP code or backup code), unless a valid trusted-device cookie is present. Login then answers **200** `{totp_required: true, challenge}` with no cookie, and `POST /api/auth/login/totp {challenge, code | backup_code, trust_device}` finishes it.
+5. A trusted device is the `sf_trusted` cookie (30 days, path `/api/auth`).
 
-Open (pinned by the implementing workstream, which updates this doc): the limits (counts and windows) are not stated (lift CakeCRM's). The response when a TOTP step is required, and the TOTP verify route, are not in the API block.
+| Limit | Value |
+|---|---|
+| Login, per email | 10 per 5 min |
+| Login, per IP | 50 per 5 min |
+| TOTP checks, per user | 5 per 5 min; the challenge lasts 5 min |
+| Forgot password | 3 per hour per email, 20 per hour per IP |
+| Password change, per user | 5 per 5 min |
 
 ## 7. Google sign-in (OIDC, `google.py`)
 
@@ -109,14 +117,14 @@ ID token checks, all required:
 5. `nonce` equals the one in the signed state cookie;
 6. `email_verified == true`.
 
-Configuration: client id and secret in encrypted `core_settings`. Redirect URI built from the `PUBLIC_URL` environment variable, **never the Host header**. Each install needs its own Google Cloud OAuth client (a Guide topic says how).
+Configuration: client id and secret in encrypted `core_settings` (`auth.google_client_id`, `auth.google_client_secret`), written by `PUT /api/auth/google/config`. Redirect URI built from the `PUBLIC_URL` environment variable, **never the Host header**. Each install needs its own Google Cloud OAuth client (a Guide topic says how).
 
 ### Linking rule
 
 1. A user whose `google_sub` is NULL is linked **automatically by email only when Google is authoritative for that address**:
    - the email is `@gmail.com` or `@googlemail.com`; or
    - the token's `hd` claim equals the email's domain (Google Workspace).
-2. For any other address (a Google account registered with a third-party email), automatic linking is **refused**. The user links from an authenticated session: the invite link (which proves control of the mailbox) → set a password, or Settings → Security → **"Link Google"**, which runs the same OIDC flow and stores `sub`.
+2. For any other address (a Google account registered with a third-party email), automatic linking is **refused**. The user links in one of two ways. On the invite page, the Google button links whichever Google account they pick, because the invite token proved control of the mailbox. Otherwise they sign in and use Settings → Security → **"Link Google"** (`GET /api/auth/google/start?link=1`), which runs the same OIDC flow and stores `sub`.
 3. After linking, the account is identified **by `sub` only** (Google says email can change).
 4. A sign-in whose `sub` matches no row is refused, even if the email matches an existing linked user.
 5. Not invited → redirect to `/login?error=not_invited`. **Never auto-create** a user.
@@ -126,7 +134,19 @@ Configuration: client id and secret in encrypted `core_settings`. Redirect URI b
 
 A Google sign-in **skips local TOTP**. Springform does not verify that the Google account used 2-step verification. The admin setting **`auth.require_totp_for_google`** (default off) adds the local TOTP step for installs that want it.
 
-Open (pinned by the implementing workstream, which updates this doc): the Google route paths are not stated. The plan refers to `google/start` (and a callback); `/api/auth/google/start` and `/api/auth/google/callback` are the likely shape. Settings has a "Test sign-in" action (Risks, item 6) with no stated contract.
+Google routes:
+
+```
+GET  /api/auth/google/start[?link=1 | ?invite=<token>]   redirect to Google
+GET  /api/auth/google/callback
+GET  /api/auth/google                 the caller's link state
+POST /api/auth/google/unlink
+GET  /api/auth/google/config          (admin)
+PUT  /api/auth/google/config          (admin) client id and secret
+POST /api/auth/google/test            (admin) checks the config locally, without contacting Google
+```
+
+A failure redirects with `error=` one of `not_invited`, `link_required`, `google_mismatch`, `google_failed` or `google_not_configured`.
 
 ## 8. Proxy
 
@@ -138,21 +158,39 @@ Open (pinned by the implementing workstream, which updates this doc): the Google
 ## 9. Invites and password reset
 
 1. An admin adds email, name, role → a `core_users` row with `password_hash='!'` (never authenticates) and `invited_by`.
-2. An invite token (`core_login_tokens` purpose `invite`, **1 h**) is mailed via Resend (`RESEND_API_KEY` + `MAIL_FROM`; lift todo-gtd `signin._send`) **or** shown as a copyable link.
-3. The invitee sets a password or signs in with Google (subject to the linking rule).
-4. The same token mechanism serves "forgot password" (purpose `reset`).
-5. Step 1 ships the copyable link only (no mail).
+2. An invite token (`core_login_tokens` purpose `invite`, **1 h**) makes the link `PUBLIC_URL/invite/<token>`. The link is always returned to the admin to copy, and is also mailed via Resend when `RESEND_API_KEY` and `MAIL_FROM` are set.
+3. The invitee sets a password or presses Google (the linking rule's invite case).
+4. The same token mechanism serves "forgot password" (purpose `reset`, a one-hour `PUBLIC_URL/reset-password/<token>` link). `POST /api/auth/forgot` answers 202 whether or not the account exists.
+5. Links are single use. Resending an invite issues a new link and the old one stops working.
+6. A reset or a password change ends every other session and forgets trusted devices. Accepting an invite or resetting a password ends like a password sign-in: a session, or the TOTP challenge.
 
-Open (pinned by the implementing workstream, which updates this doc): invite, accept, reset and user-admin routes are not stated (shape to be pinned by W1). Whether an expired invite can be re-sent or the token is single-use beyond `used_at`.
+```
+POST  /api/auth/users                         (admin) invite -> {user, invite_url, mailed}
+POST  /api/auth/users/{id}/resend-invite      (admin)
+GET   /api/auth/users                         (admin)
+PATCH /api/auth/users/{id}                    (admin) name, role, tz
+POST  /api/auth/users/{id}/deactivate         (admin)
+POST  /api/auth/users/{id}/reactivate         (admin)
+GET   /api/auth/invite/{token}                the invite's details
+POST  /api/auth/invite/{token}                accept: set a password
+POST  /api/auth/forgot                        202
+POST  /api/auth/reset
+POST  /api/auth/password                      change the caller's password
+PATCH /api/me
+GET   /api/auth/totp; POST /api/auth/totp/enrol, /confirm, /disable
+GET   /api/auth/trusted-devices; DELETE /api/auth/trusted-devices
+```
 
 ## 10. Deactivation
 
 Deactivating a user:
 
 1. bumps `token_epoch` (kills every session);
-2. revokes the user's MCP links (`core_agent_mcp_links.revoked_at`) and trusted devices;
-3. hides the user's private todos (an admin may transfer them to another owner); team todos stay in place;
-4. sets `is_active` false and `deactivated_at`.
+2. deletes the user's trusted devices and unused invite and reset links;
+3. will revoke the user's MCP links (`core_agent_mcp_links.revoked_at`) once MCP exists; nothing registers that yet;
+4. sets `is_active` false and `deactivated_at`, then runs the `ON_DEACTIVATE` hooks.
+
+Private todos are hidden because an inactive user fails `can_read`; an admin may transfer them with `POST /api/todos/transfer`. Team todos stay in place. Deactivating, or demoting, the last active admin who can sign in is refused with **409** `last_admin`.
 
 Revoked and deactivated MCP links return 404 (`mcp.md`).
 
@@ -161,7 +199,7 @@ Revoked and deactivated MCP links return 404 (`mcp.md`).
 1. `PREVIEW_MODE=1` seeds `preview-admin@example.com` and `preview-member@example.com`.
 2. `LoginPage` shows a role picker → `POST /api/auth/preview {role}`.
 3. `google/start` redirects to a local stub, so Playwright covers the Google path.
-4. **Startup refuses preview mode if real secrets are set**: `ENCRYPTION_KEY` in the environment, `RESEND_API_KEY`, or any `core_settings` row with `is_secret=1`.
+4. **Startup refuses preview mode if real secrets are present**: `ENCRYPTION_KEY` or `RESEND_API_KEY` set (non-empty) in the environment, or any `core_settings` row with `is_secret=1`. The check runs after migrations, because it reads `core_settings`.
 5. The factory reset is allowed in preview mode (`database-and-transactions.md` §6).
 
 ## 12. Frontend (`frontend/src/core/auth/`)
@@ -169,27 +207,29 @@ Revoked and deactivated MCP links return 404 (`mcp.md`).
 | Piece | Source | Contract |
 |---|---|---|
 | `AuthContext.tsx` | CakeCRM (227) | Drop sessionStorage and BroadcastChannel; `GET /api/me` with the cookie. |
-| `LoginPage.tsx` | CakeCRM (181) | Password form + Google button + preview role picker; shows `?error=not_invited`. |
+| `LoginPage.tsx` | CakeCRM (181) | Password form, "Continue with Google" (a plain link: `GET /api/auth/google/start`), preview role picker, "Forgot password?" mode, a message for every `?error=` code, and `#totp_challenge=` from the Google callback. |
+| `ChallengeStep.tsx` | CakeCRM | The 2FA step (code or backup code, "Trust this browser"), shared by the login, invite and reset pages. |
 | `SetupPage` | new | Token field + email, name, password. |
-| `InvitePage` | new | Accept an invite: set a password or sign in with Google. |
-| Security settings card | new | 2FA enrol; "Link Google". |
-| Users admin card | new | Invite, role, deactivate, transfer. |
+| `InvitePage`, `ResetPasswordPage` | new | Public routes `/invite/:token` and `/reset-password/:token` from `routes.tsx`. A 401 on these pages is an answer, not an expired session (`core/api/client.ts`). |
+| `settingsCards.ts` | new | Sections **Account** (order 5, everyone: Profile, Security), **Users** (30, admins) and **Sign-in** (40, admins: Google client, redirect URI, Test, `require_totp_for_google`). Security holds password change, 2FA enrol/disable, trusted browsers and Link/Unlink Google. |
 
-W1 contributes the Security and Users cards through the settings registry W6 defines; it does not edit `settings/`.
+The Link Google round-trip lands on `/settings?google=linked` or `?google_error=<code>`; Settings redirects to its first section and drops the query, so `settingsCards.ts` reads it once at page load and shows a toast.
+
+W1 contributes these cards through the settings registry W6 defines; it does not edit `settings/`.
 
 ## 13. API (auth rows of the API block)
 
 ```
 GET  /api/auth/status  -> {setup_required: bool, google: bool, preview: bool}
 POST /api/auth/setup   {token, email, name, password} -> 200 {user} + cookie; 404 when setup is not required or the token is wrong
-POST /api/auth/login   {email, password} -> 200 {user} + cookie; 401 {detail:"invalid_credentials"}; 429 when rate-limited
+POST /api/auth/login   {email, password} -> 200 {user} + cookie, or 200 {totp_required: true, challenge} with no cookie; 401 {detail:"invalid_credentials"}; 429 {detail:"rate_limited"}
 POST /api/auth/logout  -> 204, clears the cookie
 POST /api/auth/preview {role} -> 200 {user} + cookie (PREVIEW_MODE only, else 404)
 GET  /api/me           -> {id, email, name, role: "admin"|"member", tz}; 401 when not signed in
 Errors: `{detail}`; 401 not signed in, 403 denied, 404 missing or not readable, 422 invalid.
 ```
 
-Routes named by the plan, shape to be pinned by W1: Google start/callback, invite create/accept, password reset, TOTP enrol/verify, trusted devices, users admin (list, role, deactivate, transfer), "Link Google".
+The rest of the auth routes are listed in §6, §7 and §9.
 
 ## Tests that pin this
 
