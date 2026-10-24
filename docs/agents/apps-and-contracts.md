@@ -58,7 +58,7 @@ Open: what `publishes` is validated against (e.g. names exported by `api.py`) is
 | `app.json` | manifest | §1 above. |
 | `router.py` | `router` | Mounted at `/api/<slug>`, tagged `<slug>` (stable `operationId`s for type generation). `registry.mount()` adds `Depends(require_roles(manifest.roles))`. Every route carries the auth dependency unless allow-listed. |
 | `api.py` | published functions | **The only module another app may import** (`from apps.<x>.api import …`). Every published function has an `_in(conn, …)` form. |
-| `entities.py` | `ENTITIES = [Entity(...)]` | Table, labels, URL and title builders, `can_read` / `can_write` (`authorization.md`). |
+| `entities.py` | `ENTITIES = [Entity(...)]` | Table, labels, URL and title builders, `can_read(user, conn, id)` / `can_write(user, conn, id)` (`authorization.md`). |
 | `hooks.py` | `HOOKS = {"on_record_changed": [...], "on_entity_deleted": [...], "on_entity_merged": [...]}` | The registry subscribes them (`authorization.md`, `database-and-transactions.md`). |
 | `reports.py` | `REPORTS = [Report(...)]` | `records.md`. |
 | `tools.py` | `get_tools() -> list[ToolSpec]` | Names prefixed `<slug>_`; per-spec `enabled(user)` (`agent.md`). |

@@ -32,7 +32,9 @@ class Entity:
 
 Apps register entities in `entities.py` as `ENTITIES = [Entity(...)]`. Core registers `core.person` and `core.organization`.
 
-Open: the app-contract section of the plan writes `can_read(user, id)` / `can_write(user, id)`, while the `Entity` dataclass takes `(User, Conn, int)`. This doc follows the dataclass. Open: whether entity type strings must be `<slug>.<name>` (every example is) and whether registration validates it.
+`can_read` and `can_write` always take `(user, conn, id)`, as in the dataclass.
+
+Open: whether entity type strings must be `<slug>.<name>` (every example is) and whether registration validates it.
 
 ### Registered entity types in the plan
 
