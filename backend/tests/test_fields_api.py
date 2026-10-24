@@ -53,6 +53,7 @@ def test_definitions_crud_archive_and_restore(login_as):
         {"label": "  ", "type": "text"},
         {"label": "9 lives", "type": "text"},  # derived key must start with a letter
         {"label": "X", "key": "Bad Key", "type": "text"},
+        {"label": "X", "key": "ok\n", "type": "text"},
     ):
         assert admin.post(DEFS, json={"entity_type": W, **bad}).status_code == 422, bad
 
@@ -83,10 +84,10 @@ CASES = [  # type, extra definition fields, good values, bad values
     ("text", {}, ["hello", "x" * 10_000], [5, True, ["a"], "x" * 10_001]),
     ("number", {}, [3, -2.5, 0], ["3", True, {"n": 3}]),
     ("boolean", {}, [True, False], [1, "true", 0]),
-    ("date", {}, ["2026-11-02"], ["2026-02-30", "02/11/2026", "2026-11-02T09:00:00Z", 20261102]),
+    ("date", {}, ["2026-11-02"], ["2026-02-30", "02/11/2026", "2026-11-02T09:00:00Z", "2026-11-02\n", 20261102]),
     ("select", {"options": ["s", "m", "l"]}, ["m"], ["xl", ["m"], 1]),
     ("multiselect", {"options": ["s", "m", "l"]}, [["l", "s"], ["m"]], [["s", "s"], ["xl"], "s", [1]]),
-    ("url", {}, ["https://example.com/a?b=1", "http://localhost:8000"], ["example.com", "ftp://x.y", "https://", "https://a b"]),
+    ("url", {}, ["https://example.com/a?b=1", "http://localhost:8000"], ["example.com", "ftp://x.y", "https://", "https://a b", "https://a.b\n"]),
 ]
 
 

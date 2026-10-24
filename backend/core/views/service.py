@@ -28,7 +28,7 @@ MAX_NAME = 80
 MAX_PAYLOAD_BYTES = 65536
 # A ceiling, not a quota: without one a scripted client could grow the table without bound.
 MAX_VIEWS_PER_SURFACE = 100
-_SURFACE = re.compile(r"^[a-z][a-z0-9_.]{0,63}$")
+_SURFACE = re.compile(r"[a-z][a-z0-9_.]{0,63}")
 _SELECT = """SELECT v.id, v.surface, v.entity_type, v.name, v.version, v.payload, v.owner_user_id,
                     u.name AS owner_name, v.is_shared, v.created_at, v.updated_at
                FROM core_saved_views v JOIN core_users u ON u.id = v.owner_user_id"""
@@ -57,7 +57,7 @@ def _row_in(conn: db.Conn, user: User, view_id: int, *, edit: bool = False):
 
 
 def _surface(value: Any) -> str:
-    if not isinstance(value, str) or not _SURFACE.match(value):
+    if not isinstance(value, str) or not _SURFACE.fullmatch(value):
         raise Invalid("surface: lowercase '<app>.<screen>', at most 64 characters")
     return value
 

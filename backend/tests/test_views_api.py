@@ -83,6 +83,7 @@ def test_view_validation(login_as):
     assert ann.get(VIEWS, params={"surface": "Bad Surface"}).status_code == 422
     for bad in (
         {"surface": "Bad Surface", "name": "x", "payload": {}},
+        {"surface": "example.widgets\n", "name": "x", "payload": {}},
         {"surface": SURFACE, "name": "  ", "payload": {}},
         {"surface": SURFACE, "name": "x" * 81, "payload": {}},
         {"surface": SURFACE, "name": "x", "payload": ["not", "an", "object"]},

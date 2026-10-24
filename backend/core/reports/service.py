@@ -27,7 +27,7 @@ if TYPE_CHECKING:
     from backend.core.auth.deps import User
 
 _BOOLS = {"true": True, "1": True, "false": False, "0": False}
-_DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+_DATE = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}")
 _EXPECTED = {"string": "text", "integer": "an integer", "number": "a number", "boolean": "true or false"}
 
 
@@ -51,7 +51,7 @@ def _coerce(name: str, prop: dict, value: Any) -> Any:
             value = value if isinstance(value, bool) else _BOOLS[str(value).lower()]
         else:
             value = str(value)
-            if is_date and not (_DATE.match(value) and date.fromisoformat(value)):
+            if is_date and not (_DATE.fullmatch(value) and date.fromisoformat(value)):
                 raise ValueError
     except (ValueError, KeyError, OverflowError):
         raise Invalid(f"{name}: expected {'a date (YYYY-MM-DD)' if is_date else _EXPECTED[t]}") from None

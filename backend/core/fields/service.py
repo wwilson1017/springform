@@ -46,9 +46,9 @@ EXPECTED = {
     "url": "an http(s) URL",
     "user": "the id of an active user",
 }
-_KEY = re.compile(r"^[a-z][a-z0-9_]{0,63}$")
-_DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
-_URL = re.compile(r"^https?://[^\s/?#]+\S*$")
+_KEY = re.compile(r"[a-z][a-z0-9_]{0,63}")
+_DATE = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}")
+_URL = re.compile(r"https?://[^\s/?#]+\S*")
 _COLUMNS = "id, entity_type, key, label, type, options, required, position, archived_at, created_at, updated_at"
 
 
@@ -122,7 +122,7 @@ def create_definition_in(conn: db.Conn, user: User, data: dict) -> dict:
         raise Invalid(f"type: one of {', '.join(TYPES)}")
     label = _label(data.get("label"))
     key = data.get("key") or re.sub(r"[^a-z0-9]+", "_", label.lower()).strip("_")
-    if not _KEY.match(key):
+    if not _KEY.fullmatch(key):
         raise Invalid("key: lowercase letters, digits and underscores, starting with a letter, at most 64")
     options = _options(field_type, data.get("options"))
     if conn.execute("SELECT 1 FROM core_field_definitions WHERE entity_type = ? AND key = ?", (entity_type, key)).fetchone():
@@ -201,7 +201,7 @@ def _values_in(conn: db.Conn, entity_type: str, entity_id: int) -> dict[str, Any
 
 def _is_date(value: Any) -> bool:
     try:
-        return isinstance(value, str) and bool(_DATE.match(value)) and bool(date.fromisoformat(value))
+        return isinstance(value, str) and bool(_DATE.fullmatch(value)) and bool(date.fromisoformat(value))
     except ValueError:
         return False
 
@@ -217,7 +217,7 @@ def _valid_in(conn: db.Conn, definition: dict, value: Any) -> bool:
     if t == "date":
         return _is_date(value)
     if t == "url":
-        return isinstance(value, str) and len(value) <= MAX_URL and bool(_URL.match(value))
+        return isinstance(value, str) and len(value) <= MAX_URL and bool(_URL.fullmatch(value))
     if t == "user":
         return type(value) is int and conn.execute(
             "SELECT 1 FROM core_users WHERE id = ? AND is_active = 1 AND role != 'system'", (value,)
