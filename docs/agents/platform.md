@@ -198,6 +198,10 @@ Because nothing an app may reference disappears inside a major, a fresh install 
 | `forks.md` | Fork model, scripts, scope check, CI, images, releases. |
 | `source-map.md` | Springform path → donor path, and the provenance rule. |
 
+## How these docs change
+
+These docs are the contract every workstream codes against, so they change with the code. A line that starts `Open (pinned by the implementing workstream, which updates this doc)` is a detail left to the workstream that builds that piece. That workstream pins it and updates the doc in the same branch as the code. `source-map.md` and `docs/PROVENANCE.md` grow with every lift: the branch that lifts or ports a file adds its rows.
+
 ## Tests that pin this
 
 - Contract guard passes for `example`/`crm`/`todos` and fails `bad_app`.
