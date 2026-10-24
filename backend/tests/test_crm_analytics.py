@@ -63,7 +63,7 @@ def test_days_bucket_in_the_install_timezone_across_both_dst_changes(me):
 def test_win_loss_in_cents(me, freeze):
     at(freeze, "2026-10-01T15:00:00Z")
     a, b, c = (deals.create(me, {"title": t, "value_cents": v}) for t, v in (("A", 100), ("B", 200), ("C", 201)))
-    open_deal = deals.create(me, {"title": "Open", "value_cents": 999, "stage": "proposal"})
+    deals.create(me, {"title": "Open", "value_cents": 999, "stage": "proposal"})
     deals.create(me, {"title": "Free", "value_cents": 0})
     gone = deals.create(me, {"title": "Archived", "value_cents": 10**9, "stage": "won"})
     deals.archive(me, gone["id"], "Test record")
