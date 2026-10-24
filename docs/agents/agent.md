@@ -18,7 +18,7 @@ Base: CakeCRM `backend/assistant/` (Chatty's loop already trimmed, with server-s
 | `agents.py` | CakeCRM `assistant/identity.py` prompt builder; agents are rows, not a singleton | 300 |
 | `backend/core/memory/facts.py`, `context_files.py`, `tools.py`, `router.py` | `facts.py` from CakeCRM `backend/memory/service.py` (FTS5, temporal facts, soft invalidation); `context_files.py` from CakeCRM `backend/context_files/service.py`, tsvector → FTS5 | 1,800 |
 | `backend/core/memory/observer.py`, `dreaming.py`, `jobs.py` | The observer from Chatty plus CakeCRM `backend/memory/observer.py`; dreaming is new, plain Python with no model call (it merges duplicate facts); nightly and setting-gated | 580 |
-| `router.py`; `mcp_server.py`, `mcp_client.py` (not built yet) | CakeCRM `assistant/router.py` and `providers/router.py`, minus uploads; new; new | 250 / 250 / 320 |
+| `router.py`; the inbound server `backend/core/mcp/` and the outbound client `backend/core/mcp_servers/` (landing with the MCP workstream) | CakeCRM `assistant/router.py` and `providers/router.py`, minus uploads; new; new | 250 / 250 / 320 |
 
 ## 2. Tables
 
@@ -170,6 +170,7 @@ Further rules:
 2. On startup, rows left `executing` are marked `interrupted` and surfaced in the conversation.
 3. A double approve returns **`already_resolved`**; the tool runs once.
 4. A deny is recorded (`denied`, `resolved_by`, `resolved_at`).
+5. A call through an MCP link (`source='mcp'`) skips this confirmation: it executes immediately as the link's user and is logged in `core_agent_tool_runs` (`mcp.md` §1).
 
 `POST /api/agent/confirm {tool_run_id, decision: "approve" | "deny"}` answers **200** with `{status, result?, error?}`. `status` is one of `done`, `error`, `uncertain`, `stale`, `denied` or `already_resolved`; `already_resolved` comes with `current`, the run's actual status. `already_resolved` is a response status, never a row status. A missing run, or one that is not a chat run, is 404, and a conversation the caller does not own is 403 `not_your_conversation`.
 

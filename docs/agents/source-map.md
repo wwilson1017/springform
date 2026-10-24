@@ -97,8 +97,8 @@ All lifted code is the author's sole authorship (Decisions, License); the proven
 | `backend/core/memory/context_files.py` | CakeCRM | `backend/context_files/service.py` | part of 1,800 (head 1,274 py) | port | One module; tsvector → FTS5. Chatty's context-file layout. |
 | `backend/core/memory/observer.py`, `dreaming.py`, `jobs.py` | chatty, CakeCRM | `backend/core/agents/memory/observer.py` (329) and CakeCRM `backend/memory/observer.py` | 580 | lift + new | The observer is lifted; dreaming is new plain Python (merges duplicate facts, no model call); Chatty's `dreaming/` was not lifted. Nightly, setting-gated. |
 | `backend/core/agent/router.py` | CakeCRM | `backend/assistant/router.py` | 250 (head 428) | port | Minus uploads. |
-| `backend/core/agent/mcp_server.py` | todo-gtd | `backend/mcp_server.py` HTTP section | 250 | new + lift | Plan cites ~700–946; at head the section is 832–946. Donor uses FastMCP; Springform uses the `mcp` low-level `Server`. |
-| `backend/core/agent/mcp_client.py` | — | — | 320 | new | |
+| `backend/core/mcp/` (inbound server) | todo-gtd | `backend/mcp_server.py` HTTP section | 250 | new + lift | Plan cites ~700–946; at head the section is 832–946. Donor uses FastMCP; Springform uses the `mcp` low-level `Server`. |
+| `backend/core/mcp_servers/` (outbound client) | — | — | 320 | new | |
 | `frontend/src/core/agent/WhiskPage` | chatty | `frontend/src/agent/AgentPage.tsx` | 967 → ~400 | port | |
 | `frontend/src/core/agent/AgentChatPanel` | chatty | `frontend/src/agent/components/AgentChatPanel.tsx` | 880 → ~500 | port | |
 | `frontend/src/core/agent/useAgentChat` | chatty | `frontend/src/agent/hooks/useAgentChat.ts` | 653 → ~400 | port | |
