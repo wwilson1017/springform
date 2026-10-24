@@ -5,13 +5,14 @@ import { ToastViewport } from '../shared/ToastViewport';
 import { CoreAppsProvider } from './apps/CoreAppsContext';
 import { apps } from './apps/registry';
 import { AuthProvider } from './auth/AuthContext';
-import { RequireAuth } from './auth/guards';
+import { RequireAdmin, RequireAuth } from './auth/guards';
 import { LoginPage } from './auth/LoginPage';
 import { SetupPage } from './auth/SetupPage';
 import BootFallback from './components/BootFallback';
 import ChunkErrorBoundary from './components/ChunkErrorBoundary';
 import { SettingsPage } from './settings/SettingsPage';
 import { AppRoute } from './shell/AppRoute';
+import { coreRoutes } from './shell/coreRoutes';
 import { Launcher } from './shell/Launcher';
 import { Layout } from './shell/Layout';
 import { ComingSoon, NotFound } from './shell/Pages';
@@ -34,11 +35,15 @@ export default function Root() {
             <Routes>
               <Route path="/login" element={<LoginPage />} />
               <Route path="/setup" element={<SetupPage />} />
+              {coreRoutes('public').map(r => <Route key={r.path} path={r.path} element={r.element} />)}
               <Route element={<RequireAuth><CoreAppsProvider><Layout /></CoreAppsProvider></RequireAuth>}>
                 <Route index element={<Launcher />} />
                 <Route path="people" element={<ComingSoon title="People" />} />
                 <Route path="organizations" element={<ComingSoon title="Organizations" />} />
                 <Route path="settings/*" element={<SettingsPage />} />
+                {coreRoutes('shell').map(r => (
+                  <Route key={r.path} path={r.path} element={r.admin ? <RequireAdmin>{r.element}</RequireAdmin> : r.element} />
+                ))}
                 {apps.map(app => (
                   <Route key={app.slug} path={`${app.manifest.path}/*`} element={<AppRoute app={app} />} />
                 ))}
