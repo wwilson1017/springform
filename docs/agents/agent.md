@@ -245,20 +245,26 @@ Step 1 ships `agent/spec.py` + `registry.py` + a **FakeProvider** engine stub th
 
 ## 14. Frontend (`frontend/src/core/agent/`)
 
-| Piece | Source | Target size |
+| Piece | Source | What it does |
 |---|---|---|
-| `WhiskPage` | Chatty `agent/AgentPage.tsx` (967) | ~400 |
-| `AgentChatPanel` | Chatty `agent/components/AgentChatPanel.tsx` (880) | ~500 |
-| `useAgentChat` | Chatty `agent/hooks/useAgentChat.ts` (653) | ~400 |
-| `AgentMessageBubble` | Chatty `agent/components/AgentMessageBubble.tsx` (515) | ~350 |
-| `ConversationSidebar` | Chatty `agent/components/ConversationSidebar.tsx` (273) | |
-| `useConversations` | Chatty `agent/hooks/useConversations.ts` (197) | |
-| `MarkdownContent` | Chatty `agent/components/MarkdownContent.tsx` (94) | as is |
-| `ContextFilesPage` | Chatty `agent/components/AgentContextEditor.tsx` (453) | |
-| `ProviderSetup` + keys card | CakeCRM `setup/ProviderSetup.tsx` (129) | |
-| MCP links card, MCP servers card | new | ~300 |
+| `WhiskPage` | Chatty `agent/AgentPage.tsx` | `/whisk/*` (one splat route, lazy): conversation list beside the chat; `/whisk/<id>` opens a thread, another user's id answers 404 and shows "not found". |
+| `AgentChatPanel` | Chatty `AgentChatPanel.tsx` | Messages, composer (Enter sends, Shift+Enter adds a line, Stop while streaming), context meter from `usage`. |
+| `useAgentChat`, `chatModel`, `sse` | Chatty `useAgentChat.ts` | POST /chat read as SSE over `fetch`; an assistant message is ordered text and tool parts, so a reloaded thread (consecutive assistant rows merged) looks like the streamed one. |
+| `AgentMessageBubble` | Chatty `AgentMessageBubble.tsx` | Markdown text, collapsible tool calls (args, result, status), compaction note, stream errors. |
+| `ToolConfirmCard`, `confirmState` | Chatty card, CakeCRM resolve rule | The Approve card: tool, description, full args. `pending → sending → resolved`; a failed request returns to pending. Each of `done`, `error`, `uncertain`, `stale`, `denied`, `already_resolved` has its own words. |
+| `ConversationSidebar`, `useConversations` | Chatty | Search (`?q=` over message text), new, inline rename, private toggle, delete with confirm. |
+| `MarkdownContent` | shared with the Guide (`src/shared/`) | GFM, no highlighting; in-app links stay in the tab through `Link`, external ones open a new tab; images never load. |
+| `ZeroKeyCard` | new | `status.configured:false`: replaces the composer; admins get a link to Settings, AI, members are told to ask an admin. Old threads still open. |
+| `settingsCards.ts`, section `ai` (admin, order 70) | CakeCRM `ProviderSetup` (Providers), Chatty `AgentContextEditor` (Memory) | Providers (key set/replace/remove via `has_key`, both model tiers, enabled, Test), Agents (name, personality, provider and model override, tier), Memory (context files with protected ones read-only; facts with provenance and "End validity"), Nightly run (`agent.nightly_enabled`). |
+| MCP links card, MCP servers card | new | Not built yet (`mcp.md`). |
 
-Chatty's inline styles move to Tailwind tokens (`--color-sf-*`), budgeted in W12. The Approve card shows full args. The shared dialog host is `frontend/src/shared/ConfirmHost.tsx`, lifted from CakeCRM; it is not an agent piece.
+Rules the frontend keeps:
+
+1. **Resume after approval.** Once every card of a message has resolved, the client posts `/chat {conversation_id}` with no message, so the model hears every outcome, a deny included. It does not resume when every answer was `already_resolved` (another tab decided).
+2. **Reconnection.** The engine runs a turn inside its response, so a dropped stream cannot be re-attached. A stream that errors or ends without `done`/`error` makes the client re-read `GET /conversations/{id}` with backoff (0.5 s doubling to 8 s) and show what was saved, pending cards included. Stop aborts and re-reads once.
+3. A `confirm` event has no `tool_end`; the call's part becomes the card (status `pending`).
+4. A 400 `no_provider` from `/chat` re-reads `/status`, which brings up the zero-key card.
+5. The shared dialog host is `frontend/src/shared/ConfirmHost.tsx`, lifted from CakeCRM; it is not an agent piece (the Approve card is `ToolConfirmCard`).
 
 ## Tests that pin this
 
