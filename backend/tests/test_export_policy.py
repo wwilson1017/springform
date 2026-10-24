@@ -160,6 +160,51 @@ def test_export_rows_follow_the_screen_a_members_private_widget_and_its_notes_ar
     assert member.get("/api/core/export/preview").status_code == 403
 
 
+def test_sibling_tables_follow_the_screen_reminders_and_field_values(app, login_as):
+    """Reminders and field values come from other workstreams; minimal stand-ins are created only
+    when the real tables are absent, so this holds before and after they merge."""
+    admin, member = login_as("admin"), login_as("member")
+    private = member.post("/api/example/widgets", json={"name": "Secret gear", "is_private": True}).json()["id"]
+    public = member.post("/api/example/widgets", json={"name": "Sprocket"}).json()["id"]
+    a, m, now = admin.user["id"], member.user["id"], clock.now_iso()
+    with core_db.transaction() as conn:
+        for ddl in (
+            """CREATE TABLE IF NOT EXISTS core_reminders (id INTEGER PRIMARY KEY AUTOINCREMENT, owner_user_id INTEGER,
+                   entity_type TEXT, entity_id INTEGER, title TEXT, due_at TEXT, created_at TEXT, updated_at TEXT)""",
+            """CREATE TABLE IF NOT EXISTS core_field_definitions (id INTEGER PRIMARY KEY AUTOINCREMENT, entity_type TEXT,
+                   key TEXT, label TEXT, type TEXT, created_at TEXT, updated_at TEXT)""",
+            """CREATE TABLE IF NOT EXISTS core_field_values (entity_type TEXT, entity_id INTEGER, definition_id INTEGER,
+                   value TEXT, updated_at TEXT)""",
+        ):
+            conn.execute(ddl)
+        conn.executemany(
+            "INSERT INTO core_reminders (owner_user_id, entity_type, entity_id, title, due_at, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            [(a, None, None, "admin's own", now, now, now), (m, None, None, "member's own", now, now, now),
+             (m, "example.widget", private, "on private", now, now, now), (m, "example.widget", public, "on public", now, now, now)],
+        )
+        definition = conn.execute(
+            "INSERT INTO core_field_definitions (entity_type, key, label, type, created_at, updated_at) VALUES ('example.widget', 'size', 'Size', 'text', ?, ?)",
+            (now, now),
+        ).lastrowid
+        conn.executemany(
+            "INSERT INTO core_field_values (entity_type, entity_id, definition_id, value, updated_at) VALUES ('example.widget', ?, ?, ?, ?)",
+            [(private, definition, '"secret"', now), (public, definition, '"large"', now)],
+        )
+    z = _zip(admin)
+    assert sorted(r["title"] for r in _csv(z, "core_reminders")) == ["admin's own", "on public"]
+    assert [v["value"] for v in _csv(z, "core_field_values")] == ['"large"']
+    assert [d["key"] for d in _csv(z, "core_field_definitions")] == ["size"]
+
+
+def test_missing_tables_are_skipped_and_missing_columns_dropped(app, login_as, monkeypatch):
+    admin = login_as("admin")
+    monkeypatch.setitem(policy.CORE_EXPORT, "core_not_yet", {"entity": None, "columns": ["id"]})
+    monkeypatch.setitem(policy.CORE_EXPORT, "core_users", {"entity": None, "columns": ["id", "nickname", "email"]})
+    z = _zip(admin)
+    assert "core_not_yet.csv" not in z.namelist()
+    assert _header(z, "core_users") == ["id", "email"]
+
+
 def test_policy_check_refuses_never_exported_tables_and_columns():
     policy.check(policy.CORE_EXPORT)
     with pytest.raises(ValueError, match="core_totp"):

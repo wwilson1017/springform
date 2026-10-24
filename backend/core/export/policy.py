@@ -6,6 +6,8 @@ Each entry is `table: {"entity", "columns", "id_column"?, "where"?}`, the same s
   columns in braces, filled from the row: "{entity_type}" (timeline, files), "core.{owner_type}".
 - `id_column`: the row column holding that record's id; default "id" (the row is the record).
 - `where`: a fixed SQL filter on the table.
+- `owner_column`: for rows whose record id is NULL (attached to nothing), the column naming the
+  user they belong to; such rows go only to that user. Without it they are left out.
 A row is exported only when `entities.authorize(read)` passes for the exporting admin.
 
 The full /data backup is the privileged recovery path; this export is what an admin may see.
@@ -58,19 +60,22 @@ CORE_EXPORT: dict[str, dict] = {
             "uploaded_by", "created_at",
         ],
     },
-    # Tables later workstreams add: exported once they exist, with whichever of these columns they have.
-    "core_field_definitions": {
+    # Tables sibling workstreams add (fields, reminders): exported once they exist.
+    "core_field_definitions": {  # needed to read core_field_values; definitions are not records
         "entity": None,
-        "columns": ["id", "entity_type", "key", "label", "type", "options", "position", "created_at", "updated_at"],
+        "columns": [
+            "id", "entity_type", "key", "label", "type", "options", "required", "position", "archived_at",
+            "created_at", "updated_at",
+        ],
     },
     "core_field_values": {
-        **_POLY, "columns": ["id", "field_id", "entity_type", "entity_id", "value", "created_at", "updated_at"],
+        **_POLY, "columns": ["entity_type", "entity_id", "definition_id", "value", "updated_at", "updated_by"],
     },
-    "core_reminders": {
-        **_POLY,
+    "core_reminders": {  # on a record: whoever can read it; on no record: the owner alone (as on screen)
+        **_POLY, "owner_column": "owner_user_id",
         "columns": [
             "id", "owner_user_id", "entity_type", "entity_id", "title", "note", "due_at", "repeat", "series_id",
-            "status", "fired_at", "created_at", "updated_at",
+            "status", "void_reason", "fired_at", "created_at", "updated_at",
         ],
     },
 }

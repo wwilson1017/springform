@@ -62,21 +62,29 @@ def preview() -> dict:
     return preview_in(db.get_conn())
 
 
+def readable_in(conn: db.Conn, user, spec: dict, row: dict, allowed: dict) -> bool:
+    """The row rule (see policy.py); `allowed` caches (type, id) -> readable across the export."""
+    if spec.get("entity") is None:
+        return True
+    record_id = row[spec.get("id_column", "id")]
+    if record_id is None:
+        return spec.get("owner_column") is not None and row[spec["owner_column"]] == user.id
+    key = (spec["entity"].format(**row), record_id)
+    if key not in allowed:
+        try:
+            entities.authorize(user, conn, key[0], key[1], "read")
+            allowed[key] = True
+        except NotFound:  # missing record, unknown type, or not readable
+            allowed[key] = False
+    return allowed[key]
+
+
 def rows_in(conn: db.Conn, user, table: str, spec: dict, columns: list[str], allowed: dict):
-    """The table's exportable rows for `user`; `allowed` caches (type, id) -> readable."""
+    """The table's exportable rows for `user`, as lists in `columns` order."""
     for row in conn.execute(f"SELECT * {_from(table, spec)} ORDER BY rowid"):
         row = dict(row)
-        if spec.get("entity") is not None:
-            key = (spec["entity"].format(**row), row[spec.get("id_column", "id")])
-            if key not in allowed:
-                try:
-                    entities.authorize(user, conn, key[0], key[1], "read")
-                    allowed[key] = True
-                except NotFound:
-                    allowed[key] = False
-            if not allowed[key]:
-                continue
-        yield [row[c] for c in columns]
+        if readable_in(conn, user, spec, row, allowed):
+            yield [row[c] for c in columns]
 
 
 def export_in(conn: db.Conn, user) -> tuple[tempfile.SpooledTemporaryFile, str]:
