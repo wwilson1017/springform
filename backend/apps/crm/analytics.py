@@ -2,8 +2,9 @@
 durations and conversion, stale deals, deal health, duplicates. Ported from CakeCRM's
 crm/service.py analytics section and crm/analytics_service.py (docs/PROVENANCE.md).
 
-Day bucketing happens in Python with core.localtime in the install timezone (never
-`substr(col, 1, 10)`, which is a UTC date); SQL compares only against precomputed UTC bounds.
+Day bucketing happens in Python with core.localtime in the install timezone (never the first
+ten characters of a stored timestamp, which are a UTC date); SQL compares only against
+precomputed UTC bounds.
 Money is integer cents; averages of cents round to whole cents.
 
 Contracts still to port (the shapes are in models.py): `analytics(user, days, stale_days)`,
