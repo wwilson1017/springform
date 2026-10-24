@@ -161,12 +161,14 @@ A failure redirects with `error=` one of `not_invited`, `link_required`, `google
 2. An invite token (`core_login_tokens` purpose `invite`, **1 h**) makes the link `PUBLIC_URL/invite/<token>`. The link is always returned to the admin to copy, and is also mailed via Resend when `RESEND_API_KEY` and `MAIL_FROM` are set.
 3. The invitee sets a password or presses Google (the linking rule's invite case).
 4. The same token mechanism serves "forgot password" (purpose `reset`, a one-hour `PUBLIC_URL/reset-password/<token>` link). `POST /api/auth/forgot` answers 202 whether or not the account exists.
+   Without mail nothing is sent, so an admin issues the same `reset` link for an active member (`POST /api/auth/users/{id}/reset-link`) and passes it on; it is also mailed when mail is configured, and `mailed` says whether Resend accepted it.
 5. Links are single use. Resending an invite issues a new link and the old one stops working.
 6. A reset or a password change ends every other session and forgets trusted devices. Accepting an invite or resetting a password ends like a password sign-in: a session, or the TOTP challenge.
 
 ```
 POST  /api/auth/users                         (admin) invite -> {user, invite_url, mailed}
 POST  /api/auth/users/{id}/resend-invite      (admin)
+POST  /api/auth/users/{id}/reset-link         (admin) -> {reset_url, mailed}; 404 for an unknown, system or deactivated user
 GET   /api/auth/users                         (admin)
 PATCH /api/auth/users/{id}                    (admin) name, role, tz
 POST  /api/auth/users/{id}/deactivate         (admin)

@@ -101,7 +101,7 @@ NEW_WRITES = [
     ("post", "/api/auth/login/totp"), ("post", "/api/auth/totp/enrol"), ("post", "/api/auth/totp/confirm"),
     ("post", "/api/auth/totp/disable"), ("delete", "/api/auth/trusted-devices"), ("post", "/api/auth/google/unlink"),
     ("put", "/api/auth/google/config"), ("post", "/api/auth/google/test"), ("post", "/api/auth/users"),
-    ("post", "/api/auth/users/1/resend-invite"), ("post", "/api/auth/invite/x"), ("post", "/api/auth/forgot"),
+    ("post", "/api/auth/users/1/resend-invite"), ("post", "/api/auth/users/1/reset-link"), ("post", "/api/auth/invite/x"), ("post", "/api/auth/forgot"),
     ("post", "/api/auth/reset"), ("post", "/api/auth/password"), ("patch", "/api/auth/users/1"),
     ("post", "/api/auth/users/1/deactivate"), ("post", "/api/auth/users/1/reactivate"), ("patch", "/api/me"),
 ]

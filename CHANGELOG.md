@@ -43,6 +43,8 @@ Conventions:
 - Whisk chat at `/whisk`: streamed answers, an approval card before any write, and a conversation
   list with search, rename, private and delete. Settings, AI holds the provider keys, the agent,
   memory (context files and facts) and the nightly run.
+- Admins can issue a password reset link for a member (`POST /api/auth/users/{id}/reset-link`), so
+  an install without mail has a way back in for someone locked out.
 
 ### Changed
 

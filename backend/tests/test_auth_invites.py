@@ -126,6 +126,27 @@ def test_forgot_and_reset(login_as, app, outbox):
     assert login("/api/auth/login", json={"email": member.user["email"], "password": NEW_PASSWORD}).status_code == 200
 
 
+def test_an_admin_issues_a_reset_link(login_as, app, outbox, monkeypatch):
+    admin, member = login_as("admin"), login_as("member")
+    monkeypatch.delenv("RESEND_API_KEY")  # no mail: the copyable link is the way out
+    r = admin.post(f"/api/auth/users/{member.user['id']}/reset-link")
+    assert r.status_code == 200 and r.json()["mailed"] is False and outbox == []
+    first = r.json()["reset_url"]
+    assert first.startswith("http://localhost:8000/reset-password/")
+    assert core_db.one("SELECT created_by FROM core_login_tokens WHERE purpose = 'reset'")["created_by"] == admin.user["id"]
+    monkeypatch.setenv("RESEND_API_KEY", "re_test")
+    r = admin.post(f"/api/auth/users/{member.user['id']}/reset-link").json()
+    assert r["mailed"] is True and outbox[0]["to"] == [member.user["email"]] and r["reset_url"] in outbox[0]["text"]
+    guest = make_client(app)
+    assert guest.post("/api/auth/reset", json={"token": _token(first), "password": NEW_PASSWORD}).status_code == 404  # replaced
+    assert guest.post("/api/auth/reset", json={"token": _token(r["reset_url"]), "password": NEW_PASSWORD}).status_code == 200
+    assert member.get("/api/me").status_code == 401 and guest.get("/api/me").json()["id"] == member.user["id"]
+    assert login_as("member").post(f"/api/auth/users/{admin.user['id']}/reset-link").status_code == 403
+    admin.post(f"/api/auth/users/{member.user['id']}/deactivate")
+    for uid in (member.user["id"], 0, 999):  # deactivated, the system principal, unknown
+        assert admin.post(f"/api/auth/users/{uid}/reset-link").status_code == 404
+
+
 def test_forgot_without_mail_issues_nothing_and_is_rate_limited(login_as, app):
     member = login_as("member")
     guest = make_client(app)
