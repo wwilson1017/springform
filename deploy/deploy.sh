@@ -6,7 +6,7 @@
 #
 # Deploys are stop-before-start: `docker compose up` stops the old container before it starts
 # the new one, because only one process may hold /data/.springform.lock (SQLite has one
-# writer). Expect a few seconds of 502 from Caddy during the swap.
+# writer). Expect about ten seconds of 502 from Caddy while the new container boots.
 set -euo pipefail
 cd "$(dirname "$0")"
 
