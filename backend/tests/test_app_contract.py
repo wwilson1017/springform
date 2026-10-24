@@ -138,8 +138,9 @@ def contract_problems(app_dir: Path, tmp_path: Path) -> list[str]:
                 p.append(f"EXPORT {table!r} needs an entity (an entity type of {slug}, or None)")
             elif spec["entity"] is not None and spec["entity"] not in entity_types:
                 p.append(f"EXPORT {table!r} names entity {spec['entity']!r}, which {slug} does not register")
-            if "id_column" in spec and spec["id_column"] not in columns.get(table, set()):
-                p.append(f"EXPORT {table!r} id_column {spec['id_column']!r} is not a column")
+            for key in ("id_column", "owner_column"):  # optional keys that name a column of the table
+                if key in spec and spec[key] not in columns.get(table, set()):
+                    p.append(f"EXPORT {table!r} {key} {spec[key]!r} is not a column")
 
     for job in getattr(mods.get("jobs"), "JOBS", []):
         if not job.name.startswith(f"{slug}."):
@@ -191,6 +192,7 @@ def test_bad_app_breaks_every_rule(tmp_path):
         r"EXPORT 'bad_app_things' names columns that do not exist: \['nope'\]",
         r"EXPORT 'bad_app_things' names entity 'bad_app\.nothing'",
         r"EXPORT 'bad_app_things' id_column 'thing_ref' is not a column",
+        r"EXPORT 'bad_app_things' owner_column 'owner' is not a column",
         r"job 'tidy' must be named bad_app\.<job>",
         r"tool 'make_thing' must be named bad_app_<tool>",
         r"unknown hook 'on_saved'",
