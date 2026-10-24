@@ -34,7 +34,8 @@ import * as ui from './ui';
 
 interface Section {
   id: string;
-  title: string | ((kind: ContactKind) => string);
+  /** Omitted when the component titles its own parts (RecordServices' Fields and Reminders). */
+  title?: string | ((kind: ContactKind) => string);
   column: 'main' | 'side';
   Component: ComponentType<SectionProps>;
 }
@@ -50,7 +51,7 @@ const SECTIONS: Section[] = [
   { id: 'channels', title: 'Contact details', column: 'side', Component: ChannelsSection },
   { id: 'addresses', title: 'Addresses', column: 'side', Component: AddressesSection },
   { id: 'files', title: 'Files', column: 'side', Component: Attachments },
-  { id: 'services', title: 'Services', column: 'side', Component: RecordServices },
+  { id: 'services', column: 'side', Component: RecordServices },
 ];
 
 const STATUS_SUGGEST = ['lead', 'active', 'inactive'];
@@ -109,14 +110,21 @@ function Columns({ kind, props }: { kind: ContactKind; props: SectionProps }) {
     id: `app:${p.slug}`, title: appBySlug(p.slug)?.manifest.name ?? p.slug, column: 'side', Component: p.Panel,
   }));
   const all = [...SECTIONS, ...panels];
-  const column = (c: Section['column']) => all.filter(s => s.column === c).map(({ id, title, Component }) => (
-    <section key={id} aria-label={typeof title === 'function' ? title(kind) : title}>
-      <h2 className={ui.sectionTitle}>{typeof title === 'function' ? title(kind) : title}</h2>
+  const column = (c: Section['column']) => all.filter(s => s.column === c).map(({ id, title, Component }) => {
+    const body = (
       <Suspense fallback={<p className="m-0 text-sm text-sf-ink-dim">Loading…</p>}>
         <Component {...props} />
       </Suspense>
-    </section>
-  ));
+    );
+    if (!title) return <div key={id}>{body}</div>;
+    const text = typeof title === 'function' ? title(kind) : title;
+    return (
+      <section key={id} aria-label={text}>
+        <h2 className={ui.sectionTitle}>{text}</h2>
+        {body}
+      </section>
+    );
+  });
   return (
     <div className="mt-8 grid grid-cols-1 gap-8 md:grid-cols-[minmax(0,1fr)_340px]">
       <div className="flex min-w-0 flex-col gap-8">{column('main')}</div>

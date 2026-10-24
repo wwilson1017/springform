@@ -63,6 +63,9 @@ describe('Person page', () => {
       expect(screen.getByRole('heading', { level: 2, name })).toBeTruthy();
     }
     expect(screen.getByRole('button', { name: 'The primary email' })).toBeTruthy();
+    // Record services title their own parts; no wrapper heading sits over them.
+    expect(screen.queryByRole('heading', { name: 'Services' })).toBeNull();
+    expect(await screen.findAllByRole('heading', { name: 'Reminders' })).toHaveLength(1);
   });
 
   it('an unknown id says so', async () => {

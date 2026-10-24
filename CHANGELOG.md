@@ -60,6 +60,8 @@ Conventions:
 - Report CSV downloads check and default their params like the report page (bad params are 422).
 - The settings API lists only keys an admin can change, so saving every listed value works.
 - Example widget links open the widget page.
+- Person and organization pages show the Fields and Reminders headings once, without a "Services"
+  heading over them.
 - The frontend lint config scopes the fast-refresh rule off for app entry, route and context modules,
   so the code carries no `eslint-disable` comments.
 
