@@ -18,4 +18,12 @@ describe('Dialog', () => {
     fireEvent.keyDown(document, { key: 'Escape' });
     expect(onClose).toHaveBeenCalledTimes(1);
   });
+
+  it('leaves Escape to an open picker inside it', () => {
+    const onClose = vi.fn();
+    render(<Dialog title="New" onClose={onClose}><input role="combobox" aria-expanded="true" aria-controls="x" aria-label="Person" /></Dialog>);
+    screen.getByLabelText('Person').focus();
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(onClose).not.toHaveBeenCalled();
+  });
 });

@@ -31,6 +31,8 @@ export function Dialog({ title, subtitle, onClose, children, wide }: {
       const active = document.activeElement;
       if (active instanceof Element && !ref.current?.contains(active) && active.closest('[role="dialog"]')) return;
       if (e.key === 'Escape') {
+        // An open picker inside closes its own list first (this listener runs before its own).
+        if (active?.matches('[aria-expanded="true"]')) return;
         e.preventDefault();
         e.stopPropagation();
         onCloseRef.current();
