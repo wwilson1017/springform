@@ -98,6 +98,14 @@ def _log(conn, user, args: dict) -> dict:
     return activity.log_in(conn, user, args["activity"], args.get("note") or "", deal_id=args.get("deal_id"), person_id=args.get("person_id"))
 
 
+def _search(user, args: dict) -> list[dict]:
+    """`mine` stands for the user's own id, which the model is never told."""
+    filters = {k: v for k, v in args.items() if k in _SEARCH_ARGS}
+    if args.get("mine"):
+        filters["owner_user_id"] = user.id
+    return deals.search(user, **filters)
+
+
 def _analytics(user, args: dict) -> dict:
     """The lean shape: scalars and short lists, never the day-by-day series."""
     full = analytics.analytics(user, int(args.get("days") or 30), args.get("stale_days"))
@@ -142,10 +150,12 @@ def get_tools() -> list[ToolSpec]:
         _read(
             "crm_search_deals",
             "Search live deals by words in their title, notes, person or organization (prefix, case- and accent-insensitive), "
-            "and/or filter by stage, person_id, organization_id or owner_user_id. Money is in cents ($1,250.00 is 125000).",
-            lambda user, args: deals.search(user, **{k: v for k, v in args.items() if k in _SEARCH_ARGS}),
+            "and/or filter by stage, person_id, organization_id or owner_user_id; mine=true for the user's own deals. "
+            "Money is in cents ($1,250.00 is 125000).",
+            _search,
             {"q": {"type": "string"}, "stage": {"type": "string", "enum": list(STAGES)}, "person_id": {"type": "integer"},
              "organization_id": {"type": "integer"}, "owner_user_id": {"type": "integer"},
+             "mine": {"type": "boolean", "description": "Only deals the user owns"},
              "sort_by": {"type": "string", "enum": sorted(deals.SORTS)}, "sort_dir": {"type": "string", "enum": ["asc", "desc"]},
              "include_archived": {"type": "boolean", "description": "Also archived deals: the way back to one archived by mistake"},
              "limit": {"type": "integer", "minimum": 1, "maximum": 100}},

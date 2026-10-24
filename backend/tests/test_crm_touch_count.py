@@ -87,6 +87,7 @@ class Model:
     def __init__(self, monkeypatch, reply=None, raises=None, during=None):
         self.calls, self.reply, self.raises, self.during = [], reply, raises, during
         monkeypatch.setattr(touch_count.llm, "complete", self)
+        monkeypatch.setenv("AGENT_FAKE_PROVIDER", "1")  # a configured provider; the call itself is this stub
 
     def __call__(self, system, prompt, *, tier, max_tokens):
         assert not core_db.in_transaction(), "the model is called outside any transaction"
@@ -240,3 +241,23 @@ def test_backfill_queues_open_deals(me, monkeypatch):
     assert touch_count.request_backfill("missing")["pending"] == 0
     assert touch_count.request_backfill("all")["pending"] == 1
     assert row(deal["id"])["touch_dirty"] == 1
+    model = Model(monkeypatch)
+    assert touch_count.run() == {"counted": 1} and len(model.calls) == 1, "a recount judges unchanged evidence again"
+
+
+def test_an_edit_that_changes_no_line_costs_no_model_call(me, monkeypatch):
+    deal = a_deal(me)
+    model = Model(monkeypatch)
+    touch_count.run()
+    deals.update(me, deal["id"], {"value_cents": 500_000, "stage": "qualified"})
+    assert row(deal["id"])["touch_dirty"] == 1
+    assert touch_count.run() == {"counted": 0} and len(model.calls) == 1 and row(deal["id"])["touch_dirty"] == 0
+    assert touch_count.evidence(me, deal["id"])["verdict_state"] == "current"
+    deals.update(me, deal["id"], {"notes": "Prefers phone calls now"})
+    assert touch_count.run() == {"counted": 1} and len(model.calls) == 2, "a changed line is judged again"
+
+
+def test_a_keyless_install_writes_no_counts_not_even_zero(me):
+    quiet = deals.create(me, {"title": "Quiet"})
+    assert touch_count.run() == {"counted": 0, "skipped": "no_provider"}
+    assert (row(quiet["id"])["ai_touch_count"], row(quiet["id"])["touch_dirty"]) == (None, 1)

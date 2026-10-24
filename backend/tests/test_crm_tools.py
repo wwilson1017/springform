@@ -2,14 +2,16 @@
 for write, then handler_in, in one transaction): deal links, provenance badges, open-stage
 moves, confirm tiers and the role filters."""
 
+import json
+
 import pytest
 
-from backend.apps.crm import provenance
+from backend.apps.crm import deals, provenance
 from backend.core import db as core_db
-from backend.core.agent import engine, registry
+from backend.core.agent import engine, execute, history, registry
+from backend.core.agent.providers import fake
 from backend.core.auth.deps import system_user
 from backend.core.contacts import api as contacts
-from backend.core.errors import Forbidden, Invalid, NotFound
 
 
 @pytest.fixture
@@ -18,12 +20,17 @@ def me(app, make_user, freeze):
     return make_user("member")
 
 
+class Refused(Exception):
+    """A tool run that ended in error; the message is the run's error text."""
+
+
 def call(user, name, **args):
-    spec = registry.get(name)
-    if not spec.writes:
-        return spec.handler(user, args)
-    with core_db.transaction() as conn:
-        return engine._local_write_in(conn, spec, user, args)
+    """Run a tool the way chat approvals and MCP do (execute.run_tool: targets authorized for
+    write, then handler_in, in one transaction, and the run recorded)."""
+    out = execute.run_tool(user, registry.get(name), args, source="mcp")
+    if out["status"] != "done":
+        raise Refused(out["error"])
+    return out["result"]
 
 
 def test_the_crm_tools_register_with_the_app_s_roles(me):
@@ -45,7 +52,7 @@ def test_create_update_and_close_through_the_write_path(me):
     assert set(badges) == {"value_cents", "stage"}, "the AI-written fields are badged; the title the user named is not"
     moved = call(me, "crm_update_deal_stage", deal_id=deal["id"], stage="negotiation")
     assert moved["stage"] == "negotiation"
-    with pytest.raises(Invalid, match="crm_mark_deal_won"):
+    with pytest.raises(Refused, match="crm_mark_deal_won"):
         call(me, "crm_update_deal_stage", deal_id=deal["id"], stage="won")
     won = call(me, "crm_mark_deal_won", deal_id=deal["id"], closed_on="2026-10-10")
     assert (won["stage"], won["closed_on"], won["url"].endswith(f"/crm/deals/{deal['id']}")) == ("won", "2026-10-10", True)
@@ -57,7 +64,7 @@ def test_bulk_moves_stay_on_open_stages(me):
     ids = [call(me, "crm_create_deal", title=f"Deal {i}")["id"] for i in range(3)]
     out = call(me, "crm_bulk_move_deals", deal_ids=ids, stage="qualified")
     assert (out["ok"], out["updated_ids"]) == (True, ids)
-    with pytest.raises(Invalid):
+    with pytest.raises(Refused, match="open stage"):
         call(me, "crm_bulk_move_deals", deal_ids=ids, stage="lost")
 
 
@@ -89,14 +96,40 @@ def test_reads_carry_links_and_lean_analytics(me):
         ada = contacts.create_person_in(conn, me, name="Ada Example")["id"]
     assert call(me, "crm_get_lead_score", person_id=ada)["person_id"] == ada
     assert 1 <= call(me, "crm_get_lead_score", deal_id=deal["id"])["score"] <= 99
-    with pytest.raises(Invalid):
+    with pytest.raises(Refused, match="deal_id or person_id"):
         call(me, "crm_get_lead_score")
 
 
 def test_the_write_path_authorizes_its_targets(me):
-    with pytest.raises(NotFound):
+    with pytest.raises(Refused, match="not_found"):
         call(me, "crm_update_deal", deal_id=9999, title="x")
     deal = call(me, "crm_create_deal", title="Wedding cakes")
-    with pytest.raises(Forbidden):  # the system principal never writes (core refuses before the handler)
+    with pytest.raises(Refused, match="forbidden"):  # the system principal never writes (core refuses before the handler)
         call(system_user(), "crm_update_deal", deal_id=deal["id"], title="x")
     assert call(system_user(), "crm_get_deal", deal_id=deal["id"])["title"] == "Wedding cakes"
+
+
+def test_through_chat_mine_reads_inline_and_archive_waits_for_the_owner_s_approval(login_as, monkeypatch):
+    monkeypatch.setenv("AGENT_FAKE_PROVIDER", "1")
+    fake.reset()
+    member, other = login_as("member"), login_as("member")
+    mine = deals.create(member.principal, {"title": "Wedding cakes", "owner_user_id": member.principal.id})
+    deals.create(member.principal, {"title": "Café order"})
+
+    def turn(client, step):
+        fake.script(step, "Done.")
+        r = client.post("/api/agent/chat", json={"message": "go"})
+        assert r.status_code == 200, r.text
+        return [json.loads(line[6:]) for line in r.text.splitlines() if line.startswith("data: ")]
+
+    ends = [e for e in turn(member, {"tool": "crm_search_deals", "args": {"mine": True}}) if e["type"] == "tool_end"]
+    assert ends[0]["status"] == "done" and [d["id"] for d in ends[0]["result"]] == [mine["id"]]
+
+    evs = turn(member, {"tool": "crm_archive_deal", "args": {"deal_id": mine["id"], "reason": "Created by mistake"}})
+    run_id = next(e for e in evs if e["type"] == "confirm")["tool_run_id"]
+    assert deals.get(member.principal, mine["id"])["archived_at"] is None, "nothing happens before approval"
+    assert other.post("/api/agent/confirm", json={"tool_run_id": run_id, "decision": "approve"}).status_code == 403
+    done = member.post("/api/agent/confirm", json={"tool_run_id": run_id, "decision": "approve"}).json()
+    assert done["status"] == "done" and done["result"]["archived_reason"] == "Created by mistake"
+    assert history.get_tool_run(run_id)["status"] == "done"
+    fake.reset()

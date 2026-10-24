@@ -6,15 +6,17 @@ activity and its own notes field. Ported from CakeCRM's crm/touch_count_service.
 The job `crm.touch_count` (every 120 s) takes at most BATCH live open deals that need a count:
 `touch_dirty` (set by the record hook, by activity writes and by a backfill) or a note newer
 than the evidence the stored count was built on. Per deal it:
-1. reads the evidence (a plain read, no transaction);
+1. reads the evidence (a plain read, no transaction); when it is exactly what the stored
+   verdicts were judged on (a value, stage or person edit flags the deal but changes no line),
+   it clears the flag without a model call;
 2. calls `llm.complete(..., tier="light")` outside any transaction. The model judges every
    numbered line; the count is the number of lines it marked as touches, so the pill and its
    explanation cannot disagree;
 3. in one transaction re-reads the evidence and, only if it is unchanged, stores the count,
    the verdicts (crm_deal_ai_touch_evidence) and clears touch_dirty. Changed evidence leaves the
    deal dirty for the next run.
-No provider (NoProviderConfigured), crm.touch_count_enabled off, or a provider error ends the
-run with nothing written. A reply that cannot be parsed writes nothing and clears the flag (a
+No provider, crm.touch_count_enabled off, or a provider error ends the run with nothing written
+(a keyless install writes no counts at all, not even the zero of a deal without evidence). A reply that cannot be parsed writes nothing and clears the flag (a
 model that cannot answer for this deal is not retried every two minutes; a backfill retries).
 Never fabricate: no count is ever guessed.
 
@@ -35,7 +37,7 @@ from typing import TYPE_CHECKING
 from backend.apps.crm import settings as crm_settings
 from backend.apps.crm.common import ENTITY, LIVE, OPEN
 from backend.core import clock, db, entities, localtime
-from backend.core.agent import llm
+from backend.core.agent import llm, providers
 
 if TYPE_CHECKING:
     from backend.core.auth.deps import User
@@ -291,10 +293,17 @@ def _store_in(conn: db.Conn, deal_id: int, seen: dict, count: int, payload: dict
     return True
 
 
-def _payload(count: int, entries: list[dict], verdicts: list[dict], skipped: list[dict]) -> dict:
+def _judged(deal: dict, entries: list[dict]) -> str:
+    """A digest of everything the model is shown (the title and every line, keyed to its row),
+    stored with the verdicts so a later run can tell there is nothing new to judge."""
+    shown = [deal["title"], [(e["source"], e["source_id"], e["line"]) for e in entries]]
+    return hashlib.blake2b(json.dumps(shown).encode(), digest_size=12).hexdigest()
+
+
+def _payload(count: int, entries: list[dict], verdicts: list[dict], skipped: list[dict], judged: str) -> dict:
     """Items keep no text: the drill-down shows the live line and compares its digest."""
     return {
-        "v": 1, "count": count,
+        "v": 1, "count": count, "judged": judged,
         "items": [{"source": e["source"], "source_id": e["source_id"], "touch": v["touch"], "reason": v["reason"], "h": line_hash(e["line"])}
                   for e, v in zip(entries, verdicts)],
         "skipped": [{"source": s["source"], "source_id": s["source_id"], "why": s["why"]} for s in skipped],
@@ -308,14 +317,24 @@ def count_deal(deal_id: int) -> int | None:
     if seen is None:
         return None
     entries, skipped = build_entries(seen)
+    judged = _judged(seen["deal"], entries)
+    snap = db.get_conn().execute("SELECT verdicts FROM crm_deal_ai_touch_evidence WHERE deal_id = ?", (deal_id,)).fetchone()
+    if seen["deal"]["ai_touch_count"] is not None and snap and json.loads(snap[0]).get("judged") == judged:
+        # The stored verdicts were judged on exactly this evidence: an edit to the deal's value,
+        # stage or person flags it but changes nothing the model reads, so no call is paid for.
+        with db.transaction() as conn:
+            now = _load_in(conn, deal_id)
+            if now is not None and _judged(now["deal"], build_entries(now)[0]) == judged:
+                conn.execute("UPDATE crm_deals SET touch_dirty = 0 WHERE id = ?", (deal_id,))
+        return None
     if not entries:
-        count, payload = 0, _payload(0, [], [], skipped)  # no evidence is no touches: no model call
+        count, payload = 0, _payload(0, [], [], skipped, judged)  # no evidence is no touches: no model call
     else:
         lines = [f"[{i}] {e['line']}" for i, e in enumerate(entries, 1)]
         reply = llm.complete(SYSTEM_PROMPT, build_prompt(seen["deal"], lines), tier="light", max_tokens=min(4096, 400 + 60 * len(lines)))
         if (verdicts := parse_touch_verdicts(reply, len(entries))) is not None:
             count = sum(v["touch"] for v in verdicts)
-            payload = _payload(count, entries, verdicts, skipped)
+            payload = _payload(count, entries, verdicts, skipped, judged)
         elif (count := parse_touch_count(reply)) is not None:
             payload = None
             logger.warning("touch count verdicts invalid for deal %s (lines=%d); storing the count alone", deal_id, len(entries))
@@ -333,6 +352,8 @@ def run(cancel: threading.Event | None = None) -> dict:
     global _last_run_at
     if not crm_settings.touch_count_enabled():
         return {"counted": 0, "skipped": "disabled"}
+    if providers.get_provider(tier="light") is None:  # keyless installs write no counts, not even zeros
+        return {"counted": 0, "skipped": "no_provider"}
     _running.set()
     counted = 0
     try:
@@ -412,15 +433,18 @@ def evidence(user: User, deal_id: int) -> dict:
 
 
 def status() -> dict:
-    from backend.core.agent import providers
-
     pending = db.get_conn().execute(f"SELECT count(*) FROM crm_deals d WHERE {NEEDS_COUNT}").fetchone()[0]
     return {"pending": pending, "running": _running.is_set(), "last_run_at": _last_run_at, "configured": providers.get_provider(tier="light") is not None}
 
 
 def request_backfill(scope: str) -> dict:
-    """Queue live open deals for the job: never-counted ones ("missing") or all of them ("all")."""
+    """Queue live open deals for the job: never-counted ones ("missing") or all of them ("all").
+    "all" is a recount: it forgets what the stored verdicts were judged on, so unchanged
+    evidence is judged again too."""
     with db.transaction() as conn:
         extra = "" if scope == "all" else "AND d.ai_touch_count IS NULL"
         conn.execute(f"UPDATE crm_deals SET touch_dirty = 1 WHERE id IN (SELECT d.id FROM crm_deals d WHERE {LIVE} AND {OPEN} {extra})")
+        if scope == "all":
+            conn.execute(f"""UPDATE crm_deal_ai_touch_evidence SET verdicts = json_remove(verdicts, '$.judged')
+                              WHERE deal_id IN (SELECT d.id FROM crm_deals d WHERE {LIVE} AND {OPEN})""")
     return status()
