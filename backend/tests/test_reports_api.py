@@ -31,13 +31,18 @@ def extra_reports(app):
     reports.register(Report(key="adminapp.audit", label="Audit", app="adminapp", run=_echo, roles=("admin",)))
 
 
+def _ours(listed):
+    """Only this test's reports and the Example's; other installed apps contribute their own."""
+    return [r for r in listed if r["app"] in ("example", "testing", "adminapp")]
+
+
 def test_list_is_filtered_by_role(extra_reports, login_as):
     admin, member = login_as("admin"), login_as("member")
-    listed = member.get("/api/core/reports").json()
+    listed = _ours(member.get("/api/core/reports").json())
     assert [r["key"] for r in listed] == ["example.widgets_by_color", "testing.echo"]
     assert listed[0] == {"key": "example.widgets_by_color", "label": "Widgets by colour", "app": "example", "params": None, "admin_only": False}
     assert listed[1]["params"] == PARAMS
-    assert [r["key"] for r in admin.get("/api/core/reports").json()] == [
+    assert [r["key"] for r in _ours(admin.get("/api/core/reports").json())] == [
         "example.widgets_by_color", "testing.echo", "testing.secret", "adminapp.audit",
     ]
 

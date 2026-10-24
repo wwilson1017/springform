@@ -89,3 +89,15 @@ def test_factory_reset_in_preview_clears_everything_and_reseeds(app, monkeypatch
     users = core_db.rows("SELECT id, role FROM core_users ORDER BY id")
     assert users[0] == {"id": 0, "role": "system"} and [u["id"] for u in users[1:]] == [1, 2]  # sequences reset
     assert core_db.one("SELECT max(id) AS m FROM example_widgets")["m"] == 2
+
+
+def test_every_app_sample_is_idempotent(app, make_user, monkeypatch):
+    """PREVIEW_MODE runs every app's sample() on each boot; a second run must add nothing."""
+    from backend.core import preview
+
+    monkeypatch.setenv("PREVIEW_MODE", "1")
+    preview.seed()
+    counts = lambda: {t: core_db.one(f"SELECT count(*) AS n FROM {t}")["n"] for a in registry.installed() for t in a.modules["seed"].RESET_TABLES}  # noqa: E731
+    first = counts()
+    preview.seed()
+    assert counts() == first

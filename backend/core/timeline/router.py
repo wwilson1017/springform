@@ -28,3 +28,9 @@ def list_timeline(
 @router.post("")
 def add_note(body: NoteIn, user: User = Depends(current_user)) -> dict:
     return service.add_note(user, body.entity_type, body.entity_id, body.body, body.kind)
+
+
+@router.get("/mentionable")
+def timeline_mentionable(q: str | None = Query(None, max_length=100), user: User = Depends(current_user)) -> list[dict]:
+    """Active human users for the @-mention picker: [{id, name}], by name, at most 20."""
+    return service.mentionable(q)
