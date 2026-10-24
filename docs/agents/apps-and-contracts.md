@@ -64,7 +64,7 @@ Open: the `icon` vocabulary is not stated.
 | `tools.py` | `get_tools() -> list[ToolSpec]` | Names prefixed `<slug>_`; per-spec `enabled(user)` (`agent.md`). |
 | `jobs.py` | `JOBS = [Job(name="<slug>.<job>", fn, every=…\|at="HH:MM")]` | `scheduler.md`. |
 | `seed.py` | `seed(conn)`, `sample(conn)`, `RESET_TABLES`, `EXPORT` | Below. |
-| `settings.py` | `DEFAULTS = {key: value}` | Defaults for `core_settings`. |
+| `settings.py` | `DEFAULTS = {"<slug>.<key>": value}` | Defaults for `core_settings`. |
 | `migrations/` | `YYYYMMDDHHMMSS_<slug>_<name>.sql` | Below. |
 | `docs/index.md` | Guide topic(s) | Front matter + Markdown; indexed by `core/docs.py` (`frontend-shell.md`). |
 | `service.py`, `models.py` | — | App-internal; not discovered. |
@@ -98,7 +98,7 @@ Open: signatures for the example's `get_widget` / `widgets_for_person` are not s
 
 `DEFAULTS = {key: value}` provides defaults for `core_settings(key PK, value, is_secret, updated_at, updated_by)`.
 
-Open: key namespacing for app settings is not stated (core keys seen in the plan: `timezone`, `auth.require_totp_for_google`, `sheets.service_account_json`).
+App setting keys are `<slug>.<key>`.
 
 ### `migrations/`
 
