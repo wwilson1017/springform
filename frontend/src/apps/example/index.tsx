@@ -4,7 +4,6 @@ import { WidgetPage } from './WidgetPage';
 import { WidgetsPage } from './WidgetsPage';
 
 /** Mounted by Root under `/example/*`, so these routes are relative to it. */
-// eslint-disable-next-line react-refresh/only-export-components -- the contract is a default-exported { slug, App }
 function App() {
   return (
     <Routes>
