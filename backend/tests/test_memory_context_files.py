@@ -102,6 +102,10 @@ def test_context_for_orders_protected_files_first_and_respects_the_budget(db, ma
              "## a-first.md", "## business.md"]  # fmt: skip
     assert [block.index(s) for s in order] == sorted(block.index(s) for s in order)
     assert memory.FACTS_HEADER not in memory.context_for(conn, admin, "whisk", "")
+    instructions = memory.instructions_for(conn, "whisk")
+    assert instructions.startswith("## soul.md") and "## MEMORY.md" in instructions and "business.md" not in instructions
+    data = memory.context_for(conn, admin, "whisk", "wholesale price", include_protected=False)
+    assert data.startswith(memory.FACTS_HEADER) and "## soul.md" not in data and "## business.md" in data
 
     settings.set_setting(memory.BUDGET_SETTING, 400, admin.id)
     small = memory.context_for(conn, admin, "whisk", "wholesale price")

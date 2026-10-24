@@ -40,19 +40,29 @@ def _fit(sections: list[str], budget: int) -> str:
     return "\n\n".join(out)
 
 
-def context_for(conn: db.Conn, user: User, agent_slug: str, query: str) -> str:
+def _render(f: dict) -> str:
+    return f"## {f['filename']}\n\n{f['content'].strip()}"
+
+
+def instructions_for(conn: db.Conn, agent_slug: str) -> str:
+    """Only the protected files (soul.md, then MEMORY.md), for a caller that places them unfenced
+    as instructions: only an admin can change them, through the confirmed tool. '' when empty."""
+    return "\n\n".join(_render(f) for f in context_files.prompt_files_in(conn, agent_slug) if f["is_protected"])
+
+
+def context_for(conn: db.Conn, user: User, agent_slug: str, query: str, *, include_protected: bool = True) -> str:
     """The agent's memory for one turn: protected context files (soul.md, then MEMORY.md),
     then facts matching `query`, then the other context files by filename, capped at the
     `agent.context_budget_chars` setting. '' when there is nothing. Facts and files are
-    install-shared, so `user` does not filter them."""
+    install-shared, so `user` does not filter them. `include_protected=False` leaves the
+    protected files to `instructions_for`."""
     budget = int(settings.get_setting(BUDGET_SETTING, DEFAULT_BUDGET))
     files = context_files.prompt_files_in(conn, agent_slug)
-    render = lambda f: f"## {f['filename']}\n\n{f['content'].strip()}"  # noqa: E731
-    sections = [render(f) for f in files if f["is_protected"]]
+    sections = [_render(f) for f in files if f["is_protected"] and include_protected]
     found = facts.search_in(conn, query, FACTS_LIMIT) if query else []
     if found:
         sections.append(FACTS_HEADER + "\n\n" + "\n".join(f"- {f['text']}" for f in found))
-    sections += [render(f) for f in files if not f["is_protected"]]
+    sections += [_render(f) for f in files if not f["is_protected"]]
     return _fit(sections, budget)
 
 

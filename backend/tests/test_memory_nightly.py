@@ -1,3 +1,4 @@
+import json
 import sys
 import types
 
@@ -7,12 +8,19 @@ from backend.core import db as core_db, memory, scheduler, settings
 from backend.core.memory import dreaming, facts, jobs, observer
 
 LLM = "backend.core.agent.llm"
-# Minimal stand-ins for the engine's tables (created only where the engine's migration has not).
+NOW = "2026-10-24T09:00:00Z"
+# Stand-ins with the engine's NOT NULL columns, created only where its migration has not run.
+# Message content is JSON {"text": ...}, as the engine stores it.
 CONVERSATION_TABLES = """
+CREATE TABLE IF NOT EXISTS core_agents (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, slug TEXT NOT NULL UNIQUE, name TEXT NOT NULL, created_at TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS core_agent_conversations (
-    id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, is_private INTEGER NOT NULL DEFAULT 0);
+    id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, agent_id INTEGER NOT NULL,
+    is_private INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS core_agent_messages (
-    id INTEGER PRIMARY KEY AUTOINCREMENT, conversation_id INTEGER NOT NULL, role TEXT NOT NULL, content TEXT NOT NULL);
+    id INTEGER PRIMARY KEY AUTOINCREMENT, conversation_id INTEGER NOT NULL, role TEXT NOT NULL,
+    content TEXT NOT NULL, created_at TEXT NOT NULL);
+INSERT OR IGNORE INTO core_agents (slug, name, created_at) VALUES ('whisk', 'Whisk', '2026-10-20T00:00:00Z');
 """
 
 
@@ -42,7 +50,9 @@ def llm(db, monkeypatch):
 def conversation(user_id: int, messages: list[tuple[str, str]], private: bool = False) -> int:
     with core_db.transaction() as conn:
         cid = conn.execute(
-            "INSERT INTO core_agent_conversations (user_id, is_private) VALUES (?, ?)", (user_id, int(private))
+            """INSERT INTO core_agent_conversations (user_id, agent_id, is_private, created_at, updated_at)
+               VALUES (?, (SELECT id FROM core_agents WHERE slug = 'whisk'), ?, ?, ?)""",
+            (user_id, int(private), NOW, NOW),
         ).lastrowid
         say(conn, cid, messages)
     return cid
@@ -50,7 +60,10 @@ def conversation(user_id: int, messages: list[tuple[str, str]], private: bool = 
 
 def say(conn, cid: int, messages: list[tuple[str, str]]) -> None:
     for role, content in messages:
-        conn.execute("INSERT INTO core_agent_messages (conversation_id, role, content) VALUES (?, ?, ?)", (cid, role, content))
+        conn.execute(
+            "INSERT INTO core_agent_messages (conversation_id, role, content, created_at) VALUES (?, ?, ?, ?)",
+            (cid, role, json.dumps({"text": content}), NOW),
+        )
     memory.after_turn(conn, cid)
 
 
