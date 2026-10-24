@@ -81,7 +81,7 @@ An admin downloads a ZIP of CSVs.
    - `id_column`: the row column holding that record's id; default `"id"`, meaning the row is the record.
    - `where`: a fixed SQL filter on the table.
    - `owner_column`: for rows whose record id is NULL (attached to nothing), the column naming the user they belong to. Such rows go only to that user; without it they are left out.
-3. Nothing else. The contract test checks that an app's `EXPORT` names only tables the app owns, real columns, and one of the app's own registered entity types. `None` and the brace forms are therefore for `CORE_EXPORT` only.
+3. Nothing else. The contract test checks that an app's `EXPORT` names only tables the app owns and real columns, that every entry has an `entity` (one of the app's own registered entity types, or `None`), and that `id_column` and `owner_column` name real columns. The brace forms are used by `CORE_EXPORT`.
 
 ### Never exported
 
@@ -105,7 +105,7 @@ The ZIP is `springform-export-<timestamp>.zip`. It holds one `<table>.csv` per a
 
 - Export ZIP columns pinned and secrets absent.
 - A two-user test proves a private todo is absent from the other admin's export.
-- Contract test: `EXPORT` names only owned tables, real columns and one of the app's registered entity types.
+- Contract test: `EXPORT` names only owned tables and real columns, and each entry's `entity` is one of the app's entity types or `None`.
 
 ## Source
 
