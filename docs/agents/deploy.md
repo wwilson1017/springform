@@ -26,7 +26,7 @@ Runtime image settings: `VOLUME /data`, `HEALTHCHECK` on `/up`, `STOPSIGNAL SIGT
 | Route | Auth | Contract |
 |---|---|---|
 | `GET /up` | none | Runs `SELECT 1`, returns `200 "ok"`. Docker `HEALTHCHECK`, `deploy.sh` and Railway use it. |
-| `GET /api/health` | none | `{version, sqlite_version, fts5, preview, apps:[slug], last_backup_at}`. `version` from `springform-version`, which must be a PEP 440 version (`0.1.0`, `0.1.0+fork.1`): startup checks each app's `requires_core` against it, and a string like `0.1.0-fork` stops the boot. |
+| `GET /api/health` | none | `{version, sqlite_version, fts5, preview, apps:[slug], last_backup_at}`. `version` from `springform-version`, which must be a PEP 440 version (`0.1.0`, `0.1.0+fork.1`): startup checks each app's `requires_core` against it, and a string like `0.1.0-fork` stops the boot with a message naming the file and the value. |
 
 The **CI image test** runs the container and asserts `/api/health` reports `sqlite_version >= 3.51.3` and `fts5: true`.
 
