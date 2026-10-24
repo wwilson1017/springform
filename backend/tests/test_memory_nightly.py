@@ -31,9 +31,9 @@ def llm(db, monkeypatch):
     mod.NoProviderConfigured = type("NoProviderConfigured", (Exception,), {})
     mod.calls, mod.reply, mod.during_call = [], '{"facts": []}', None
 
-    def complete(system, prompt, tier="standard"):
+    def complete(system, prompt, *, tier="standard", max_tokens=1024):
         assert not core_db.in_transaction(), "LLM call inside transaction()"
-        mod.calls.append({"system": system, "prompt": prompt, "tier": tier})
+        mod.calls.append({"system": system, "prompt": prompt, "tier": tier, "max_tokens": max_tokens})
         if mod.during_call:
             mod.during_call()
         if mod.reply is None:
@@ -102,7 +102,7 @@ def test_extracts_business_facts_as_the_system_user_and_never_reads_private(llm,
     result = jobs.nightly()
     assert result["observer"] == {"status": "ok", "conversations": 1, "facts": 2}
     assert result["dreaming"] == {"facts": 2, "merged": 0}
-    assert len(llm.calls) == 1 and llm.calls[0]["tier"] == "light"
+    assert len(llm.calls) == 1 and llm.calls[0]["tier"] == "light" and llm.calls[0]["max_tokens"] == jobs.MAX_TOKENS
     assert "personal" in llm.calls[0]["system"] and "wholesale price" in llm.calls[0]["prompt"]
     assert "PRIVATE-ROW" not in llm.calls[0]["prompt"] and "ASSISTANT-ROW" not in llm.calls[0]["prompt"]
     stored = facts.list_facts()

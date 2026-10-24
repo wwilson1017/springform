@@ -15,6 +15,7 @@ from backend.core.memory import dreaming, observer
 logger = logging.getLogger(__name__)
 
 ENABLED_SETTING = "agent.nightly_enabled"
+MAX_TOKENS = 2048  # up to 8 facts of 300 chars, plus headroom: thinking counts against max_tokens
 
 
 def nightly(cancel: threading.Event | None = None) -> dict:
@@ -27,7 +28,7 @@ def nightly(cancel: threading.Event | None = None) -> dict:
 
     def light(system: str, prompt: str) -> str:
         try:
-            return complete(system, prompt, tier="light")
+            return complete(system, prompt, tier="light", max_tokens=MAX_TOKENS)
         except NoProviderConfigured:
             raise observer.ProviderMissing from None
 
