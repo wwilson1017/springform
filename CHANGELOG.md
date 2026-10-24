@@ -22,6 +22,9 @@ Conventions:
 
 - Repository tooling: CI for upstream and forks, Docker image with SQLite 3.51.3, one-script VPS
   deploy, fork scripts and release workflow.
+- Whisk chat at `/whisk`: streamed answers, an approval card before any write, and a conversation
+  list with search, rename, private and delete. Settings, AI holds the provider keys, the agent,
+  memory (context files and facts) and the nightly run.
 
 ### Schema
 
