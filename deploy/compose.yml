@@ -1,0 +1,40 @@
+# Springform on one server: the app, reachable only on this compose network, behind Caddy,
+# which gets the HTTPS certificate for DOMAIN and publishes 80/443. Lives in /srv/springform
+# next to .env (see setup.sh); update with deploy.sh.
+services:
+  app:
+    image: ${IMAGE:-ghcr.io/wwilson1017/springform:latest}
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      # Safe only because the app publishes no port: every request comes through Caddy.
+      TRUST_PROXY: "1"
+    volumes:
+      - ./data:/data
+    # uvicorn gets 10 s to finish requests and stop the scheduler before it is killed.
+    stop_grace_period: 15s
+    # The local driver rotates logs; the default json-file grows until the disk is full.
+    logging:
+      driver: local
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN: ${DOMAIN:?set DOMAIN in .env}
+      PORT: ${PORT:-8000}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - app
+    logging:
+      driver: local
+
+volumes:
+  caddy_data:
+  caddy_config:
