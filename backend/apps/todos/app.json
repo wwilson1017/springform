@@ -1,0 +1,16 @@
+{
+  "slug": "todos",
+  "name": "Todos",
+  "description": "Getting Things Done: your private to-dos and the team's shared ones, with projects, areas, a Today view and a weekly review.",
+  "path": "/todos",
+  "icon": "check-square",
+  "roles": ["admin", "member"],
+  "order": 20,
+  "badge": "/api/todos/badge",
+  "docs": "docs/index.md",
+  "version": "0.1.0",
+  "requires_core": ">=0.1,<1",
+  "settings_cards": [{ "id": "todos", "title": "Todos", "admin_only": false }],
+  "sheets": [],
+  "publishes": ["create", "list_for_record", "complete"]
+}
