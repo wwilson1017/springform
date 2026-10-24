@@ -11,7 +11,8 @@ import { useJson } from '../api/useJson';
 import { formatDate } from '../../shared/formatDate';
 import { LoadError } from '../../shared/LoadError';
 import { toast } from '../../shared/toast';
-import { describeChange } from './changeText';
+import { useUserNames } from '../../shared/users';
+import { describeChange, holdsUser, type FieldInfo } from './changeText';
 import { bodySegments } from './mentions';
 import { NoteComposer } from './NoteComposer';
 import { onRecordChanged } from './recordEvents';
@@ -19,33 +20,33 @@ import type { FieldDefinition } from './types';
 
 const PAGE = 50;
 
-// Custom field labels by key, one fetch per entity type for the page's life (archived fields
-// included, so an old change still reads by its label). A key added since shows humanized.
-const labelCache = new Map<string, Promise<Record<string, string>>>();
+// Custom field labels and types by key, one fetch per entity type for the page's life (archived
+// fields included, so an old change still reads by its label). A key added since shows humanized.
+const fieldCache = new Map<string, Promise<FieldInfo>>();
 
-function fieldLabels(entityType: string): Promise<Record<string, string>> {
-  let labels = labelCache.get(entityType);
-  if (!labels) {
+function fieldInfo(entityType: string): Promise<FieldInfo> {
+  let info = fieldCache.get(entityType);
+  if (!info) {
     const url = `/api/core/fields/definitions?${new URLSearchParams({ entity_type: entityType, include_archived: 'true' })}`;
-    labels = fetchJson<FieldDefinition[]>(url).then(
-      defs => Object.fromEntries(defs.map(d => [d.key, d.label])),
-      () => { labelCache.delete(entityType); return {}; },
+    info = fetchJson<FieldDefinition[]>(url).then(
+      defs => Object.fromEntries(defs.map(d => [d.key, { label: d.label, type: d.type }])),
+      () => { fieldCache.delete(entityType); return {}; },
     );
-    labelCache.set(entityType, labels);
+    fieldCache.set(entityType, info);
   }
-  return labels;
+  return info;
 }
 
-/** The labels, fetched only once a custom field change is on screen. */
-function useFieldLabels(entityType: string, needed: boolean): Record<string, string> {
-  const [loaded, setLoaded] = useState<{ entityType: string; labels: Record<string, string> } | null>(null);
+/** The fields, fetched only once a custom field change is on screen. */
+function useFieldInfo(entityType: string, needed: boolean): FieldInfo {
+  const [loaded, setLoaded] = useState<{ entityType: string; fields: FieldInfo } | null>(null);
   useEffect(() => {
     if (!needed) return;
     let live = true;
-    void fieldLabels(entityType).then(labels => { if (live) setLoaded({ entityType, labels }); });
+    void fieldInfo(entityType).then(fields => { if (live) setLoaded({ entityType, fields }); });
     return () => { live = false; };
   }, [entityType, needed]);
-  return loaded?.entityType === entityType ? loaded.labels : {};
+  return loaded?.entityType === entityType ? loaded.fields : {};
 }
 
 export interface TimelineProps {
@@ -62,7 +63,10 @@ export function Timeline({ entityType, entityId }: TimelineProps) {
   const olderHere = older?.base === base ? older : null;
   const entries = first && [...first, ...(olderHere?.entries ?? [])];
   const more = olderHere ? olderHere.more : first?.length === PAGE;
-  const labels = useFieldLabels(entityType, entries?.some(e => e.changes?.some(c => c.field.startsWith('field.'))) ?? false);
+  const changes = entries?.flatMap(e => e.changes ?? []) ?? [];
+  const fields = useFieldInfo(entityType, changes.some(c => c.field.startsWith('field.')));
+  const userName = useUserNames(changes.filter(c => holdsUser(c.field, fields))
+    .flatMap(c => [c.old, c.new]).filter((v): v is number => typeof v === 'number'));
 
   // A custom field save on this record writes a change entry; show it.
   useEffect(() => onRecordChanged((type, id) => {
@@ -94,7 +98,7 @@ export function Timeline({ entityType, entityId }: TimelineProps) {
         : entries.length === 0 ? <p className="m-0 text-sm text-sf-ink-dim">No activity yet.</p>
         : (
           <ol className="m-0 flex list-none flex-col gap-3 p-0">
-            {entries.map(entry => <Entry key={entry.id} entry={entry} labels={labels} />)}
+            {entries.map(entry => <Entry key={entry.id} entry={entry} fields={fields} userName={userName} />)}
           </ol>
         )}
       {more && (
@@ -107,14 +111,14 @@ export function Timeline({ entityType, entityId }: TimelineProps) {
   );
 }
 
-function Entry({ entry, labels }: { entry: TimelineEntry; labels: Record<string, string> }) {
+function Entry({ entry, fields, userName }: { entry: TimelineEntry; fields: FieldInfo; userName: (id: number) => string }) {
   const who = entry.author?.name ?? 'System';
   return (
     <li className="border-l-2 border-sf-line-strong pl-3">
       <div className="text-xs text-sf-ink-dim">{who} · {formatDate(entry.created_at)}</div>
       {entry.kind === 'field_change' ? (
         <ul className="m-0 list-none p-0 text-sm text-sf-ink-mute">
-          {(entry.changes ?? []).map(c => <li key={c.field}>{describeChange(c, labels)}</li>)}
+          {(entry.changes ?? []).map(c => <li key={c.field}>{describeChange(c, fields, userName)}</li>)}
         </ul>
       ) : (
         <p className={`m-0 whitespace-pre-wrap text-sm ${entry.kind === 'system' ? 'text-sf-ink-soft' : 'text-sf-ink'}`}>
