@@ -23,7 +23,8 @@ export function DashboardPage() {
   if (error) return <div className={page}><LoadError label="Couldn't load the CRM dashboard" onRetry={reload} /></div>;
   if (!data) return <div className={page}><p className={muted}>Loading…</p></div>;
 
-  const open = data.pipeline_by_stage.filter(s => OPEN_STAGES.includes(s.stage));
+  // Every open stage, an empty one included, so the funnel's shape reads at a glance.
+  const open = OPEN_STAGES.map(stage => data.pipeline_by_stage.find(s => s.stage === stage) ?? { stage, count: 0, total_value_cents: 0 });
   const openCount = open.reduce((n, s) => n + s.count, 0);
   const maxStage = Math.max(1, ...open.map(s => s.total_value_cents));
 

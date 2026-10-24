@@ -13,7 +13,7 @@ import { stageLabel } from '../constants';
 import { StatCard } from '../components/StatCard';
 import { StageDot } from '../components/badges';
 import { formatCents } from '../money';
-import { card, input, muted, page, pageTitle, sectionTitle } from '../ui';
+import { card, field, muted, page, pageTitle, sectionTitle } from '../ui';
 
 const WINDOWS = [30, 90, 365];
 const BAR = 'var(--color-sf-ai)';
@@ -27,7 +27,7 @@ export function AnalyticsPage() {
       <div className="flex flex-wrap items-end gap-3">
         <h1 className={`${pageTitle} mr-auto`}>Analytics</h1>
         <label htmlFor="analytics-days" className="sr-only">Window</label>
-        <select id="analytics-days" value={days} onChange={e => setDays(Number(e.target.value))} className={`${input} w-auto`}>
+        <select id="analytics-days" value={days} onChange={e => setDays(Number(e.target.value))} className={field}>
           {WINDOWS.map(d => <option key={d} value={d}>Last {d} days</option>)}
         </select>
       </div>
@@ -157,7 +157,7 @@ function PipelineFlow({ p }: { p: PipelineAnalytics }) {
   return (
     <div className="flex flex-col gap-4">
       {!p.history_covers_window && p.history_since && (
-        <p className="m-0 text-xs text-sf-ink-dim">Stage history starts {p.history_since}, so this covers {p.history_days} of {p.window_days} days.</p>
+        <p className="m-0 text-xs text-sf-ink-dim">Stage history starts {new Date(p.history_since).toLocaleDateString()}, so this covers {p.history_days} of {p.window_days} days.</p>
       )}
       <p className="m-0 text-sm text-sf-ink-mute">
         {p.velocity.won_in_window} won in the window{p.velocity.avg_days_to_won != null && `, ${days(p.velocity.avg_days_to_won)} on average from creation`}.

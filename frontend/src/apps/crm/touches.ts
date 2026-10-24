@@ -19,8 +19,9 @@ export function parseOwnerParam(raw: string | undefined): string | null {
   return id >= 1 && id <= MAX_OWNER_ID ? raw : null;
 }
 
-/** The app-relative link to a rep's detail, keeping a custom window. */
-export function touchDetailPath(userId: number | null, window: { start: string; end: string; custom: boolean }): string {
+/** The link to a rep's detail, keeping an applied custom range (`YYYY-MM-DD` days, as the API
+ *  takes them; the response's window is UTC instants, which the API would refuse back). */
+export function touchDetailPath(userId: number | null, applied: { start: string; end: string } | null): string {
   const path = `/crm/touches/${ownerParamOf(userId)}`;
-  return window.custom ? `${path}?${new URLSearchParams({ start: window.start, end: window.end })}` : path;
+  return applied ? `${path}?${new URLSearchParams({ start: applied.start, end: applied.end })}` : path;
 }

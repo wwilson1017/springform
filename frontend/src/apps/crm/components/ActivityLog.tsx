@@ -9,7 +9,7 @@ import { confirmDialog } from '../../../shared/confirm';
 import { formatDate } from '../../../shared/formatDate';
 import { toast } from '../../../shared/toast';
 import { deleteActivity, logActivity, updateActivity, type Activity } from '../api';
-import { btnDanger, btnPrimary, btnSecondary, input, label, muted } from '../ui';
+import { btnDanger, btnPrimary, btnSecondary, field, input, label, muted } from '../ui';
 import { Dialog } from './Dialog';
 
 const LOG_TYPES = ['call', 'email', 'meeting', 'note'] as const;
@@ -45,12 +45,12 @@ export function ActivityLog({ dealId, personId, activities, onChanged }: {
     <div className="flex flex-col gap-3">
       <form onSubmit={log} className="flex flex-wrap gap-2">
         <label htmlFor="activity-kind" className="sr-only">Activity type</label>
-        <select id="activity-kind" value={kind} onChange={e => setKind(e.target.value)} className={`${input} w-auto`}>
+        <select id="activity-kind" value={kind} onChange={e => setKind(e.target.value)} className={field}>
           {LOG_TYPES.map(t => <option key={t} value={t}>{typeLabel(t)}</option>)}
         </select>
         <label htmlFor="activity-note" className="sr-only">What happened</label>
         <input id="activity-note" value={note} onChange={e => setNote(e.target.value)} placeholder="What happened?"
-          className={`${input} min-w-40 flex-1`} />
+          className={`${field} min-w-40 flex-1`} />
         <button type="submit" disabled={busy} className={btnPrimary}>Log</button>
       </form>
       {activities.length === 0 ? <p className={muted}>No activity yet.</p> : (

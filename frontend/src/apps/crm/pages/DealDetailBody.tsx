@@ -32,7 +32,7 @@ import { buildPatch, toForm, type Form } from '../dealPatch';
 import { DEAL_TEMPERATURES, temperatureLabel } from '../dealTemperature';
 import { formatCents } from '../money';
 import { useUsers } from '../useUsers';
-import { btn, btnDanger, btnPrimary, btnSecondary, card, input, label, muted, sectionTitle } from '../ui';
+import { btn, btnDanger, btnPrimary, btnSecondary, card, field, input, label, muted, sectionTitle } from '../ui';
 
 export function DealDetailPage() {
   const { id } = useParams();
@@ -134,7 +134,7 @@ export function DealDetailBody({ deal, onSaved, reload }: { deal: DealDetail; on
               <ol className="m-0 flex list-none flex-col gap-2 p-0 text-sm">
                 {[...deal.stage_events].reverse().map(e => (
                   <li key={e.id}>
-                    <span className="text-sf-ink">{stageLabel(e.old_stage)} → {stageLabel(e.new_stage)}</span>
+                    <span className="text-sf-ink">{e.old_stage ? `${stageLabel(e.old_stage)} → ${stageLabel(e.new_stage)}` : `Created in ${stageLabel(e.new_stage)}`}</span>
                     <span className="block text-xs text-sf-ink-dim">{e.user_name ?? 'Someone'} · {formatDate(e.changed_at)}</span>
                   </li>
                 ))}
@@ -219,7 +219,7 @@ function DealFields({ deal, readOnly, onSave }: { deal: Deal; readOnly: boolean;
           <div className="flex gap-2">
             <input id="f-value" inputMode="decimal" value={f.value} onChange={e => set('value', e.target.value)} placeholder="0" className={input} />
             <label htmlFor="f-currency" className="sr-only">Currency</label>
-            <input id="f-currency" value={f.currency} maxLength={3} onChange={e => set('currency', e.target.value)} className={`${input} w-20 uppercase`} />
+            <input id="f-currency" value={f.currency} maxLength={3} onChange={e => set('currency', e.target.value)} className={`${field} w-20 uppercase`} />
           </div>
         </div>
         <div>

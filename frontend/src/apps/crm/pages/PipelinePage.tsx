@@ -34,7 +34,7 @@ import {
   NO_FILTERS, filterDeals, groupByStage, lastContactLabel, loadShowClosed, movedDeal, openTotals,
   saveShowClosed, visibleStages, type BoardFilters,
 } from '../pipelineBoard';
-import { btnLink, btnPrimary, btnSecondary, input, muted, pageTitle } from '../ui';
+import { btnLink, btnPrimary, btnSecondary, field, muted, pageTitle } from '../ui';
 import { useUsers } from '../useUsers';
 
 /** A move that needs an answer first: the closing day for Won, the reason for Lost. */
@@ -194,16 +194,16 @@ export function PipelinePage() {
       <div className="flex flex-wrap items-center gap-2 px-4 py-4 md:px-8">
         <label htmlFor="deal-search" className="sr-only">Search deals</label>
         <input id="deal-search" type="search" value={query} onChange={e => setQuery(e.target.value)} placeholder="Search deals, people, organizations"
-          className={`${input} w-full md:w-72`} />
+          className={`${field} w-full md:w-72`} />
         <label htmlFor="filter-owner" className="sr-only">Owner</label>
-        <select id="filter-owner" value={filters.owner} onChange={e => setFilters(f => ({ ...f, owner: e.target.value }))} className={`${input} w-auto`}>
+        <select id="filter-owner" value={filters.owner} onChange={e => setFilters(f => ({ ...f, owner: e.target.value }))} className={field}>
           <option value="">Any owner</option>
           {user && <option value={String(user.id)}>Mine</option>}
           {users.filter(u => u.id !== user?.id).map(u => <option key={u.id} value={String(u.id)}>{u.name}</option>)}
           <option value="unassigned">Unassigned</option>
         </select>
         <label htmlFor="filter-temp" className="sr-only">Temperature</label>
-        <select id="filter-temp" value={filters.temperature} onChange={e => setFilters(f => ({ ...f, temperature: e.target.value }))} className={`${input} w-auto`}>
+        <select id="filter-temp" value={filters.temperature} onChange={e => setFilters(f => ({ ...f, temperature: e.target.value }))} className={field}>
           <option value="">Any temperature</option>
           <option value="hot">Hot</option>
           <option value="warm">Warm</option>
@@ -251,7 +251,7 @@ export function PipelinePage() {
           className="fixed inset-x-0 bottom-0 z-40 flex flex-wrap items-center gap-2 border-t border-sf-line-strong bg-sf-card px-4 py-3 shadow-lg md:px-8">
           <span className="text-sm text-sf-ink">{selected.size} selected</span>
           <label htmlFor="bulk-stage" className="sr-only">Move selected to</label>
-          <select id="bulk-stage" value="" disabled={busy} onChange={e => e.target.value && bulkTo(e.target.value as Stage)} className={`${input} w-auto`}>
+          <select id="bulk-stage" value="" disabled={busy} onChange={e => e.target.value && bulkTo(e.target.value as Stage)} className={field}>
             <option value="">Move to…</option>
             {STAGE_ORDER.map(s => <option key={s} value={s}>{stageLabel(s)}</option>)}
           </select>
@@ -322,21 +322,18 @@ function DealCard({ deal, selected, onToggle, onMove, onCycle, ownerName }: {
         <span className="font-medium text-sf-ink">{formatCents(deal.value_cents, deal.currency)}</span>
         <ScorePill score={deal.lead_score} compact />
         <TouchCountPill count={deal.ai_touch_count} />
-        {archived && <span className="rounded bg-sf-raised px-1.5 py-0.5 text-xs text-sf-ink-mute">Archived</span>}
-      </div>
-      <div className="mt-2 flex items-center gap-2 text-xs text-sf-ink-dim">
-        <span className="min-w-0 flex-1 truncate">{ownerName ?? 'Unassigned'} · {lastContactLabel(deal.last_activity_at)}</span>
-        {!archived && (
+        {archived ? <span className="ml-auto rounded bg-sf-raised px-1.5 py-0.5 text-xs text-sf-ink-mute">Archived</span> : (
           <>
             <label htmlFor={`move-${deal.id}`} className="sr-only">Move {deal.title} to</label>
             <select id={`move-${deal.id}`} value="" onChange={e => e.target.value && onMove(e.target.value as Stage)}
-              className="max-w-24 cursor-pointer rounded border border-sf-line bg-sf-card px-1 py-0.5 text-xs text-sf-ink-mute">
+              className="ml-auto cursor-pointer rounded border border-sf-line bg-sf-card px-1 py-0.5 text-xs text-sf-ink-mute">
               <option value="">Move…</option>
               {STAGE_ORDER.filter(s => s !== deal.stage).map(s => <option key={s} value={s}>{stageLabel(s)}</option>)}
             </select>
           </>
         )}
       </div>
+      <div className="mt-1.5 truncate text-xs text-sf-ink-dim">{ownerName ?? 'Unassigned'} · {lastContactLabel(deal.last_activity_at)}</div>
     </article>
   );
 }

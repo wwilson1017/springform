@@ -68,6 +68,9 @@ export function TodayList({ compact }: { compact?: boolean }) {
           );
         })}
       </ul>
+      {compact && hiddenCount > 0 && (
+        <Link to="/crm/today" className="text-sm text-sf-accent-text">{hiddenCount} more on Today</Link>
+      )}
       {!compact && hiddenCount > 0 && (
         <button type="button" onClick={() => setExpanded(e => !e)} className={`${btnLink} self-start`}>
           {expanded ? 'Show fewer' : `Show all (${hiddenCount} more)`}

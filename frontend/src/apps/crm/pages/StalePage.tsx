@@ -6,7 +6,7 @@ import { LoadError } from '../../../shared/LoadError';
 import { staleUrl, type StaleDeals } from '../api';
 import { StageBadge } from '../components/badges';
 import { formatCents } from '../money';
-import { input, label, muted, page, pageTitle } from '../ui';
+import { field, label, muted, page, pageTitle } from '../ui';
 
 export function StalePage() {
   const [days, setDays] = useState<number | undefined>(undefined);
@@ -20,7 +20,7 @@ export function StalePage() {
         </div>
         <div>
           <label htmlFor="stale-days" className={label}>Days quiet</label>
-          <input id="stale-days" type="number" min={1} max={365} value={days ?? data?.stale_days ?? ''} className={`${input} w-24`}
+          <input id="stale-days" type="number" min={1} max={365} value={days ?? data?.stale_days ?? ''} className={`${field} w-24`}
             onChange={e => { const n = Number(e.target.value); setDays(n >= 1 && n <= 365 ? n : undefined); }} />
         </div>
       </div>

@@ -21,7 +21,7 @@ export function TouchesPage() {
     <div className={`${page} flex flex-col gap-4`}>
       <div>
         <h1 className={pageTitle}>Weekly touches</h1>
-        <p className="m-0 mt-1 text-sm text-sf-ink-mute">{data ? `${data.window.label} · ${data.window.start} to ${data.window.end}` : ' '}</p>
+        <p className="m-0 mt-1 text-sm text-sf-ink-mute">{data ? data.window.label : ' '}</p>
       </div>
       <form className="flex flex-wrap items-end gap-2" onSubmit={e => { e.preventDefault(); if (start && end) setApplied({ start, end }); }}>
         <div>
@@ -44,7 +44,7 @@ export function TouchesPage() {
             <ul className="m-0 list-none divide-y divide-sf-line rounded-lg border border-sf-line-strong bg-sf-card p-0">
               {data.reps.map(r => (
                 <li key={r.user_id ?? 'unassigned'}>
-                  <Link to={touchDetailPath(r.user_id, data.window)} className="flex items-center gap-3 px-4 py-3 text-sm no-underline hover:bg-sf-hover">
+                  <Link to={touchDetailPath(r.user_id, applied)} className="flex items-center gap-3 px-4 py-3 text-sm no-underline hover:bg-sf-hover">
                     <span className={`flex-1 ${r.user_id === null ? 'text-sf-ink-mute' : 'text-sf-ink'}`}>{r.name}</span>
                     <span className="text-sf-ink">{r.touches} touch{r.touches === 1 ? '' : 'es'}</span>
                     <span className="w-24 text-right text-sf-ink-dim">{r.open_deals} open</span>

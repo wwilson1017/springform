@@ -10,7 +10,7 @@ import { LoadError } from '../../shared/LoadError';
 import { toast } from '../../shared/toast';
 import { resetCrm, saveSettings, settingsUrl, type CrmSettings } from './api';
 import { StageCriteriaEditor } from './components/StageCriteriaEditor';
-import { btnDanger, btnPrimary, input, label, muted } from './ui';
+import { btnDanger, btnPrimary, field, input, label, muted } from './ui';
 import './theme.css';
 
 export default function CrmSettingsCard() {
@@ -99,7 +99,7 @@ function ResetCrm() {
       </p>
       <div className="flex flex-wrap gap-2">
         <label htmlFor="crm-reset-confirm" className="sr-only">Type RESET to confirm</label>
-        <input id="crm-reset-confirm" value={typed} onChange={e => setTyped(e.target.value)} placeholder="Type RESET" autoComplete="off" className={`${input} w-40`} />
+        <input id="crm-reset-confirm" value={typed} onChange={e => setTyped(e.target.value)} placeholder="Type RESET" autoComplete="off" className={`${field} w-40`} />
         <button type="button" disabled={busy || typed !== 'RESET'} onClick={() => void reset()} className={btnDanger}>Reset CRM</button>
       </div>
     </div>

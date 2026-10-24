@@ -4,7 +4,9 @@ export const btnPrimary = `${btn} border-0 bg-sf-accent font-medium text-sf-acce
 export const btnSecondary = `${btn} border border-sf-line-strong bg-transparent text-sf-ink-mute hover:bg-sf-hover`;
 export const btnDanger = `${btn} border border-sf-line-strong bg-transparent text-sf-red-text hover:bg-sf-hover`;
 export const btnLink = 'cursor-pointer border-0 bg-transparent p-0 font-sans text-sm text-sf-accent-text disabled:opacity-50';
-export const input = 'w-full rounded-md border border-sf-line-strong bg-sf-card px-3 py-2 font-sans text-sm text-sf-ink placeholder:text-sf-ink-dim';
+/** A form control at its natural width; `input` is the same, full width. */
+export const field = 'rounded-md border border-sf-line-strong bg-sf-card px-3 py-2 font-sans text-sm text-sf-ink placeholder:text-sf-ink-dim';
+export const input = `w-full ${field}`;
 export const label = 'mb-1 block text-xs font-medium text-sf-ink-mute';
 export const card = 'rounded-lg border border-sf-line-strong bg-sf-card';
 export const sectionTitle = 'm-0 mb-3 font-display text-base font-medium text-sf-ink';

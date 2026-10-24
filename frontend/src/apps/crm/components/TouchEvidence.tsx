@@ -17,7 +17,8 @@ export function TouchEvidence({ dealId }: { dealId: number }) {
   if (data.ai_touch_count == null && data.events.length === 0) {
     return <p className={muted}>No touch count yet. The AI works it out from notes and activity once a provider is set up.</p>;
   }
-  const banner = bannerCopy(data.verdict_state, data.open);
+  // The banner explains a count; with no count yet there is nothing for it to explain.
+  const banner = data.ai_touch_count == null ? null : bannerCopy(data.verdict_state, data.open);
   const coverage = coverageNote(data.truncated);
   return (
     <div className="flex flex-col gap-2 text-sm">
