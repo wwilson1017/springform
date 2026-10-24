@@ -68,7 +68,8 @@ core_files(
 )
 -- UNIQUE(entity_type, entity_id, sha256)
 
-core_file_blobs(sha256 PK, byte_size, created_at, unreferenced_since, missing_at)
+core_file_blobs(sha256 PK, byte_size, created_at, unreferenced_since,
+                missing_at)   -- added by 20261020000200_core_files.sql
 ```
 
 **Bytes live on the volume** at `/data/files/<sha[:2]>/<sha>`, never in the DB (`VACUUM INTO` and Litestream would copy every PDF nightly). Thumbnails live in the row.
@@ -77,14 +78,14 @@ core_file_blobs(sha256 PK, byte_size, created_at, unreferenced_since, missing_at
 
 **Publication and sweep share the write lock, so they cannot interleave.**
 
-1. Stream the upload to `/data/files/tmp/<uuid>`, enforcing the size cap (setting `files.max_bytes`, default 25 MB).
+1. Copy the upload to `/data/files/tmp/<uuid>`, enforcing the size cap (setting `files.max_bytes`, default 25 MB): an oversize upload gets **413** `file_too_large`. Starlette has already spooled the whole multipart body by then, so the cap is enforced after receipt (a marked simplification).
 2. Hash (sha256) and `fsync`. This happens **outside** the lock.
 3. Inside **one** `transaction()`:
    1. upsert `core_file_blobs` (clearing `unreferenced_since`);
    2. insert the `core_files` row;
    3. `rename` the tmp file into `/data/files/<sha[:2]>/<sha>` (a local disk op, allowed under the lock);
    4. `COMMIT`.
-4. The same bytes uploaded to the same record (`UNIQUE(entity_type, entity_id, sha256)`) return **200** with the existing row.
+4. A new attachment returns **201** with the `File`. The same bytes uploaded to the same record (`UNIQUE(entity_type, entity_id, sha256)`) return **200** with the existing row.
 5. When a blob's last `core_files` row is deleted, the files service sets `core_file_blobs.unreferenced_since` in the same transaction.
 
 ### Sweep (`core.files_sweep`, 03:30 install-local)
@@ -94,7 +95,9 @@ core_file_blobs(sha256 PK, byte_size, created_at, unreferenced_since, missing_at
    2. re-check each is still unreferenced;
    3. delete their rows;
    4. unlink their files;
-   5. `COMMIT`.
+   5. set `missing_at` on every blob row whose file is missing, logging it, and clear it on one whose file came back;
+   6. remove each file under `files/<xx>/` that has no blob row and is over 24 h old (an orphan);
+   7. `COMMIT`.
 2. Outside the lock: remove tmp files older than **24 h**.
 3. A blob is never deleted while any retained manifest lists it, so every retained backup set restores whole (`deploy.md`).
 
@@ -103,26 +106,26 @@ core_file_blobs(sha256 PK, byte_size, created_at, unreferenced_since, missing_at
 | Crash | Outcome |
 |---|---|
 | Rollback after `rename` | A file without a row. The sweep treats it as an orphan after 24 h. |
-| A row whose file is missing | The sweep sets `core_file_blobs.missing_at` and reports it. Never silently served. |
+| A row whose file is missing | The sweep sets `core_file_blobs.missing_at` and logs it. Download answers **410** `file_missing`; it is never silently served. |
 
 ### Safe serving
 
 1. Download requires `authorize(read)` on the parent record.
 2. Served with `Content-Disposition: attachment` and `X-Content-Type-Options: nosniff`.
-3. `mime_type` comes from an allow-list, a module constant; HTML and SVG are served as `application/octet-stream`.
+3. `mime_type` comes from the allow-list `ALLOWED_MIME` in `backend/core/files/service.py`; anything else, HTML and SVG included, is served as `application/octet-stream`.
 4. Upload requires `authorize(write)` on the parent record.
 5. `DELETE` requires `authorize(write)` on the parent record.
 
 ### API
 
 ```
-GET  /api/core/files?entity_type=&entity_id=  -> [{id, filename, mime_type, byte_size, sha256, created_at, uploaded_by:{id,name}}]
-POST /api/core/files  multipart fields entity_type, entity_id, file -> File
-GET  /api/core/files/{id}/download   -> bytes, Content-Disposition: attachment
+GET  /api/core/files?entity_type=&entity_id=  -> [File]
+     File = {id, filename, mime_type, byte_size, sha256, created_at, uploaded_by: {id, name} | null, has_thumb}
+POST /api/core/files  multipart fields entity_type, entity_id, file -> 201 File; 200 File when already attached
+GET  /api/core/files/{id}/download   -> bytes, Content-Disposition: attachment; 410 file_missing
+GET  /api/core/files/{id}/thumb      -> image/jpeg (read access to the parent record)
 DELETE /api/core/files/{id}          -> 204
 ```
-
-Open (pinned by the implementing workstream, which updates this doc): how a missing blob is reported beyond `missing_at`, the mime allow-list's contents, and how the sweep enumerates "a file without a row" (a directory walk under `/data/files`).
 
 ## 3. Custom fields
 
