@@ -21,7 +21,7 @@ The app contract replaces the 25 core edits a previous CakeCRM fork needed. An a
 | `badge` | string, optional | A route returning `{count, label?}` (the example uses `"/api/example/badge"`). |
 | `docs` | string | The app's Guide docs (the example uses `"docs/index.md"`). |
 | `version` | string | The app's version; part of `tool_def_sha256` for the app's tools. |
-| `requires_core` | string | Version range over `springform-version`, e.g. `>=0.1,<1`. Checked before any migration runs. |
+| `requires_core` | string | PEP 440 specifier set over `springform-version` (parsed with `packaging`), e.g. `>=0.1,<1`. Checked before any migration runs. |
 | `settings_cards` | list | `[{id, title, admin_only}]`. Each `id` must have a loader in `contributions.ts`. |
 | `sheets` | list | `[{name, mode, description}]`, `mode` is `read` or `write`. Seeds `core_connected_sheets` (`sheets-and-export.md`). |
 | `publishes` | list | Names of the app's published functions (the example lists `["get_widget", "widgets_for_person"]`). |

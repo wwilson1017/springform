@@ -133,7 +133,7 @@ except Exception:
 3. `_migrations_applied(filename PK, sha256, applied_at)`. The sha256 of each applied file is recorded. **A changed applied file fails startup.**
 4. **Before applying any migration**, the runner checks every installed app's `requires_core` against `springform-version` and refuses to start on a mismatch, naming the app.
 
-Open: the `requires_core` specifier grammar and parser are not stated (manifests use `>=0.1,<1`).
+`requires_core` is a PEP 440 specifier set (e.g. `>=0.1,<1`), parsed with `packaging`.
 
 ### What a migration may reference
 
@@ -147,9 +147,7 @@ Open: the `requires_core` specifier grammar and parser are not stated (manifests
 1. **Within a major version, core never drops or renames a table or column.** Changes are additive: new tables, new nullable columns, new indexes.
 2. A column core stops using is marked deprecated in `CHANGELOG.md` "Schema" and stays, nullable and unused, until the next major.
 3. A major (`1.0`, `2.0`) may drop deprecated columns and ships a **baseline** migration. Apps crossing it re-baseline (squash their migrations) and raise `requires_core`.
-4. **Lint:** any core migration in a minor release that contains `DROP COLUMN`, `DROP TABLE` or `RENAME` fails.
-
-Open: how the lint decides which migrations belong to "a minor release" (e.g. files added since the previous tag) is not stated.
+4. **Lint:** every core migration except files named `*_baseline.sql` fails if it contains `DROP COLUMN`, `DROP TABLE` or `RENAME`. Only a major's baseline may drop.
 
 ## 6. Identifiers, resets
 
@@ -234,7 +232,7 @@ Written for the CRM port (§7); grep each before a ported module is done.
 
 - Migrations apply in order (core before apps), checksums enforced, a failing fixture leaves no partial DDL.
 - Fresh apply; an upgrade from the previous tagged release plus a private fixture app applies cleanly on both a fresh and an upgraded database, with a fixture whose historical migration references a deprecated core column.
-- The DROP/RENAME lint fails a core migration in a minor release; the `requires_core` refusal is tested with a fixture declaring `<0.1`.
+- The DROP/RENAME lint fails a core migration not named `*_baseline.sql`; the `requires_core` refusal is tested with a fixture declaring `<0.1`.
 - `now_iso` is the only timestamp writer (grep test).
 - No `httpx` inside `transaction()` (`transaction()` patched to fail on `httpx`/provider calls).
 - Nested `transaction()` raises.

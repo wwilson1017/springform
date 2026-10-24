@@ -36,7 +36,7 @@ Runs against a seeded `PREVIEW_MODE=1` build with the FakeProvider and the Googl
 - Migrations apply in order (core before apps), checksums enforced, a failing fixture leaves no partial DDL.
 - Fresh apply.
 - Upgrade from the previous tag + a private fixture app applies cleanly, on both a fresh and an upgraded database, with a fixture whose historical migration references a deprecated core column.
-- A lint fails any core migration in a minor release that contains `DROP COLUMN`, `DROP TABLE` or `RENAME`.
+- A lint fails any core migration not named `*_baseline.sql` that contains `DROP COLUMN`, `DROP TABLE` or `RENAME`.
 - The `requires_core` refusal, with a fixture declaring `<0.1`.
 - `now_iso` is the only timestamp writer (grep test for `datetime('now')` / `CURRENT_TIMESTAMP`).
 - No `httpx` inside `transaction()` (`transaction()` patched to fail on `httpx`/provider calls).

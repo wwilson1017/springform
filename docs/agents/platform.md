@@ -168,10 +168,10 @@ Landing priority: core and the pieces the first client fork needs, then the CRM 
 | `springform-version` | One line at the repo root (`0.1.0` today). Read by `/api/health` and by the migration runner's `requires_core` check. |
 | Tags and releases | `vX.Y.Z` tags; `release.yml` builds and pushes `ghcr.io/${{ github.repository }}:<tag>,latest` (`forks.md`). |
 | `CHANGELOG.md` | keep-a-changelog. Schema changes and deprecations are recorded under a "Schema" heading. |
-| `requires_core` | Every app manifest declares a version range, e.g. `>=0.1,<1`. **The runner checks every installed app's `requires_core` against `springform-version` before applying any migration** and refuses to start on a mismatch, naming the app. |
+| `requires_core` | Every app manifest declares a PEP 440 specifier set (parsed with `packaging`), e.g. `>=0.1,<1`. **The runner checks every installed app's `requires_core` against `springform-version` before applying any migration** and refuses to start on a mismatch, naming the app. |
 | Core schema compatibility | **Within a major version, core never drops or renames a table or column.** Changes are additive: new tables, new nullable columns, new indexes. A column core stops using is marked deprecated in `CHANGELOG.md` "Schema" and stays in place, nullable and unused, until the next major. |
 | Major release | May drop deprecated columns and ships a **baseline** migration. Apps crossing a major re-baseline (squash their migrations) and raise `requires_core`. |
-| Lint | Any core migration in a minor release containing `DROP COLUMN`, `DROP TABLE` or `RENAME` fails CI. |
+| Lint | Every core migration except files named `*_baseline.sql` fails CI if it contains `DROP COLUMN`, `DROP TABLE` or `RENAME`. |
 | App manifest `version` | The app's own version. It feeds `tool_def_sha256` for the app's tools (`agent.md`). |
 
 Because nothing an app may reference disappears inside a major, a fresh install (all current core migrations, then historical app migrations) and an upgraded install reach the same schema.
