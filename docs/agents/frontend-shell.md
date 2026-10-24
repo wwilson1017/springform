@@ -46,7 +46,7 @@
 
 W6 owns the settings registry and `settings/`. W1 (Security, Users) and W9 (AI, MCP) contribute cards **through the registry W6 defines in Step 1**; they do not edit `settings/`.
 
-Open: core page paths (`/settings`, `/people`, `/organizations`, `/guide`, `/requests`, `/changelog`, `/backups`, `/jobs`, `/sheets`, `/whisk`, `/login`, `/setup`, `/invite`, `/reminders`) are not stated, and the reserved-slug list does not cover them (`apps-and-contracts.md`). Open: the settings registry's card interface, and where core cards are declared. Open: the `core_requests` columns, the Requests routes, and where the "configurable warning text" is stored. Open: the Guide's routes. (The 8k cap is the donor's `MAX_TOPIC_CHARS = 8000`, characters per topic.)
+Open: core page paths (`/settings`, `/people`, `/organizations`, `/guide`, `/requests`, `/changelog`, `/backups`, `/jobs`, `/sheets`, `/whisk`, `/login`, `/setup`, `/invite`, `/reminders`) are not stated. Open: the settings registry's card interface, and where core cards are declared. Open: the `core_requests` columns, the Requests routes, and where the "configurable warning text" is stored. Open: the Guide's routes. (The 8k cap is the donor's `MAX_TOPIC_CHARS = 8000`, characters per topic.)
 
 ## 4. Type generation (§12)
 

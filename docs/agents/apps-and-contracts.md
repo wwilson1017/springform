@@ -11,7 +11,7 @@ The app contract replaces the 25 core edits a previous CakeCRM fork needed. An a
 
 | Field | Type | Rule |
 |---|---|---|
-| `slug` | string | `^[a-z][a-z0-9_]{1,29}$`. Equals the folder name. **Permanent**: it is baked into table names. Reserved: `core`, `api`, `auth`, `mcp`, `up`, `assets`. |
+| `slug` | string | `^[a-z][a-z0-9_]{1,29}$`. Equals the folder name. **Permanent**: it is baked into table names. Reserved: `core`, `api`, `auth`, `mcp`, `up`, `assets`, `agent`, `me`, `health`, `settings`, `people`, `organizations`, `guide`, `requests`, `login`, `setup`, `invite`, `changelog`, `backups`, `jobs`, `sheets`, `notifications`, `reminders`, `whisk`, `files`, `timeline`, `export`. A slug may not equal another installed slug + `_` + anything (prefix collision: `crm` and `crm_x` cannot both be installed). |
 | `name` | string | Display name (launcher tile, settings section). |
 | `description` | string | Launcher/tile description. |
 | `path` | string | Must equal `/<slug>`. |
@@ -24,7 +24,7 @@ The app contract replaces the 25 core edits a previous CakeCRM fork needed. An a
 | `requires_core` | string | PEP 440 specifier set over `springform-version` (parsed with `packaging`), e.g. `>=0.1,<1`. Checked before any migration runs. |
 | `settings_cards` | list | `[{id, title, admin_only}]`. Each `id` must have a loader in `contributions.ts`. |
 | `sheets` | list | `[{name, mode, description}]`, `mode` is `read` or `write`. Seeds `core_connected_sheets` (`sheets-and-export.md`). |
-| `publishes` | list | Names of the app's published functions (the example lists `["get_widget", "widgets_for_person"]`). |
+| `publishes` | list | Names of the app's published functions (the example lists `["get_widget", "widgets_for_person"]`). Validated against the names `api.py` exports. |
 
 The current fixture manifest (`backend/apps/example/app.json`):
 
@@ -47,7 +47,7 @@ The current fixture manifest (`backend/apps/example/app.json`):
 }
 ```
 
-Open: what `publishes` is validated against (e.g. names exported by `api.py`) is not stated. Open: the reserved list omits names that would collide with core routes or pages: `agent` (`/api/agent/...`), `me` (`/api/me`), `health` (`/api/health`), and core page paths such as `settings`, `people`, `guide`, `login`, `setup`. Open: two installed slugs where one is the other plus `_…` (e.g. `crm` and `crm_x`) make a table like `crm_x_deals` match two prefixes, which the ownership rule ("exactly one slug") then rejects; the plan does not forbid such pairs up front. Open: the `icon` vocabulary is not stated.
+Open: the `icon` vocabulary is not stated.
 
 ## 2. Backend modules
 
@@ -178,7 +178,7 @@ Falsifiable against `backend/tests/fixtures/bad_app` (the test must fail it). It
 1. The manifest is valid (`AppManifest` parses).
 2. `slug` equals the folder name.
 3. `path` equals `/<slug>`.
-4. `slug` is not reserved.
+4. `slug` is not reserved and does not prefix-collide with another installed slug.
 5. `router.py` is present, and every route carries the auth dependency unless allow-listed.
 6. The mounted router carries the manifest's role guard.
 
