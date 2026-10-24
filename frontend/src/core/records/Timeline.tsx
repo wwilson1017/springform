@@ -11,6 +11,7 @@ import { useJson } from '../api/useJson';
 import { formatDate } from '../../shared/formatDate';
 import { LoadError } from '../../shared/LoadError';
 import { toast } from '../../shared/toast';
+import { bodySegments } from './mentions';
 import { NoteComposer } from './NoteComposer';
 
 const PAGE = 50;
@@ -78,7 +79,11 @@ function Entry({ entry }: { entry: TimelineEntry }) {
           {(entry.changes ?? []).map(c => <li key={c.field}>{describeChange(c)}</li>)}
         </ul>
       ) : (
-        <p className={`m-0 whitespace-pre-wrap text-sm ${entry.kind === 'system' ? 'text-sf-ink-soft' : 'text-sf-ink'}`}>{entry.body}</p>
+        <p className={`m-0 whitespace-pre-wrap text-sm ${entry.kind === 'system' ? 'text-sf-ink-soft' : 'text-sf-ink'}`}>
+          {bodySegments(entry.body ?? '').map((seg, i) => typeof seg === 'string' ? seg : (
+            <span key={i} title={`Mentioned ${seg.name}`} className="rounded bg-sf-accent-soft px-1 font-medium text-sf-accent-text">@{seg.name}</span>
+          ))}
+        </p>
       )}
     </li>
   );

@@ -17,6 +17,9 @@ from backend.core.contacts import seed as contacts_seed
 
 EMAILS = {"admin": "preview-admin@example.com", "member": "preview-member@example.com"}
 REAL_SECRETS = ("ENCRYPTION_KEY", "RESEND_API_KEY")
+# Secrets the install generates for itself are not a business's keys: the web-push VAPID private
+# key (notifications/push.py PRIVATE_KEY) appears the first time anyone turns push on.
+GENERATED_SECRETS = ("notifications.vapid_private_key",)
 
 
 def check_startup() -> None:
@@ -24,7 +27,8 @@ def check_startup() -> None:
     if not settings.preview_mode():
         return
     found = [k for k in REAL_SECRETS if os.environ.get(k)]
-    if db.one("SELECT 1 AS x FROM core_settings WHERE is_secret = 1 LIMIT 1"):
+    marks = ", ".join("?" * len(GENERATED_SECRETS))
+    if db.one(f"SELECT 1 AS x FROM core_settings WHERE is_secret = 1 AND key NOT IN ({marks}) LIMIT 1", GENERATED_SECRETS):
         found.append("a secret in core_settings")
     if found:
         raise RuntimeError(f"PREVIEW_MODE=1 refuses to start with real secrets present: {', '.join(found)}")
