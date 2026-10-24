@@ -64,6 +64,9 @@ Conventions:
   "Café Ñandú", and "ZOË DÉMO" is found as a duplicate of "Zoë Démo".
 - The app contract test accepts a `UNIQUE` constraint on an app's own table (SQLite's
   `sqlite_autoindex_*`), as the apps contract doc already allowed.
+- A CRM deal merge leaves a system row on the surviving deal's timeline instead of a note in the
+  merging user's name, so it no longer counts as a touch. Apps can write system rows through
+  `timeline.api.add_system_in`.
 
 ### Schema
 

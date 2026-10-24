@@ -58,7 +58,7 @@ Rules:
 
 1. `fn(...)` is `with transaction() as conn: return fn_in(conn, ...)`, or equivalent.
 2. `fn_in` never calls `transaction()` and never makes a network call.
-3. **Every** published `api.py` function has an `_in(conn, …)` form, reads included, so a caller inside a transaction reads through its own `conn`. Exceptions: `timeline.api.list_for` has no `_in` form, `record_changes_in` has only the `_in` form, and functions that call out (the sheets `write`) have none.
+3. **Every** published `api.py` function has an `_in(conn, …)` form, reads included, so a caller inside a transaction reads through its own `conn`. Exceptions: `timeline.api.list_for` has no `_in` form, `record_changes_in` and `timeline.api.add_system_in` have only the `_in` form, and functions that call out (the sheets `write`) have none.
 
 ## 4. Sync hooks vs the durable outbox
 
