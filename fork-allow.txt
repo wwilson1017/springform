@@ -1,0 +1,11 @@
+# Paths a fork may change outside its app folders, one git glob per line.
+#
+# In a fork, scripts/check-fork-scope.sh requires every path to equal the upstream tag pinned
+# in FORK.md, except backend/apps/, frontend/src/apps/, docs/apps/, FORK.md, this file,
+# generated API types, dependency manifests and lockfiles, and the globs below.
+# `**` matches across directories. Add a line only with a comment saying why.
+
+# The fork's own front page.
+README.md
+# The client's logo and colours.
+frontend/public/branding/**

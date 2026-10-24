@@ -1,0 +1,153 @@
+@import "tailwindcss";
+
+/* Make dark: variants follow the .dark class instead of the OS media query. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/*
+ * Springform: one theme, light and dark.
+ *
+ * The neutral tokens are SEMANTIC (bg = page, card = surface, ink = primary text), so the .dark
+ * block below re-themes the whole app by overriding them, with no per-component `dark:` variants.
+ * Both the Tailwind `sf-*` utilities and the inline `var(--color-sf-*)` styles in
+ * shared/styles.ts resolve through these properties.
+ *
+ * `static` emits every token even when no utility class uses it: shared/styles.ts reads tokens as
+ * inline `var()` strings the Tailwind scanner cannot see, and a tree-shaken token resolves to
+ * nothing in light mode only. The .dark block still wins the cascade because it is unlayered.
+ *
+ * The contrast guards in src/core/theme/*.test.ts parse THIS file. Change a value here and they
+ * re-check every pairing they model.
+ */
+@theme static {
+  /* Neutrals: light */
+  --color-sf-bg: #f1f1e8;
+  --color-sf-card: #fffffa;
+  --color-sf-raised: #e8e8dd;
+  --color-sf-line: #e5e7eb;
+  --color-sf-line-strong: #d1d5db;
+
+  /* The neutral INK RAMP is contrast-bound, not taste-bound. All four steps are body-text
+     colours (ink-dim paints form labels and empty states), so every step must clear WCAG AA
+     4.5:1 on every surface it can land on, in both themes, including 5-6% ink chips and hovered
+     rows. That compresses the ramp: the lightest light value that clears 4.5:1 is #5c5c5c.
+     src/core/theme/inkContrast.test.ts enforces it. */
+  --color-sf-ink: #292929;
+  --color-sf-ink-mute: #3c3c3c;
+  --color-sf-ink-soft: #4a4a4a;
+  --color-sf-ink-dim: #595959;
+
+  /* Brand accent, identical in both themes as a FILL. */
+  --color-sf-accent: #e31d3b;
+  --color-sf-accent-dark: #a8302c;
+  --color-sf-accent-ink: #ffffff;
+  --color-sf-accent-soft: color-mix(in srgb, var(--color-sf-accent) 9%, transparent);
+  /* Accent as TEXT or an icon. The fill red fails AA as text in both themes. */
+  --color-sf-accent-text: #ba002a;
+
+  /* FILL vs TEXT, the rule for every hue below: each hue is two tokens.
+       fill  ->  --color-sf-<hue>         background, border, dot, bar
+       text  ->  --color-sf-<hue>-text    anything painted as a glyph
+     A chip's background is a wash of the FILL, so darkening one token to fix its text would
+     darken the wash under it too. src/core/theme/hueContrast.test.ts enforces the pairs. */
+  --color-sf-green: #2e7d4f;
+  --color-sf-amber: #b07c2e;
+  --color-sf-red: #c24141;
+  /* Assistant-authored surfaces. Deliberately not the accent. */
+  --color-sf-ai: #3a6cb0;
+
+  --color-sf-green-text: #10663a;
+  --color-sf-amber-text: #7e5200;
+  --color-sf-red-text: #aa292e;
+  --color-sf-ai-text: #27599b;
+
+  /* Foreground for a status hue used as a SOLID fill (a danger confirm). Flips per theme,
+     because white is too faint on the lighter dark-mode hues. */
+  --color-sf-on-status: #ffffff;
+
+  /* Chrome. Hover is an ink tint, so it is declared per theme. */
+  --color-sf-hover: rgba(41, 41, 41, 0.05);
+  --color-sf-scrim: rgba(0, 0, 0, 0.45);
+  --color-sf-shadow: rgba(41, 41, 41, 0.18);
+  --color-sf-scroll-thumb: #d1d5db;
+  --color-sf-scroll-thumb-hover: #b9bcc2;
+
+  /* simplification: system font stacks, no bundled webfonts; add @fontsource packages here
+     if the platform picks a typeface. */
+  --font-display: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+}
+
+:root { color-scheme: light; }
+
+/* Warm dark greys to match the warm light palette; the accent fill is unchanged.
+   Status hues lighten so they stay legible on a dark surface. */
+.dark {
+  color-scheme: dark;
+  --color-sf-bg: #1c1b19;
+  --color-sf-card: #2a2826;
+  --color-sf-raised: #232220;
+  --color-sf-line: #3d3b38;
+  --color-sf-line-strong: #4a4845;
+  --color-sf-ink: #f0efe8;
+  --color-sf-ink-mute: #d4d2cc;
+  --color-sf-ink-soft: #c0beb8;
+  --color-sf-ink-dim: #adaba5;
+
+  --color-sf-accent-soft: color-mix(in srgb, var(--color-sf-accent) 20%, transparent);
+  --color-sf-accent-text: #f0727f;
+
+  --color-sf-green: #5fb585;
+  --color-sf-amber: #d9a441;
+  --color-sf-red: #e8736b;
+  --color-sf-ai: #7fa8dd;
+
+  /* Dark's hues are already legible as text, so most -text tokens pass through to the fill. */
+  --color-sf-green-text: var(--color-sf-green);
+  --color-sf-amber-text: var(--color-sf-amber);
+  --color-sf-red-text: #f57f76;
+  --color-sf-ai-text: var(--color-sf-ai);
+
+  --color-sf-on-status: #1c1b19;
+
+  --color-sf-hover: rgba(240, 239, 232, 0.06);
+  --color-sf-scrim: rgba(0, 0, 0, 0.7);
+  --color-sf-shadow: rgba(0, 0, 0, 0.5);
+  --color-sf-scroll-thumb: #4a4845;
+  --color-sf-scroll-thumb-hover: #5d5a56;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  background: var(--color-sf-bg);
+  color: var(--color-sf-ink);
+}
+
+h1, h2, h3, h4, h5, h6, button {
+  font-family: var(--font-display);
+}
+
+input, select, textarea, option {
+  font-family: inherit;
+}
+
+#root {
+  min-height: 100svh;
+}
+
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--color-sf-scroll-thumb); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--color-sf-scroll-thumb-hover); }
+
+input:focus, textarea:focus, select:focus {
+  border-color: var(--color-sf-accent) !important;
+  outline: none;
+}
+
+/* Toast slide-in (shared/ToastViewport). */
+@keyframes sf-toast-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
