@@ -24,7 +24,7 @@ from typing import TYPE_CHECKING
 
 from pydantic import ValidationError
 
-from backend.apps.crm import scoring
+from backend.apps.crm import scoring, settings as crm_settings
 from backend.apps.crm.common import (
     BULK_MOVE_MAX,
     CLOSED_STAGES,
@@ -247,8 +247,6 @@ def for_record_in(conn: db.Conn, user: User, entity_type: str, entity_id: int, i
 
 def badge(user: User) -> dict:
     """The caller's live open deals that have gone quiet past crm.stale_days."""
-    from backend.apps.crm import settings as crm_settings
-
     cutoff = clock.ago(crm_settings.stale_days() * 86400)
     n = db.get_conn().execute(
         f"SELECT count(*) FROM crm_deals d WHERE {LIVE} AND {OPEN} AND d.owner_user_id = ? AND {LAST_TOUCH} < ?",
@@ -331,6 +329,8 @@ def create_in(conn: db.Conn, user: User, fields: dict) -> dict:
     """A new deal from DealIn fields. Born won: probability 100 and closed_on (default today);
     born lost: probability 0."""
     data = _validated(DealIn, fields, exclude_unset=False)
+    if "currency" not in fields:
+        data["currency"] = crm_settings.default_currency()
     if not entities.get(ENTITY).can_write(user, conn, 0):
         raise Forbidden()
     _check_links_in(conn, user, data)

@@ -1,407 +1,321 @@
 """Keyless CRM analytics: win/loss, activity volume, deal aging, per-rep numbers, stage
-durations and conversion, stale deals, deal health, duplicates. Ported from CakeCRM's
+durations and conversion, stale deals, deal health and duplicate deals. Ported from CakeCRM's
 crm/service.py analytics section and crm/analytics_service.py (docs/PROVENANCE.md).
 
-Day bucketing happens in Python with core.localtime in the install timezone (never
-`substr(col, 1, 10)`, which is a UTC date); SQL compares only against precomputed UTC bounds.
-A window of N days is N install-local calendar days ending today, so a DST day is 23 or 25
-hours long. Money is integer cents; averages of cents round half up to whole cents in integer
-arithmetic. "Days to close" counts local calendar days from the day a deal was created to its
-closed_on day, so a same-day win is 0.
-
-Reads run on the thread's connection, never inside transaction(). Every record list (and the
-deal rows behind every aggregate) passes through the deal entity's can_read. Any active member
-reads any deal today, so the check is cheap, but a restrictive can_read would hold here too.
-`fn(...)` reads on the thread connection; `fn_in(conn, ...)` reads on the caller's.
+Day bucketing happens in Python with core.localtime in the install timezone (never the first
+ten characters of a stored timestamp, which are a UTC date); SQL compares only against
+precomputed UTC bounds. Money is integer cents; averages of cents round to whole cents. Every
+read is over live (unarchived) deals: an archived deal is findable, never counted.
 """
 
 from __future__ import annotations
 
 import json
-from datetime import date, timedelta
-from statistics import median
+import statistics
+from collections import Counter
+from datetime import date, datetime, time, timedelta
 from typing import TYPE_CHECKING
 
-from backend.apps.crm import deals, settings as crm_settings
-from backend.apps.crm.common import CLOSED_STAGES, ENTITY, LIVE, OPEN, OPEN_STAGES, STAGES
-from backend.core import clock, db, entities, localtime
-from backend.core.reminders import api as reminders
+from backend.apps.crm import deals, scoring, settings as crm_settings
+from backend.apps.crm.common import LIVE, OPEN, OPEN_STAGES
+from backend.core import clock, db, localtime
 
 if TYPE_CHECKING:
-    from datetime import datetime
-    from zoneinfo import ZoneInfo
-
     from backend.core.auth.deps import User
 
 AGE_BUCKETS = ((0, 7, "0-7"), (8, 30, "8-30"), (31, 90, "31-90"), (91, None, "91+"))
-STALE_LIMIT = 8  # stale deals listed on the analytics page; stale_count is the full total
-STUCK_IN_STAGE_DAYS = 30  # this long in one stage is "stuck" however recently it was touched
-DUPLICATE_LIMIT = 20
-TIMELINE_TOUCH_TYPES = ("crm.deal", "core.person", "core.organization")
-
-# The open-deal row behind the stale list. Needs `d`.
-_OPEN_ROWS = f"""SELECT d.id, d.title, d.value_cents, d.stage, d.owner_user_id, p.name AS person_name,
-                        o.name AS organization_name, d.created_at, {deals.LAST_TOUCH} AS last_touch
-                   FROM crm_deals d LEFT JOIN core_people p ON p.id = d.person_id
-                   LEFT JOIN core_organizations o ON o.id = d.organization_id
-                  WHERE {LIVE} AND {OPEN}"""
+STUCK_IN_STAGE_DAYS = 30
+DAY = 86400
+NOTE_ENTITIES = ("crm.deal", "core.person", "core.organization")
 
 
-def readable_in(conn: db.Conn, user: User, rows, key: str = "id") -> list:
-    """The rows whose deal (`row[key]`) the user may read."""
-    entity = entities.get(ENTITY)
-    return [r for r in rows if entity.can_read(user, conn, r[key])]
+def _midnight(day: date) -> str:
+    """The canonical UTC instant of a local day's start, honest across DST."""
+    return clock.to_iso(datetime.combine(day, time.min, tzinfo=localtime.tz()))
 
 
-def whole_days(since: str, now: datetime) -> int:
-    """Whole elapsed days since a canonical instant; a future instant (clock skew) is 0."""
-    return max(0, (now - clock.parse(since)).days)
+def _local_day(instant: str) -> str:
+    return clock.parse(instant).astimezone(localtime.tz()).date().isoformat()
 
 
-def days_to_close(created_at: str, closed_on: str, zone: ZoneInfo) -> int:
-    """Local calendar days from the creation day to the closed_on day; never negative
-    (a win backdated before creation is 0)."""
-    return max(0, (date.fromisoformat(closed_on) - clock.parse(created_at).astimezone(zone).date()).days)
+def _days_between(start: str, end: str) -> float:
+    return (clock.parse(end) - clock.parse(start)).total_seconds() / DAY
 
 
-def avg_cents(values: list[int]) -> int | None:
-    """The mean of positive cent amounts, rounded half up, exact for any sum."""
-    return (2 * sum(values) + len(values)) // (2 * len(values)) if values else None
+def _avg_cents(values: list[int]) -> int | None:
+    return round(sum(values) / len(values)) if values else None
 
 
-def _avg(values: list[int | float]) -> float | None:
-    return round(sum(values) / len(values), 1) if values else None
+# ── Outcomes ──────────────────────────────────────────────────────────────────
 
 
-def _names_in(conn: db.Conn, ids) -> dict[int, str]:
-    """Display names for user ids: name, else email, else "User N"."""
-    rows = conn.execute("SELECT id, name, email FROM core_users WHERE id IN (SELECT value FROM json_each(?))", (json.dumps([i for i in ids if i is not None]),))
-    return {r["id"]: (r["name"] or "").strip() or r["email"] or f"User {r['id']}" for r in rows}
-
-
-# ── Stale deals ───────────────────────────────────────────────────────────────
-
-
-def stale_deals_in(conn: db.Conn, user: User, days: int | None = None, limit: int = 25) -> dict:
-    """Live open deals untouched for `days` (default crm.stale_days), longest-quiet first.
-    Stale means the last touch (deals.LAST_TOUCH) is strictly older than now minus `days`:
-    the badge, Today, deal health and the analytics page all use this comparison."""
-    deals._gate(conn, user)
-    days = days or crm_settings.stale_days()
-    now = clock.now()
-    cutoff = clock.to_iso(now - timedelta(days=days))
-    rows = readable_in(conn, user, conn.execute(f"{_OPEN_ROWS} AND {deals.LAST_TOUCH} < ? ORDER BY last_touch, d.id", (cutoff,)))
-    out = []
-    for r in rows:
-        row = dict(r)
-        row["days_since_touch"] = whole_days(row.pop("last_touch"), now)
-        row["age_days"] = whole_days(row.pop("created_at"), now)
-        out.append(row)
-    return {"stale_days": days, "total_stale": len(out), "count": min(len(out), limit), "deals": out[:limit]}
-
-
-def stale_deals(user: User, days: int | None = None, limit: int = 25) -> dict:
-    return stale_deals_in(db.get_conn(), user, days, limit)
-
-
-# ── Analytics ─────────────────────────────────────────────────────────────────
-
-
-def _bucket_ages(open_deals: list, now: datetime) -> list[dict]:
-    counts = {label: 0 for _, _, label in AGE_BUCKETS}
-    for r in open_deals:
-        age = whole_days(r["created_at"], now)
-        label = next(lb for lo, hi, lb in AGE_BUCKETS if age >= lo and (hi is None or age <= hi))
-        counts[label] += 1
-    return [{"label": lb, "min_days": lo, "max_days": hi, "count": counts[lb]} for lo, hi, lb in AGE_BUCKETS]
-
-
-def _win_loss(rows: list, zone: ZoneInfo) -> dict:
+def _win_loss(conn: db.Conn) -> dict:
+    rows = [dict(r) for r in conn.execute(
+        f"""SELECT d.stage, d.value_cents, d.created_at,
+                   (SELECT max(e.changed_at) FROM crm_deal_stage_events e WHERE e.deal_id = d.id AND e.new_stage = 'won') AS won_at
+              FROM crm_deals d WHERE {LIVE}"""
+    )]  # fmt: skip
     won = [r for r in rows if r["stage"] == "won"]
     lost = [r for r in rows if r["stage"] == "lost"]
-    open_ = [r for r in rows if r["stage"] not in CLOSED_STAGES]
+    open_ = [r for r in rows if r["stage"] in OPEN_STAGES]
     closed = len(won) + len(lost)
+    to_close = [max(0.0, _days_between(r["created_at"], r["won_at"])) for r in won if r["won_at"]]
     return {
-        "deals_won": len(won),
-        "deals_lost": len(lost),
-        "open_deals": len(open_),
-        # None, not 0: "no closed deals yet" is not a 0% record.
+        "deals_won": len(won), "deals_lost": len(lost), "open_deals": len(open_),
         "win_rate_pct": round(len(won) / closed * 100, 1) if closed else None,
-        "avg_won_deal_cents": avg_cents([r["value_cents"] for r in won if r["value_cents"] > 0]),
-        "avg_open_deal_cents": avg_cents([r["value_cents"] for r in open_ if r["value_cents"] > 0]),
-        "avg_days_to_close": _avg([days_to_close(r["created_at"], r["closed_on"], zone) for r in won if r["closed_on"]]),
+        "avg_won_deal_cents": _avg_cents([r["value_cents"] for r in won if r["value_cents"] > 0]),
+        "avg_open_deal_cents": _avg_cents([r["value_cents"] for r in open_ if r["value_cents"] > 0]),
+        "avg_days_to_close": round(sum(to_close) / len(to_close), 1) if to_close else None,
         "total_pipeline_value_cents": sum(r["value_cents"] for r in open_),
     }
 
 
-def _per_rep(conn: db.Conn, rows: list, acts: list, notes: list) -> list[dict]:
-    """One row per person, mixing two attributions on purpose: pipeline numbers follow the
-    deal's owner (all time), activity numbers follow who acted (in the window), so a rep is
-    credited for work on a colleague's deal. `records_touched` (distinct deals, people and
-    organizations) is the number to compare reps on; `activity_count` inflates with one bulk
-    action. An activity on a deal counts as that deal, else as its person; one linked to
-    neither counts as activity but touches no record. NULL is its own "Unattributed" row
-    (unowned deals, work no human did) so the numbers still add up."""
+def _open_rows(conn: db.Conn) -> list[dict]:
+    """Live open deals with their whole-day age and days since the last touch."""
+    now = clock.now()
+    rows = conn.execute(
+        f"""SELECT d.id, d.title, d.value_cents, d.stage, d.owner_user_id, p.name AS person_name,
+                   o.name AS organization_name, d.created_at, {deals.LAST_TOUCH} AS last_touch
+              FROM crm_deals d LEFT JOIN core_people p ON p.id = d.person_id
+              LEFT JOIN core_organizations o ON o.id = d.organization_id
+             WHERE {LIVE} AND {OPEN}"""
+    )
+    out = []
+    for r in rows:
+        row = dict(r)
+        row["age_days"] = max(0, (now - clock.parse(row.pop("created_at"))).days)
+        row["days_since_touch"] = max(0, (now - clock.parse(row.pop("last_touch"))).days)
+        out.append(row)
+    return out
+
+
+def _aging(open_rows: list[dict], stale_days: int, limit: int) -> dict:
+    counts = Counter()
+    for r in open_rows:
+        counts[next(label for lo, hi, label in AGE_BUCKETS if r["age_days"] >= lo and (hi is None or r["age_days"] <= hi))] += 1
+    stale = sorted((r for r in open_rows if r["days_since_touch"] >= stale_days), key=lambda r: (-r["days_since_touch"], r["id"]))
+    return {
+        "buckets": [{"label": label, "min_days": lo, "max_days": hi, "count": counts[label]} for lo, hi, label in AGE_BUCKETS],
+        "stale_count": len(stale),
+        "stale_deals": stale[:limit],
+    }
+
+
+def _activity(conn: db.Conn, days: int) -> tuple[dict, str, str]:
+    """The activity series over the last `days` install-local days (today included), bucketed
+    by local day in Python. Returns the stats and the window's UTC bounds."""
+    today = localtime.today_local()
+    first = today - timedelta(days=days - 1)
+    start, end = _midnight(first), _midnight(today + timedelta(days=1))
+    rows = conn.execute("SELECT activity, created_at FROM crm_activity_log WHERE created_at >= ? AND created_at < ?", (start, end)).fetchall()
+    per_day = Counter(_local_day(r["created_at"]) for r in rows)
+    kinds = Counter((r["activity"] or "").strip().lower() or "other" for r in rows)
+    daily = [{"day": d.isoformat(), "count": per_day[d.isoformat()]} for d in (first + timedelta(days=i) for i in range(days))]
+    by_type = [{"activity": k, "count": n} for k, n in sorted(kinds.items(), key=lambda kv: (-kv[1], kv[0]))]
+    return {"daily": daily, "by_type": by_type, "total": len(rows)}, start, end
+
+
+def _per_rep(conn: db.Conn, start: str, end: str) -> list[dict]:
+    """Pipeline numbers follow ownership; activity numbers follow who acted (credit for work on
+    a colleague's record). Work no human did rolls up as Unattributed, last."""
     reps: dict[int | None, dict] = {}
 
     def slot(user_id):
         return reps.setdefault(user_id, {
-            "user_id": user_id, "deals_open": 0, "open_value_cents": 0, "deals_won": 0, "deals_lost": 0,
-            "won_value_cents": 0, "activity_count": 0, "records_touched": set(),
+            "user_id": user_id, "name": "", "deals_open": 0, "open_value_cents": 0, "deals_won": 0, "deals_lost": 0,
+            "won_value_cents": 0, "activity_count": 0, "records_touched": 0,
         })  # fmt: skip
 
-    for r in rows:
-        rep = slot(r["owner_user_id"])
+    for r in conn.execute(f"SELECT d.owner_user_id, d.stage, d.value_cents FROM crm_deals d WHERE {LIVE}"):
+        s = slot(r["owner_user_id"])
         if r["stage"] == "won":
-            rep["deals_won"] += 1
-            rep["won_value_cents"] += r["value_cents"]
+            s["deals_won"] += 1
+            s["won_value_cents"] += r["value_cents"]
         elif r["stage"] == "lost":
-            rep["deals_lost"] += 1
+            s["deals_lost"] += 1
         else:
-            rep["deals_open"] += 1
-            rep["open_value_cents"] += r["value_cents"]
-    for a in acts:
-        rep = slot(a["actor_user_id"])
-        rep["activity_count"] += 1
-        if a["deal_id"] is not None:
-            rep["records_touched"].add(("crm.deal", a["deal_id"]))
-        elif a["person_id"] is not None:
-            rep["records_touched"].add(("core.person", a["person_id"]))
-    for n in notes:
-        rep = slot(n["author_user_id"])
-        rep["activity_count"] += 1
-        rep["records_touched"].add((n["entity_type"], n["entity_id"]))
-    names = _names_in(conn, reps)
-    for user_id, rep in reps.items():
-        rep["name"] = "Unattributed" if user_id is None else names.get(user_id, f"User {user_id}")
-        rep["records_touched"] = len(rep["records_touched"])
-    return sorted(reps.values(), key=lambda r: (
-        r["user_id"] is None, -r["records_touched"], -r["open_value_cents"], r["name"].casefold(), r["user_id"] or 0,
-    ))  # fmt: skip
+            s["deals_open"] += 1
+            s["open_value_cents"] += r["value_cents"]
+    acts = conn.execute(
+        """SELECT actor_user_id AS actor, CASE WHEN deal_id IS NOT NULL THEN 'crm.deal' WHEN person_id IS NOT NULL THEN 'core.person'
+                                               ELSE 'activity' END AS kind, coalesce(deal_id, person_id, id) AS record
+             FROM crm_activity_log WHERE created_at >= ? AND created_at < ?
+           UNION ALL
+           SELECT author_user_id, entity_type, entity_id FROM core_timeline
+            WHERE kind IN ('note', 'comment') AND archived_at IS NULL AND created_at >= ? AND created_at < ?
+              AND entity_type IN (SELECT value FROM json_each(?))""",
+        (start, end, start, end, json.dumps(NOTE_ENTITIES)),
+    ).fetchall()
+    touched: dict[int | None, set] = {}
+    for r in acts:
+        actor = r["actor"] or None  # the system principal (0) did no human's work
+        slot(actor)["activity_count"] += 1
+        if r["kind"] != "activity":
+            touched.setdefault(actor, set()).add((r["kind"], r["record"]))
+    for actor, records in touched.items():
+        reps[actor]["records_touched"] = len(records)
+    names = {r[0]: r[1] or r[2] for r in conn.execute(
+        "SELECT id, name, email FROM core_users WHERE id IN (SELECT value FROM json_each(?))", (json.dumps([u for u in reps if u]),)
+    )}  # fmt: skip
+    for user_id, r in reps.items():
+        r["name"] = names.get(user_id, "") if user_id else "Unattributed"
+    return sorted(reps.values(), key=lambda r: (r["user_id"] is None, -r["records_touched"], -r["open_value_cents"]))
 
 
-def analytics_in(conn: db.Conn, user: User, days: int = 30, stale_days: int | None = None) -> dict:
-    """The analytics page: win/loss and per-rep pipeline over every live deal, activity volume
-    and per-rep activity over the last `days` local days (7..365), deal aging and the stale
-    list over live open deals. A zero state on an empty CRM. `activity.total` is the sum of the
-    daily series and of `by_type`: both come from one read of one window."""
+def analytics(user: User, days: int = 30, stale_days: int | None = None, stale_limit: int = 8) -> dict:
+    conn = db.get_conn()
     deals._gate(conn, user)
     days = max(7, min(365, int(days)))
-    stale_days = stale_days or crm_settings.stale_days()
-    zone, now = localtime.tz(), clock.now()
-    today = now.astimezone(zone).date()
-    first = today - timedelta(days=days - 1)
-    lo, hi = clock.to_iso(localtime.local_day_bounds(first)[0]), clock.to_iso(localtime.local_day_bounds(today)[1])
-
-    rows = readable_in(conn, user, conn.execute(
-        f"SELECT d.id, d.stage, d.value_cents, d.owner_user_id, d.created_at, d.closed_on FROM crm_deals d WHERE {LIVE}"
-    ).fetchall())  # fmt: skip
-    # simplification: the window's activity and note rows come to Python (one pass for days,
-    # types and reps); fine to ~10^5 rows a request. Upgrade path: GROUP BY in SQL over a
-    # stored local-day column.
-    acts = conn.execute(
-        "SELECT activity, actor_user_id, deal_id, person_id, created_at FROM crm_activity_log WHERE created_at >= ? AND created_at < ?",
-        (lo, hi),
-    ).fetchall()
-    notes = conn.execute(
-        """SELECT author_user_id, entity_type, entity_id FROM core_timeline
-            WHERE created_at >= ? AND created_at < ? AND kind IN ('note', 'comment') AND archived_at IS NULL
-              AND entity_type IN (SELECT value FROM json_each(?))""",
-        (lo, hi, json.dumps(TIMELINE_TOUCH_TYPES)),
-    ).fetchall()
-
-    per_day = {(first + timedelta(days=i)).isoformat(): 0 for i in range(days)}
-    by_type: dict[str, int] = {}
-    for a in acts:
-        per_day[clock.parse(a["created_at"]).astimezone(zone).date().isoformat()] += 1
-        kind = (a["activity"] or "").strip().lower() or "other"
-        by_type[kind] = by_type.get(kind, 0) + 1
-    stale = stale_deals_in(conn, user, stale_days, STALE_LIMIT)
+    stale_days = max(1, min(365, int(stale_days or crm_settings.stale_days())))
+    activity, start, end = _activity(conn, days)
     return {
-        "window_days": days,
-        "stale_days": stale_days,
-        "timezone": zone.key,
-        "win_loss": _win_loss(rows, zone),
-        "activity": {
-            "daily": [{"day": d, "count": n} for d, n in per_day.items()],
-            "by_type": [{"activity": k, "count": n} for k, n in sorted(by_type.items(), key=lambda kv: (-kv[1], kv[0]))],
-            "total": len(acts),
-        },
-        "aging": {
-            "buckets": _bucket_ages([r for r in rows if r["stage"] not in CLOSED_STAGES], now),
-            "stale_count": stale["total_stale"],
-            "stale_deals": stale["deals"],
-        },
-        "per_rep": _per_rep(conn, rows, acts, notes),
+        "window_days": days, "stale_days": stale_days, "timezone": localtime.tz().key,
+        "win_loss": _win_loss(conn),
+        "activity": activity,
+        "aging": _aging(_open_rows(conn), stale_days, stale_limit),
+        "per_rep": _per_rep(conn, start, end),
     }
 
 
-def analytics(user: User, days: int = 30, stale_days: int | None = None) -> dict:
-    return analytics_in(db.get_conn(), user, days, stale_days)
-
-
-# ── Pipeline analytics ────────────────────────────────────────────────────────
-
-
-def pipeline_analytics_in(conn: db.Conn, user: User, days: int = 90) -> dict:
-    """Movement through the funnel from the stage log, over the last `days` local days
-    (7..730), live deals only (an archived deal did not convert, it was put away):
-    - time_in_stage: completed stays that began in the window; a deal's current stay is open
-      and left out rather than clamped to now, which would bias the average down;
-    - conversion: each deal's first entry into each open stage in the window, `advanced` when
-      the deal now sits in a later stage or won (a move back down the pipeline is not progress);
-    - velocity: deals whose closed_on falls in the window, with their mean days to close.
-    Every deal's creation writes a stage event, so "entered" includes deals created into a
-    stage. `history_covers_window` is false while the log is younger than the window."""
+def stale_deals(user: User, days: int | None = None, limit: int = 25) -> dict:
+    """Live open deals untouched for `days` (default crm.stale_days), longest-quiet first."""
+    conn = db.get_conn()
     deals._gate(conn, user)
-    days = max(7, min(730, int(days)))
-    zone, now = localtime.tz(), clock.now()
-    today = now.astimezone(zone).date()
-    first = today - timedelta(days=days - 1)
-    since = clock.to_iso(localtime.local_day_bounds(first)[0])
+    days = days or crm_settings.stale_days()
+    aging = _aging(_open_rows(conn), days, limit)
+    return {"stale_days": days, "total_stale": aging["stale_count"], "count": len(aging["stale_deals"]), "deals": aging["stale_deals"]}
 
-    events = readable_in(conn, user, conn.execute(
-        f"""SELECT e.deal_id, e.new_stage AS stage, e.changed_at, d.stage AS current_stage,
-                   julianday(lead(e.changed_at) OVER (PARTITION BY e.deal_id ORDER BY e.changed_at, e.id))
-                     - julianday(e.changed_at) AS days
-              FROM crm_deal_stage_events e JOIN crm_deals d ON d.id = e.deal_id
-             WHERE {LIVE} ORDER BY e.deal_id, e.changed_at, e.id"""
-    ).fetchall(), key="deal_id")  # fmt: skip
-    in_window = [e for e in events if e["changed_at"] >= since]
 
-    stays: dict[str, list[float]] = {s: [] for s in OPEN_STAGES}
-    for e in in_window:
-        if e["days"] is not None and e["stage"] in stays:
-            stays[e["stage"]].append(e["days"])
-    time_in_stage = [
-        {"stage": s, "deals": len(v), "median_days": round(median(v), 1) if v else None, "avg_days": _avg(v)}
-        for s, v in stays.items()
-    ]
-
-    entered = {s: 0 for s in OPEN_STAGES}
-    advanced = {s: 0 for s in OPEN_STAGES}
-    seen: set[tuple[int, str]] = set()
-    for e in in_window:
-        if e["stage"] not in entered or (e["deal_id"], e["stage"]) in seen:
-            continue
-        seen.add((e["deal_id"], e["stage"]))
-        entered[e["stage"]] += 1
-        now_at = e["current_stage"]
-        if now_at == "won" or (now_at in OPEN_STAGES and STAGES.index(now_at) > STAGES.index(e["stage"])):
-            advanced[e["stage"]] += 1
-    conversion = [
-        {"stage": s, "entered": entered[s], "advanced": advanced[s], "rate_pct": round(advanced[s] / entered[s] * 100, 1) if entered[s] else None}
-        for s in OPEN_STAGES
-    ]
-
-    won = readable_in(conn, user, conn.execute(
-        f"SELECT d.id, d.created_at, d.closed_on FROM crm_deals d WHERE {LIVE} AND d.stage = 'won' AND d.closed_on >= ?",
-        (first.isoformat(),),
-    ).fetchall())  # fmt: skip
-    history_since = conn.execute("SELECT min(changed_at) FROM crm_deal_stage_events").fetchone()[0]
-    return {
-        "window_days": days,
-        "history_since": history_since,
-        "history_days": whole_days(history_since, now) if history_since else None,
-        "history_covers_window": history_since is not None and history_since <= since,
-        "time_in_stage": time_in_stage,
-        "conversion": conversion,
-        "velocity": {
-            "won_in_window": len(won),
-            "avg_days_to_won": _avg([days_to_close(r["created_at"], r["closed_on"], zone) for r in won]),
-        },
-    }
+# ── The funnel ────────────────────────────────────────────────────────────────
 
 
 def pipeline_analytics(user: User, days: int = 90) -> dict:
-    return pipeline_analytics_in(db.get_conn(), user, days)
+    """Movement through the funnel, read from the stage history: time in stage (finished
+    intervals only, so a deal still sitting in a stage is not counted as having left now),
+    conversion of each first entry into a stage, and velocity of the wins in the window. The
+    history starts when the CRM was installed; the response says how far back it goes."""
+    conn = db.get_conn()
+    deals._gate(conn, user)
+    days = max(7, min(730, int(days)))
+    cutoff = clock.ago(days * DAY)
+    events = [dict(r) for r in conn.execute(
+        f"""SELECT e.deal_id, e.new_stage, e.changed_at, d.stage AS current_stage, d.closed_on,
+                   lead(e.changed_at) OVER (PARTITION BY e.deal_id ORDER BY e.changed_at, e.id) AS next_at,
+                   row_number() OVER (PARTITION BY e.deal_id, e.new_stage ORDER BY e.changed_at, e.id) AS nth
+              FROM crm_deal_stage_events e JOIN crm_deals d ON d.id = e.deal_id WHERE {LIVE}"""
+    )]  # fmt: skip
+    in_window = [e for e in events if e["changed_at"] >= cutoff]
+
+    durations: dict[str, list[float]] = {s: [] for s in OPEN_STAGES}
+    for e in in_window:
+        if e["next_at"] and e["new_stage"] in durations:
+            durations[e["new_stage"]].append(_days_between(e["changed_at"], e["next_at"]))
+    time_in_stage = [
+        {"stage": s, "samples": len(v), "avg_days": round(sum(v) / len(v), 1) if v else None,
+         "median_days": round(statistics.median(v), 1) if v else None}
+        for s, v in durations.items()
+    ]  # fmt: skip
+
+    conversion = []
+    for stage in OPEN_STAGES:
+        firsts = [e for e in in_window if e["new_stage"] == stage and e["nth"] == 1]
+        outcome = Counter(
+            "won" if e["current_stage"] == "won" else "lost" if e["current_stage"] == "lost"
+            else "still_here" if e["current_stage"] == stage else "advanced"
+            for e in firsts
+        )  # fmt: skip
+        entered = len(firsts)
+        conversion.append({
+            "stage": stage, "entered": entered, "still_here": outcome["still_here"], "advanced": outcome["advanced"],
+            "won": outcome["won"], "lost": outcome["lost"],
+            "progression_rate": round((outcome["advanced"] + outcome["won"]) / entered, 3) if entered else None,
+            "win_rate": round(outcome["won"] / entered, 3) if entered else None,
+        })  # fmt: skip
+
+    by_deal: dict[int, list[dict]] = {}
+    for e in events:
+        by_deal.setdefault(e["deal_id"], []).append(e)
+    took = []
+    for rows in by_deal.values():
+        if rows[0]["current_stage"] != "won":
+            continue
+        wins = [e["changed_at"] for e in rows if e["new_stage"] == "won"]
+        # A recorded Closed on day (wins are often recorded late) dates the win at local midnight.
+        won_at = _midnight(date.fromisoformat(rows[0]["closed_on"])) if rows[0]["closed_on"] else max(wins, default=None)
+        if won_at and won_at >= cutoff:
+            took.append(max(0.0, _days_between(min(e["changed_at"] for e in rows), won_at)))
+
+    since = conn.execute("SELECT min(changed_at) FROM crm_deal_stage_events").fetchone()[0]
+    history_days = int(_days_between(since, clock.now_iso())) if since else None
+    return {
+        "window_days": days, "history_since": since, "history_days": history_days,
+        "history_covers_window": history_days is not None and history_days >= days,
+        "time_in_stage": time_in_stage, "conversion": conversion,
+        "velocity": {"won_in_window": len(took), "avg_days_to_won": round(sum(took) / len(took), 1) if took else None},
+    }
 
 
-# ── Deal health ───────────────────────────────────────────────────────────────
+# ── One deal ──────────────────────────────────────────────────────────────────
 
 
-def health_flags(*, operational: bool, stale: bool, days_in_stage: int, next_steps: int, overdue: int,
-                 person_id: int | None, organization_id: int | None) -> list[str]:  # fmt: skip
-    """The actionable flags. Pure. Stale, stuck, next-step and overdue flags apply only to a
-    live open deal (`operational`); a won, lost or archived deal is not going cold."""
-    flags = []
-    if operational:
-        if stale:
-            flags.append("stale")
-        if days_in_stage >= STUCK_IN_STAGE_DAYS:
-            flags.append("stuck_in_stage")
-        if not next_steps:
-            flags.append("no_next_step")
-        if overdue:
-            flags.append("overdue_reminder")
-    if person_id is None:
-        flags.append("missing_person")
-    if organization_id is None:
-        flags.append("missing_organization")
-    return flags
-
-
-def deal_health_in(conn: db.Conn, user: User, deal_id: int) -> dict:
-    """One deal's lead score with the signals a rep acts on. Archived deals resolve (to decide
-    whether to restore one). A next step is an open or snoozed core reminder on the deal, by
-    anyone; one due before today (install-local) is overdue, one due today is not."""
-    deal = deals.get_in(conn, user, deal_id)
-    stale_days = crm_settings.stale_days()
-    now = clock.now()
-    row = conn.execute(
-        f"""SELECT {deals.LAST_TOUCH} AS last_touch,
-                   coalesce((SELECT max(e.changed_at) FROM crm_deal_stage_events e WHERE e.deal_id = d.id), d.created_at) AS stage_since
-              FROM crm_deals d WHERE d.id = ?""",
-        (deal_id,),
-    ).fetchone()
-    today_start = clock.to_iso(localtime.local_day_bounds()[0])
-    steps = [r for r in reminders.list_for_record_in(conn, user, ENTITY, deal_id) if r["status"] in ("open", "snoozed")]
-    flags = health_flags(
-        operational=deal["status"] == "open" and deal["archived_at"] is None,
-        stale=row["last_touch"] < clock.to_iso(now - timedelta(days=stale_days)),
-        days_in_stage=whole_days(row["stage_since"], now),
-        next_steps=len(steps),
-        overdue=sum(r["due_at"] < today_start for r in steps),
-        person_id=deal["person_id"],
-        organization_id=deal["organization_id"],
-    )
-    # simplification: the stored score with no factors until scoring exposes its breakdown;
-    # upgrade path: call the scoring module's per-deal read here.
-    return {"deal": deal, "score": deal["lead_score"], "factors": {}, "stale_days": stale_days, "flags": flags}
+def _todo_counts(user: User, deal_id: int) -> tuple[int, int] | None:
+    """(open, overdue) to-dos linked to the deal, through the Todos app's published API; None
+    when that app is not installed."""
+    try:
+        from backend.apps.todos.api import list_for_record
+    except ModuleNotFoundError:
+        return None
+    today = localtime.today_local().isoformat()
+    todos = list_for_record(user, "crm.deal", deal_id)
+    return len(todos), sum(1 for t in todos if t.get("due_date") and t["due_date"] < today)
 
 
 def deal_health(user: User, deal_id: int) -> dict:
-    return deal_health_in(db.get_conn(), user, deal_id)
+    """The lead score with its factors, plus the flags a person acts on: stale, stuck in its
+    stage, no next step, an overdue to-do, no person, no organization. Archived deals answer too."""
+    conn = db.get_conn()
+    deal = deals.get_in(conn, user, deal_id)
+    stale_days = crm_settings.stale_days()
+    now = clock.now()
+    last_touch = conn.execute(f"SELECT {deals.LAST_TOUCH} FROM crm_deals d WHERE d.id = ?", (deal_id,)).fetchone()[0]
+    entered = conn.execute("SELECT max(changed_at) FROM crm_deal_stage_events WHERE deal_id = ?", (deal_id,)).fetchone()[0]
+    flags = []
+    if deal["status"] == "open":
+        if (now - clock.parse(last_touch)).days >= stale_days:
+            flags.append("stale")
+        if (now - clock.parse(entered or deal["created_at"])).days >= STUCK_IN_STAGE_DAYS:
+            flags.append("stuck_in_stage")
+        if (todos := _todo_counts(user, deal_id)) is not None:
+            if not todos[0]:
+                flags.append("no_next_step")
+            if todos[1]:
+                flags.append("overdue_todo")
+    if not deal["person_id"]:
+        flags.append("missing_person")
+    if not deal["organization_id"]:
+        flags.append("missing_organization")
+    breakdown = scoring.deal_breakdown_in(conn, deal_id, now)
+    return {"deal": deal, "score": breakdown["score"], "factors": breakdown["factors"], "stale_days": stale_days, "flags": flags}
 
 
-# ── Duplicates ────────────────────────────────────────────────────────────────
-
-
-def duplicates_in(conn: db.Conn, user: User, limit: int = DUPLICATE_LIMIT) -> list[dict]:
-    """Live deals sharing a title (trimmed, case-folded, otherwise exact) AND a person: the
-    double-entry shape. Title alone is a false-positive machine ("Q1 renewal" across ten
-    customers), and fuzzy matching would invite merging two real deals. Biggest groups first.
-    People and organizations have their own duplicate finder in core contacts."""
+def duplicates(user: User, limit: int = 25) -> list[dict]:
+    """Live deals sharing a title (ignoring case and spacing) and the same person: the real
+    double-entry shape. Title alone is not a duplicate ("Q1 renewal" across ten customers)."""
+    conn = db.get_conn()
     deals._gate(conn, user)
-    # simplification: every live deal with a person comes to Python so case-folding is
-    # Unicode-aware (SQLite's lower() is ASCII-only); fine to ~10^5 deals. Upgrade path: a
-    # stored folded-title column with an index.
-    rows = readable_in(conn, user, conn.execute(
-        f"SELECT d.id, d.title, d.stage, d.person_id FROM crm_deals d WHERE {LIVE} AND d.person_id IS NOT NULL ORDER BY d.id"
-    ).fetchall())  # fmt: skip
-    groups: dict[tuple[str, int], list] = {}
-    for r in rows:
-        if key := r["title"].strip().casefold():
-            groups.setdefault((key, r["person_id"]), []).append(r)
-    found = sorted(((k, v) for k, v in groups.items() if len(v) > 1), key=lambda kv: (-len(kv[1]), kv[0]))
+    groups = conn.execute(
+        f"""SELECT lower(trim(d.title)) AS value, d.person_id, count(*) AS count, json_group_array(d.id) AS ids
+              FROM (SELECT * FROM crm_deals d WHERE {LIVE} AND trim(d.title) != '' AND d.person_id IS NOT NULL ORDER BY d.id) d
+             GROUP BY lower(trim(d.title)), d.person_id HAVING count(*) > 1
+             ORDER BY count(*) DESC, value, d.person_id LIMIT ?""",
+        (limit,),
+    ).fetchall()
+    ids = [i for g in groups for i in json.loads(g["ids"])]
+    labels = {r[0]: f"{r[1]} ({r[2]})" for r in conn.execute(
+        "SELECT id, title, stage FROM crm_deals WHERE id IN (SELECT value FROM json_each(?))", (json.dumps(ids),)
+    )}  # fmt: skip
     return [
-        {
-            "match_on": "title+person", "value": title, "count": len(members),
-            "records": [{"id": r["id"], "label": f"{r['title']} ({r['stage']})"} for r in members],
-        }
-        for (title, _person), members in found[:limit]
+        {"match_on": "title+person", "value": g["value"], "count": g["count"],
+         "records": [{"id": i, "label": labels[i]} for i in json.loads(g["ids"])]}
+        for g in groups
     ]  # fmt: skip
-
-
-def duplicates(user: User) -> list[dict]:
-    return duplicates_in(db.get_conn(), user)

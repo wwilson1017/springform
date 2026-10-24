@@ -38,8 +38,10 @@ def seed_in(conn: db.Conn) -> None:
 
 
 def list_criteria() -> list[dict]:
+    """Every stage in pipeline order; a stage with no row (before the first seed) reads as standard."""
     rows = {r["stage"]: r for r in db.get_conn().execute("SELECT * FROM crm_stage_criteria")}
-    return [_entry(rows[s]) for s in STAGES if s in rows]
+    standard = {s: {"stage": s, "summary": v["summary"], "checklist": json.dumps(v["checklist"]), "updated_at": None} for s, v in STANDARD.items()}
+    return [_entry(rows.get(s) or standard[s]) for s in STAGES]
 
 
 def set_criteria(stage: str, summary: str, checklist: list[str]) -> dict:
