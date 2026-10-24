@@ -113,7 +113,7 @@ The data directory is `DATA_DIR` (the donor's env var, kept; default `./data` fo
 |---|---|---|
 | `admin` | Invited humans. | Settings, users, backups, export, jobs, hidden apps. |
 | `member` | Invited humans. | Default role for business users. |
-| `system` | One seeded row, `core_users.id = 0`. | Not a login role. Records unattended actions. Member-level reads only from jobs. See `authorization.md`. |
+| `system` | One seeded row, `core_users.id = 0`. | Not a login role. Records unattended actions. Reads as a member through `can_read`; `authorize` always refuses it a write. See `authorization.md` §7. |
 
 Login is invite-only. The first admin is created with a one-time setup token, never by "first visitor" (`auth.md`). There is no Cloudflare Access in front of the app.
 

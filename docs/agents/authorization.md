@@ -147,11 +147,11 @@ The restrictive entity the two-member test uses. `apps/todos/entities.py` regist
 | Why | So `user_id` foreign keys on tool runs, timeline rows and change-log rows can record unattended actions. |
 | Authentication | Never. Login, Google, invite and MCP-link minting all reject `role='system'`. |
 | Excluded from | User listings, notification recipients, and "every active user" expansions. |
-| Reads | `require_roles` grants it **member-level reads only**, and only when the request source is a job (never from an HTTP request). No private records. |
+| Reads | Through the entity's `can_read`, with the system user treated as a **member**. Owner-only rules refuse it, so it reads no private records. |
+| Writes | `authorize(system, …, "write")` is **always refused**. |
+| Jobs | Jobs call services with the system `User` object directly. `require_roles` is HTTP-only, and HTTP can never authenticate as the system user. |
 | Agent | Unattended runs (`source='job'`) run as the system principal and may only call tools that are `writes=False`, not `always_confirm`, not remote, not `untrusted_source`, enforced in `registry.for_source` (`agent.md`). |
 | Bootstrap | First-run checks look for the absence of **human** accounts (`WHERE role != 'system'`), not an empty table (`auth.md`). |
-
-Open: how a job-sourced call presents itself to `require_roles` (a request-context flag, a separate dependency) is not stated.
 
 The Todos team rev is stored in `todos_sync` at `user_id = 0` on purpose: 0 is the system principal's id, because the team rev belongs to no human.
 
