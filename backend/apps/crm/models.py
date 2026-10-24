@@ -207,8 +207,10 @@ class Today(BaseModel):
 
 
 class TouchWindow(BaseModel):
-    start: str
-    end: str
+    start: str = Field(description="UTC instant, inclusive")
+    end: str = Field(description="UTC instant, exclusive")
+    start_day: str = Field(description="First install-local day applied, YYYY-MM-DD; send it back as start")
+    end_day: str = Field(description="Last install-local day applied, inclusive; send it back as end")
     label: str
     custom: bool
 

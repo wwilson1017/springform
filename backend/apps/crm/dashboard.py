@@ -110,12 +110,22 @@ def today(user: User) -> dict:
 _DAY = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
 
+def _local_day(iso: str) -> str:
+    return clock.parse(iso).astimezone(localtime.tz()).date().isoformat()
+
+
 def _window(start: str | None, end: str | None) -> dict:
-    """[start, end) as UTC instants. No bounds: the rolling last seven days, re-resolved on
-    every request. Both: whole install-local days, the end day included. One alone is refused."""
+    """[start, end) as UTC instants, plus `start_day`/`end_day`, the install-local days applied
+    (end day included), which a client can send back as `start`/`end`. No bounds: the rolling
+    last seven days, re-resolved on every request, whose days are those of its two instants.
+    Both: whole install-local days, the end day included. One alone is refused."""
     start, end = (start or "").strip() or None, (end or "").strip() or None
     if start is None and end is None:
-        return {"start": clock.ago(7 * 86400), "end": clock.now_iso(), "label": "Last 7 days", "custom": False}
+        first, last = clock.ago(7 * 86400), clock.now_iso()
+        return {
+            "start": first, "end": last, "start_day": _local_day(first), "end_day": _local_day(last),
+            "label": "Last 7 days", "custom": False,
+        }  # fmt: skip
     if start is None or end is None:
         raise Invalid("A custom range needs both start and end")
     try:
@@ -128,7 +138,10 @@ def _window(start: str | None, end: str | None) -> dict:
         bounds = clock.to_iso(_midnight(first)), clock.to_iso(_midnight(last + timedelta(days=1)))
     except OverflowError:  # 9999-12-31 has no next day
         raise Invalid("That range is out of bounds") from None
-    return {"start": bounds[0], "end": bounds[1], "label": f"{start} – {end}", "custom": True}
+    return {
+        "start": bounds[0], "end": bounds[1], "start_day": first.isoformat(), "end_day": last.isoformat(),
+        "label": f"{start} – {end}", "custom": True,
+    }  # fmt: skip
 
 
 def _touch_rows(conn: db.Conn, user: User, window: dict) -> list[dict]:

@@ -5341,12 +5341,28 @@ export interface components {
         TouchWindow: {
             /** Custom */
             custom: boolean;
-            /** End */
+            /**
+             * End
+             * @description UTC instant, exclusive
+             */
             end: string;
+            /**
+             * End Day
+             * @description Last install-local day applied, inclusive; send it back as end
+             */
+            end_day: string;
             /** Label */
             label: string;
-            /** Start */
+            /**
+             * Start
+             * @description UTC instant, inclusive
+             */
             start: string;
+            /**
+             * Start Day
+             * @description First install-local day applied, YYYY-MM-DD; send it back as start
+             */
+            start_day: string;
         };
         /** TouchedDeal */
         TouchedDeal: {

@@ -47,6 +47,8 @@ Conventions:
   an install without mail has a way back in for someone locked out.
 - `GET /api/todos/changes?head=1` returns just the current cursor, so a client's first poll no
   longer walks the whole change journal.
+- The CRM weekly touches window carries `start_day` and `end_day`, the install-local days it
+  covers, which a client can send back as the `start`/`end` range.
 
 ### Changed
 
