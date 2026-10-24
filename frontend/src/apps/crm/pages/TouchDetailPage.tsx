@@ -1,5 +1,6 @@
 /** One rep's Weekly Touches: the deals behind their number, most-touched first. */
 import { Link, useParams, useSearchParams } from 'react-router';
+import { ApiError } from '../../../core/api/client';
 import { useJson } from '../../../core/api/useJson';
 import { formatDate } from '../../../shared/formatDate';
 import { LoadError } from '../../../shared/LoadError';
@@ -16,7 +17,10 @@ export function TouchDetailPage() {
   const { data, error, reload } = useJson<WeeklyTouchDetail>(url);
   const back = <Link to="/crm/touches" className="text-sm text-sf-accent-text">← Weekly touches</Link>;
 
-  if (!owner) return <div className={page}>{back}<p className="text-sf-ink-mute">That isn't a rep.</p></div>;
+  // A hand-edited URL, or a user id the API doesn't know (it answers 404).
+  if (!owner || (error instanceof ApiError && error.status === 404)) {
+    return <div className={page}>{back}<p className="text-sf-ink-mute">That isn't a rep.</p></div>;
+  }
   return (
     <div className={`${page} flex flex-col gap-4`}>
       {back}

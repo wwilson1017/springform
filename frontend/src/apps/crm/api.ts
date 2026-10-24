@@ -2,7 +2,7 @@
  * The CRM's API at /api/crm. Response shapes come from the generated OpenAPI types (the router
  * declares a response model on every route); request bodies are the same models' inputs.
  */
-import { api, ApiError, del, fetchJson, patchJson, postJson, upload } from '../../core/api/client';
+import { del, fetchJson, patchJson, postJson, putJson, upload } from '../../core/api/client';
 import type { components } from '../../core/api/types.gen';
 
 type S = components['schemas'];
@@ -90,21 +90,14 @@ export const staleUrl = (days?: number) => `${BASE}/stale-deals${qs({ days, limi
 
 export const stageCriteriaUrl = `${BASE}/stage-criteria`;
 
-/** The typed client answers `{data, error, response}`; turn an error into the usual ApiError. */
-async function unwrap<T>(call: Promise<{ data?: T; error?: unknown; response: Response }>): Promise<T> {
-  const { data, error, response } = await call;
-  if (data === undefined) {
-    const detail = (error as { detail?: unknown } | undefined)?.detail;
-    throw new ApiError(response.status, typeof detail === 'string' ? detail : response.statusText);
-  }
-  return data;
-}
-
-// PUT and a DELETE that answers a body: the core helpers have neither, the typed client has both.
 export const saveStageCriteria = (stage: Stage, body: { summary: string; checklist: string[] }) =>
-  unwrap(api.PUT('/api/crm/stage-criteria/{stage}', { params: { path: { stage } }, body }));
-export const resetStageCriteria = (stage: Stage) =>
-  unwrap(api.DELETE('/api/crm/stage-criteria/{stage}', { params: { path: { stage } } }));
+  putJson<StageCriteria>(`${stageCriteriaUrl}/${stage}`, body);
+
+/** The DELETE answers the standard criteria, but core's `del` drops bodies, so read them back. */
+export async function resetStageCriteria(stage: Stage): Promise<StageCriteria> {
+  await del(`${stageCriteriaUrl}/${stage}`);
+  return (await fetchJson<StageCriteria[]>(stageCriteriaUrl)).find(c => c.stage === stage)!;
+}
 
 export function parseImport(file: File) {
   const form = new FormData();
