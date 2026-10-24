@@ -56,6 +56,8 @@ def test_routes_round_trip_and_ownership(login_as, freeze):
     assert patched["title"] == "Call Ann"
     assert patched["repeat"] == {"freq": "weekly", "anchor": "2026-11-03", "time": "15:00", "tz": "UTC"}
     assert a.patch(f"/api/core/reminders/{r['id']}", json={"owner_user_id": b.user["id"]}).status_code == 422
+    assert a.patch(f"/api/core/reminders/{r['id']}", json={"due_at": None}).status_code == 422
+    assert a.patch(f"/api/core/reminders/{r['id']}", json={"title": None}).status_code == 422
     assert a.post(f"/api/core/reminders/{r['id']}/snooze", json={"until": "2026-11-01T00:00:00Z"}).status_code == 422
     snoozed = a.post(f"/api/core/reminders/{r['id']}/snooze", json={"until": "2026-11-05T08:00:00Z"}).json()
     assert (snoozed["status"], snoozed["due_at"]) == ("snoozed", "2026-11-05T08:00:00Z")

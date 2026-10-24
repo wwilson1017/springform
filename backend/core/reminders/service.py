@@ -48,10 +48,12 @@ def _zone(user: User) -> ZoneInfo:
         return localtime.tz()
 
 
-def _instant(value: str, zone: ZoneInfo, field: str) -> str:
+def _instant(value: str | None, zone: ZoneInfo, field: str) -> str:
     try:
+        if not isinstance(value, str):
+            raise ValueError
         return clock.normalize(value, zone)
-    except (ValueError, TypeError):
+    except ValueError:
         raise Invalid(f"{field} must be an ISO date-time") from None
 
 
