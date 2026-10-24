@@ -2,7 +2,7 @@ import pytest
 
 from backend.core import db as core_db, preview
 from backend.core.auth.deps import system_user
-from backend.core.contacts import api as contacts, seed, service, startup
+from backend.core.contacts import api as contacts, seed, service
 from backend.core.db import sqlite3
 from backend.core.errors import Conflict, Forbidden, Invalid, NotFound
 from backend.core.timeline import api as timeline
@@ -115,6 +115,21 @@ def test_resolve_or_create_organizations(user):
     assert contacts.resolve_or_create_organizations(user, ["acme old name"]) == {"acme old name": acme}  # alias -> survivor
 
 
+def test_names_match_beyond_ascii(user):
+    """SQL lower() folds only ASCII, so "Café Ñandú" and "café ñandú" are compared in Python."""
+    cafe = contacts.create_organization(user, name="Café Ñandú")["id"]
+    with pytest.raises(Conflict):
+        contacts.create_organization(user, name="café ñandú")
+    with pytest.raises(Conflict):
+        contacts.update_organization(user, contacts.create_organization(user, name="Other")["id"], name="CAFÉ ÑANDÚ")
+    assert contacts.resolve_or_create_organizations(user, ["CAFÉ ñandú"]) == {"CAFÉ ñandú": cafe}
+    a = contacts.create_person(user, name="Zoë Démo")["id"]
+    b = contacts.create_person(user, name="ZOË DÉMO")["id"]
+    assert [(g["match_on"], g["value"], [r["id"] for r in g["records"]]) for g in contacts.find_duplicates(user, "person")] == [
+        ("name", "zoë démo", [a, b])
+    ]
+
+
 def test_validation_and_the_system_principal(user):
     with pytest.raises(Invalid, match="name is required"):
         contacts.create_person(user, name="  ")
@@ -140,9 +155,8 @@ def test_validation_and_the_system_principal(user):
 
 def test_preview_sample_seeds_once(app, monkeypatch):
     monkeypatch.setenv("PREVIEW_MODE", "1")
-    preview.seed()  # the preview accounts
-    startup.on_startup()
-    startup.on_startup()
+    preview.seed()  # the preview accounts, then the sample directory
+    preview.seed()
     assert core_db.one("SELECT count(*) AS n FROM core_people")["n"] == len(seed.PEOPLE)
     assert core_db.one("SELECT count(*) AS n FROM core_organizations")["n"] == len(seed.ORGANIZATIONS)
     assert {g["match_on"] for g in contacts.find_duplicates(system_user(), "person")} == {"email", "name"}

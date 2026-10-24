@@ -238,14 +238,22 @@ def _clean_in(conn: db.Conn, kind: str, fields: dict, creating: bool) -> tuple[d
     return cols, mirrored
 
 
-def _org_named_in(conn: db.Conn, name: str, exclude: int | None = None) -> int | None:
-    """The unmerged organization holding `name` under the unique index's rule (lower(trim()))."""
-    row = conn.execute(
-        """SELECT id FROM core_organizations
-           WHERE lower(trim(name)) = lower(trim(?)) AND merged_into_id IS NULL AND id IS NOT ?""",
-        (name, exclude),
-    ).fetchone()
-    return row[0] if row else None
+def _name_key(name: str | None) -> str:
+    """Names compare trimmed and casefolded, so "Café" and "CAFÉ" match (SQL lower() is ASCII-only)."""
+    return (name or "").strip().casefold()
+
+
+def _org_named_in(conn: db.Conn, name: str, exclude: int | None = None, merged: bool = False) -> int | None:
+    """The organization holding `name` (`_name_key`): unmerged ones only, or, with `merged`,
+    unmerged first and then merged ones. The unique index on lower(trim(name)) is the backstop.
+    # simplification: linear scan over organizations, upgrade path name_key column"""
+    key = _name_key(name)
+    rows = conn.execute(
+        """SELECT id, name FROM core_organizations WHERE (? OR merged_into_id IS NULL) AND id IS NOT ?
+            ORDER BY merged_into_id IS NOT NULL, id""",
+        (merged, exclude),
+    )
+    return next((r[0] for r in rows if _name_key(r[1]) == key), None)
 
 
 def _links_in(conn: db.Conn, kind: str, record_id: int) -> list[dict]:
@@ -390,18 +398,21 @@ def find_duplicates_in(conn: db.Conn, user: User, kind: str, limit: int = 50) ->
                   WHERE c.owner_type = '{kind}' AND c.kind = ? AND {live}"""
     column = "name" if kind == "person" else "domain"
     keys = [
-        ("email", channel.format("lower(trim(c.value))"), ("email",)),
+        ("email", channel.format("c.value"), ("email",)),
         ("phone", channel.format(_DIGITS), ("phone",)),
-        (column, f"SELECT r.id, lower(trim(r.{column})) AS k FROM {k.table} r WHERE {live}", ()),
+        (column, f"SELECT r.id, r.{column} AS k FROM {k.table} r WHERE {live}", ()),
     ]
     groups = []
     for match_on, sql, params in keys:
-        rows = conn.execute(
-            f"""SELECT k, count(*) AS n, json_group_array(id ORDER BY id) AS ids FROM ({sql})
-                WHERE k IS NOT NULL AND k != '' GROUP BY k HAVING count(*) > 1 ORDER BY n DESC, k LIMIT ?""",
-            (*params, pagination.window(limit)[0]),
-        )
-        groups += [{"match_on": match_on, "value": r["k"], "count": r["n"], "ids": json.loads(r["ids"])} for r in rows]
+        by_key: dict[str, set[int]] = {}
+        for r in conn.execute(sql, params):
+            if key := _name_key(r["k"]):  # casefold in Python: SQL lower() leaves "É" alone
+                by_key.setdefault(key, set()).add(r["id"])
+        found = sorted((-len(ids), key, sorted(ids)) for key, ids in by_key.items() if len(ids) > 1)
+        groups += [
+            {"match_on": match_on, "value": key, "count": len(ids), "ids": ids}
+            for _, key, ids in found[: pagination.window(limit)[0]]
+        ]
     labels = entities.titles_for(user, conn, k.entity, [i for g in groups for i in g["ids"]])
     for g in groups:
         g["records"] = [{"id": i, "label": labels.get(i, "")} for i in g.pop("ids")]
@@ -482,12 +493,8 @@ def resolve_or_create_organizations_in(conn: db.Conn, user: User, names: list[st
         name = (raw or "").strip()
         if not name:
             continue
-        row = conn.execute(
-            """SELECT id FROM core_organizations WHERE lower(trim(name)) = lower(?)
-               ORDER BY merged_into_id IS NOT NULL, id LIMIT 1""",
-            (name,),
-        ).fetchone()
-        out[raw] = resolve_in(conn, "organization", row[0]) if row else _insert_in(conn, user, "organization", {"name": name})
+        found = _org_named_in(conn, name, merged=True)
+        out[raw] = resolve_in(conn, "organization", found) if found else _insert_in(conn, user, "organization", {"name": name})
     return out
 
 

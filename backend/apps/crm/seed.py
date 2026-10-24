@@ -1,10 +1,9 @@
 """Reference data on every boot (stage criteria, the meta row) and PREVIEW_MODE sample deals
-over core's sample directory. Both are idempotent."""
+over core's sample directory, which preview seeds before any app sample. Both are idempotent."""
 
 from backend.apps.crm import activity, deals, stage_criteria
 from backend.core import clock
 from backend.core.auth.deps import User
-from backend.core.contacts import seed as contacts_seed
 
 # Every real table the app owns, in creation order (reset deletes in reverse).
 RESET_TABLES = [
@@ -52,7 +51,6 @@ def sample(conn) -> None:
     )}  # fmt: skip
     if "admin" not in users:
         return
-    contacts_seed.sample(conn)  # core's sample directory; it skips when contacts exist
     org_ids = {r["name"]: r["id"] for r in conn.execute("SELECT id, name FROM core_organizations")}
     person_ids = {r["email"]: r["id"] for r in conn.execute("SELECT id, email FROM core_people ORDER BY id DESC")}
     for title, org, email, stage, cents, temperature, role, extra in SAMPLE:
