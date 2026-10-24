@@ -32,7 +32,7 @@ core_agent_messages            -- + FTS
 core_agent_tool_runs(
   id, conversation_id, tool_use_id, tool, tool_def_sha256,
   args JSON,
-  status,                      -- see §7
+  status,                      -- CHECK over the eight values in §7
   result, user_id,
   source CHECK (source IN ('chat','mcp','job')),
   requested_at, resolved_at, resolved_by
@@ -170,7 +170,7 @@ Open: the request body of `POST /api/agent/confirm` (tool run id, approve/deny) 
 pending | executing | done | denied | error | stale | uncertain | interrupted
 ```
 
-Open: the `core_agent_tool_runs` table definition lists `pending|executing|done|denied|error|uncertain|interrupted` (no `stale`), while the confirmation section's enum includes `stale`. This doc uses the longer enum.
+`core_agent_tool_runs.status` takes exactly these eight values; the table's `CHECK` lists all eight, `stale` included.
 
 ## 8. SSE events
 
