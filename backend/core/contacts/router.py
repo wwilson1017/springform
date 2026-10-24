@@ -192,8 +192,6 @@ def create_link(body: LinkIn, user: User = Depends(current_user)) -> dict:
 @router.patch("/links")
 def update_link(body: LinkPatch, user: User = Depends(current_user)) -> dict:
     fields = body.model_dump(exclude_unset=True, exclude={"person_id", "organization_id", "role"})
-    if "new_role" in fields:
-        fields["role"] = fields.pop("new_role")
     return service.update_link(user, body.person_id, body.organization_id, body.role, **fields)
 
 

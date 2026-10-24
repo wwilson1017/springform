@@ -533,15 +533,15 @@ def link_in(
 
 
 def update_link_in(conn: db.Conn, user: User, person_id: int, organization_id: int, role: str, **fields) -> dict:
-    """Change a link's `role`, `is_primary`, `started_on` or `ended_on`. Returns the link."""
+    """Change a link's role (`new_role`), `is_primary`, `started_on` or `ended_on`. Returns the link."""
     _live_in(conn, user, "person", person_id)
     _live_in(conn, user, "organization", organization_id)
     link = _link_row_in(conn, person_id, organization_id, (role or "").strip())
-    if unknown := set(fields) - {"role", "is_primary", "started_on", "ended_on"}:
+    if unknown := set(fields) - {"new_role", "is_primary", "started_on", "ended_on"}:
         raise Invalid(f"unknown field(s): {', '.join(sorted(unknown))}")
     cols = {k: _day(v) for k, v in fields.items() if k in ("started_on", "ended_on")}
-    if "role" in fields:
-        cols["role"] = (fields["role"] or "").strip()
+    if "new_role" in fields:
+        cols["role"] = (fields["new_role"] or "").strip()
         if cols["role"] != link["role"] and conn.execute(
             f"SELECT 1 FROM {LINKS} WHERE person_id = ? AND organization_id = ? AND role = ?",
             (person_id, organization_id, cols["role"]),
