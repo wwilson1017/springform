@@ -2,7 +2,7 @@ import pytest
 
 from backend.core import db as core_db, preview
 from backend.core.auth.deps import system_user
-from backend.core.contacts import api as contacts, seed, service, startup
+from backend.core.contacts import api as contacts, seed, service
 from backend.core.db import sqlite3
 from backend.core.errors import Conflict, Forbidden, Invalid, NotFound
 from backend.core.timeline import api as timeline
@@ -155,9 +155,8 @@ def test_validation_and_the_system_principal(user):
 
 def test_preview_sample_seeds_once(app, monkeypatch):
     monkeypatch.setenv("PREVIEW_MODE", "1")
-    preview.seed()  # the preview accounts
-    startup.on_startup()
-    startup.on_startup()
+    preview.seed()  # the preview accounts, then the sample directory
+    preview.seed()
     assert core_db.one("SELECT count(*) AS n FROM core_people")["n"] == len(seed.PEOPLE)
     assert core_db.one("SELECT count(*) AS n FROM core_organizations")["n"] == len(seed.ORGANIZATIONS)
     assert {g["match_on"] for g in contacts.find_duplicates(system_user(), "person")} == {"email", "name"}

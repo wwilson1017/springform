@@ -71,6 +71,8 @@ Conventions:
 - A CRM deal merge leaves a system row on the surviving deal's timeline instead of a note in the
   merging user's name, so it no longer counts as a touch. Apps can write system rows through
   `timeline.api.add_system_in`.
+- Preview seeds core's sample people and organizations before any app's sample data, so an app's
+  sample (the CRM's deals) no longer has to seed them itself.
 
 ### Schema
 

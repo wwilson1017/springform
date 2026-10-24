@@ -88,7 +88,7 @@ Published APIs the plan fixes so far:
 | Export | Contract |
 |---|---|
 | `seed(conn)` | The app's reference data. Runs at **every startup** and must be idempotent. Writes through published APIs (the CRM seed writes through `contacts.api`). |
-| `sample(conn)` | Sample data. Runs at startup only in `PREVIEW_MODE`, and must be idempotent. |
+| `sample(conn)` | Sample data. Runs at startup only in `PREVIEW_MODE`, after the preview users and core's sample directory (so it may link to sample people and organizations), and must be idempotent. |
 | `RESET_TABLES` | The app's owned **real tables** (no indexes, views or FTS shadow tables). Must **equal** that set (contract test). Used by `registry.reset_app_in`. |
 | `EXPORT` | `{"<table>": {"entity": "<slug>.<name>", "columns": [...], "id_column"?, "where"?, "owner_column"?}}`: the column allow-list for the admin export, separate from reset ownership. `entity` is required: one of the app's own entity types, or `None` for no row check. `id_column` (default `"id"`) and `owner_column` must name real columns. Same shape as `CORE_EXPORT` (`sheets-and-export.md` §6). |
 

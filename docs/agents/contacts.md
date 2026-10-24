@@ -3,7 +3,7 @@
 **What this covers:** §3: the core people and organizations tables, the primary-channel sync rule, merge rules in full, the published `contacts.api`, routes, `can_read` / `can_write`, and the frontend components.
 **Who reads it:** W2 (contacts backend), W11 (contacts frontend), the CRM port (W10/W13), any app that points at people or organizations.
 
-Code: `backend/core/contacts/{service.py, api.py, router.py, seed.py, startup.py}` (`seed.py` and `startup.py` add sample contacts once in `PREVIEW_MODE`), `frontend/src/core/contacts/`.
+Code: `backend/core/contacts/{service.py, api.py, router.py, seed.py}` (`seed.py` adds sample contacts once in `PREVIEW_MODE`; `core/preview.py` runs it before any app's `sample`), `frontend/src/core/contacts/`.
 
 The directory is core so every app points at the same people. People and organizations are many-to-many with a role.
 

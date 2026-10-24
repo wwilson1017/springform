@@ -3,7 +3,8 @@
 Seeds two accounts with a random password nobody knows (the picker, `POST /api/auth/preview`, is
 the only way in; the hash makes them count as signed-up accounts, not pending invites, so the
 last-admin guard sees the preview admin) and runs each app's idempotent `sample(conn)` on every
-preview boot. Refuses to start when real
+preview boot, after core's sample directory (people and organizations), which app samples
+build on. Refuses to start when real
 secrets are present, so a preview can never hold a real business's keys.
 """
 
@@ -12,6 +13,7 @@ import secrets
 
 from backend.core import db, settings
 from backend.core.auth import service
+from backend.core.contacts import seed as contacts_seed
 
 EMAILS = {"admin": "preview-admin@example.com", "member": "preview-member@example.com"}
 REAL_SECRETS = ("ENCRYPTION_KEY", "RESEND_API_KEY")
@@ -34,6 +36,7 @@ def seed_in(conn: db.Conn) -> None:
     for role, email in EMAILS.items():
         if not conn.execute("SELECT 1 FROM core_users WHERE email = ?", (email,)).fetchone():
             service.create_user_in(conn, email, f"Preview {role}", role, secrets.token_urlsafe(32))
+    contacts_seed.sample(conn)  # core samples first: app samples hang their records off them
     for app in registry.installed():
         app.modules["seed"].sample(conn)
 
