@@ -3,7 +3,7 @@
 **What this covers:** the §4 record services every entity gets: timeline (and `record_changes_in`), files (publication, sweep, crash cases, safe serving), custom fields, saved views, the reports registry, notifications, reminders, the change log, and the frontend `records/` components.
 **Who reads it:** W2 (record-service backends), W3 (change log), W11 (record-services frontend), any app that shows a record page.
 
-Every service checks `entities.authorize` before touching a record (`authorization.md`). Every service and published function comes as `fn` / `fn_in(conn, …)` (`database-and-transactions.md`). Each service lives in `backend/core/<service>/{service.py, api.py, router.py}`.
+Every service checks `entities.authorize` before touching a record (`authorization.md`). Every service and published function comes as `fn` / `fn_in(conn, …)` (`database-and-transactions.md`), with these exceptions: `timeline.api.list_for` has no `_in` form, `record_changes_in` has only the `_in` form, and a report's `run` needs none because it opens no transaction. Most services live in `backend/core/<service>/{service.py, api.py, router.py}`. Two do not: the change-log writer is the single module `backend/core/changelog.py`, with its route in `backend/core/platform/`, and reports are `backend/core/reports/{registry.py, service.py, router.py}` with no `api.py` (apps import `Report` from `backend.core.reports.registry`).
 
 ## 1. Timeline
 
@@ -39,7 +39,7 @@ and runs the sync `on_record_changed` subscribers (through `on_record_changed_in
 
 ### Rules
 
-1. Reads and writes go through `entities.authorize`.
+1. Listing and adding notes go through `entities.authorize`; a note needs write access to its record. `record_changes_in` and the delete and merge hooks do not authorize: the caller has already authorized the edit.
 2. `system` rows record platform actions (e.g. "merged #<source> into this record").
 3. Merges repoint timeline rows keeping the original author and time (`contacts.md`).
 4. A mention in `body` is written `@[Name](user:ID)`. Each mentioned active human user who can read the record gets a `core_timeline_mentions(timeline_id, user_id, display_name)` row and a notification (`deliver_in`, in the note's transaction), except the author. Anyone else named in the body gets neither.
@@ -142,27 +142,52 @@ Source: CakeCRM `backend/crm/field_service.py` (427 → ~400).
 | Authorization | Values are read and written only after `authorize`. |
 | Merge | Target's non-empty value wins, else the source's. |
 
-Open (pinned by the implementing workstream, which updates this doc): table columns and routes are not stated (shape to be pinned by W2).
+```sql
+core_field_definitions(id, entity_type, key, label,
+                       type CHECK (type IN ('text','number','boolean','date','select','multiselect','url','user')),
+                       options,    -- JSON list; select and multiselect only
+                       required,   -- advisory: shown in the UI, not enforced
+                       position, archived_at, created_at, updated_at)   -- UNIQUE(entity_type, key)
+core_field_values(entity_type, entity_id, definition_id, value JSON, updated_at, updated_by)
+                       -- PRIMARY KEY (entity_type, entity_id, definition_id); an empty value has no row
+```
+
+```
+GET    /api/core/fields/definitions
+POST   /api/core/fields/definitions
+PATCH  /api/core/fields/definitions/{id}
+DELETE /api/core/fields/definitions/{id}    204
+GET    /api/core/fields/values
+PUT    /api/core/fields/values
+```
 
 ## 4. Saved views
 
 Source: CakeCRM `backend/saved_views/` (356 → ~320). `Json()` → `json.dumps`.
 
 ```sql
-core_saved_views(surface, entity_type, name, version, payload JSON, owner_user_id, is_shared)
+core_saved_views(id, surface, entity_type, name, version, payload JSON, owner_user_id, is_shared, created_at, updated_at)
+  -- surface is '<app>.<screen>', e.g. 'example.widgets'; payload is opaque to the server
 ```
 
-1. Views store filters, not rows, so there is no record authorization beyond ownership / `is_shared`.
-2. `version` lets the client refuse a stale view (`SavedViewBar` stale-version refusal, Vitest).
+1. Views store filters, not rows, so there is no record authorization beyond ownership and `is_shared`. The owner or any admin may edit, share or delete a view. Someone else's private view is 404; a shared view the caller may not edit is 403.
+2. The server refuses a stale edit: `PATCH` must send the `version` it was based on, a mismatch answers **409** `stale_view`, and every edit bumps `version` (sharing does not).
 
-Open (pinned by the implementing workstream, which updates this doc): routes and what `surface` names are not stated.
+```
+GET    /api/core/views
+POST   /api/core/views
+PATCH  /api/core/views/{id}
+DELETE /api/core/views/{id}           204
+POST   /api/core/views/{id}/share
+```
 
 ## 5. Reports registry
 
 New (~250) + CakeCRM `crm/export.py` `_cell`.
 
 ```python
-Report(key, label, app, params, run(params, user) -> (columns, rows), admin_only)
+Report(key, label, app, run, params=None, admin_only=False, roles=("admin", "member"))
+# run(params, user) -> (columns, rows); key is '<app>.<name>'; roles is set from the app manifest at mount
 ```
 
 1. Apps register via `reports.py` (`REPORTS = [Report(...)]`).
@@ -278,11 +303,11 @@ GET /api/core/changelog?app=&user_id=&entity_type=&entity_id=&before=<id>&limit=
 
 ## 9. Frontend (`frontend/src/core/records/`)
 
-~2,700 lifted + ~400 new. **Props take `entityType: string`.**
+~2,700 lifted + ~400 new. **Props take `entityType: string` and `entityId: number`.**
 
 | Component | Source (CakeCRM `frontend/src/crm/…` unless noted) | Contract |
 |---|---|---|
-| `Timeline` | Merge of `components/NotesThread.tsx` (276) + `components/ActivityTimeline.tsx` (232) | Lists timeline rows for a record; used as `<Timeline entityType="crm.deal">`. |
+| `Timeline` | Merge of `components/NotesThread.tsx` (276) + `components/ActivityTimeline.tsx` (232) | Lists timeline rows for a record; used as `<Timeline entityType="crm.deal" entityId={id} />`. |
 | `NoteComposer` | `components/NoteComposer.tsx` (323) | Posts a note. |
 | `MentionPicker` | `components/MentionPicker.tsx` (185) | @-mention users. |
 | `Attachments` | `components/NoteAttachments.tsx` (137) and `chatterAttachments.ts` | Lists, uploads, downloads files. |
@@ -294,7 +319,9 @@ GET /api/core/changelog?app=&user_id=&entity_type=&entity_id=&before=<id>&limit=
 | `ReminderPicker` | `components/ReminderForm.tsx` (205) | Set a reminder on a record. |
 | `RemindersPage` | `RemindersPage.tsx` (206) | The user's reminders. |
 
-Open (pinned by the implementing workstream, which updates this doc): every prop other than `entityType` (the record id prop's name and type, callbacks) is not stated. The donor files listed are the likely sources by name; the plan gives only the totals and the `NotesThread` + `ActivityTimeline` merge.
+`Timeline`, `NoteComposer` and `Attachments` take `{entityType, entityId}`.
+
+Open (pinned by the implementing workstream, which updates this doc): the other components' props, which are not built yet. The donor files listed are the likely sources by name; the plan gives only the totals and the `NotesThread` + `ActivityTimeline` merge.
 
 ## Tests that pin this
 
