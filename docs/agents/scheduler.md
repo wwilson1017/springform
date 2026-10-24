@@ -69,7 +69,7 @@ Timezone: `core_settings.timezone` (IANA, default `UTC`). Nothing hardcoded.
 
 ## 7. `run_now`
 
-`POST /api/core/jobs/{name}/run` (admin) runs a job now, through the same in-flight guard (it never overlaps a running instance). It returns **202**, or **409** when the job is already in flight. The Jobs page lists runs and offers "run now"; "Back up now" on the Backups page runs `core.backup` the same way.
+`POST /api/core/jobs/{name}/run` (admin) runs a job now, through the same in-flight guard (it never overlaps a running instance). It returns **202**, or **409** when the job is already in flight. The Jobs page lists runs and offers "run now". "Back up now" on the Backups page is different: `POST /api/core/backups/run` calls the backup service directly, under the guard it shares with `core.backup`, and records only a `core_backups` row (`deploy.md` §7).
 
 ## 8. Core jobs
 
@@ -78,11 +78,11 @@ Timezone: `core_settings.timezone` (IANA, default `UTC`). Nothing hardcoded.
 | `core.backup` | `at` 03:00 | `VACUUM INTO` snapshot + manifest (`deploy.md`). |
 | `core.sheets_refresh` | every 1 h | Refresh connected sheets (`sheets-and-export.md`). |
 | `core.requests_refresh` | every 15 min | Refresh the Requests board from GitHub (`frontend-shell.md`). |
-| `core.reminders.fire_due` | every 60 s | Fire due reminders (`records.md`). |
-| `core.notifications.flush` | every 30 s | Send queued external deliveries (`records.md`). |
+| `core.reminders_fire_due` | every 60 s | Fire due reminders (`records.md`). |
+| `core.notifications_flush` | every 30 s | Send queued external deliveries (`records.md`). |
 | `core.outbox_drain` | every 30 s + nudge after `COMMIT` | The single outbox drainer (`database-and-transactions.md`). |
-| `core.files.sweep` | `at` 03:30 | Delete unreferenced, unpinned blobs (`records.md`). |
-| `core.job_runs_prune` | `at` 04:00 | Keep 30 days of `core_job_runs`. |
+| `core.files_sweep` | `at` 03:30 | Delete unreferenced, unpinned blobs (`records.md`). |
+| `core.job_runs_prune` | every 24 h | Delete finished runs older than 30 days. |
 | `core.login_attempts_prune` | hourly | Prune `core_login_attempts`. |
 | `core.agent_nightly` | `at` 02:00, gated by the setting `agent.nightly_enabled` | Observer + dreaming; exits early with zero keys (`agent.md`). |
 

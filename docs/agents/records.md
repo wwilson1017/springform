@@ -3,7 +3,7 @@
 **What this covers:** the §4 record services every entity gets: timeline (and `record_changes_in`), files (publication, sweep, crash cases, safe serving), custom fields, saved views, the reports registry, notifications, reminders, the change log, and the frontend `records/` components.
 **Who reads it:** W2 (record-service backends), W3 (change log), W11 (record-services frontend), any app that shows a record page.
 
-Every service checks `entities.authorize` before touching a record (`authorization.md`). Every service and published function comes as `fn` / `fn_in(conn, …)` (`database-and-transactions.md`). Each service lives in `backend/core/<service>/{service.py, api.py, router.py}`.
+Every service checks `entities.authorize` before touching a record (`authorization.md`). Every service and published function comes as `fn` / `fn_in(conn, …)` (`database-and-transactions.md`), with these exceptions: `timeline.api.list_for` has no `_in` form, `record_changes_in` has only the `_in` form, and a report's `run` needs none because it opens no transaction. Most services live in `backend/core/<service>/{service.py, api.py, router.py}`. Two do not: the change-log writer is the single module `backend/core/changelog.py`, with its route in `backend/core/platform/`, and reports are `backend/core/reports/{registry.py, service.py, router.py}` with no `api.py` (apps import `Report` from `backend.core.reports.registry`).
 
 ## 1. Timeline
 
@@ -39,19 +39,21 @@ and runs the sync `on_record_changed` subscribers (through `on_record_changed_in
 
 ### Rules
 
-1. Reads and writes go through `entities.authorize`.
+1. Listing and adding notes go through `entities.authorize`; a note needs write access to its record. `record_changes_in`, `add_system_in` and the delete and merge hooks do not authorize: the caller has already authorized the edit.
 2. `system` rows record platform actions (e.g. "merged #<source> into this record"). Core writes them with `timeline.add_system_in(conn, entity_type, entity_id, body)`; the author is the system principal (`id=0`), and the acting user is in the change log.
 3. Merges repoint timeline rows keeping the original author and time (`contacts.md`).
-4. A mention in `body` is written `@[Name](user:ID)`. It notifies only users who `can_read` the record (`deliver_in` to each mentioned user who passes).
+4. A mention in `body` is written `@[Name](user:ID)`. Each mentioned active human user who can read the record gets a `core_timeline_mentions(timeline_id, user_id, display_name)` row and a notification (`deliver_in`, in the note's transaction), except the author. Anyone else named in the body gets neither.
+5. A comment is stored and listed exactly like a note; only its `kind` differs.
 
 ### API
 
 ```
-GET  /api/core/timeline?entity_type=&entity_id=&before=<id>&limit=50  -> [{id, kind: "note"|"comment"|"field_change"|"system", body, changes, author:{id,name}, created_at}], newest first
+GET  /api/core/timeline?entity_type=&entity_id=&before=<id>&limit=  -> [{id, kind: "note"|"comment"|"field_change"|"system", body, changes, author:{id,name}|null, created_at}], newest first
 POST /api/core/timeline {entity_type, entity_id, body, kind?: "note"|"comment"} -> the new entry; kind defaults to "note"
+GET  /api/core/timeline/mentionable?q=  -> [{id, name}], active human users for the @-mention picker, by name, at most 20
 ```
 
-Open (pinned by the implementing workstream, which updates this doc): how a comment differs from a note, and the `core_timeline_mentions` columns.
+`limit` defaults to 50, at most 200. To page back, pass the last id seen as `before`. `changes` is null except on `field_change` rows.
 
 ## 2. Files
 
@@ -68,7 +70,8 @@ core_files(
 )
 -- UNIQUE(entity_type, entity_id, sha256)
 
-core_file_blobs(sha256 PK, byte_size, created_at, unreferenced_since, missing_at)
+core_file_blobs(sha256 PK, byte_size, created_at, unreferenced_since,
+                missing_at)   -- added by 20261020000200_core_files.sql
 ```
 
 **Bytes live on the volume** at `/data/files/<sha[:2]>/<sha>`, never in the DB (`VACUUM INTO` and Litestream would copy every PDF nightly). Thumbnails live in the row.
@@ -77,24 +80,26 @@ core_file_blobs(sha256 PK, byte_size, created_at, unreferenced_since, missing_at
 
 **Publication and sweep share the write lock, so they cannot interleave.**
 
-1. Stream the upload to `/data/files/tmp/<uuid>`, enforcing the size cap (setting `files.max_bytes`, default 25 MB).
+1. Copy the upload to `/data/files/tmp/<uuid>`, enforcing the size cap (setting `files.max_bytes`, default 25 MB): an oversize upload gets **413** `file_too_large`. Starlette has already spooled the whole multipart body by then, so the cap is enforced after receipt (a marked simplification).
 2. Hash (sha256) and `fsync`. This happens **outside** the lock.
 3. Inside **one** `transaction()`:
    1. upsert `core_file_blobs` (clearing `unreferenced_since`);
    2. insert the `core_files` row;
    3. `rename` the tmp file into `/data/files/<sha[:2]>/<sha>` (a local disk op, allowed under the lock);
    4. `COMMIT`.
-4. The same bytes uploaded to the same record (`UNIQUE(entity_type, entity_id, sha256)`) return **200** with the existing row.
+4. A new attachment returns **201** with the `File`. The same bytes uploaded to the same record (`UNIQUE(entity_type, entity_id, sha256)`) return **200** with the existing row.
 5. When a blob's last `core_files` row is deleted, the files service sets `core_file_blobs.unreferenced_since` in the same transaction.
 
-### Sweep (`core.files.sweep`, 03:30 install-local)
+### Sweep (`core.files_sweep`, 03:30 install-local)
 
 1. Inside **one** `transaction()`:
    1. select blobs whose `unreferenced_since` is older than **7 days** **and** whose sha256 appears in **no retained backup manifest**;
    2. re-check each is still unreferenced;
    3. delete their rows;
    4. unlink their files;
-   5. `COMMIT`.
+   5. set `missing_at` on every blob row whose file is missing, logging it, and clear it on one whose file came back;
+   6. remove each file under `files/<xx>/` that has no blob row and is over 24 h old (an orphan);
+   7. `COMMIT`.
 2. Outside the lock: remove tmp files older than **24 h**.
 3. A blob is never deleted while any retained manifest lists it, so every retained backup set restores whole (`deploy.md`).
 
@@ -103,26 +108,26 @@ core_file_blobs(sha256 PK, byte_size, created_at, unreferenced_since, missing_at
 | Crash | Outcome |
 |---|---|
 | Rollback after `rename` | A file without a row. The sweep treats it as an orphan after 24 h. |
-| A row whose file is missing | The sweep sets `core_file_blobs.missing_at` and reports it. Never silently served. |
+| A row whose file is missing | The sweep sets `core_file_blobs.missing_at` and logs it. Download answers **410** `file_missing`; it is never silently served. |
 
 ### Safe serving
 
 1. Download requires `authorize(read)` on the parent record.
 2. Served with `Content-Disposition: attachment` and `X-Content-Type-Options: nosniff`.
-3. `mime_type` comes from an allow-list, a module constant; HTML and SVG are served as `application/octet-stream`.
+3. `mime_type` comes from the allow-list `ALLOWED_MIME` in `backend/core/files/service.py`; anything else, HTML and SVG included, is served as `application/octet-stream`.
 4. Upload requires `authorize(write)` on the parent record.
 5. `DELETE` requires `authorize(write)` on the parent record.
 
 ### API
 
 ```
-GET  /api/core/files?entity_type=&entity_id=  -> [{id, filename, mime_type, byte_size, sha256, created_at, uploaded_by:{id,name}}]
-POST /api/core/files  multipart fields entity_type, entity_id, file -> File
-GET  /api/core/files/{id}/download   -> bytes, Content-Disposition: attachment
+GET  /api/core/files?entity_type=&entity_id=  -> [File]
+     File = {id, filename, mime_type, byte_size, sha256, created_at, uploaded_by: {id, name} | null, has_thumb}
+POST /api/core/files  multipart fields entity_type, entity_id, file -> 201 File; 200 File when already attached
+GET  /api/core/files/{id}/download   -> bytes, Content-Disposition: attachment; 410 file_missing
+GET  /api/core/files/{id}/thumb      -> image/jpeg (read access to the parent record)
 DELETE /api/core/files/{id}          -> 204
 ```
-
-Open (pinned by the implementing workstream, which updates this doc): how a missing blob is reported beyond `missing_at`, the mime allow-list's contents, and how the sweep enumerates "a file without a row" (a directory walk under `/data/files`).
 
 ## 3. Custom fields
 
@@ -137,36 +142,61 @@ Source: CakeCRM `backend/crm/field_service.py` (427 → ~400).
 | Authorization | Values are read and written only after `authorize`. |
 | Merge | Target's non-empty value wins, else the source's. |
 
-Open (pinned by the implementing workstream, which updates this doc): table columns and routes are not stated (shape to be pinned by W2).
+```sql
+core_field_definitions(id, entity_type, key, label,
+                       type CHECK (type IN ('text','number','boolean','date','select','multiselect','url','user')),
+                       options,    -- JSON list; select and multiselect only
+                       required,   -- advisory: shown in the UI, not enforced
+                       position, archived_at, created_at, updated_at)   -- UNIQUE(entity_type, key)
+core_field_values(entity_type, entity_id, definition_id, value JSON, updated_at, updated_by)
+                       -- PRIMARY KEY (entity_type, entity_id, definition_id); an empty value has no row
+```
+
+```
+GET    /api/core/fields/definitions
+POST   /api/core/fields/definitions
+PATCH  /api/core/fields/definitions/{id}
+DELETE /api/core/fields/definitions/{id}    204
+GET    /api/core/fields/values
+PUT    /api/core/fields/values
+```
 
 ## 4. Saved views
 
 Source: CakeCRM `backend/saved_views/` (356 → ~320). `Json()` → `json.dumps`.
 
 ```sql
-core_saved_views(surface, entity_type, name, version, payload JSON, owner_user_id, is_shared)
+core_saved_views(id, surface, entity_type, name, version, payload JSON, owner_user_id, is_shared, created_at, updated_at)
+  -- surface is '<app>.<screen>', e.g. 'example.widgets'; payload is opaque to the server
 ```
 
-1. Views store filters, not rows, so there is no record authorization beyond ownership / `is_shared`.
-2. `version` lets the client refuse a stale view (`SavedViewBar` stale-version refusal, Vitest).
+1. Views store filters, not rows, so there is no record authorization beyond ownership and `is_shared`. The owner or any admin may edit, share or delete a view. Someone else's private view is 404; a shared view the caller may not edit is 403.
+2. The server refuses a stale edit: `PATCH` must send the `version` it was based on, a mismatch answers **409** `stale_view`, and every edit bumps `version` (sharing does not).
 
-Open (pinned by the implementing workstream, which updates this doc): routes and what `surface` names are not stated.
+```
+GET    /api/core/views
+POST   /api/core/views
+PATCH  /api/core/views/{id}
+DELETE /api/core/views/{id}           204
+POST   /api/core/views/{id}/share
+```
 
 ## 5. Reports registry
 
 New (~250) + CakeCRM `crm/export.py` `_cell`.
 
 ```python
-Report(key, label, app, params, run(params, user) -> (columns, rows), admin_only)
+Report(key, label, app, run, params=None, admin_only=False, roles=("admin", "member"))
+# run(params, user) -> (columns, rows); key is '<app>.<name>'; roles is set from the app manifest at mount
 ```
 
 1. Apps register via `reports.py` (`REPORTS = [Report(...)]`).
 2. `run` receives the user and **must apply `can_read`**.
 3. An app's reports default to "user has one of the app's roles" before their own checks; `admin_only` restricts to admins.
-4. `GET /api/core/reports/{key}/csv` streams CSV via `core.csv_export.stream_csv`. It runs through `reports.service.run`, the same role check and param parsing as the JSON route `GET /api/core/reports/{key}` (defaults applied, bad params 422).
+4. `GET /api/core/reports` lists the reports the caller may run. `GET /api/core/reports/{key}` runs one and returns `{columns, rows}`: every query parameter is a report param, and an unknown one, `format` included, is refused with 422. `GET /api/core/reports/{key}/csv` (served from `backend/core/export/router.py`) streams the same report as CSV through `backend.core.export.csv_export.stream_csv`, after the same role check and param parsing (`reports.service.run`: defaults applied, bad params 422).
 5. CakeCRM's `report_service.py` stays CRM-owned in `apps/crm/reports.py`.
 
-Open (pinned by the implementing workstream, which updates this doc): the `params` schema format, the JSON (non-CSV) response shape, and a report-listing route are not stated.
+`params` is a JSON schema object, `{"type": "object", "properties": {...}, "required": [...]}`. Each property has a `type` of `integer`, `number`, `boolean` or `string` (`format: "date"` allowed) and an optional `default`. Query-string values are coerced to those types, empty ones count as absent, and a missing required one is refused.
 
 ## 6. Notifications
 
@@ -180,18 +210,20 @@ core_notifications(
 )
 core_notification_deliveries(notification_id, channel, status, attempts, last_error, sent_at)
 core_push_subscriptions
--- VAPID keys live in core_settings
+-- VAPID keys live in core_settings (notifications.vapid_public_key / _private_key), generated
 ```
 
 ### `deliver_in`
 
 ```python
-deliver_in(conn, title, message, user_id=None, entity=None, link=None)
+deliver_in(conn, title, message, *, user_id=None, entity: tuple[str, int] | None = None, link=None) -> list[int]
 ```
 
-1. Inserts one `core_notifications` row per recipient **in the caller's transaction**, so the in-app notification is **exactly-once**.
-2. `user_id=None` expands to every **active human** user who may read `entity` (never the system principal). A broadcast is therefore one row per user, and read state is per user.
-3. Inserts a delivery-intent row per external channel in `core_notification_deliveries`.
+Everything after `message` is keyword-only.
+
+1. Inserts one `core_notifications` row per recipient **in the caller's transaction**, so the in-app notification is **exactly-once**. Returns the new ids.
+2. `user_id=None` expands to every **active human** user who may read `entity` (never the system principal). A broadcast is therefore one row per user, and read state is per user. A given `user_id` gets a row only if that user is an active human who may read `entity`; otherwise nothing is written. An unknown entity type or a missing record raises 404. `link` defaults to the record's URL.
+3. Inserts a `queued` row in `core_notification_deliveries` for each registered channel enabled for that recipient. A channel is `register_channel(name, send, *, enabled_in=None)`; web push registers itself as one.
 
 ### The notification remembers its record
 
@@ -199,30 +231,54 @@ deliver_in(conn, title, message, user_id=None, entity=None, link=None)
 2. `flush` re-checks the same before sending a queued delivery and drops it if access is gone.
 3. **A message already delivered externally cannot be recalled.** The contract says so.
 4. Merges repoint notifications on the source to the target, like reminders (`contacts.md`).
+5. Deleting a record hides its notifications (its `on_entity_deleted` hook sets `suppressed_at`); the rows are kept.
 
-### External delivery (`core.notifications.flush`, every 30 s)
+### External delivery (`core.notifications_flush`, every 30 s)
 
 1. Sends, then records `sent_at`. A crash between the two re-sends: external channels are **at-least-once**.
 2. The payload carries `notification_id`, so the service worker drops a duplicate push.
 3. Failures bump `attempts` and record `last_error`.
 4. CakeCRM's Telegram branch becomes a `register_channel` extension point.
 
-Open (pinned by the implementing workstream, which updates this doc): `entity` is passed as one argument while the table has two columns; its type (a `(type, id)` tuple is implied) is not stated. The `status` values of `core_notification_deliveries`, the retry limit, the `register_channel` signature, and the notification routes (list, mark read) are not stated. What happens when both `user_id` and `entity` are given and the user cannot read the entity.
+Delivery `status` is `queued`, `sent`, `failed` or `dropped`; a delivery fails for good after 5 attempts.
+
+```
+GET    /api/core/notifications              the caller's notifications
+GET    /api/core/notifications/unread-count
+POST   /api/core/notifications/read-all
+POST   /api/core/notifications/{id}/read
+GET    /api/core/notifications/push/public-key
+POST   /api/core/notifications/push/subscribe
+DELETE /api/core/notifications/push/subscribe
+```
 
 ## 7. Reminders
 
-Source: CakeCRM `backend/reminders/` (767 → ~700; `recurrence.py` unchanged).
+Source: CakeCRM `backend/reminders/` (767 → ~700). `recurrence.py` is new, ported in spirit from cake_os's reminder recurrence.
 
 ```sql
-core_reminders(owner_user_id, entity_type, entity_id, due_at, repeat, series_id, status, fired_at, …)
+core_reminders(id, owner_user_id, entity_type NULL, entity_id NULL, title, note, due_at,
+               repeat,       -- JSON {freq: daily|weekly|monthly|yearly, anchor, time, tz}; NULL = once
+               series_id,    -- the first occurrence's id, shared by the series
+               status CHECK (status IN ('open','done','voided','snoozed')), void_reason,
+               fired_at, created_at, updated_at)
 ```
 
 1. Port: `INTEGER[]` / `ANY()` → `json_each`; `SKIP LOCKED` → plain select inside `transaction()`; the `crm.service` / `gtd_common` imports are cut.
-2. Job `core.reminders.fire_due` every 60 s marks `fired_at` **and** calls `deliver_in` **in the same transaction**.
+2. Job `core.reminders_fire_due` every 60 s marks `fired_at` **and** calls `deliver_in` **in the same transaction**.
 3. At fire time the reminder re-checks `authorize(read)` for its owner and **voids itself** otherwise.
 4. Merges repoint reminders (`contacts.md`).
+5. Deleting a record voids its reminders (`status = 'voided'`, `void_reason = 'record deleted'`) instead of deleting them.
 
-Open (pinned by the implementing workstream, which updates this doc): `status` values (including the "void" state's name) and the series/repeat columns' format (lifted from CakeCRM) are not stated here. Reminder routes.
+```
+GET    /api/core/reminders            the caller's reminders
+POST   /api/core/reminders
+GET    /api/core/reminders/for        a record's reminders
+PATCH  /api/core/reminders/{id}
+POST   /api/core/reminders/{id}/snooze
+POST   /api/core/reminders/{id}/done
+DELETE /api/core/reminders/{id}       204
+```
 
 ## 8. Change log
 
@@ -234,18 +290,24 @@ core_change_log(id, at, user_id, app, entity, entity_id, field, old, new, reason
 1. `record_changes_in` writes one row per changed field, alongside the single timeline `field_change` row.
 2. `core.changelog.record_in(conn, entity_type, entity_id, field, old, new, user_id, *, reason=None, request_id=None)` writes one row; `old` and `new` are stored as JSON.
 3. Rows written before a delete are kept: they keep `entity_id`, and the delete cascade sets their `deleted_at`, so history stays distinguishable from any later record.
-4. The ChangeLog viewer and `/api/core/changelog` apply `authorize(read)` per row and hide the rest. Filters: app, user, entity (`frontend-shell.md`).
+4. The ChangeLog viewer and `/api/core/changelog` check every row. A row about a live record is shown when the caller may read it. A row about a deleted record, or about an entity type that is no longer installed, is shown only to its author (`user_id` equal to the caller). Admins get no extra access, so a private record's history stays private after the record is gone. Such rows have `title` and `url` null.
 5. `user_id` may be the system principal (`id=0`) for unattended actions.
 
-Open (pinned by the implementing workstream, which updates this doc): `/api/core/changelog`'s query and response shape (shape to be pinned by W3).
+```
+GET /api/core/changelog?app=&user_id=&entity_type=&entity_id=&before=<id>&limit=
+    -> [{id, at, user: {id, name} | null, app, entity_type, entity_id, title, url,
+         field, old, new, reason, deleted_at}], newest first
+```
+
+`before` is the id cursor: pass the last row's id for the next page. The route is served from `backend/core/platform/router.py`.
 
 ## 9. Frontend (`frontend/src/core/records/`)
 
-~2,700 lifted + ~400 new. **Props take `entityType: string`.**
+~2,700 lifted + ~400 new. **Props take `entityType: string` and `entityId: number`.**
 
 | Component | Source (CakeCRM `frontend/src/crm/…` unless noted) | Contract |
 |---|---|---|
-| `Timeline` | Merge of `components/NotesThread.tsx` (276) + `components/ActivityTimeline.tsx` (232) | Lists timeline rows for a record; used as `<Timeline entityType="crm.deal">`. |
+| `Timeline` | Merge of `components/NotesThread.tsx` (276) + `components/ActivityTimeline.tsx` (232) | Lists timeline rows for a record; used as `<Timeline entityType="crm.deal" entityId={id} />`. |
 | `NoteComposer` | `components/NoteComposer.tsx` (323) | Posts a note. |
 | `MentionPicker` | `components/MentionPicker.tsx` (185) | @-mention users. |
 | `Attachments` | `components/NoteAttachments.tsx` (137) and `chatterAttachments.ts` | Lists, uploads, downloads files. |
@@ -257,7 +319,9 @@ Open (pinned by the implementing workstream, which updates this doc): `/api/core
 | `ReminderPicker` | `components/ReminderForm.tsx` (205) | Set a reminder on a record. |
 | `RemindersPage` | `RemindersPage.tsx` (206) | The user's reminders. |
 
-Open (pinned by the implementing workstream, which updates this doc): every prop other than `entityType` (the record id prop's name and type, callbacks) is not stated. The donor files listed are the likely sources by name; the plan gives only the totals and the `NotesThread` + `ActivityTimeline` merge.
+`Timeline`, `NoteComposer` and `Attachments` take `{entityType, entityId}`.
+
+Open (pinned by the implementing workstream, which updates this doc): the other components' props, which are not built yet. The donor files listed are the likely sources by name; the plan gives only the totals and the `NotesThread` + `ActivityTimeline` merge.
 
 ## Tests that pin this
 

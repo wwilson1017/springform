@@ -10,14 +10,12 @@
 1. **Real temp SQLite.** `db(tmp_path)` runs all migrations (core, then every app) on a fresh file. No services.
 2. **No FakeConn.** Never fake the connection or the database.
 3. **`freeze(iso)`**: a fixture that freezes `core.clock` at an ISO instant (reminders, scheduler, sweep ages, `at` catch-up).
-4. **`login_as(client, role)`**: a fixture that authenticates a test client as a user of the given role.
+4. **`login_as(role, email=None, on=app)`**: a fixture that creates a new user of that role and returns a new signed-in `TestClient` with `.user`. The first account goes through the real setup-token path as an admin; later ones sign in through `/api/auth/login`. **`make_user(role, email=None, password=…)`** creates a user directly, without HTTP.
 5. **Skip/xfail ban**: conftest fails the run on `skip` / `xfail` (lifted from CakeCRM).
-6. Two-member tests create two real members and one restrictive record.
+6. Two-member tests create two real members and one restrictive record: every `login_as("member")` call makes a new, distinct member.
 7. Providers: a **FakeProvider** stands in for LLM providers; nothing calls a real model.
 8. HTTP to external services is mocked (Google token endpoint) or served locally (a FastMCP stub, `httpx.ASGITransport`).
 9. The contract test runs against every app in `backend/apps/` and against `backend/tests/fixtures/bad_app`, which it must fail.
-
-Open (pinned by the implementing workstream, which updates this doc): the user-creation helper for two-member tests. Both members have the role `member`, so `login_as(client, role)` alone cannot tell them apart.
 
 ### Vitest (`frontend/vitest.config.ts`)
 
@@ -39,7 +37,7 @@ Runs against a seeded `PREVIEW_MODE=1` build with the FakeProvider and the Googl
 - A lint fails any core migration not named `*_baseline.sql` that contains `DROP COLUMN`, `DROP TABLE` or `RENAME`.
 - The `requires_core` refusal, with a fixture declaring `<0.1`.
 - `now_iso` is the only timestamp writer (grep test for `datetime('now')` / `CURRENT_TIMESTAMP`).
-- No `httpx` inside `transaction()` (`transaction()` patched to fail on `httpx`/provider calls).
+- No `httpx` inside `transaction()` (an autouse fixture makes `httpx` sends raise inside one, in every test).
 - Nested `transaction()` raises.
 - A merge with a failing subscriber rolls back entirely (a core merge invoking a failing CRM subscriber leaves no partial change).
 - After-commit hooks run after `COMMIT` only.
@@ -163,7 +161,7 @@ One flow, `PREVIEW_MODE=1`, seeded:
 
 ## 6. CI (`.github/workflows/ci.yml`)
 
-Structure copied from CakeCRM: SHA-pinned actions, ruff, an import check, pytest, frontend build / lint / test + the types diff, gitleaks, the image test. Required checks for branch protection: **Backend**, **Frontend**, **Secret scan**, and **Fork scope** (which runs only when `FORK.md` exists; `forks.md`).
+Structure copied from CakeCRM: SHA-pinned actions, ruff, an import check, pytest, frontend build / lint / test + the types diff, gitleaks, the image test. Required checks for branch protection: **Backend**, **Frontend**, **Secret scan**, and **Fork scope** (which always runs and passes upstream, where there is no `FORK.md`; `forks.md`).
 
 ## Tests that pin this
 
