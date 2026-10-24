@@ -35,7 +35,7 @@ The **CI image test** runs the container and asserts `/api/health` reports `sqli
 
 | File | Contract |
 |---|---|
-| `compose.yml` | The app service, bound **only on the compose network** (its port is never published), plus `caddy:2` publishing 80/443. Image from `IMAGE=` in `.env` (default: the fork's own image; `forks.md`). |
+| `compose.yml` | The app service with `/srv/springform/data` mounted at `/data`, bound **only on the compose network** (its port is never published), plus `caddy:2` publishing 80/443. Image from `IMAGE=` in `.env` (default: the fork's own image; `forks.md`). |
 | `Caddyfile` | `{$DOMAIN} { reverse_proxy app:8000 }` (automatic HTTPS). |
 | `.env.example` | The environment template (`setup.sh` generates `.env`). |
 | `setup.sh` | Fresh VPS bootstrap (below). |
@@ -50,7 +50,7 @@ With `TRUST_PROXY=1` the app port is bound only on the compose network, never pu
 ### `setup.sh` (Ubuntu 24.04)
 
 1. Install Docker + the compose plugin, **pinned**.
-2. Create `/srv/springform/{data,backups}`.
+2. Create `/srv/springform/data`, which `compose.yml` mounts at `/data`. No other host directory is created; backups live inside it.
 3. Write `.env` with generated secrets and a `DOMAIN` prompt.
 4. ufw: allow 22, 80, 443.
 5. Enable unattended-upgrades.
@@ -58,7 +58,7 @@ With `TRUST_PROXY=1` the app port is bound only on the compose network, never pu
 7. Print the **setup token** (`auth.md` §5).
 8. Offer the rclone off-site cron (§7 below).
 
-Open: `setup.sh` creates `/srv/springform/backups`, while backups are written inside the container to `/data/backups`; whether the host `backups` directory is a separate mount or the off-site staging area is not stated. Open: which "generated secrets" `.env` holds (at least `ENCRYPTION_KEY`; a JWT secret if one is env-sourced).
+Open: which "generated secrets" `.env` holds (at least `ENCRYPTION_KEY`; a JWT secret if one is env-sourced).
 
 ### `deploy.sh`
 
@@ -85,7 +85,7 @@ Lifted from CakeCRM `core/secret_store.py` (minus keychain) and `core/encryption
 
 ## 7. Backups: recovery sets
 
-**Backup = the `/data` volume, as recovery sets.** `backend/core/backup.py` adapts todo-gtd `backend/backup.py`.
+**Backup = the `/data` volume, as recovery sets.** Sets are written inside the container to `/data/backups` (on the host, `/srv/springform/data/backups`). `backend/core/backup.py` adapts todo-gtd `backend/backup.py`.
 
 ### The job (`core.backup`, 03:00 install-local)
 
@@ -107,7 +107,7 @@ Lifted from CakeCRM `core/secret_store.py` (minus keychain) and `core/encryption
 
 ### Off-site
 
-`deploy/setup.sh` offers an rclone cron that copies, **in order**: blobs → snapshot → manifest (so a remote set is complete when its manifest is present), and `/data/.encryption-key` if it exists.
+`deploy/setup.sh` offers an rclone cron on the host. It reads the sets from `/srv/springform/data/backups` and copies, **in order**: blobs → snapshot → manifest (so a remote set is complete when its manifest is present), and the volume's `.encryption-key` if it exists.
 
 Open: the `<stamp>` format, the `core_backups` columns, and the Backups page's download route are not stated.
 
