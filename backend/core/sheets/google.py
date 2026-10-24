@@ -3,7 +3,8 @@ then reads or writes one A1 range. Nothing here touches the database.
 
 `make_client(info)` is the seam: it returns `FakeSheets` when SHEETS_FAKE=1 (local runs) and tests
 replace it with their own stub. The value guard (`forbidden_formula`, `check_values`) and the A1
-helpers are lifted from Cake OS `sheets_tools.py`; the token exchange follows MarCom's refresh.php.
+helpers are lifted from Cake OS `sheets_tools.py`. The token is the OAuth JWT-bearer grant signed
+with PyJWT (RS256), so no Google client library is needed.
 """
 
 from __future__ import annotations

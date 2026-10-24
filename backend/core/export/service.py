@@ -87,7 +87,9 @@ def export_in(conn: db.Conn, user) -> tuple[tempfile.SpooledTemporaryFile, str]:
     allowed: dict = {}
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
         for table, spec, columns in tables_in(conn):
-            with z.open(f"{table}.csv", "w") as raw, io.TextIOWrapper(raw, encoding="utf-8-sig", newline="") as f:
+            member = zipfile.ZipInfo(f"{table}.csv", date_time=clock.parse(now).timetuple()[:6])
+            member.compress_type = zipfile.ZIP_DEFLATED
+            with z.open(member, "w") as raw, io.TextIOWrapper(raw, encoding="utf-8-sig", newline="") as f:
                 n = csv_export.write_csv(f, columns, rows_in(conn, user, table, spec, columns, allowed))
             manifest["tables"].append({"name": table, "file": f"{table}.csv", "columns": columns, "rows": n})
         z.writestr("manifest.json", json.dumps(manifest, indent=2))
