@@ -26,7 +26,7 @@ from starlette.types import Receive, Scope, Send
 from backend.core.auth.deps import User, current_user
 from backend.core.errors import Forbidden
 from backend.core.mcp import links, server
-from backend.core.mcp.ratelimit import RateLimiter
+from backend.core.ratelimit import RateLimiter
 
 router = APIRouter(tags=["core"])
 

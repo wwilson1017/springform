@@ -3,7 +3,7 @@
 **What this covers:** §6. Inbound: a per-user MCP link that is an API key for that user, immediate writes, exclusions, the HTTP rules lifted from todo-gtd, the SDK choice, URL forms. Outbound: the servers table, discovery and refresh, naming, every call confirms, untrusted fencing, the address policy enforced at connection time, and the DNS-rebinding test.
 **Who reads it:** W14 (MCP server), W15 (MCP client), W9/W12 (registry and confirmation), the MCP settings cards.
 
-Code: inbound in `backend/core/mcp/` (`links.py`, `server.py`, `router.py`, `ratelimit.py`, `startup.py`), running tools through `backend/core/agent/execute.py`; outbound in `backend/core/agent/mcp_client.py`. Both work with zero AI keys.
+Code: the inbound server is the core package `backend/core/mcp/` (`links.py`, `server.py`, `router.py`, `startup.py`), with `backend/core/ratelimit.py`, running tools through `backend/core/agent/execute.py`; the outbound client is `backend/core/mcp_servers/`, landing with the MCP client workstream. Both work with zero AI keys.
 
 ## 1. Inbound (`backend/core/mcp/`)
 
@@ -81,7 +81,7 @@ The `mcp` SDK (pinned `mcp==2.3.0`, the version todo-gtd's FastMCP resolves) **l
 
 The MCP bearer is the link token, not the session JWT. The cookie CSRF rules (`auth.md` §3) cover cookie-authenticated `/api` requests; `/mcp` sits outside `/api` and authenticates by link token.
 
-## 2. Outbound (`mcp_client.py`)
+## 2. Outbound (`backend/core/mcp_servers/`)
 
 ### Table
 
@@ -111,8 +111,8 @@ Open (pinned by the implementing workstream, which updates this doc): the hourly
 
 1. Remote specs have `always_confirm=True`.
 2. Remote annotations are **untrusted metadata**: `readOnlyHint` is recorded for display but never trusted to skip confirmation.
-3. Remote specs have `untrusted_source=True`: results are fenced with `delimiters.wrap_untrusted_external` and taint the turn.
-4. Remote tools are external-effect: claimed in one transaction, executed outside, resolved in another; a timeout marks `uncertain` (`agent.md` §6).
+3. Remote specs have `untrusted_source=True`: results are fenced with `delimiters.wrap_untrusted_external` and taint the whole conversation, so every later write in it confirms (`agent.md` §5).
+4. Remote tools are external-effect: claimed in one transaction, executed outside, resolved in another; any failure, a timeout included, marks `uncertain` (`agent.md` §6).
 5. `tool_def_sha256` for a remote tool includes the server id **and URL**.
 6. Remote tools are never exposed inbound and never run from jobs.
 7. The Approve card shows the full args.

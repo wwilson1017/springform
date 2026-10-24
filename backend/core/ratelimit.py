@@ -1,4 +1,4 @@
-"""In-process rate limits for the MCP endpoint (lifted from todo-gtd `backend/ratelimit.py`).
+"""In-process rate limits (lifted from todo-gtd `backend/ratelimit.py`); the inbound MCP endpoint uses them.
 
 One process serves the install (`platform.md`), so an in-memory counter is the whole truth. Keys
 are any string: a link id for the call limit, the client address for wrong-token misses (behind

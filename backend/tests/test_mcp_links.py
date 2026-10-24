@@ -11,12 +11,12 @@ import pytest
 from mcp.client.session import ClientSession
 from mcp.client.streamable_http import streamable_http_client
 
-from backend.core import db as core_db
+from backend.core import db as core_db, ratelimit
 from backend.core.agent import registry as tool_registry
 from backend.core.agent.spec import ToolSpec
 from backend.core.auth.deps import system_user
 from backend.core.errors import Forbidden
-from backend.core.mcp import links, ratelimit, router as mcp_router
+from backend.core.mcp import links, router as mcp_router
 from backend.core.mcp.startup import ScrubLinkTokens
 
 LINKS = "/api/core/mcp/links"

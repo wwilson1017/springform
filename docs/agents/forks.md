@@ -18,17 +18,16 @@ Why not a GitHub "Fork" button fork: GitHub makes a fork of a public repository 
 scripts/new-fork.sh <name> --org O [--dry-run]
 ```
 
-1. `gh repo create O/<name> --private`.
-2. Clone with `--origin upstream`.
-3. `git remote set-url --push upstream no_push` (fetch-only).
-4. Add `origin` (the new private repo).
-5. Seed `fork-allow.txt` and `FORK.md` (with the pinned upstream tag).
-6. Push.
-7. `scripts/seed-labels.sh --repo …` (including one `app:<slug>` label per manifest).
-8. Branch protection requiring **Backend**, **Frontend**, **Secret scan**, **Fork scope**.
-9. Trigger CI once and **wait for green**: a fresh fork must pass its own checks before it is handed over.
+1. Clone upstream with `--origin upstream` (`SPRINGFORM_UPSTREAM` overrides the source).
+2. `git remote set-url --push upstream no_push` (fetch-only).
+3. Start `master` at the newest upstream `v*` tag, or at upstream master's commit when there is no tag yet.
+4. Write `FORK.md` with `upstream: <pin>` and `upstream-repo: <url>` lines. `fork-allow.txt` comes from upstream, where it already exists.
+5. `gh repo create O/<name> --private --source … --remote origin --push` creates the repo, adds `origin` and pushes in one step.
+6. `scripts/seed-labels.sh --repo …` (including one `app:<slug>` label per manifest).
+7. Branch protection on `master` requiring **Backend**, **Frontend**, **Secret scan**, **Fork scope**. A private repo needs a paid GitHub plan for it; the script says so and carries on.
+8. Wait for the first CI run on `master` to go **green**: a fresh fork must pass its own checks before it is handed over.
 
-Open (pinned by the implementing workstream, which updates this doc): what `--dry-run` prints or skips is not stated.
+`--dry-run` prints each mutating command prefixed with `+`, including the `FORK.md` text and the CI wait, and runs only the read-only `git ls-remote` that finds the pin.
 
 ## 3. `scripts/update-from-upstream.sh`
 
@@ -62,25 +61,25 @@ An upstream-update PR passes the scope check because it moves the tag in the sam
 | `docs/apps/` | Fork-owned app docs. |
 | `FORK.md`, `fork-allow.txt` | Fork metadata. |
 | `frontend/src/core/api/types.gen.ts` | Generated (includes the fork's app routes). |
-| `pyproject.toml`, `uv.lock`, `package.json`, `package-lock.json` | Dependency manifests and lockfiles. |
+| `pyproject.toml`, `uv.lock`, `frontend/package.json`, `frontend/package-lock.json` | Dependency manifests and lockfiles. |
 | Globs listed in `fork-allow.txt` | Branding, README, and other allow-listed paths, each with a reason. |
 
 `backend/apps/**` and `frontend/src/apps/**` are fork-editable in full, built-in apps included. That is intended: a fork may customise CRM or Todos, and upstream updates to them then merge like any other change.
 
-Open (pinned by the implementing workstream, which updates this doc): `FORK.md`'s format (how the script reads the tag) and `fork-allow.txt`'s format (one glob per line, reason syntax) are not stated.
+The script reads the first `upstream: <tag-or-sha>` line of `FORK.md`, fetching that tag from `upstream-repo: <url>` when it is not present locally. `fork-allow.txt` holds one git glob per line (`**` crosses directories); `#` starts a comment, and each glob gets a comment line above it saying why. Exit codes: 0 in scope, 1 core changed, 2 `FORK.md` or the pinned tag missing.
 
 ## 5. One `ci.yml` for upstream and forks
 
-1. `.github/workflows/ci.yml` runs the **Fork scope** job **only when `FORK.md` exists**.
+1. `.github/workflows/ci.yml` runs the **Fork scope** job on every push and PR. It first self-tests the check (`scripts/test-fork-scope.sh`), then runs `scripts/check-fork-scope.sh`, which passes at once when there is no `FORK.md` (upstream).
 2. So a fork's `.github/` stays byte-identical to upstream, and there is no fork-specific workflow file.
 3. Other jobs: SHA-pinned actions, ruff, an import check, pytest, frontend build / lint / test + types diff, gitleaks (Secret scan), the image test (`testing.md` §6).
 
 ## 6. Releases and fork images
 
-1. `vX.Y.Z` tags trigger `release.yml`, which builds and pushes `ghcr.io/${{ github.repository }}:<tag>,latest`.
+1. Any `v*` tag triggers `release.yml`, a fork's tags included. It builds and pushes `ghcr.io/<repository, lowercased>:<tag>` and `:latest`.
 2. Upstream therefore publishes `ghcr.io/wwilson1017/springform`.
 3. **A fork publishes its own (private) image containing its apps**, under its own org, with no workflow change.
-4. `deploy/compose.yml` and `railway.json` take the image from `IMAGE=` in `.env` (default: the fork's own).
+4. `deploy/compose.yml` takes the image from `IMAGE=` in `.env`, default the upstream image, so a fork's install sets `IMAGE` (`setup.sh` accepts `IMAGE=`). `railway.json` builds the repo's own `Dockerfile` and never reads `IMAGE`.
 5. `springform-version` is read by `/api/health`.
 
 ## 7. `CHANGELOG.md`
