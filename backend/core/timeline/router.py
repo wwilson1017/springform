@@ -4,7 +4,8 @@ from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
 
 from backend.core.auth.deps import User, current_user
-from backend.core.timeline import service
+from backend.core.platform.models import UserRef
+from backend.core.timeline import models, service
 
 router = APIRouter(prefix="/api/core/timeline", tags=["core"])
 
@@ -16,7 +17,7 @@ class NoteIn(BaseModel):
     kind: Literal["note", "comment"] = "note"
 
 
-@router.get("")
+@router.get("", response_model=list[models.TimelineEntry])
 def list_timeline(
     entity_type: str, entity_id: int, before: int | None = None, limit: int = Query(50, ge=1, le=200),
     user: User = Depends(current_user),
@@ -25,12 +26,12 @@ def list_timeline(
     return service.list_for(user, entity_type, entity_id, before, limit)
 
 
-@router.post("")
+@router.post("", response_model=models.TimelineEntry)
 def add_note(body: NoteIn, user: User = Depends(current_user)) -> dict:
     return service.add_note(user, body.entity_type, body.entity_id, body.body, body.kind)
 
 
-@router.get("/mentionable")
+@router.get("/mentionable", response_model=list[UserRef])
 def timeline_mentionable(q: str | None = Query(None, max_length=100), user: User = Depends(current_user)) -> list[dict]:
     """Active human users for the @-mention picker: [{id, name}], by name, at most 20."""
     return service.mentionable(q)

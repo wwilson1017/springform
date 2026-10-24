@@ -9,7 +9,7 @@ from pydantic import BaseModel
 
 from backend.core import registry
 from backend.core.auth.deps import User, current_user, require_admin
-from backend.core.platform import service
+from backend.core.platform import models, service
 
 settings_router = APIRouter(prefix="/api/core/settings", tags=["core"])
 workspace_router = APIRouter(prefix="/api/core/workspace", tags=["core"])
@@ -30,27 +30,27 @@ class AppOrder(BaseModel):
     slugs: list[str]
 
 
-@settings_router.get("")
+@settings_router.get("", response_model=models.CoreSettings)
 def settings_get(user: User = Depends(require_admin)) -> dict:
     return service.settings_view()
 
 
-@settings_router.put("")
+@settings_router.put("", response_model=models.CoreSettings)
 def settings_put(body: SettingsIn, user: User = Depends(require_admin)) -> dict:
     return service.update_settings(user.id, body.values)
 
 
-@settings_router.delete("/{key}")
+@settings_router.delete("/{key}", response_model=models.CoreSettings)
 def settings_reset(key: str, user: User = Depends(require_admin)) -> dict:
     return service.reset_setting(key)
 
 
-@workspace_router.get("")
+@workspace_router.get("", response_model=models.Workspace)
 def workspace_get(user: User = Depends(current_user)) -> dict:
     return service.workspace()
 
 
-@apps_router.patch("/{slug}")
+@apps_router.patch("/{slug}", response_model=list[models.CoreApp])
 def apps_patch(slug: str, body: AppPatch, user: User = Depends(require_admin)) -> list[dict]:
     registry.get_app(slug)
     if body.hidden is not None:
@@ -58,28 +58,28 @@ def apps_patch(slug: str, body: AppPatch, user: User = Depends(require_admin)) -
     return registry.list_for_user(user)
 
 
-@apps_router.put("/order")
+@apps_router.put("/order", response_model=list[models.CoreApp])
 def apps_order(body: AppOrder, user: User = Depends(require_admin)) -> list[dict]:
     service.set_order(body.slugs)
     return registry.list_for_user(user)
 
 
-@jobs_router.get("")
+@jobs_router.get("", response_model=list[models.JobInfo])
 def jobs_list() -> list[dict]:
     return service.jobs_list()
 
 
-@jobs_router.get("/runs")
+@jobs_router.get("/runs", response_model=list[models.JobRun])
 def jobs_runs(job: str | None = None, limit: int | None = None) -> list[dict]:
     return service.job_runs(job, limit)
 
 
-@jobs_router.get("/outbox/dead")
+@jobs_router.get("/outbox/dead", response_model=list[models.DeadOutboxRow])
 def jobs_dead_outbox(limit: int | None = None) -> list[dict]:
     return service.dead_outbox(limit)
 
 
-@jobs_router.post("/{name}/run", status_code=202)
+@jobs_router.post("/{name}/run", status_code=202, response_model=models.JobStarted)
 async def jobs_run_now(name: str, request: Request) -> dict:
     running = getattr(request.app.state, "scheduler", None)
     if running is None:
@@ -91,7 +91,7 @@ async def jobs_run_now(name: str, request: Request) -> dict:
     return {"started": True}
 
 
-@changelog_router.get("")
+@changelog_router.get("", response_model=list[models.ChangeRow])
 def changelog_list(
     app: str | None = None,
     user_id: int | None = None,
