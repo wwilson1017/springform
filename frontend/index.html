@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- Mobile browser chrome; kept in sync by the script below and applyTheme() in
+         src/core/theme/useTheme.ts. -->
+    <meta name="theme-color" content="#f1f1e8" />
+    <title>Springform</title>
+    <script>
+      // Apply the theme before React loads so a dark-mode reload never flashes white.
+      // Key must match THEME_KEY in src/core/theme/useTheme.ts.
+      (function () {
+        var t = null;
+        try {
+          t = localStorage.getItem('springform_theme');
+        } catch (e) {
+          // storage blocked: fall back to the OS preference below
+        }
+        if (t === 'dark' || (!t && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+          document.documentElement.classList.add('dark');
+          var m = document.querySelector('meta[name="theme-color"]');
+          // Must match --color-sf-bg in the .dark block of src/index.css.
+          if (m) m.setAttribute('content', '#1c1b19');
+        }
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
