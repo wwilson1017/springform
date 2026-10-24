@@ -59,7 +59,7 @@ Open (pinned by the implementing workstream, which updates this doc): the `icon`
 | `router.py` | `router` | Mounted at `/api/<slug>`, tagged `<slug>` (stable `operationId`s for type generation). `registry.mount()` adds `Depends(require_roles(manifest.roles))`. Every route carries the auth dependency unless listed in `ALLOW_UNAUTHENTICATED` in the contract test. |
 | `api.py` | published functions | **The only module another app may import** (`from apps.<x>.api import …`). Every published function has an `_in(conn, …)` form. |
 | `entities.py` | `ENTITIES = [Entity(...)]` | Table, labels, URL and title builders, `can_read(user, conn, id)` / `can_write(user, conn, id)` (`authorization.md`). |
-| `hooks.py` | `HOOKS = {"on_entity_deleted": [...], "on_entity_merged": [...], "on_record_changed": [...], "after_record_changed": [...]}` | The registry subscribes them. The three sync keys take `fn(conn, entity_type, entity_id, **kw)` in the caller's transaction; `after_record_changed` takes `fn(payload: dict)` after commit, via the outbox (`authorization.md` §3, `database-and-transactions.md` §4). |
+| `hooks.py` | `HOOKS = {"on_entity_deleted": [...], "on_entity_merged": [...], "on_record_changed": [...], "after_record_changed": [...]}` | The registry subscribes them. The three sync keys run in the caller's transaction; `after_record_changed` takes `fn(conn, payload)` after commit, via the outbox. Signatures are in `authorization.md` §3. |
 | `reports.py` | `REPORTS = [Report(...)]` | `records.md`. |
 | `tools.py` | `get_tools() -> list[ToolSpec]` | Names prefixed `<slug>_`; per-spec `enabled(user)` (`agent.md`). |
 | `jobs.py` | `JOBS = [Job(name="<slug>.<job>", fn, every=…\|at="HH:MM")]` | `scheduler.md`. |

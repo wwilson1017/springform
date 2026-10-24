@@ -64,11 +64,11 @@ Rules:
 
 ### Sync hooks (in-transaction)
 
-Subscribers to the `HOOKS` keys `on_entity_deleted`, `on_entity_merged` and `on_record_changed` are `fn(conn, entity_type, entity_id, **kw)`. Core's `_in` dispatchers (`on_entity_deleted_in`, `on_entity_merged_in`, `on_record_changed_in`) call them **inside the caller's transaction**. A failing subscriber rolls the whole write back. They are for cheap bookkeeping only: set a flag, write a row. Registered from each app's `hooks.py`, never signals (`authorization.md` §3 has the registry side).
+Subscribers to the `HOOKS` keys are `on_entity_deleted` `fn(conn, entity_type, entity_id)`, `on_entity_merged` `fn(conn, entity_type, target_id, source_id)` and `on_record_changed` `fn(conn, entity_type, entity_id, changes, user_id)`. Core's `_in` dispatchers (`on_entity_deleted_in`, `on_entity_merged_in`, `on_record_changed_in`) call them **inside the caller's transaction**. A failing subscriber rolls the whole write back. They are for cheap bookkeeping only: set a flag, write a row. Registered from each app's `hooks.py`, never signals (`authorization.md` §3 has the registry side).
 
 ### Durable outbox (after commit)
 
-Work that must happen after commit is **durable, not in-memory**. `record_changes_in` writes a `core_outbox` row in the same transaction as the change (through `after_record_changed_in`). `after_record_changed` subscribers are `fn(payload: dict)`: the drainer runs them after `COMMIT`, outside any transaction, and a subscriber may open its own. The payload is `{entity_type, entity_id, changes: {field: [old, new]}, user_id, at}`.
+Work that must happen after commit is **durable, not in-memory**. `record_changes_in` writes one `core_outbox` row per `after_record_changed` subscriber in the same transaction as the change (through `after_record_changed_in`). Each such subscriber is registered as a local consumer, `fn(conn, payload)`, with the payload `{entity_type, entity_id, changes: [{field, old, new}], user_id}`.
 
 ```sql
 core_outbox(
@@ -76,6 +76,7 @@ core_outbox(
   hook,          -- consumer name (e.g. after_record_changed)
   payload,       -- JSON TEXT
   created_at,    -- now_iso()
+  available_at,  -- not claimable before this (retry backoff)
   claimed_at,    -- set by the drainer's atomic claim
   attempts,      -- bumped on failure
   processed_at,  -- set when the consumer's effect is recorded
@@ -87,15 +88,13 @@ core_outbox(
 Drainer and consumer rules:
 
 1. **There is exactly one drainer**: the scheduler job `core.outbox_drain` (every 30 s, plus the post-`COMMIT` nudge). The scheduler's per-job in-flight guard makes it single-flight.
-2. **Atomic claim, one row per transaction:** `UPDATE core_outbox SET claimed_at=? WHERE id=? AND (claimed_at IS NULL OR claimed_at < ?)`, where the last parameter is now minus **600 s**: a claim older than that is stale and may be taken again. Two drainers started by hand claim disjoint rows.
-3. A consumer with **local DB effects** performs them and sets `processed_at` in **one** transaction. It is exactly-once by construction: a crash between effect and `processed_at` cannot happen.
-4. A consumer with **external effects** (LLM call, HTTP) is **at-least-once**. It uses the outbox `id` as its idempotency key where the remote supports one, and records the effect's own id before marking processed. After a crash the row is re-claimed when `claimed_at` is older than 600 s, and replays once with the same idempotency key.
-5. Failures bump `attempts` and back off **30 s, 2 min, 10 min, 1 h, 6 h**. The 5th failure sets `dead_at`, and the row shows on the Jobs page.
+2. **Atomic claim, one row per transaction:** the oldest row with `processed_at` and `dead_at` NULL and `available_at <= now`, then `UPDATE core_outbox SET claimed_at=? WHERE id=? AND (claimed_at IS NULL OR claimed_at < ?)`, where the last parameter is now minus **300 s** (`CLAIM_TIMEOUT`, the `core.outbox_drain` job timeout): a claim older than that is stale and may be taken again. Two drainers started by hand claim disjoint rows.
+3. A **local** consumer is `fn(conn, payload)`. The drainer runs it inside one transaction that also sets `processed_at`, so it is exactly-once by construction: a crash between effect and `processed_at` cannot happen. It uses `_in` functions and never calls `transaction()`.
+4. An **external** consumer (LLM call, HTTP) is `fn(outbox_id, payload)`, runs outside any transaction, and is **at-least-once**. It uses the outbox `id` as its idempotency key where the remote supports one, and records the effect's own id before marking processed. After a crash the row is re-claimed when `claimed_at` is older than 300 s, and replays once with the same idempotency key.
+5. Failures bump `attempts` and push `available_at` back **30 s, doubling after each failure**. The 5th failure sets `dead_at`, and the row shows on the Jobs page.
 6. Consumers never start a drain and never call `transaction()` while already inside one.
-7. A consumer registers with `outbox.consumer(hook, external=False)`; `external=True` declares the external-effect, at-least-once kind (rule 4).
+7. A consumer registers with `outbox.register(hook, fn, external=False)`, one consumer per hook; `external=True` declares the external kind (rule 4). `HOOKS["after_record_changed"]` subscribers are registered as local consumers for you.
 8. Worked example: the CRM sets `crm_deals.touch_dirty` in the sync hook (durable with the write) and does its LLM work from the outbox or its own job, never inside a write lock.
-
-Open (pinned by the implementing workstream, which updates this doc): how an app's `after_record_changed` subscriber (`fn(payload)`, which may open its own transaction) maps onto `outbox.consumer(hook, external=…)`. Such a subscriber cannot commit its effect together with `processed_at`, so rule 3's exactly-once does not hold for it; until this is pinned, write it to be idempotent.
 
 ## 5. Migration runner
 

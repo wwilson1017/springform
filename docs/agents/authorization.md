@@ -79,18 +79,16 @@ HOOKS = {
 
 | `HOOKS` key | Kind | Subscriber | Runs | Use |
 |---|---|---|---|---|
-| `on_entity_deleted` | Sync | `fn(conn, entity_type, entity_id, **kw)` | Inside the deleting transaction. | Cascade owned rows (core uses it for timeline, files, fields, reminders, notifications, change log). |
-| `on_entity_merged` | Sync | `fn(conn, entity_type, entity_id, **kw)` | Inside the merge transaction. | Repoint or reconcile app rows (CRM keeps the higher `crm_person_scores` score). |
-| `on_record_changed` | Sync | `fn(conn, entity_type, entity_id, **kw)` | Inside the changing transaction. | Cheap bookkeeping (CRM sets `crm_deals.touch_dirty`). |
-| `after_record_changed` | Durable, via the outbox | `fn(payload: dict)` | After `COMMIT`, run by the single drainer outside any transaction. It may open its own. | Expensive or external work (`database-and-transactions.md` §4). |
+| `on_entity_deleted` | Sync | `fn(conn, entity_type, entity_id)` | Inside the deleting transaction. | Cascade owned rows (core uses it for timeline, files, fields, reminders, notifications; the change log stamps `deleted_at`). |
+| `on_entity_merged` | Sync | `fn(conn, entity_type, target_id, source_id)` | Inside the merge transaction. | Repoint or reconcile app rows (CRM keeps the higher `crm_person_scores` score). |
+| `on_record_changed` | Sync | `fn(conn, entity_type, entity_id, changes, user_id)` | Inside the changing transaction. | Cheap bookkeeping (CRM sets `crm_deals.touch_dirty`). |
+| `after_record_changed` | Durable, via the outbox | `fn(conn, payload)` | After `COMMIT`: the single drainer runs it inside its own transaction, which also sets `processed_at`, so it runs exactly once. Each subscriber gets its own outbox row. | Follow-up DB work that must survive a crash. It runs inside a transaction, so no network or LLM call: external work goes to an `external=True` outbox consumer or the app's own job (`database-and-transactions.md` §4). |
 
-The payload of `on_record_changed` and `after_record_changed` is:
+`changes` is always a list, one item per changed field. The `after_record_changed` payload carries the same fields:
 
 ```
-{entity_type, entity_id, changes: {field: [old, new]}, user_id, at}
+{entity_type, entity_id, changes: [{field, old, new}], user_id}
 ```
-
-An `on_record_changed` subscriber receives `entity_type` and `entity_id` as arguments and `changes`, `user_id` and `at` as keywords.
 
 Core's dispatchers carry `_in` and run on the caller's `conn`: `on_entity_deleted_in`, `on_entity_merged_in` and `on_record_changed_in` call the sync subscribers, and `after_record_changed_in` writes the outbox rows. `delete_record_in`, the merge functions and `record_changes_in` call them.
 
@@ -99,8 +97,6 @@ Rules:
 1. Sync subscribers receive `conn` and run in the caller's transaction; a failing subscriber rolls the whole write back.
 2. Sync subscribers do cheap bookkeeping only: set a flag, write a row. No network, no `transaction()`.
 3. After-commit work is durable: a `core_outbox` row written in the same transaction as the change.
-
-Open (pinned by the implementing workstream, which updates this doc): which keywords `on_entity_deleted` and `on_entity_merged` pass (for a merge, which id arrives as `entity_id` and how the other id and the actor arrive; `merge_people_in(conn, target_id, source_id, actor)` is the merge itself).
 
 ## 4. Manifest roles reach the API
 
