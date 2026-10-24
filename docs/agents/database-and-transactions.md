@@ -152,7 +152,7 @@ except Exception:
 
 1. Every table that other rows point at polymorphically (anything in `ENTITIES`, `core_timeline`, `core_files`) uses `INTEGER PRIMARY KEY AUTOINCREMENT`, so a deleted id is never reused under an old timeline or audit reference.
 2. **An app reset never touches `sqlite_sequence`.** `registry.reset_app_in(conn, slug)`:
-   1. runs `entities.delete_record_in` for every row of the app's entity tables, which cascades timeline, files, fields, reminders, notifications and change-log rows through the `on_entity_deleted` subscribers;
+   1. runs `entities.delete_record_in` for every row of the app's entity tables, whose `on_entity_deleted` subscribers delete its timeline rows, files and field values, void its reminders, hide its notifications and stamp its change-log rows;
    2. then `DELETE`s the app's non-entity `RESET_TABLES`;
    3. ids keep climbing.
 3. Only the admin **factory reset** clears every table and every sequence together. It is allowed only when `PREVIEW_MODE` is on, or when no human user other than the caller exists **and** every app's `RESET_TABLES`, `core_people` and `core_organizations` hold zero rows. It is refused otherwise.

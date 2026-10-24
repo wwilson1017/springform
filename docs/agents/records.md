@@ -186,12 +186,14 @@ core_push_subscriptions
 ### `deliver_in`
 
 ```python
-deliver_in(conn, title, message, user_id=None, entity=None, link=None)
+deliver_in(conn, title, message, *, user_id=None, entity: tuple[str, int] | None = None, link=None) -> list[int]
 ```
 
-1. Inserts one `core_notifications` row per recipient **in the caller's transaction**, so the in-app notification is **exactly-once**.
-2. `user_id=None` expands to every **active human** user who may read `entity` (never the system principal). A broadcast is therefore one row per user, and read state is per user.
-3. Inserts a delivery-intent row per external channel in `core_notification_deliveries`.
+Everything after `message` is keyword-only.
+
+1. Inserts one `core_notifications` row per recipient **in the caller's transaction**, so the in-app notification is **exactly-once**. Returns the new ids.
+2. `user_id=None` expands to every **active human** user who may read `entity` (never the system principal). A broadcast is therefore one row per user, and read state is per user. A given `user_id` gets a row only if that user is an active human who may read `entity`; otherwise nothing is written. An unknown entity type or a missing record raises 404. `link` defaults to the record's URL.
+3. Inserts a `queued` row in `core_notification_deliveries` for each registered channel enabled for that recipient. A channel is `register_channel(name, send, *, enabled_in=None)`; web push registers itself as one.
 
 ### The notification remembers its record
 
@@ -199,6 +201,7 @@ deliver_in(conn, title, message, user_id=None, entity=None, link=None)
 2. `flush` re-checks the same before sending a queued delivery and drops it if access is gone.
 3. **A message already delivered externally cannot be recalled.** The contract says so.
 4. Merges repoint notifications on the source to the target, like reminders (`contacts.md`).
+5. Deleting a record hides its notifications (its `on_entity_deleted` hook sets `suppressed_at`); the rows are kept.
 
 ### External delivery (`core.notifications_flush`, every 30 s)
 
@@ -207,22 +210,45 @@ deliver_in(conn, title, message, user_id=None, entity=None, link=None)
 3. Failures bump `attempts` and record `last_error`.
 4. CakeCRM's Telegram branch becomes a `register_channel` extension point.
 
-Open (pinned by the implementing workstream, which updates this doc): `entity` is passed as one argument while the table has two columns; its type (a `(type, id)` tuple is implied) is not stated. The `status` values of `core_notification_deliveries`, the retry limit, the `register_channel` signature, and the notification routes (list, mark read) are not stated. What happens when both `user_id` and `entity` are given and the user cannot read the entity.
+Delivery `status` is `queued`, `sent`, `failed` or `dropped`; a delivery fails for good after 5 attempts.
+
+```
+GET    /api/core/notifications              the caller's notifications
+GET    /api/core/notifications/unread-count
+POST   /api/core/notifications/read-all
+POST   /api/core/notifications/{id}/read
+GET    /api/core/notifications/push/public-key
+POST   /api/core/notifications/push/subscribe
+DELETE /api/core/notifications/push/subscribe
+```
 
 ## 7. Reminders
 
-Source: CakeCRM `backend/reminders/` (767 → ~700; `recurrence.py` unchanged).
+Source: CakeCRM `backend/reminders/` (767 → ~700). `recurrence.py` is new, ported in spirit from cake_os's reminder recurrence.
 
 ```sql
-core_reminders(owner_user_id, entity_type, entity_id, due_at, repeat, series_id, status, fired_at, …)
+core_reminders(id, owner_user_id, entity_type NULL, entity_id NULL, title, note, due_at,
+               repeat,       -- JSON {freq: daily|weekly|monthly|yearly, anchor, time, tz}; NULL = once
+               series_id,    -- the first occurrence's id, shared by the series
+               status CHECK (status IN ('open','done','voided','snoozed')), void_reason,
+               fired_at, created_at, updated_at)
 ```
 
 1. Port: `INTEGER[]` / `ANY()` → `json_each`; `SKIP LOCKED` → plain select inside `transaction()`; the `crm.service` / `gtd_common` imports are cut.
 2. Job `core.reminders_fire_due` every 60 s marks `fired_at` **and** calls `deliver_in` **in the same transaction**.
 3. At fire time the reminder re-checks `authorize(read)` for its owner and **voids itself** otherwise.
 4. Merges repoint reminders (`contacts.md`).
+5. Deleting a record voids its reminders (`status = 'voided'`, `void_reason = 'record deleted'`) instead of deleting them.
 
-Open (pinned by the implementing workstream, which updates this doc): `status` values (including the "void" state's name) and the series/repeat columns' format (lifted from CakeCRM) are not stated here. Reminder routes.
+```
+GET    /api/core/reminders            the caller's reminders
+POST   /api/core/reminders
+GET    /api/core/reminders/for        a record's reminders
+PATCH  /api/core/reminders/{id}
+POST   /api/core/reminders/{id}/snooze
+POST   /api/core/reminders/{id}/done
+DELETE /api/core/reminders/{id}       204
+```
 
 ## 8. Change log
 
@@ -234,10 +260,16 @@ core_change_log(id, at, user_id, app, entity, entity_id, field, old, new, reason
 1. `record_changes_in` writes one row per changed field, alongside the single timeline `field_change` row.
 2. `core.changelog.record_in(conn, entity_type, entity_id, field, old, new, user_id, *, reason=None, request_id=None)` writes one row; `old` and `new` are stored as JSON.
 3. Rows written before a delete are kept: they keep `entity_id`, and the delete cascade sets their `deleted_at`, so history stays distinguishable from any later record.
-4. The ChangeLog viewer and `/api/core/changelog` apply `authorize(read)` per row and hide the rest. Filters: app, user, entity (`frontend-shell.md`).
+4. The ChangeLog viewer and `/api/core/changelog` check every row. A row about a live record is shown when the caller may read it. A row about a deleted record, or about an entity type that is no longer installed, is shown only to its author (`user_id` equal to the caller). Admins get no extra access, so a private record's history stays private after the record is gone. Such rows have `title` and `url` null.
 5. `user_id` may be the system principal (`id=0`) for unattended actions.
 
-Open (pinned by the implementing workstream, which updates this doc): `/api/core/changelog`'s query and response shape (shape to be pinned by W3).
+```
+GET /api/core/changelog?app=&user_id=&entity_type=&entity_id=&before=<id>&limit=
+    -> [{id, at, user: {id, name} | null, app, entity_type, entity_id, title, url,
+         field, old, new, reason, deleted_at}], newest first
+```
+
+`before` is the id cursor: pass the last row's id for the next page. The route is served from `backend/core/platform/router.py`.
 
 ## 9. Frontend (`frontend/src/core/records/`)
 

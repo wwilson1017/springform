@@ -79,7 +79,7 @@ HOOKS = {
 
 | `HOOKS` key | Kind | Subscriber | Runs | Use |
 |---|---|---|---|---|
-| `on_entity_deleted` | Sync | `fn(conn, entity_type, entity_id)` | Inside the deleting transaction. | Cascade owned rows (core uses it for timeline, files, fields, reminders, notifications; the change log stamps `deleted_at`). |
+| `on_entity_deleted` | Sync | `fn(conn, entity_type, entity_id)` | Inside the deleting transaction. | Clean up after the record. Core deletes its timeline rows, files and field values, voids its reminders, hides its notifications (`suppressed_at`) and stamps `deleted_at` on its change-log rows. |
 | `on_entity_merged` | Sync | `fn(conn, entity_type, target_id, source_id)` | Inside the merge transaction. | Repoint or reconcile app rows (CRM keeps the higher `crm_person_scores` score). |
 | `on_record_changed` | Sync | `fn(conn, entity_type, entity_id, changes, user_id)` | Inside the changing transaction. | Cheap bookkeeping (CRM sets `crm_deals.touch_dirty`). |
 | `after_record_changed` | Durable, via the outbox | `fn(conn, payload)` | After `COMMIT`: the single drainer runs it inside its own transaction, which also sets `processed_at`, so it runs exactly once. Each subscriber gets its own outbox row. | Follow-up DB work that must survive a crash. It runs inside a transaction, so no network or LLM call: external work goes to an `external=True` outbox consumer or the app's own job (`database-and-transactions.md` §4). |
@@ -111,7 +111,7 @@ A copy of record data (an audit row, a notification, a reminder, an export) is c
 
 | Surface | Rule |
 |---|---|
-| Change log | The ChangeLog viewer and `/api/core/changelog` apply `authorize(read)` **per row** and hide the rest. |
+| Change log | The ChangeLog viewer and `/api/core/changelog` apply `authorize(read)` **per row** and hide the rest. A row about a deleted record, or an uninstalled entity type, is shown only to its author, admins included (`records.md` §8). |
 | @-mentions | An @-mention notifies only users who `can_read` the record. |
 | Reminders | Re-check `authorize(read)` for their owner **at fire time** and void themselves otherwise. |
 | Notifications | Listing and reading re-run `authorize(read)` on `(entity_type, entity_id)` and hide rows that fail (setting `suppressed_at`); `flush` re-checks before sending a queued external delivery and drops it if access is gone. A message already delivered externally cannot be recalled. |
