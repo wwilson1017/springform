@@ -62,6 +62,8 @@ Conventions:
 - Preview accounts no longer show as pending invites, and the last-admin guard counts them.
 - Organization names and duplicate checks fold case beyond ASCII: "café ñandú" now collides with
   "Café Ñandú", and "ZOË DÉMO" is found as a duplicate of "Zoë Démo".
+- The app contract test accepts a `UNIQUE` constraint on an app's own table (SQLite's
+  `sqlite_autoindex_*`), as the apps contract doc already allowed.
 
 ### Schema
 

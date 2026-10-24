@@ -184,7 +184,7 @@ Falsifiable against `backend/tests/fixtures/bad_app` (the test must fail it). It
 8. **Ownership is by name prefix for every object type.** Each row of `sqlite_master` (table, index, trigger, view, virtual table) must be named one of:
    - `core_*`;
    - `_migrations_applied`;
-   - a SQLite-generated `sqlite_autoindex_*`, `sqlite_sequence` or `sqlite_stat*`;
+   - a SQLite-generated `sqlite_autoindex_*` (a `UNIQUE` or `PRIMARY KEY` constraint's index, attributed to the table it indexes, so rule 9 applies), `sqlite_sequence` or `sqlite_stat*`;
    - an FTS5 shadow table `<fts>_data`, `<fts>_idx`, `<fts>_content`, `<fts>_docsize`, `<fts>_config`, attributed to its virtual table's owner;
    - `<slug>_*` for **exactly one** installed slug.
 9. An index or trigger must target a table its own prefix owns (`tbl_name` check).
