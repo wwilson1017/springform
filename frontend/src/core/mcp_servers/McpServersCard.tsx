@@ -156,7 +156,7 @@ export function AddServerForm({ onAdded }: { onAdded: (s: McpServer) => void }) 
         {field('name', 'Name', { placeholder: 'Team to-dos' })}
         {field('url', 'Address', { placeholder: 'https://example.com/mcp', type: 'url' })}
         {field('token', 'Token (optional)', { placeholder: 'Sent as a bearer token', type: 'password' })}
-        {field('prefix', 'Prefix', { placeholder: 'todos' })}
+        {field('prefix', 'Prefix', { placeholder: 'tasks' })}
       </div>
       <p className="m-0 text-xs text-sf-ink-dim">
         Whisk names this server's tools <code>{draft.prefix || 'prefix'}.tool_name</code>. The token is stored encrypted and never shown again.
