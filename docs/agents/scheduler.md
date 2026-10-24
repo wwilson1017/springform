@@ -69,7 +69,7 @@ Timezone: `core_settings.timezone` (IANA, default `UTC`). Nothing hardcoded.
 
 ## 7. `run_now`
 
-`POST /api/core/jobs/{name}/run` (admin) runs a job now, through the same in-flight guard (it never overlaps a running instance). It returns **202**, or **409** when the job is already in flight. The Jobs page lists runs and offers "run now"; "Back up now" on the Backups page runs `core.backup` the same way.
+`POST /api/core/jobs/{name}/run` (admin) runs a job now, through the same in-flight guard (it never overlaps a running instance). It returns **202**, or **409** when the job is already in flight. The Jobs page lists runs and offers "run now". "Back up now" on the Backups page is different: `POST /api/core/backups/run` calls the backup service directly, under the guard it shares with `core.backup`, and records only a `core_backups` row (`deploy.md` §7).
 
 ## 8. Core jobs
 

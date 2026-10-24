@@ -77,8 +77,8 @@ The single-process `flock` on `/data/.springform.lock` (`database-and-transactio
 Lifted from CakeCRM `core/secret_store.py` (minus keychain) and `core/encryption.py` (`enc:v1:` format).
 
 1. Fernet key from env `ENCRYPTION_KEY` → else `/data/.encryption-key` → else generated on first boot into that file.
-2. When `ENCRYPTION_KEY` comes from the environment, no key file exists, and the Backups page says "your key is in your environment; keep it with your `.env`".
-3. Otherwise the Backups page shows the key **once**, with "store this off-site; without it a restored copy cannot read stored credentials".
+2. When `ENCRYPTION_KEY` comes from the environment, no key file exists. `POST /api/core/backups/key` then returns only `{key_source: "env", fingerprint}`, and the Backups page says to keep the key with the `.env`.
+3. Otherwise `POST /api/core/backups/key` (admin) returns `{key_source: "file", key, fingerprint}` **once**. Every later call answers **410** `key_already_shown`. The Backups page tells the admin to store the key off-site, because without it a restored copy cannot read stored credentials.
 
 ## 7. Backups: recovery sets
 
@@ -96,7 +96,22 @@ Lifted from CakeCRM `core/secret_store.py` (minus keychain) and `core/encryption
 4. Pause when free space is under **100 MB**.
 5. Never raise.
 6. Log to `core_backups`.
-7. "Back up now" on the Backups page runs the same job.
+7. "Back up now" is `POST /api/core/backups/run` (admin). It calls the backup service directly, under the same guard as the job, and returns **202** with the `core_backups` row, or **409** `backup_in_progress`. It writes no `core_job_runs` row; its outcome is the `core_backups` row.
+
+```sql
+core_backups(id, started_at, finished_at, status CHECK (status IN ('running','ok','error','skipped')),
+             snapshot, manifest, byte_size, sha256, error)
+```
+
+Backups API (admin only):
+
+```
+GET  /api/core/backups                    -> {sets, last_backup_at, last_run, key_source, key_shown}
+POST /api/core/backups/run                -> 202 the core_backups row; 409 backup_in_progress
+POST /api/core/backups/key                -> {key_source, key?, fingerprint}; 410 key_already_shown
+GET  /api/core/backups/{stamp}/download   -> the snapshot file
+GET  /api/core/backups/{stamp}/manifest   -> the manifest JSON
+```
 
 ### Blob pinning
 
@@ -106,17 +121,19 @@ Lifted from CakeCRM `core/secret_store.py` (minus keychain) and `core/encryption
 
 `deploy/setup.sh` offers an rclone cron on the host. It reads the sets from `/srv/springform/data/backups` and copies, **in order**: blobs → snapshot → manifest (so a remote set is complete when its manifest is present), and the volume's `.encryption-key` if it exists.
 
-Open (pinned by the implementing workstream, which updates this doc): the `core_backups` columns, and the Backups page's download route.
-
 ## 8. `scripts/restore.sh`
 
 ```
-scripts/restore.sh <manifest>
+scripts/restore.sh <manifest> <empty_target_data_dir> [--files-from <source_data_dir>] [--key-file <path>] [--allow-missing-blobs]
 ```
 
-1. Verifies the set (snapshot sha256, every listed blob present).
-2. Copies it into an **empty** `/data`.
-3. Checks the key fingerprint. A wrong key fails loudly ("wrong key") instead of returning garbage.
+It wraps `python -m backend.core.backup.restore`. Every check runs before anything is written:
+
+1. Verifies the set: the manifest, the snapshot's sha256, and every listed blob present with the right sha256. Blobs are read from `<files-from>/files/`, or by default from the data directory that holds the manifest's `backups/` folder. `--allow-missing-blobs` restores even when some are missing.
+2. Requires the target data directory to be **empty**, then copies the set into it.
+3. Checks that the key the restored install will use has the manifest's fingerprint. That key is `ENCRYPTION_KEY` when set, and the `--key-file` when given. A wrong key fails loudly instead of booting an install that cannot read its stored credentials.
+
+Exit codes: 0 restored, 1 refused or failed, 2 usage.
 
 ### Restore test (CI)
 
