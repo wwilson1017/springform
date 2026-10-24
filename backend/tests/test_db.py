@@ -68,6 +68,20 @@ def _core_migration_names() -> list[str]:
     return sorted(p.name for p in core_db.CORE_MIGRATIONS.glob("*.sql"))
 
 
+def _shared_stamps(names: list[str]) -> list[str]:
+    stamps = [n[:14] for n in names]
+    return sorted({s for s in stamps if stamps.count(s) > 1})
+
+
+def test_no_two_core_migrations_share_a_stamp():
+    """Core files sort by name, so a shared stamp orders by the rest of the name, by accident."""
+    assert _shared_stamps(["20261020000100_core_a.sql", "20261020000100_core_b.sql", "20261020000200_core_c.sql"]) == ["20261020000100"]
+    assert _shared_stamps(["20261020000100_core_a.sql", "20261020000200_core_b.sql"]) == []
+    names = _core_migration_names()
+    assert "20261020000100_core_init.sql" in names  # reached the real files
+    assert _shared_stamps(names) == []
+
+
 def test_changed_applied_migration_fails_startup(tmp_path):
     app_dir = _app(tmp_path / "apps", "fx", {"20261101000000_fx_init.sql": "CREATE TABLE fx_a (id INTEGER);"})
     core_db.init(tmp_path / "data")
