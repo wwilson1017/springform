@@ -127,6 +127,7 @@ The data directory is `DATA_DIR` (the donor's env var, kept; default `./data` fo
 | `SPRINGFORM_BACKEND` | Development only: the backend the Vite dev server proxies `/api` and `/up` to, default `http://127.0.0.1:8000`. | `frontend/vite.config.ts` |
 | `DOMAIN` | Caddy site address in `deploy/`. | `deploy.md` |
 | `IMAGE` | The image `compose.yml` runs, default the upstream image; written by `setup.sh`. Railway builds from the `Dockerfile` instead. | `deploy.md`, `forks.md` |
+| `NO_PULL` | `1` → `setup.sh` and `deploy.sh` run an `IMAGE` already loaded with `docker load` instead of pulling it. | `deploy.md` |
 | `RAILWAY_DEPLOYMENT_DRAINING_SECONDS` | `15`, documented for Railway. | `deploy.md` |
 
 ### Install settings (`core_settings`)
