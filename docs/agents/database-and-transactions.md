@@ -111,8 +111,6 @@ Ported from CakeCRM `backend/core/postgres.py:181-248`. Runs at **startup only**
 | Core init | `20261020000100_core_init.sql` (settings, change_log, job_runs, apps_state, requests, backups, outbox, file blobs, users incl. the system user, totp, trusted_devices, login_tokens, login_attempts, contacts tables, timeline, files). |
 | Per workstream | Every workstream adds its **own** `20261020…_core_<area>.sql` and **never edits one that has landed**. |
 
-Open: Step 1 puts the contacts tables in `20261020000100_core_init.sql`, while §3 names a separate `20261020000300_core_contacts.sql`. Which file holds them is unresolved.
-
 ### Applying a file
 
 ```python

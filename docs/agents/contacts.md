@@ -9,7 +9,7 @@ The directory is core so every app points at the same people. People and organiz
 
 ## 1. Tables
 
-Migration: see Open at the end of this section.
+Migration: the core init migration, `20261020000100_core_init.sql`. There is no separate contacts migration.
 
 ```sql
 core_people(
@@ -45,7 +45,7 @@ core_contact_channels(owner_type, owner_id,
 core_contacts_fts   -- FTS5, tokenize = unicode61, over both people and organizations, maintained by triggers
 ```
 
-Open: Step 1 lists "contacts tables" inside `20261020000100_core_init.sql`, while §3 names `20261020000300_core_contacts.sql`; which file holds them is unresolved. Open: the `…` columns of `core_people` (timestamps), the enum values of `source` and `status`, and the FTS column list are not stated. Open: whether `core_addresses` and `core_contact_channels` have their own primary-uniqueness index per owner (the plan states one only for links).
+Open: the `…` columns of `core_people` (timestamps), the enum values of `source` and `status`, and the FTS column list are not stated. Open: whether `core_addresses` and `core_contact_channels` have their own primary-uniqueness index per owner (the plan states one only for links).
 
 ## 2. Primary-channel sync
 
