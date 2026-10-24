@@ -35,7 +35,7 @@ Why a cookie: the Google callback is a top-level redirect; fetch-based SSE sends
 
 Dependencies (`deps.py`): `current_user`, `require_admin`, `require_roles(roles)` (used by `registry.mount()` with the manifest's roles; `authorization.md`).
 
-Open: the JWT signing key's source (environment, `core_settings`, or generated into `/data`) is not stated.
+The JWT signing key is the `SECRET_KEY` environment variable.
 
 ## 3. CSRF (`csrf.py`)
 
@@ -45,7 +45,7 @@ Open: the JWT signing key's source (environment, `core_settings`, or generated i
 4. A request carrying **both** a cookie and a bearer header is treated as cookie-authenticated (rule 1 applies).
 5. Preflights (`OPTIONS`) are not authenticated and pass.
 
-Open: the refusal status code (403 is the natural reading of "denied") and which methods count as state-changing (everything but `GET`/`HEAD`/`OPTIONS` is the usual reading) are not stated.
+A refusal is **403** `{detail: "csrf"}`. State-changing means every method except `GET`, `HEAD` and `OPTIONS`.
 
 ## 4. Tables
 
@@ -68,7 +68,7 @@ core_login_tokens(token_hash PK, user_id, purpose CHECK (purpose IN ('invite','r
 core_login_attempts(key, at)   -- DB-backed rate limits; pruned hourly by core.login_attempts_prune
 ```
 
-Open: `core_totp` and `core_trusted_devices` columns are not listed in the plan (lift CakeCRM's shape). Open: the "…" columns of `core_users` (e.g. `created_at`, `updated_at`).
+Open (pinned by the implementing workstream, which updates this doc): `core_totp` and `core_trusted_devices` columns are not listed in the plan (lift CakeCRM's shape). The "…" columns of `core_users` (e.g. `created_at`, `updated_at`).
 
 ### The system principal
 
@@ -77,17 +77,15 @@ One seeded row: `id=0`, `role='system'`, email `system@springform.local`, `passw
 ## 5. First run and the setup token
 
 1. No "first visitor becomes admin".
-2. On boot with **no human user** in `core_users` (`WHERE role != 'system'`; not "an empty table", because the system row exists), `bootstrap.py` generates a **setup token**:
+2. On **every boot** while there is **no human user** in `core_users` (`WHERE role != 'system'`; not "an empty table", because the system row exists), `bootstrap.py` generates a fresh **setup token**, replacing any earlier one:
    - printed once in the log;
    - written to `/data/setup-token`, mode 0600;
    - `deploy/setup.sh` prints it at the end.
 3. The setup page `/setup` requires the token (`POST /api/auth/setup`).
-4. Admin creation happens under the write lock with a re-check that there is still no human user, and the token is consumed (`core_login_tokens` purpose `setup`).
+4. Admin creation happens under the write lock with a re-check that there is still no human user (`WHERE role != 'system'`, the same test as the bootstrap), and the token is consumed (`core_login_tokens` purpose `setup`).
 5. After setup, `POST /api/auth/setup` returns **404** (also 404 for a wrong token).
 6. The first admin is created by password or CLI only: `python -m backend.cli create-admin EMAIL`. Google is configured afterwards in Settings and linked on the admin's next Google sign-in.
 7. The setup test runs against the real migrated, seeded database.
-
-Plan text note: §2 says the re-check is "that the table is still empty", which the system row makes false; the bootstrap rule two sentences later ("absence of human accounts") is the one to implement.
 
 ## 6. Password login and rate limits
 
@@ -96,7 +94,7 @@ Plan text note: §2 says the re-check is "that the table is still empty", which 
 3. Account and IP rate limits are DB-backed in `core_login_attempts(key, at)`; over the limit → **429**.
 4. A user with TOTP enrolled completes a second step (TOTP code or backup code), unless a valid trusted-device cookie is present.
 
-Open: the limits (counts and windows) are not stated (lift CakeCRM's). Open: the response when a TOTP step is required, and the TOTP verify route, are not in the API block.
+Open (pinned by the implementing workstream, which updates this doc): the limits (counts and windows) are not stated (lift CakeCRM's). The response when a TOTP step is required, and the TOTP verify route, are not in the API block.
 
 ## 7. Google sign-in (OIDC, `google.py`)
 
@@ -111,7 +109,7 @@ ID token checks, all required:
 5. `nonce` equals the one in the signed state cookie;
 6. `email_verified == true`.
 
-Configuration: client id and secret in encrypted `core_settings`. Redirect URI built from `PUBLIC_URL`, **never the Host header**. Each install needs its own Google Cloud OAuth client (a Guide topic says how).
+Configuration: client id and secret in encrypted `core_settings`. Redirect URI built from the `PUBLIC_URL` environment variable, **never the Host header**. Each install needs its own Google Cloud OAuth client (a Guide topic says how).
 
 ### Linking rule
 
@@ -128,7 +126,7 @@ Configuration: client id and secret in encrypted `core_settings`. Redirect URI b
 
 A Google sign-in **skips local TOTP**. Springform does not verify that the Google account used 2-step verification. The admin setting **`auth.require_totp_for_google`** (default off) adds the local TOTP step for installs that want it.
 
-Open: the Google route paths are not stated. The plan refers to `google/start` (and a callback); `/api/auth/google/start` and `/api/auth/google/callback` are the likely shape. Open: Settings has a "Test sign-in" action (Risks, item 6) with no stated contract.
+Open (pinned by the implementing workstream, which updates this doc): the Google route paths are not stated. The plan refers to `google/start` (and a callback); `/api/auth/google/start` and `/api/auth/google/callback` are the likely shape. Settings has a "Test sign-in" action (Risks, item 6) with no stated contract.
 
 ## 8. Proxy
 
@@ -145,7 +143,7 @@ Open: the Google route paths are not stated. The plan refers to `google/start` (
 4. The same token mechanism serves "forgot password" (purpose `reset`).
 5. Step 1 ships the copyable link only (no mail).
 
-Open: invite, accept, reset and user-admin routes are not stated (shape to be pinned by W1). Open: whether an expired invite can be re-sent or the token is single-use beyond `used_at`.
+Open (pinned by the implementing workstream, which updates this doc): invite, accept, reset and user-admin routes are not stated (shape to be pinned by W1). Whether an expired invite can be re-sent or the token is single-use beyond `used_at`.
 
 ## 10. Deactivation
 
@@ -163,10 +161,8 @@ Revoked and deactivated MCP links return 404 (`mcp.md`).
 1. `PREVIEW_MODE=1` seeds `preview-admin@example.com` and `preview-member@example.com`.
 2. `LoginPage` shows a role picker → `POST /api/auth/preview {role}`.
 3. `google/start` redirects to a local stub, so Playwright covers the Google path.
-4. **Startup refuses preview mode if real secrets are set.**
+4. **Startup refuses preview mode if real secrets are set**: `ENCRYPTION_KEY` in the environment, `RESEND_API_KEY`, or any `core_settings` row with `is_secret=1`.
 5. The factory reset is allowed in preview mode (`database-and-transactions.md` §6).
-
-Open: which settings or env vars count as "real secrets" for the refusal is not stated.
 
 ## 12. Frontend (`frontend/src/core/auth/`)
 

@@ -1,6 +1,6 @@
 # Apps and the app contract
 
-**What this covers:** `app.json` and the `AppManifest` model, every auto-discovered backend module and what it exports, the frontend contract (`contributions.ts`, `index.tsx`), the contract test and its Vitest twin, `apps/example` as the integration fixture, `scripts/new-app.sh`, and hiding apps.
+**What this covers:** `app.json` and the `AppManifest` model, every auto-discovered backend module and what it exports, the frontend contract (`contributions.ts`, `index.tsx`), the contract test and its Vitest twin, `apps/example` as the integration fixture, `scripts/new-app.sh`, hiding apps, and core packages, which contribute the way apps do.
 **Who reads it:** anyone writing or porting an app (CRM, Todos, a client's app), and anyone working on `core/registry.py`, `frontend/src/core/apps/registry.ts` or the contract tests.
 
 The app contract replaces the 25 core edits a previous CakeCRM fork needed. An app touches nothing outside `backend/apps/<slug>/`, `frontend/src/apps/<slug>/` and (in a fork) `docs/apps/`.
@@ -11,20 +11,20 @@ The app contract replaces the 25 core edits a previous CakeCRM fork needed. An a
 
 | Field | Type | Rule |
 |---|---|---|
-| `slug` | string | `^[a-z][a-z0-9_]{1,29}$`. Equals the folder name. **Permanent**: it is baked into table names. Reserved: `core`, `api`, `auth`, `mcp`, `up`, `assets`. |
+| `slug` | string | `^[a-z][a-z0-9_]{1,29}$`. Equals the folder name. **Permanent**: it is baked into table names. Reserved: `core`, `api`, `auth`, `mcp`, `up`, `assets`, `agent`, `me`, `health`, `settings`, `people`, `organizations`, `guide`, `requests`, `login`, `setup`, `invite`, `changelog`, `backups`, `jobs`, `sheets`, `notifications`, `reminders`, `whisk`, `files`, `timeline`, `export`. A slug may not equal another installed slug + `_` + anything (prefix collision: `crm` and `crm_x` cannot both be installed). |
 | `name` | string | Display name (launcher tile, settings section). |
 | `description` | string | Launcher/tile description. |
 | `path` | string | Must equal `/<slug>`. |
 | `icon` | string | Icon name for the tile. |
 | `roles` | list | Subset of `admin`, `member`. Enforced on the router at mount and inherited by the app's entities, reports and tools (`authorization.md`). |
-| `order` | int | Launcher order. |
+| `order` | int | Default launcher order; `core_apps_state.position` overrides it when set. |
 | `badge` | string, optional | A route returning `{count, label?}` (the example uses `"/api/example/badge"`). |
 | `docs` | string | The app's Guide docs (the example uses `"docs/index.md"`). |
 | `version` | string | The app's version; part of `tool_def_sha256` for the app's tools. |
-| `requires_core` | string | Version range over `springform-version`, e.g. `>=0.1,<1`. Checked before any migration runs. |
+| `requires_core` | string | PEP 440 specifier set over `springform-version` (parsed with `packaging`), e.g. `>=0.1,<1`. Checked before any migration runs. |
 | `settings_cards` | list | `[{id, title, admin_only}]`. Each `id` must have a loader in `contributions.ts`. |
 | `sheets` | list | `[{name, mode, description}]`, `mode` is `read` or `write`. Seeds `core_connected_sheets` (`sheets-and-export.md`). |
-| `publishes` | list | Names of the app's published functions (the example lists `["get_widget", "widgets_for_person"]`). |
+| `publishes` | list | Names of the app's published functions (the example lists `["get_widget", "widgets_for_person"]`). Validated against the names `api.py` exports. |
 
 The current fixture manifest (`backend/apps/example/app.json`):
 
@@ -47,7 +47,7 @@ The current fixture manifest (`backend/apps/example/app.json`):
 }
 ```
 
-Open: what `publishes` is validated against (e.g. names exported by `api.py`) is not stated. Open: the reserved list omits names that would collide with core routes or pages: `agent` (`/api/agent/...`), `me` (`/api/me`), `health` (`/api/health`), and core page paths such as `settings`, `people`, `guide`, `login`, `setup`. Open: two installed slugs where one is the other plus `_…` (e.g. `crm` and `crm_x`) make a table like `crm_x_deals` match two prefixes, which the ownership rule ("exactly one slug") then rejects; the plan does not forbid such pairs up front. Open: the `icon` vocabulary is not stated.
+Open (pinned by the implementing workstream, which updates this doc): the `icon` vocabulary is not stated.
 
 ## 2. Backend modules
 
@@ -56,15 +56,15 @@ Open: what `publishes` is validated against (e.g. names exported by `api.py`) is
 | Module | Exports | Contract |
 |---|---|---|
 | `app.json` | manifest | §1 above. |
-| `router.py` | `router` | Mounted at `/api/<slug>`, tagged `<slug>` (stable `operationId`s for type generation). `registry.mount()` adds `Depends(require_roles(manifest.roles))`. Every route carries the auth dependency unless allow-listed. |
+| `router.py` | `router` | Mounted at `/api/<slug>`, tagged `<slug>` (stable `operationId`s for type generation). `registry.mount()` adds `Depends(require_roles(manifest.roles))`. Every route carries the auth dependency unless listed in `ALLOW_UNAUTHENTICATED` in the contract test. |
 | `api.py` | published functions | **The only module another app may import** (`from apps.<x>.api import …`). Every published function has an `_in(conn, …)` form. |
-| `entities.py` | `ENTITIES = [Entity(...)]` | Table, labels, URL and title builders, `can_read` / `can_write` (`authorization.md`). |
-| `hooks.py` | `HOOKS = {"on_record_changed": [...], "on_entity_deleted": [...], "on_entity_merged": [...]}` | The registry subscribes them (`authorization.md`, `database-and-transactions.md`). |
+| `entities.py` | `ENTITIES = [Entity(...)]` | Table, labels, URL and title builders, `can_read(user, conn, id)` / `can_write(user, conn, id)` (`authorization.md`). |
+| `hooks.py` | `HOOKS = {"on_entity_deleted": [...], "on_entity_merged": [...], "on_record_changed": [...], "after_record_changed": [...]}` | The registry subscribes them. The three sync keys run in the caller's transaction; `after_record_changed` takes `fn(conn, payload)` after commit, via the outbox. Signatures are in `authorization.md` §3. |
 | `reports.py` | `REPORTS = [Report(...)]` | `records.md`. |
 | `tools.py` | `get_tools() -> list[ToolSpec]` | Names prefixed `<slug>_`; per-spec `enabled(user)` (`agent.md`). |
 | `jobs.py` | `JOBS = [Job(name="<slug>.<job>", fn, every=…\|at="HH:MM")]` | `scheduler.md`. |
 | `seed.py` | `seed(conn)`, `sample(conn)`, `RESET_TABLES`, `EXPORT` | Below. |
-| `settings.py` | `DEFAULTS = {key: value}` | Defaults for `core_settings`. |
+| `settings.py` | `DEFAULTS = {"<slug>.<key>": value}` | Defaults for `core_settings`. |
 | `migrations/` | `YYYYMMDDHHMMSS_<slug>_<name>.sql` | Below. |
 | `docs/index.md` | Guide topic(s) | Front matter + Markdown; indexed by `core/docs.py` (`frontend-shell.md`). |
 | `service.py`, `models.py` | — | App-internal; not discovered. |
@@ -83,24 +83,22 @@ Published APIs the plan fixes so far:
 | `example` | `get_widget`, `widgets_for_person` (from `publishes`) |
 | core `contacts.api` | `contacts.md` |
 
-Open: signatures for the example's `get_widget` / `widgets_for_person` are not stated.
+Open (pinned by the implementing workstream, which updates this doc): signatures for the example's `get_widget` / `widgets_for_person` are not stated.
 
 ### `seed.py`
 
 | Export | Contract |
 |---|---|
-| `seed(conn)` | The app's seed data. Writes through published APIs (the CRM seed writes through `contacts.api`). |
-| `sample(conn)` | Sample data. |
+| `seed(conn)` | The app's reference data. Runs at **every startup** and must be idempotent. Writes through published APIs (the CRM seed writes through `contacts.api`). |
+| `sample(conn)` | Sample data. Runs at startup only in `PREVIEW_MODE`, and must be idempotent. |
 | `RESET_TABLES` | The app's owned **real tables** (no indexes, views or FTS shadow tables). Must **equal** that set (contract test). Used by `registry.reset_app_in`. |
-| `EXPORT` | Table → column allow-list for the admin export, separate from reset ownership. Each entry names its entity type (`sheets-and-export.md`). |
-
-Open: when `seed(conn)` and `sample(conn)` run (every boot? first boot? only under `PREVIEW_MODE`, which the lifespan calls "preview seed"?) and whether they must be idempotent is not stated. Open: the exact Python shape of `EXPORT` (how the entity type is attached to a table's entry) is not stated.
+| `EXPORT` | `{"<table>": {"entity_type": "<slug>.<name>" \| None, "columns": [...]}}`: the column allow-list for the admin export, separate from reset ownership. Each entry names its entity type, or `None` (`sheets-and-export.md`). |
 
 ### `settings.py`
 
 `DEFAULTS = {key: value}` provides defaults for `core_settings(key PK, value, is_secret, updated_at, updated_by)`.
 
-Open: key namespacing for app settings is not stated (core keys seen in the plan: `timezone`, `auth.require_totp_for_google`, `sheets.service_account_json`).
+App setting keys are `<slug>.<key>`.
 
 ### `migrations/`
 
@@ -116,7 +114,7 @@ Open: key namespacing for app settings is not stated (core keys seen in the plan
 1. `create_app()` discovers apps and mounts routers **at import**, so `app.openapi()` works without a DB (`frontend-shell.md`, type generation).
 2. Each router mounts at `/api/<slug>` with `Depends(require_roles(manifest.roles))`. A member calling an admin-only app's API directly gets **403**.
 3. Badge routes return `{count, label?}`. The launcher polls them every 60 s while visible.
-4. Errors are `{detail}`: 401 not signed in, 403 denied, 404 missing or not readable, 422 invalid.
+4. Errors are `{detail}`: 401 not signed in; 404 missing or not readable, for reads and writes alike, so existence never leaks; 403 when the record is readable but not writable, or a role-guarded route refuses the caller; 422 invalid (`authorization.md` §2).
 
 ```
 GET  /api/core/apps    -> [{slug, name, description, path, icon, roles, order, badge, hidden, settings_cards, version}] for the caller's role; admins also receive hidden apps with hidden:true
@@ -133,15 +131,15 @@ Badge routes return {count, label?}. Errors: `{detail}`; 401 not signed in, 403 
 `core_apps_state(slug PK, hidden, position)` holds the admin's per-install choices from Settings → Apps (order/hide).
 
 1. An installed app is **hidden, not disabled**. `GET /api/core/apps` omits hidden apps for members; admins receive them with `hidden: true`, and the launcher shows them hidden tiles.
-2. Order and hide are the only per-install app switches the plan defines.
-
-Open: whether a hidden app's routes, jobs, tools and record panels stay active for members is not stated. Open: whether `order` in `GET /api/core/apps` reflects `core_apps_state.position` when an admin has reordered.
+2. Hiding removes the tile and nav for members. The app's routes, jobs, tools and record panels stay active, and admins can still open the app.
+3. `order` is the manifest default; `core_apps_state.position` overrides it when an admin has reordered.
+4. Order and hide are the only per-install app switches the plan defines.
 
 ## 5. Frontend contract
 
 | File | Contract |
 |---|---|
-| `frontend/src/apps/<slug>/contributions.ts` | A **light** module (no screen code), loaded eagerly. Exports `{ slug, settingsCards?: Record<id, () => Promise<Component>>, recordPanels?: Record<entityType, () => Promise<Component>>, nav?: NavItem[] }`. |
+| `frontend/src/apps/<slug>/contributions.ts` | A **light** module (no screen code), loaded eagerly. Default-exports `{ slug, settingsCards?: Record<id, () => Promise<Component>>, recordPanels?: Record<entityType, () => Promise<Component>>, nav?: NavItem[] }`. |
 | `frontend/src/apps/<slug>/index.tsx` | Default-exports `{ slug, App }`. Loaded **only** when the app's route is visited. |
 | `frontend/src/apps/<slug>/api.ts`, `pages/`, `components/` | App-internal. API types from `types.gen.ts` (`paths['/api/<slug>/…']`, `components['schemas'][…]`). |
 
@@ -167,7 +165,7 @@ How it is wired:
 5. **Settings cards**: the settings registry renders core cards plus one section per app, built from `contributions.ts` `settingsCards`, keyed by the manifest's `settings_cards[].id`; `admin_only` cards are shown to admins only.
 6. bootSplit rule: every app's `index.tsx` is lazy; `contributions.ts` is eager but tiny (`frontend-shell.md`).
 
-Open: the `NavItem` type, whether `contributions.ts` uses a default or named export, and the props a record panel receives (an entity id at least) are not stated. The snippet above shows shape only.
+Both files use `export default`. `NavItem = {label, to, icon?}`. A record panel receives the props `{entityType, entityId}`.
 
 ## 6. The contract test (`backend/tests/test_app_contract.py`)
 
@@ -178,8 +176,8 @@ Falsifiable against `backend/tests/fixtures/bad_app` (the test must fail it). It
 1. The manifest is valid (`AppManifest` parses).
 2. `slug` equals the folder name.
 3. `path` equals `/<slug>`.
-4. `slug` is not reserved.
-5. `router.py` is present, and every route carries the auth dependency unless allow-listed.
+4. `slug` is not reserved and does not prefix-collide with another installed slug.
+5. `router.py` is present, and every route carries the auth dependency unless listed in the test's `ALLOW_UNAUTHENTICATED`.
 6. The mounted router carries the manifest's role guard.
 
 **Migrations and ownership** (after migrating a temp DB)
@@ -198,15 +196,15 @@ Falsifiable against `backend/tests/fixtures/bad_app` (the test must fail it). It
 **Seed and export**
 
 12. `RESET_TABLES` lists the app's owned **real tables** (no indexes, views or shadow tables) and must **equal** that set.
-13. `EXPORT` names only owned tables, real columns and a registered entity type.
+13. `EXPORT` names only owned tables, real columns and a registered entity type (or `None`).
 
 **Everything else**
 
 14. `docs/index.md` is present.
 15. `JOBS` names are prefixed `<slug>.`.
 16. Cross-app imports happen only via `api` (grep).
-
-Open: the route allow-list (which routes may skip the auth dependency, e.g. a public webhook) has no stated format or location. Open: whether the test also enforces tool-name prefixes (`build_registry()` already fails boot on unprefixed tools; `agent.md`).
+17. Tool names carry the `<slug>_` prefix (`build_registry()` checks it at boot as well).
+18. Entity types are `<slug>.<name>`.
 
 ### Vitest twin
 
@@ -235,7 +233,7 @@ Open: the route allow-list (which routes may skip the auth dependency, e.g. a pu
 
 The contract test and the Playwright smoke both exercise it (Settings cards by role with the example card present; the example record panel on a person). Step 1b's vertical slice runs through it.
 
-Open: the widget entity type name (`example.widget` by analogy with `crm.deal`, `todos.item`) and the exact `can_read` rule for private widgets are not stated.
+Open (pinned by the implementing workstream, which updates this doc): the widget entity type name (`example.widget` by analogy with `crm.deal`, `todos.item`) and the exact `can_read` rule for private widgets are not stated.
 
 ## 8. `scripts/new-app.sh`
 
@@ -245,7 +243,21 @@ scripts/new-app.sh <slug> "<Name>"
 
 Scaffolds an app (backend folder, frontend folder) that **passes** the contract test and the Vitest twin as generated.
 
-Open: the scaffold's file list and whether it copies `apps/example` are not stated.
+Open (pinned by the implementing workstream, which updates this doc): the scaffold's file list and whether it copies `apps/example` are not stated.
+
+## 9. Core packages contribute like apps
+
+A core package is a folder `backend/core/<pkg>/` with an `__init__.py`. `registry.install()` discovers these modules in every core package; each is optional.
+
+| Module | Exports | Contract |
+|---|---|---|
+| `router.py` | `router` | Included as-is. It sets its own `/api/...` prefix, and no manifest role guard is added, so its routes declare their own auth dependencies. |
+| `hooks.py` | `HOOKS` | Same keys and signatures as an app's (`authorization.md` §3). |
+| `jobs.py` | `JOBS` | Names `core.<job>` (`scheduler.md`). |
+| `tools.py` | `get_tools()` | Names prefixed `core_`; the registry sets `app="core"` (`agent.md` §4). |
+| `startup.py` | `on_startup()` | Called from the lifespan after migrations and seeds, inside the process lock, before the scheduler starts. |
+
+A workstream adds a package. Nobody edits `main.py` or `registry.py` to add one.
 
 ## Tests that pin this
 

@@ -32,7 +32,7 @@ core_agent_messages            -- + FTS
 core_agent_tool_runs(
   id, conversation_id, tool_use_id, tool, tool_def_sha256,
   args JSON,
-  status,                      -- see §7
+  status,                      -- CHECK over the eight values in §7
   result, user_id,
   source CHECK (source IN ('chat','mcp','job')),
   requested_at, resolved_at, resolved_by
@@ -47,7 +47,7 @@ core_agent_mcp_links           -- mcp.md
 core_agent_mcp_servers         -- mcp.md
 ```
 
-Open: the `core_agent_memory_*` table set and the facts/observations columns (beyond the provenance fields in §3) are not listed; lift Chatty's shape with the `core_agent_` prefix.
+Open (pinned by the implementing workstream, which updates this doc): the `core_agent_memory_*` table set and the facts/observations columns (beyond the provenance fields in §3) are not listed; lift Chatty's shape with the `core_agent_` prefix.
 
 ## 3. Memory and privacy (decided)
 
@@ -67,14 +67,15 @@ ToolSpec(
     writes,             # bool
     confirm_tier,       # only when writes
     always_confirm,     # forces confirmation, even for reads (remote tools set it)
-    hides_when,
+    hides_when,         # Callable[[User], bool] | None
     handler | handler_in,
     targets,            # targets(args) -> list[(entity_type, id)]
     enabled,            # enabled(user) -> bool
     untrusted_source,   # results fenced as untrusted (remote tools)
-    mcp_exposed=True,
+    external_effect: bool = False,   # acts outside the install (remote MCP, email, HTTP); run per §6 rule 1
+    mcp_exposed: bool = True,
     app,                # owning app slug, or core
-    revision,
+    revision,           # the owning app's version string
 )
 ```
 
@@ -96,13 +97,13 @@ In the CakeCRM donor (`assistant/confirm_tier.py`), `confirm_tier` has one legal
 ### Validation at `build_registry()` (fails boot)
 
 1. Names are unique.
-2. Names carry the `<slug>_` prefix (app tools).
+2. Names carry the `<slug>_` prefix (app tools; the contract test checks it too). Core tools are prefixed `core_`.
 3. `writes` is a `bool`.
 4. `confirm_tier` is allowed only when `writes`.
 5. A write tool has `handler_in` **and** `targets`, or is marked `external_effect`.
 6. `always_confirm` is allowed on any spec.
 
-Open: `external_effect` is used by rule 5 but is not a field in the `ToolSpec` list. Open: `hides_when`, `revision` and `mcp_exposed` are named but not defined (whether `mcp_exposed=False` removes a tool from `for_source("mcp")` is the natural reading). Open: the prefix rule for core tools (context files, memory) is not stated.
+Open (pinned by the implementing workstream, which updates this doc): what `hides_when` hides, beside `enabled`, and whether `mcp_exposed=False` removes a tool from `for_source("mcp")` (the natural reading).
 
 ### Filtering
 
@@ -127,11 +128,11 @@ Hash of:
 
 So a pending approval is bound to exactly what was shown, where it will run, and the implementation revision.
 
-Open: the serialization used before hashing (canonical JSON, key order) is not stated.
+The hash is the sha256 of `json.dumps(fields, sort_keys=True)` over the fields above.
 
 ### Registry sources and refresh
 
-Sources: core tool sources (context files, memory), discovered apps' `get_tools()`, and MCP servers (`mcp.md`). A refresh builds a new registry and **swaps it in atomically**. Old specs stay valid for already-pending approvals only until their `tool_def_sha256` check fails.
+Sources: core packages' `tools.py` (context files, memory; `apps-and-contracts.md` §9), discovered apps' `get_tools()`, and MCP servers (`mcp.md`). A refresh builds a new registry and **swaps it in atomically**. Old specs stay valid for already-pending approvals only until their `tool_def_sha256` check fails.
 
 Deferred tools (`deferred.py`): groups keyed by app slug, deferral threshold 100 tools.
 
@@ -162,7 +163,9 @@ Further rules:
 3. A double approve returns **`already_resolved`**; the tool runs once.
 4. A deny is recorded (`denied`, `resolved_by`, `resolved_at`).
 
-Open: the request body of `POST /api/agent/confirm` (tool run id, approve/deny) and how `already_resolved` and `stale` are returned (status code, body) are not stated (shape to be pinned by W12).
+`POST /api/agent/confirm {tool_run_id, decision: "approve" | "deny"}` returns `{status, result?}`. `already_resolved` is a response status, never a row status.
+
+Open (pinned by the implementing workstream, which updates this doc): the HTTP status code that accompanies `stale` and `already_resolved`.
 
 ## 7. Tool-run status enum
 
@@ -170,7 +173,7 @@ Open: the request body of `POST /api/agent/confirm` (tool run id, approve/deny) 
 pending | executing | done | denied | error | stale | uncertain | interrupted
 ```
 
-Open: the `core_agent_tool_runs` table definition lists `pending|executing|done|denied|error|uncertain|interrupted` (no `stale`), while the confirmation section's enum includes `stale`. This doc uses the longer enum.
+`core_agent_tool_runs.status` takes exactly these eight values; the table's `CHECK` lists all eight, `stale` included. `already_resolved` is only a response status of `POST /api/agent/confirm` (§6).
 
 ## 8. SSE events
 
@@ -180,7 +183,9 @@ The chat stream emits these event types:
 conversation_id, compacted, text, tool_start, tool_args, tool_end, usage, confirm, title_update, done, error
 ```
 
-`confirm` carries `{tool_run_id, tool, args}`. Open: the other events' payload shapes (lifted from CakeCRM) are not restated in the plan.
+`confirm` carries `{tool_run_id, tool, args}`.
+
+Open (pinned by the implementing workstream, which updates this doc): the other events' payload shapes (lifted from CakeCRM) are not restated in the plan.
 
 ## 9. Zero keys
 
@@ -188,7 +193,7 @@ conversation_id, compacted, text, tool_start, tool_args, tool_end, usage, confir
 2. Chat returns **400** "add a key".
 3. The Whisk page shows the card with an admin link to Settings → AI.
 4. The registry and inbound MCP still work.
-5. Nightly jobs (`agent.nightly`, observer, dreaming) exit early. The CRM's `crm.touch_count` LLM work is skipped too.
+5. The nightly job `core.agent_nightly` (observer, dreaming) exits early. The CRM's `crm.touch_count` LLM work is skipped too.
 
 ## 10. Default `soul.md`
 
@@ -204,7 +209,7 @@ Whisk is the business assistant for this install; knows the installed apps, the 
 
 ## 12. Jobs
 
-`agent.nightly` at 02:00, setting-gated, skipped with zero keys (observer + dreaming). See `scheduler.md`.
+`core.agent_nightly` at 02:00, gated by the setting `agent.nightly_enabled`, skipped with zero keys (observer + dreaming). See `scheduler.md`.
 
 ## 13. Step 1 stub
 
@@ -238,4 +243,4 @@ Chatty's inline styles move to Tailwind tokens (`--color-sf-*`), budgeted in W12
 
 ## Source
 
-Build plan: §5 (all), §2 (system principal), §6 (exclusions, remote specs), §11 (`agent.nightly`), Decisions (Agent), Step 1, Step 2 W9, Step 3 W12, Step 4 W14–W16, Risks 5 and 8, Verification.
+Build plan: §5 (all), §2 (system principal), §6 (exclusions, remote specs), §11 (the nightly agent job), Decisions (Agent), Step 1, Step 2 W9, Step 3 W12, Step 4 W14–W16, Risks 5 and 8, Verification.

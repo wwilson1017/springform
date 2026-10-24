@@ -28,7 +28,7 @@ scripts/new-fork.sh <name> --org O [--dry-run]
 8. Branch protection requiring **Backend**, **Frontend**, **Secret scan**, **Fork scope**.
 9. Trigger CI once and **wait for green**: a fresh fork must pass its own checks before it is handed over.
 
-Open: what `--dry-run` prints or skips is not stated.
+Open (pinned by the implementing workstream, which updates this doc): what `--dry-run` prints or skips is not stated.
 
 ## 3. `scripts/update-from-upstream.sh`
 
@@ -65,17 +65,15 @@ An upstream-update PR passes the scope check because it moves the tag in the sam
 | `pyproject.toml`, `uv.lock`, `package.json`, `package-lock.json` | Dependency manifests and lockfiles. |
 | Globs listed in `fork-allow.txt` | Branding, README, and other allow-listed paths, each with a reason. |
 
-Note that `backend/apps/crm`, `backend/apps/todos` and `backend/apps/example` sit under `backend/apps/`, so the rule as written exempts edits to the built-in apps in a fork.
+`backend/apps/**` and `frontend/src/apps/**` are fork-editable in full, built-in apps included. That is intended: a fork may customise CRM or Todos, and upstream updates to them then merge like any other change.
 
-Open: `FORK.md`'s format (how the script reads the tag) and `fork-allow.txt`'s format (one glob per line, reason syntax) are not stated.
+Open (pinned by the implementing workstream, which updates this doc): `FORK.md`'s format (how the script reads the tag) and `fork-allow.txt`'s format (one glob per line, reason syntax) are not stated.
 
 ## 5. One `ci.yml` for upstream and forks
 
 1. `.github/workflows/ci.yml` runs the **Fork scope** job **only when `FORK.md` exists**.
 2. So a fork's `.github/` stays byte-identical to upstream, and there is no fork-specific workflow file.
 3. Other jobs: SHA-pinned actions, ruff, an import check, pytest, frontend build / lint / test + types diff, gitleaks (Secret scan), the image test (`testing.md` §6).
-
-Open: the plan's repo tree lists `.github/workflows/fork-ci.yml.template`, which contradicts "no fork-specific workflow file".
 
 ## 6. Releases and fork images
 

@@ -21,7 +21,7 @@
 1. `vite-plugin-apps.ts` provides `virtual:springform-apps` from `backend/apps/*/app.json`.
 2. `src/core/apps/registry.ts` zips the manifests with `import.meta.glob('../../apps/*/contributions.ts', { eager: true })` and `import.meta.glob('../../apps/*/index.tsx')` (lazy).
 3. `Root.tsx` emits one `<Route path={`${path}/*`}>` per manifest.
-4. Record pages render apps' `recordPanels` for their entity type.
+4. Record pages render apps' `recordPanels` for their entity type, passing `{entityType, entityId}`.
 5. Full contract in `apps-and-contracts.md` §5.
 
 ### bootSplit rule
@@ -36,7 +36,7 @@
 |---|---|
 | Launcher | Tiles by role from `GET /api/core/apps`; hidden tiles shown to admins (`hidden: true`); **badge polling every 60 s while visible**. |
 | Layout / Nav | Core layout; apps' `nav` items from `contributions.ts`. |
-| Settings | Cards: Workspace (incl. timezone), Apps (order/hide), GitHub token, Sheets key, Backups, Export, AI, MCP, Security, Users. Plus one section per app from `contributions.ts` `settingsCards`, keyed by the manifest's `settings_cards[].id`; `admin_only` cards for admins only. |
+| Settings | Cards: Workspace (incl. timezone, and `PUBLIC_URL` shown read-only), Apps (order/hide), GitHub token, Sheets key, Backups, Export, AI, MCP, Security, Users. Plus one section per app from `contributions.ts` `settingsCards`, keyed by the manifest's `settings_cards[].id`; `admin_only` cards for admins only. |
 | Guide | `core/docs.py` ports CakeCRM `help/library.py`: front matter, **8k cap**, lazy warm, **deterministic search** over core docs (`backend/core/docs/`) and every app's `docs/`. |
 | Requests | Form: title, app, description, plus configurable warning text → a GitHub issue labelled `app:<slug>`, created with a fine-grained token stored in settings (`core/github.py`). Board from `core_requests`, refreshed every 15 min (`core.requests_refresh`). |
 | ChangeLog | Filters: app, user, entity. Rows authorized per row (`records.md` §8). |
@@ -46,7 +46,9 @@
 
 W6 owns the settings registry and `settings/`. W1 (Security, Users) and W9 (AI, MCP) contribute cards **through the registry W6 defines in Step 1**; they do not edit `settings/`.
 
-Open: core page paths (`/settings`, `/people`, `/organizations`, `/guide`, `/requests`, `/changelog`, `/backups`, `/jobs`, `/sheets`, `/whisk`, `/login`, `/setup`, `/invite`, `/reminders`) are not stated, and the reserved-slug list does not cover them (`apps-and-contracts.md`). Open: the settings registry's card interface, and where core cards are declared. Open: the `core_requests` columns, the Requests routes, and where the "configurable warning text" is stored. Open: the Guide's routes. (The 8k cap is the donor's `MAX_TOPIC_CHARS = 8000`, characters per topic.)
+Core page paths: `/`, `/login`, `/setup`, `/invite/:token`, `/people`, `/people/:id`, `/organizations`, `/organizations/:id`, `/settings/*`, `/guide`, `/requests`, `/changelog`, `/backups`, `/jobs`, `/whisk`, `/reminders`, `/notifications`. Each first segment is a reserved slug (`apps-and-contracts.md` §1).
+
+Open (pinned by the implementing workstream, which updates this doc): the Sheets admin page's path (it is not in the list above; `sheets` is reserved). The settings registry's card interface, and where core cards are declared. The `core_requests` columns, the Requests routes, and where the "configurable warning text" is stored. The Guide's routes. (The 8k cap is the donor's `MAX_TOPIC_CHARS = 8000`, characters per topic.)
 
 ## 4. Type generation (§12)
 
@@ -97,6 +99,12 @@ DELETE /api/core/files/{id}          -> 204
 Badge routes return {count, label?}. Errors: `{detail}`; 401 not signed in, 403 denied, 404 missing or not readable, 422 invalid.
 ```
 
+Pinned since the block was written (the block stays verbatim; these refine it):
+
+- **Errors:** 404 when a record is missing or not readable, for reads and writes alike; 403 only when the record is readable but not writable, or a role-guarded route refuses the caller (`authorization.md` §2).
+- **Timeline:** `GET` pages with `?before=<id>&limit=50`, newest first. `POST` also accepts `kind` (`note` by default, `comment` allowed). Mentions in `body` are `@[Name](user:ID)` (`records.md` §1).
+- **Files:** `POST` of the same bytes to the same record returns 200 with the existing row. `DELETE` requires write access to the parent record (`records.md` §2).
+
 ### Routes named elsewhere in the plan (shape to be pinned by the implementing workstream)
 
 | Route | Doc | Workstream |
@@ -111,9 +119,9 @@ Badge routes return {count, label?}. Errors: `{detail}`; 401 not signed in, 403 
 | `/api/todos` + `/api/todos/badge` + `/api/todos/for/{entity_type}/{entity_id}` | Todos app | W7 |
 | `/api/crm/...` | CRM app | W10 |
 | Google start/callback, invites, reset, TOTP, users admin | `auth.md` | W1 |
-| `run_now` (admin) | `scheduler.md` | W3 |
+| `POST /api/core/jobs/{name}/run` (admin run now) | `scheduler.md` | W3 |
 
-Open: `/api/todos/badge` and `/api/todos/for/...` are the plan's `/badge` and `/for/...` under the Todos mount; the full paths are inferred from the mount rule.
+Open (pinned by the implementing workstream, which updates this doc): `/api/todos/badge` and `/api/todos/for/...` are the plan's `/badge` and `/for/...` under the Todos mount; the full paths are inferred from the mount rule.
 
 ## Tests that pin this
 

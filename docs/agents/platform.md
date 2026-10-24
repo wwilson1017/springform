@@ -24,7 +24,9 @@ The motivating failure: a previous fork of CakeCRM had to edit 25 CakeCRM files 
 | MCP | Each user can mint an MCP link that is an API key for that user. Admins can connect Whisk outward to other MCP servers. |
 | AI keys | The whole install works with zero AI keys. Only Whisk waits for one. |
 
-`backend/main.py` `create_app()` discovers apps and mounts their routers **at import**. The lifespan runs, in order: **checks → migrate → preview seed → scheduler**. The checks include the `flock`, the SQLite version and FTS5 assertion (`database-and-transactions.md`), the `requires_core` check (run by the migration runner before any migration) and the `PREVIEW_MODE` real-secrets refusal (`auth.md`).
+`backend/main.py` `create_app()` discovers apps and mounts their routers **at import**. The lifespan runs, in order: **checks → migrate → seed → setup token → core startup hooks → scheduler**. Seed runs every app's idempotent `seed(conn)` at every startup; in `PREVIEW_MODE` it also seeds the preview users and runs every app's `sample(conn)`. The checks include the `flock`, the SQLite version and FTS5 assertion (`database-and-transactions.md`), the `requires_core` check (run by the migration runner before any migration) and the `PREVIEW_MODE` real-secrets refusal (`auth.md`).
+
+**Core packages contribute like apps.** A core package `backend/core/<pkg>/` may hold `router.py`, `hooks.py`, `jobs.py`, `tools.py` and `startup.py`, and `registry.install()` discovers them (`apps-and-contracts.md` §9). Nobody edits `main.py` or `registry.py` to add one.
 
 ## Repo tree
 
@@ -33,8 +35,9 @@ springform/
   AGENTS.md  CLAUDE.md(@AGENTS.md)  LICENSE  CHANGELOG.md  springform-version  fork-allow.txt
   pyproject.toml  uv.lock  Dockerfile  entrypoint.sh  railway.json  run.py
   backend/
-    main.py                 create_app(): discover + mount at import; lifespan = checks → migrate → preview seed → scheduler
+    main.py                 create_app(): discover + mount at import; lifespan = checks → migrate → seed → setup token → startup hooks → scheduler
     core/
+      <pkg>/       optional router.py hooks.py jobs.py tools.py startup.py, discovered by registry.install()
       db.py settings.py secrets.py kv.py registry.py entities.py scheduler.py backup.py changelog.py
       clock.py localtime.py errors.py pagination.py ratelimit.py logscrub.py csv_export.py sheets.py github.py docs.py preview.py
       auth/        service.py jwt.py deps.py router.py totp.py google.py invites.py mail.py bootstrap.py users_router.py csrf.py
@@ -57,12 +60,12 @@ springform/
   docs/agents/*.md   docs/AUTO_ISSUES.md   docs/PROVENANCE.md   docs/apps/ (fork-owned)
   deploy/   setup.sh  deploy.sh  compose.yml  Caddyfile  .env.example
   scripts/  new-fork.sh  check-fork-scope.sh  seed-labels.sh  gen-types.sh  new-app.sh  update-from-upstream.sh
-  .github/workflows/  ci.yml  release.yml  fork-ci.yml.template
+  .github/workflows/  ci.yml  release.yml
 ```
 
 `scripts/restore.sh` (§1) is not drawn in the plan's tree but is named in §1 and Step 1; it lives in `scripts/`.
 
-Open: the tree lists `.github/workflows/fork-ci.yml.template`, but §13 says there is one `ci.yml` for upstream and forks and "no fork-specific workflow file". Whether the template file exists at all is unresolved.
+There is no fork workflow template: one `ci.yml` serves upstream and forks, with the conditional Fork scope job (`forks.md` §5).
 
 ## Hosting contract
 
@@ -70,19 +73,17 @@ The image follows ONCE's contract: **one port, `/up`, data in `/data`, configura
 
 | Item | Contract |
 |---|---|
-| Port | One HTTP port. The plan names it only in the Caddy line `reverse_proxy app:8000`. |
+| Port | One HTTP port: `PORT` from the environment, default 8000. Railway sets `PORT`; Caddy proxies to `app:8000`. |
 | `/up` | `SELECT 1`, then `200 "ok"`. No auth. Docker `HEALTHCHECK` and Railway's healthcheck use it. |
 | `/api/health` | `{version, sqlite_version, fts5, preview, apps:[slug], last_backup_at}`. No auth. `version` is read from `springform-version`. |
 | `/data` | The only state. Everything a restore needs is in it (see below). |
 | Env config | No configuration is baked into the image. |
 
-Open: whether a `PORT` environment variable overrides 8000 (Railway injects `PORT`) is not stated.
-
 ### `/data` layout (every path the plan names)
 
 | Path | What |
 |---|---|
-| `/data/<db file>` | The SQLite database. |
+| `/data/springform.sqlite` | The SQLite database. |
 | `/data/.springform.lock` | The single-process `flock`. |
 | `/data/.encryption-key` | Fernet key, generated on first boot when `ENCRYPTION_KEY` is not set. |
 | `/data/setup-token` | One-time first-admin token, mode 0600 (`auth.md`). |
@@ -90,15 +91,20 @@ Open: whether a `PORT` environment variable overrides 8000 (Railway injects `POR
 | `/data/files/tmp/<uuid>` | Upload staging. |
 | `/data/backups/<stamp>.sqlite`, `/data/backups/<stamp>.manifest.json` | Backup recovery sets (`deploy.md`). |
 
-Open: the database file name is not stated (the todo-gtd donor uses `todo.db` under `DATA_DIR`). Open: whether `DATA_DIR` (the donor's env var, used by the write probe the plan lifts) is kept, and its default.
+The data directory is `DATA_DIR` (the donor's env var, kept; default `./data` for development). In the container it is `/data`, so the database is `/data/springform.sqlite`.
 
-### Environment variables named by the plan
+### Environment variables
 
 | Variable | Effect | Doc |
 |---|---|---|
+| `PORT` | The HTTP port, default `8000`. Railway sets it. | `deploy.md` |
+| `DATA_DIR` | The data directory, default `./data`; `/data` in the container. | `database-and-transactions.md` |
+| `PUBLIC_URL` | The install's public URL: Google redirect URI, CSRF origin, scheme warning. Shown read-only in Settings; not a `core_settings` key. | `auth.md` |
+| `SECRET_KEY` | The session JWT signing key. | `auth.md` |
 | `ENCRYPTION_KEY` | Fernet key; when set, no key file is written. | `deploy.md` |
 | `TRUST_PROXY` | `1` → uvicorn `--proxy-headers --forwarded-allow-ips='*'`. | `auth.md`, `deploy.md` |
 | `PREVIEW_MODE` | `1` → seeded preview users, role picker, Google stub. | `auth.md` |
+| `SPRINGFORM_FREEZE_CLOCK` | `<iso>` → the server clock is frozen there, for Playwright. Honoured only in `PREVIEW_MODE`. | `testing.md` |
 | `RESEND_API_KEY`, `MAIL_FROM` | Invite and reset mail via Resend. | `auth.md` |
 | `MCP_ALLOW_PRIVATE` | `1` → outbound MCP may reach private addresses and `http://`. | `mcp.md` |
 | `AGENT_VECTOR` | `1` → optional `core_agent_vectors`. | `agent.md` |
@@ -106,19 +112,19 @@ Open: the database file name is not stated (the todo-gtd donor uses `todo.db` un
 | `IMAGE` | Image `compose.yml` and `railway.json` run. | `deploy.md`, `forks.md` |
 | `RAILWAY_DEPLOYMENT_DRAINING_SECONDS` | `15`, documented for Railway. | `deploy.md` |
 
-Open: `PUBLIC_URL` is called "the `PUBLIC_URL` setting" in §2 (redirect URI, CSRF origin, scheme warning). Whether it is an environment variable, a `core_settings` key, or both is not stated.
-
 ## Roles
 
 | Role | Who | Notes |
 |---|---|---|
 | `admin` | Invited humans. | Settings, users, backups, export, jobs, hidden apps. |
 | `member` | Invited humans. | Default role for business users. |
-| `system` | One seeded row, `core_users.id = 0`. | Not a login role. Records unattended actions. Member-level reads only from jobs. See `authorization.md`. |
+| `system` | One seeded row, `core_users.id = 0`. | Not a login role. Records unattended actions. Reads as a member through `can_read`; `authorize` always refuses it a write. See `authorization.md` §7. |
 
 Login is invite-only. The first admin is created with a one-time setup token, never by "first visitor" (`auth.md`). There is no Cloudflare Access in front of the app.
 
 ## Built-in apps
+
+Springform ships two business apps plus the Example fixture. Example is hidden from clients by default.
 
 | App | Folder | What |
 |---|---|---|
@@ -127,8 +133,6 @@ Login is invite-only. The first admin is created with a one-time setup token, ne
 | Example | `backend/apps/example`, `frontend/src/apps/example` | The integration fixture: contributes every seam from its own folder (`apps-and-contracts.md`). |
 
 Core screens (not apps): launcher, settings, people and organizations, Guide, Requests board, ChangeLog, Backups, Jobs, connected Google Sheets, the Whisk page (`frontend-shell.md`).
-
-Open: the plan's overview says "Four built-in apps ship in the repo: **CRM** … **Todos** … plus the core screens". Which four are meant is not stated.
 
 ## Build order
 
@@ -169,10 +173,10 @@ Landing priority: core and the pieces the first client fork needs, then the CRM 
 | `springform-version` | One line at the repo root (`0.1.0` today). Read by `/api/health` and by the migration runner's `requires_core` check. |
 | Tags and releases | `vX.Y.Z` tags; `release.yml` builds and pushes `ghcr.io/${{ github.repository }}:<tag>,latest` (`forks.md`). |
 | `CHANGELOG.md` | keep-a-changelog. Schema changes and deprecations are recorded under a "Schema" heading. |
-| `requires_core` | Every app manifest declares a version range, e.g. `>=0.1,<1`. **The runner checks every installed app's `requires_core` against `springform-version` before applying any migration** and refuses to start on a mismatch, naming the app. |
+| `requires_core` | Every app manifest declares a PEP 440 specifier set (parsed with `packaging`), e.g. `>=0.1,<1`. **The runner checks every installed app's `requires_core` against `springform-version` before applying any migration** and refuses to start on a mismatch, naming the app. |
 | Core schema compatibility | **Within a major version, core never drops or renames a table or column.** Changes are additive: new tables, new nullable columns, new indexes. A column core stops using is marked deprecated in `CHANGELOG.md` "Schema" and stays in place, nullable and unused, until the next major. |
 | Major release | May drop deprecated columns and ships a **baseline** migration. Apps crossing a major re-baseline (squash their migrations) and raise `requires_core`. |
-| Lint | Any core migration in a minor release containing `DROP COLUMN`, `DROP TABLE` or `RENAME` fails CI. |
+| Lint | Every core migration except files named `*_baseline.sql` fails CI if it contains `DROP COLUMN`, `DROP TABLE` or `RENAME`. |
 | App manifest `version` | The app's own version. It feeds `tool_def_sha256` for the app's tools (`agent.md`). |
 
 Because nothing an app may reference disappears inside a major, a fresh install (all current core migrations, then historical app migrations) and an upgraded install reach the same schema.
@@ -182,7 +186,7 @@ Because nothing an app may reference disappears inside a major, a fresh install 
 | Doc | Covers |
 |---|---|
 | `database-and-transactions.md` | Connection, `transaction()`, `_in` forms, hooks vs outbox, migrations, identifiers, timestamps, money, search, single process, SQLite version. |
-| `apps-and-contracts.md` | `app.json`, discovered modules, frontend contributions, the contract test, `apps/example`, `new-app.sh`, hiding apps. |
+| `apps-and-contracts.md` | `app.json`, discovered modules, frontend contributions, the contract test, `apps/example`, `new-app.sh`, hiding apps, core packages. |
 | `authorization.md` | `Entity`, `authorize`, hooks, roles, stored copies, the system principal, the two-member test. |
 | `auth.md` | Sessions, CSRF, users, setup token, Google, TOTP, invites, deactivation, preview mode. |
 | `contacts.md` | People, organizations, links, channels, merge, `contacts.api`. |
@@ -196,6 +200,10 @@ Because nothing an app may reference disappears inside a major, a fresh install 
 | `deploy.md` | Image, entrypoint, `deploy/`, Railway, backups and restore. |
 | `forks.md` | Fork model, scripts, scope check, CI, images, releases. |
 | `source-map.md` | Springform path → donor path, and the provenance rule. |
+
+## How these docs change
+
+These docs are the contract every workstream codes against, so they change with the code. A line that starts `Open (pinned by the implementing workstream, which updates this doc)` is a detail left to the workstream that builds that piece. That workstream pins it and updates the doc in the same branch as the code. `source-map.md` and `docs/PROVENANCE.md` grow with every lift: the branch that lifts or ports a file adds its rows.
 
 ## Tests that pin this
 
