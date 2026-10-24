@@ -176,7 +176,7 @@ Litestream is deferred ("later").
 
 ## 9. Releases (`release.yml`)
 
-1. **Gate.** A `v*` tag runs `release.yml`, which first calls the whole of `ci.yml` (`on: workflow_call`): Backend, Frontend, Secret scan, Image test and Fork scope must pass on the tagged commit before anything is pushed. There is one definition of the checks; on pull requests and `master` the jobs keep their plain names, so the required checks are unchanged.
+1. **Gate.** A `v*` tag runs `release.yml`, which first calls the whole of `ci.yml` (`on: workflow_call`): every job in it must pass on the tagged commit before anything is pushed. There is one definition of the checks; on pull requests and `master` the jobs keep their plain names, so the required checks are unchanged.
 2. **Tags.** Every tag publishes `ghcr.io/<repository, lowercased>:<tag>`. Only a tag without a hyphen (`v0.1.0`) also moves `:latest`, the image `deploy/compose.yml` runs by default. A pre-release (`v0.2.0-rc1`) publishes only its own tag.
 3. **Platform: `linux/amd64` only.** An arm64 build under QEMU (buildx on a 4-vCPU VM, like a GitHub runner) spent 40 minutes compiling the SQLite amalgamation alone, and its next emulated step was still running an hour later, far past a reasonable release job. Arm servers wait for a native arm64 runner job (`ubuntu-24.04-arm`) or a SQLite stage cross-compiled on the build platform, then a manifest that joins the two.
 4. **Pins.** Every action is pinned to a commit SHA. The build uses the runner's own `docker build`, no build action.
