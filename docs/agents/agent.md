@@ -25,8 +25,9 @@ Base: CakeCRM `backend/assistant/` (Chatty's loop already trimmed, with server-s
 ## 2. Tables
 
 ```sql
-core_agents(slug UNIQUE, name, personality, provider_override, model_override, model_tier, is_default)
-  -- seeded: whisk
+core_agents(slug UNIQUE, name, personality, provider_override, model_override, model_tier, is_default, created_at)
+  -- seeded: whisk. No soul column: personality is the admin's extra instructions ('' = none);
+  -- the soul is the agent's soul.md context file (§10)
 core_agent_conversations(user_id NOT NULL, is_private DEFAULT 0, …)
 core_agent_messages            -- + FTS
 core_agent_tool_runs(
@@ -41,7 +42,8 @@ core_agent_memory_*            -- Chatty memory tables
 core_agent_facts
 core_agent_observations
 core_agent_vectors             -- optional, only with AGENT_VECTOR=1
-core_agent_context_files(agent_id, filename, content, is_protected, …)   -- + FTS
+core_agent_context_files(agent_slug, filename COLLATE NOCASE, content, is_protected, updated_at, updated_by)
+  -- UNIQUE(agent_slug, filename); agent_slug matches core_agents.slug by value; + FTS
 core_agent_providers
 core_agent_mcp_links           -- mcp.md
 core_agent_mcp_servers         -- mcp.md
@@ -55,7 +57,7 @@ Open (pinned by the implementing workstream, which updates this doc): the `core_
 2. Conversations are **private to their user**: a `user_id` filter on every read, including FTS.
 3. `observer.py` extracts business facts only, from conversations **not** marked `is_private`, under a prompt that forbids personal details about members.
 4. Extracted facts carry provenance: `source_conversation_id`, date, author user id.
-5. **An admin sees that provenance metadata and can delete the fact; nobody but its user can read the conversation itself.**
+5. **An admin sees that provenance metadata and can "delete" the fact; nobody but its user can read the conversation itself.** Deleting a fact ends its validity (`invalid_from`, `invalidated_by`); the row and its text stay, and an admin's history search still finds it.
 6. Context files are admin-edited. `is_protected` files (soul, MEMORY) are writable **only through a confirmed chat tool by an admin**, never through MCP or jobs.
 7. Unattended runs (`source='job'`) run as the **system principal** (`core_users.id=0`, role `system`, member-level reads only, no private records, cannot authenticate) and may only call tools that are `writes=False`, not `always_confirm`, not remote, and not `untrusted_source`. **Enforced in `registry.for_source`, not by convention.**
 
@@ -197,15 +199,23 @@ Open (pinned by the implementing workstream, which updates this doc): the other 
 
 ## 10. Default `soul.md`
 
-Whisk is the business assistant for this install; knows the installed apps, the contacts directory and each app's records; answers from them, says what it changed, proposes a write before making it; plain-spoken, brief, careful with anything that leaves the install or hides a record.
+`soul.md` is a protected context file of each agent (`core_agent_context_files`, keyed by `agent_slug`), with its default text in `backend/core/memory/context_files.py`. It is the only soul: the agent row has no soul column. The default says Whisk is the business assistant for this install; knows the installed apps, the contacts directory and each app's records; answers from them, says what it changed, proposes a write before making it; plain-spoken, brief, careful with anything that leaves the install or hides a record.
 
 ## 11. Routes
 
 | Route | Contract |
 |---|---|
-| `GET /api/agent/status` | `{configured: bool, …}`. |
+| `GET /api/agent/status` | `{configured, default_agent, providers, models: {default, light}}`. |
+| `POST /api/agent/chat` | The SSE stream of one turn. Body `{conversation_id?, agent_slug?, message?}`; no message plus a `conversation_id` continues after an approval. 422 when both are missing, 404 `conversation_not_found`, 400 `{detail: "no_provider"}` with zero keys. |
 | `POST /api/agent/confirm` | §6. |
-| Chat (SSE), conversations, context files, providers/keys, MCP links, MCP servers | Under `/api/agent/...`; shape to be pinned by W9/W12/W14/W15. |
+| `GET` / `POST /api/agent/conversations`; `GET` / `PATCH {title, is_private}` / `DELETE /api/agent/conversations/{id}` | The caller's own conversations only. |
+| `GET /api/agent/agents`; `PATCH /api/agent/agents/{slug}` (admin) | The PATCH takes `name`, `personality`, `provider_override` (`anthropic` or `openai`), `model_override` and `model_tier` (`default` or `light`). |
+| `GET /api/agent/providers`, `PUT /api/agent/providers/{provider}`, `POST /api/agent/providers/{provider}/test` (admin) | Provider keys and default and light models, one `core_agent_providers` row per vendor. |
+| `GET /api/core/context-files[?agent=<slug>]`, `GET` / `PUT /api/core/context-files/{filename}[?agent=<slug>]` | Context files per agent (default `whisk`). Members list them and read the unprotected ones; admins read all and write through `PUT`. Protected files (`soul.md`, `MEMORY.md`) refuse the REST editor: they change only through the confirmed chat tool. |
+| `GET /api/core/memory/facts[?q=&limit=&offset=&history=]`, `POST /api/core/memory/facts {text, tags, valid_from?}`, `DELETE /api/core/memory/facts/{id}` (admin) | Install-shared facts, not per agent. Admins see provenance, and `history=true` (admins only) adds ended facts. `DELETE` ends the fact's validity (§3). |
+| MCP links, MCP servers | Not built yet; shape to be pinned by W14/W15 (`mcp.md`). |
+
+The routes under `/api/agent` are in `backend/core/agent/router.py`; the memory routes are in `backend/core/memory/router.py`.
 
 ## 12. Jobs
 
