@@ -21,21 +21,24 @@ The motivating failure: a previous fork of CakeCRM had to edit 25 CakeCRM files 
 | Apps | Folders with an `app.json`. The platform discovers them, mounts their API at `/api/<slug>`, loads their screens lazily, runs their migrations, jobs and seed data, puts a tile on the launcher, and gives every record they own a timeline, attachments, custom fields, saved views, reminders and notifications. |
 | Contacts | Core owns the directory: people and organizations, many-to-many with a role. Every app points at the same people. |
 | Agent | One default agent, **Whisk**, roster-capable. Every app registers tools with Whisk through one hook (`tools.py`). |
-| MCP | Each user can mint an MCP link that is an API key for that user. Admins can connect Whisk outward to other MCP servers. |
+| MCP | Each user can mint an MCP link that is an API key for that user (`backend/core/mcp/`). Admins can connect Whisk outward to other MCP servers (`backend/core/mcp_servers/`). Both are built (`mcp.md`). |
 | AI keys | The whole install works with zero AI keys. Only Whisk waits for one. |
 
 `backend/main.py` `create_app()` discovers apps and mounts their routers **at import**. The lifespan runs, in order: **open the data directory → key files → migrate → preview check → seed → setup token → core startup hooks → scheduler**. Opening the data directory runs the write probe, takes the `flock` and checks the SQLite version and FTS5 (`database-and-transactions.md`). The key files step makes sure the encryption key and the session secret exist, writing them on first boot; a bad one stops startup there. The migration runner checks `requires_core` before any migration. The preview check is the `PREVIEW_MODE` real-secrets refusal; it runs after migrate because it reads `core_settings` (`auth.md` §11). Seed runs every app's idempotent `seed(conn)` at every startup; in `PREVIEW_MODE` it also seeds the preview users and runs every app's idempotent `sample(conn)` on every boot.
 
 **Core packages contribute like apps.** A core package `backend/core/<pkg>/` may hold `router.py`, `hooks.py`, `jobs.py`, `tools.py` and `startup.py`, and `registry.install()` discovers them (`apps-and-contracts.md` §9). Nobody edits `main.py` or `registry.py` to add one.
 
+**Core frontend areas contribute the same way.** A folder `frontend/src/core/<area>/` may default-export three modules, each found by an eager glob: `routes.tsx` (`CoreRoute[]`, `{path, element, public?, admin?}`), `nav.tsx` (`CoreNavItem[]`, `{to, label, icon, placement, adminOnly?, order?}`) and `settingsCards.ts` (`SettingsSection[]`). Nobody edits `Root.tsx`, `Layout.tsx` or `src/core/settings/` to add a page, a link or a Settings section. The pinned core page paths (the Guide is `/guide` and `/guide/:slug`) and the Settings sections with their orders are tabled in `frontend-shell.md` §3.
+
 ## Repo tree
 
 ```
 springform/
-  AGENTS.md  CLAUDE.md(@AGENTS.md)  LICENSE  CHANGELOG.md  springform-version  fork-allow.txt
+  AGENTS.md  CLAUDE.md(@AGENTS.md)  README.md  LICENSE  CHANGELOG.md  springform-version  fork-allow.txt
   pyproject.toml  uv.lock  Dockerfile  entrypoint.sh  railway.json  run.py
   backend/
     main.py                 create_app(): discover + mount at import; lifespan = db + key files → migrate → preview check → seed → setup token → startup hooks → scheduler
+    cli.py                  operator commands: python -m backend.cli create-admin EMAIL [--name NAME]
     core/
       <pkg>/       optional router.py hooks.py jobs.py tools.py startup.py, discovered by registry.install()
       db.py outbox.py settings.py secrets.py registry.py entities.py scheduler.py changelog.py
@@ -43,7 +46,8 @@ springform/
       ratelimit.py                     (in-process rate limits; the inbound MCP endpoint uses them)
       auth/        service.py jwt.py deps.py router.py totp.py trusted.py google.py invites.py mail.py bootstrap.py users_router.py csrf.py
       contacts/    service.py api.py router.py seed.py startup.py
-      timeline/ files/ fields/ views/ notifications/ reminders/     (each: service.py api.py router.py, plus hooks.py / jobs.py where they contribute)
+      timeline/ files/ fields/ views/ notifications/ reminders/     (each: service.py api.py router.py, plus hooks.py / jobs.py where they contribute;
+                   files/ adds storage.py thumbnails.py, notifications/ push.py, reminders/ recurrence.py)
       reports/     registry.py service.py router.py
       platform/    keys.py service.py router.py      (settings, workspace, apps, jobs and changelog routes)
       backup/      service.py restore.py jobs.py router.py
@@ -62,10 +66,11 @@ springform/
       app.json  router.py  api.py  service.py  models.py  entities.py  hooks.py  reports.py  tools.py  jobs.py  seed.py  settings.py
       migrations/YYYYMMDDHHMMSS_<slug>_<name>.sql   docs/index.md
     apps/crm/   apps/todos/   apps/example/   (example is the integration fixture: it contributes every seam)
-    tests/      conftest.py  test_app_contract.py  fixtures/{bad_app,apps_admin}/  test_<area>.py
+    tests/      conftest.py  test_app_contract.py  fixtures/{bad_app,apps_admin}/ fixtures/mcp_stub.py  test_<area>.py
   frontend/
     vite.config.ts  vitest.config.ts  vite-plugin-apps.ts (virtual:springform-apps from backend/apps/*/app.json)
-    src/core/   api/{client.ts,types.gen.ts}  apps/registry.ts  shell/  auth/  contacts/  records/  agent/  pages/  settings/  theme/
+    src/core/   Root.tsx  api/{client.ts,types.gen.ts}  apps/registry.ts  shell/  components/  theme/  settings/
+                auth/  contacts/  records/  agent/  pages/  backups/  integrations/  mcp/  mcp_servers/   (an area may hold routes.tsx nav.tsx settingsCards.ts)
     src/shared/ (lifted CakeCRM: toast, confirm, icons, styles, MobileMenuDrawer, …)
     src/apps/<slug>/contributions.ts (light: lazy loaders)  index.tsx (heavy: the app)  api.ts  pages/  components/
   docs/agents/*.md   docs/AUTO_ISSUES.md   docs/PROVENANCE.md   docs/apps/ (fork-owned)
@@ -114,10 +119,12 @@ The data directory is `DATA_DIR` (the donor's env var, kept; default `./data` fo
 | `TRUST_PROXY` | `1` → uvicorn `--proxy-headers --forwarded-allow-ips='*'`. | `auth.md`, `deploy.md` |
 | `PREVIEW_MODE` | `1` → seeded preview users, role picker, Google stub. | `auth.md` |
 | `SPRINGFORM_FREEZE_CLOCK` | `<iso>` → the server clock is frozen there, for Playwright. Honoured only in `PREVIEW_MODE`. | `testing.md` |
+| `AGENT_FAKE_PROVIDER` | `1` → Whisk uses the scripted FakeProvider and reports itself configured, with no AI key. For tests and keyless local demos. | `agent.md` |
 | `RESEND_API_KEY`, `MAIL_FROM` | Invite and reset mail via Resend. | `auth.md` |
 | `MCP_ALLOW_PRIVATE` | `1` → outbound MCP may reach private addresses and `http://`. | `mcp.md` |
 | `SPRINGFORM_REQUIRE_SQLITE` | `1` → refuse to start on SQLite older than 3.51.3 (else a warning). The image sets it. | `database-and-transactions.md` |
 | `SHEETS_FAKE` | `1` → a fake Google Sheets client, for local runs and tests. | `sheets-and-export.md` |
+| `SPRINGFORM_BACKEND` | Development only: the backend the Vite dev server proxies `/api` and `/up` to, default `http://127.0.0.1:8000`. | `frontend/vite.config.ts` |
 | `DOMAIN` | Caddy site address in `deploy/`. | `deploy.md` |
 | `IMAGE` | The image `compose.yml` runs, default the upstream image; written by `setup.sh`. Railway builds from the `Dockerfile` instead. | `deploy.md`, `forks.md` |
 | `RAILWAY_DEPLOYMENT_DRAINING_SECONDS` | `15`, documented for Railway. | `deploy.md` |
@@ -167,7 +174,7 @@ Springform ships two business apps plus the Example fixture. Example is hidden f
 | Todos | `backend/apps/todos`, `frontend/src/apps/todos` | todo-gtd ported from "one list is the account" to per-user todos with team todos. Private by default; team todos editable by any member; admins see team todos and their own only. API `/api/todos`. |
 | Example | `backend/apps/example`, `frontend/src/apps/example` | The integration fixture: contributes every seam from its own folder (`apps-and-contracts.md`). |
 
-Core screens (not apps): launcher, settings, people and organizations, Guide, Requests board, ChangeLog, Backups, Jobs, connected Google Sheets, the Whisk page (`frontend-shell.md`).
+Core screens (not apps): launcher, settings, people and organizations, Guide, Requests board, ChangeLog, Backups, Jobs, Reports, Reminders, Notifications and the Whisk page (`frontend-shell.md` §3). Connected Google Sheets have no page; they are a card in Settings → Integrations.
 
 ## Build order
 
