@@ -44,7 +44,7 @@ Entity type strings are `<slug>.<name>`; core's use `core.`. The format is enfor
 | `core.organization` | core | Any active member. |
 | `crm.deal` | `crm` | Any member. |
 | `todos.item` | `todos` | The Todos permission model (§6 below). |
-| example's widget | `example` | A restrictive `can_read` (private widgets). Rule and type name: Open (`apps-and-contracts.md`). |
+| example's widget | `example` | A restrictive `can_read` (private widgets). Rule and type name: Open (pinned by the implementing workstream, which updates this doc; `apps-and-contracts.md` §7). |
 
 ## 2. Functions
 
@@ -59,7 +59,7 @@ Entity type strings are `<slug>.<name>`; core's use `core.`. The format is enfor
 
 `entities.delete_record_in` is the only delete function; there is no form without `_in`, and it always runs on the caller's `conn`.
 
-Open: `url_for`'s exact signature is not stated.
+Open (pinned by the implementing workstream, which updates this doc): `url_for`'s exact signature is not stated.
 
 Role-guarded routes refuse with **403**: a member calling an admin-only app's API (§4).
 
@@ -100,7 +100,7 @@ Rules:
 2. Sync subscribers do cheap bookkeeping only: set a flag, write a row. No network, no `transaction()`.
 3. After-commit work is durable: a `core_outbox` row written in the same transaction as the change.
 
-Open: which keywords `on_entity_deleted` and `on_entity_merged` pass (for a merge, which id arrives as `entity_id` and how the other id and the actor arrive; `merge_people_in(conn, target_id, source_id, actor)` is the merge itself).
+Open (pinned by the implementing workstream, which updates this doc): which keywords `on_entity_deleted` and `on_entity_merged` pass (for a merge, which id arrives as `entity_id` and how the other id and the actor arrive; `merge_people_in(conn, target_id, source_id, actor)` is the merge itself).
 
 ## 4. Manifest roles reach the API
 
@@ -172,7 +172,7 @@ Two members, one private todo. Every core surface refuses the other member:
 
 Plus: a member calling an admin-only app's API directly gets 403. Step 1b runs the same check on an `example` record across every surface built in Step 1.
 
-Open: which search endpoint the "search" surface means (contacts FTS, timeline FTS, a global search) is not stated.
+Open (pinned by the implementing workstream, which updates this doc): which search endpoint the "search" surface means (contacts FTS, timeline FTS, a global search) is not stated.
 
 ## Tests that pin this
 

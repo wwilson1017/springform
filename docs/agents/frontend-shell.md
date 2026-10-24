@@ -48,7 +48,7 @@ W6 owns the settings registry and `settings/`. W1 (Security, Users) and W9 (AI, 
 
 Core page paths: `/`, `/login`, `/setup`, `/invite/:token`, `/people`, `/people/:id`, `/organizations`, `/organizations/:id`, `/settings/*`, `/guide`, `/requests`, `/changelog`, `/backups`, `/jobs`, `/whisk`, `/reminders`, `/notifications`. Each first segment is a reserved slug (`apps-and-contracts.md` §1).
 
-Open: the Sheets admin page's path (it is not in the list above; `sheets` is reserved). Open: the settings registry's card interface, and where core cards are declared. Open: the `core_requests` columns, the Requests routes, and where the "configurable warning text" is stored. Open: the Guide's routes. (The 8k cap is the donor's `MAX_TOPIC_CHARS = 8000`, characters per topic.)
+Open (pinned by the implementing workstream, which updates this doc): the Sheets admin page's path (it is not in the list above; `sheets` is reserved). The settings registry's card interface, and where core cards are declared. The `core_requests` columns, the Requests routes, and where the "configurable warning text" is stored. The Guide's routes. (The 8k cap is the donor's `MAX_TOPIC_CHARS = 8000`, characters per topic.)
 
 ## 4. Type generation (§12)
 
@@ -121,7 +121,7 @@ Pinned since the block was written (the block stays verbatim; these refine it):
 | Google start/callback, invites, reset, TOTP, users admin | `auth.md` | W1 |
 | `POST /api/core/jobs/{name}/run` (admin run now) | `scheduler.md` | W3 |
 
-Open: `/api/todos/badge` and `/api/todos/for/...` are the plan's `/badge` and `/for/...` under the Todos mount; the full paths are inferred from the mount rule.
+Open (pinned by the implementing workstream, which updates this doc): `/api/todos/badge` and `/api/todos/for/...` are the plan's `/badge` and `/for/...` under the Todos mount; the full paths are inferred from the mount rule.
 
 ## Tests that pin this
 

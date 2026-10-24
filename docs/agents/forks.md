@@ -28,7 +28,7 @@ scripts/new-fork.sh <name> --org O [--dry-run]
 8. Branch protection requiring **Backend**, **Frontend**, **Secret scan**, **Fork scope**.
 9. Trigger CI once and **wait for green**: a fresh fork must pass its own checks before it is handed over.
 
-Open: what `--dry-run` prints or skips is not stated.
+Open (pinned by the implementing workstream, which updates this doc): what `--dry-run` prints or skips is not stated.
 
 ## 3. `scripts/update-from-upstream.sh`
 
@@ -67,7 +67,7 @@ An upstream-update PR passes the scope check because it moves the tag in the sam
 
 `backend/apps/**` and `frontend/src/apps/**` are fork-editable in full, built-in apps included. That is intended: a fork may customise CRM or Todos, and upstream updates to them then merge like any other change.
 
-Open: `FORK.md`'s format (how the script reads the tag) and `fork-allow.txt`'s format (one glob per line, reason syntax) are not stated.
+Open (pinned by the implementing workstream, which updates this doc): `FORK.md`'s format (how the script reads the tag) and `fork-allow.txt`'s format (one glob per line, reason syntax) are not stated.
 
 ## 5. One `ci.yml` for upstream and forks
 

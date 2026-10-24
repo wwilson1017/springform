@@ -47,7 +47,7 @@ core_agent_mcp_links           -- mcp.md
 core_agent_mcp_servers         -- mcp.md
 ```
 
-Open: the `core_agent_memory_*` table set and the facts/observations columns (beyond the provenance fields in §3) are not listed; lift Chatty's shape with the `core_agent_` prefix.
+Open (pinned by the implementing workstream, which updates this doc): the `core_agent_memory_*` table set and the facts/observations columns (beyond the provenance fields in §3) are not listed; lift Chatty's shape with the `core_agent_` prefix.
 
 ## 3. Memory and privacy (decided)
 
@@ -103,7 +103,7 @@ In the CakeCRM donor (`assistant/confirm_tier.py`), `confirm_tier` has one legal
 5. A write tool has `handler_in` **and** `targets`, or is marked `external_effect`.
 6. `always_confirm` is allowed on any spec.
 
-Open: what `hides_when` hides, beside `enabled`, and whether `mcp_exposed=False` removes a tool from `for_source("mcp")` (the natural reading).
+Open (pinned by the implementing workstream, which updates this doc): what `hides_when` hides, beside `enabled`, and whether `mcp_exposed=False` removes a tool from `for_source("mcp")` (the natural reading).
 
 ### Filtering
 
@@ -165,7 +165,7 @@ Further rules:
 
 `POST /api/agent/confirm {tool_run_id, decision: "approve" | "deny"}` returns `{status, result?}`. `already_resolved` is a response status, never a row status.
 
-Open: the HTTP status code that accompanies `stale` and `already_resolved`.
+Open (pinned by the implementing workstream, which updates this doc): the HTTP status code that accompanies `stale` and `already_resolved`.
 
 ## 7. Tool-run status enum
 
@@ -183,7 +183,9 @@ The chat stream emits these event types:
 conversation_id, compacted, text, tool_start, tool_args, tool_end, usage, confirm, title_update, done, error
 ```
 
-`confirm` carries `{tool_run_id, tool, args}`. Open: the other events' payload shapes (lifted from CakeCRM) are not restated in the plan.
+`confirm` carries `{tool_run_id, tool, args}`.
+
+Open (pinned by the implementing workstream, which updates this doc): the other events' payload shapes (lifted from CakeCRM) are not restated in the plan.
 
 ## 9. Zero keys
 

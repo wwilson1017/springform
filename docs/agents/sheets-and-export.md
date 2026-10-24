@@ -31,7 +31,7 @@ core_connected_sheets(
 core_sheet_cache(sheet_id, fetched_at, header, rows)
 ```
 
-Open: `id` is implied by `POST /api/core/sheets/{id}/refresh` and `core_sheet_cache.sheet_id` but not listed. Open: `schedule`'s format and how it relates to the hourly job. Open: where the manifest's `description` is stored. Open: the encoding of `header` and `rows` (JSON TEXT is the platform default).
+Open (pinned by the implementing workstream, which updates this doc): `id` is implied by `POST /api/core/sheets/{id}/refresh` and `core_sheet_cache.sheet_id` but not listed. `schedule`'s format and how it relates to the hourly job. Where the manifest's `description` is stored. The encoding of `header` and `rows` (JSON TEXT is the platform default).
 
 ## 3. The published client
 
@@ -46,7 +46,7 @@ sheets.client(slug).status(name)
 3. `forbidden_formula` / `check_values` guard written values.
 4. `core.sheets.client` is a frozen Step 1 stub signature that W4 fills.
 
-Open: the `SheetData` shape, what `status` returns, whether `write` is synchronous on the request path and whether it refreshes the cache, and whether `write` on a `mode='read'` sheet is refused.
+Open (pinned by the implementing workstream, which updates this doc): the `SheetData` shape, what `status` returns, whether `write` is synchronous on the request path and whether it refreshes the cache, and whether `write` on a `mode='read'` sheet is refused.
 
 ## 4. Refresh
 
@@ -57,7 +57,7 @@ Open: the `SheetData` shape, what `status` returns, whether `write` is synchrono
 
 Each refresh fetches from Google outside `transaction()`, then writes `core_sheet_cache` and updates `last_synced_at` / `last_error` / `row_count` inside one.
 
-Open: the throttle's response when it trips (status code, retry hint).
+Open (pinned by the implementing workstream, which updates this doc): the throttle's response when it trips (status code, retry hint).
 
 ## 5. CSV streaming (`csv_export.py`)
 
@@ -95,7 +95,7 @@ An admin downloads a ZIP of CSVs.
 2. Rows the exporting admin cannot `can_read` are left out (other members' private todos, private timeline rows on them).
 3. The export is a business-data export. The full `/data` backup remains the privileged recovery path (`deploy.md`).
 
-Open: the ZIP's file naming (one CSV per table?) and how tables without an entity type (core tables, and app entries with `"entity_type": None`) are row-filtered.
+Open (pinned by the implementing workstream, which updates this doc): the ZIP's file naming (one CSV per table?) and how tables without an entity type (core tables, and app entries with `"entity_type": None`) are row-filtered.
 
 ## Tests that pin this
 

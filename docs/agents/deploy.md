@@ -106,7 +106,7 @@ Lifted from CakeCRM `core/secret_store.py` (minus keychain) and `core/encryption
 
 `deploy/setup.sh` offers an rclone cron on the host. It reads the sets from `/srv/springform/data/backups` and copies, **in order**: blobs → snapshot → manifest (so a remote set is complete when its manifest is present), and the volume's `.encryption-key` if it exists.
 
-Open: the `core_backups` columns, and the Backups page's download route.
+Open (pinned by the implementing workstream, which updates this doc): the `core_backups` columns, and the Backups page's download route.
 
 ## 8. `scripts/restore.sh`
 

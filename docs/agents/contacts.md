@@ -45,7 +45,7 @@ core_contact_channels(owner_type, owner_id,
 core_contacts_fts   -- FTS5, tokenize = unicode61, over both people and organizations, maintained by triggers
 ```
 
-Open: the `…` columns of `core_people` (timestamps), the enum values of `source` and `status`, and the FTS column list are not stated. Open: whether `core_addresses` and `core_contact_channels` have their own primary-uniqueness index per owner (the plan states one only for links).
+Open (pinned by the implementing workstream, which updates this doc): the `…` columns of `core_people` (timestamps), the enum values of `source` and `status`, and the FTS column list are not stated. Whether `core_addresses` and `core_contact_channels` have their own primary-uniqueness index per owner (the plan states one only for links).
 
 ## 2. Primary-channel sync
 
@@ -53,7 +53,7 @@ Open: the `…` columns of `core_people` (timestamps), the enum values of `sourc
 2. They are rewritten by the service **in the same transaction** whenever channels change.
 3. There is **one writer path**: `contacts.service._sync_primary(conn, owner)`. Nothing else writes those columns.
 
-Open: whether `core_organizations.email` / `phone` are mirrored the same way (`_sync_primary` takes an `owner`, and channels have `owner_type`, but the plan states the mirror only for people).
+Open (pinned by the implementing workstream, which updates this doc): whether `core_organizations.email` / `phone` are mirrored the same way (`_sync_primary` takes an `owner`, and channels have `owner_type`, but the plan states the mirror only for people).
 
 ## 3. Merge
 
@@ -106,7 +106,7 @@ Each function has an `_in(conn, …)` form.
 
 `resolve(id)` (follows `merged_into_id` to the chain head) is a service function the merge uses; the plan does not list it among the published functions.
 
-Open: full signatures (person vs organization variants, argument names) are not stated (to be pinned by W2).
+Open (pinned by the implementing workstream, which updates this doc): full signatures (person vs organization variants, argument names) are not stated (to be pinned by W2).
 
 ## 5. Routes
 

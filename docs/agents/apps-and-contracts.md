@@ -47,7 +47,7 @@ The current fixture manifest (`backend/apps/example/app.json`):
 }
 ```
 
-Open: the `icon` vocabulary is not stated.
+Open (pinned by the implementing workstream, which updates this doc): the `icon` vocabulary is not stated.
 
 ## 2. Backend modules
 
@@ -83,7 +83,7 @@ Published APIs the plan fixes so far:
 | `example` | `get_widget`, `widgets_for_person` (from `publishes`) |
 | core `contacts.api` | `contacts.md` |
 
-Open: signatures for the example's `get_widget` / `widgets_for_person` are not stated.
+Open (pinned by the implementing workstream, which updates this doc): signatures for the example's `get_widget` / `widgets_for_person` are not stated.
 
 ### `seed.py`
 
@@ -233,7 +233,7 @@ Falsifiable against `backend/tests/fixtures/bad_app` (the test must fail it). It
 
 The contract test and the Playwright smoke both exercise it (Settings cards by role with the example card present; the example record panel on a person). Step 1b's vertical slice runs through it.
 
-Open: the widget entity type name (`example.widget` by analogy with `crm.deal`, `todos.item`) and the exact `can_read` rule for private widgets are not stated.
+Open (pinned by the implementing workstream, which updates this doc): the widget entity type name (`example.widget` by analogy with `crm.deal`, `todos.item`) and the exact `can_read` rule for private widgets are not stated.
 
 ## 8. `scripts/new-app.sh`
 
@@ -243,7 +243,7 @@ scripts/new-app.sh <slug> "<Name>"
 
 Scaffolds an app (backend folder, frontend folder) that **passes** the contract test and the Vitest twin as generated.
 
-Open: the scaffold's file list and whether it copies `apps/example` are not stated.
+Open (pinned by the implementing workstream, which updates this doc): the scaffold's file list and whether it copies `apps/example` are not stated.
 
 ## Tests that pin this
 

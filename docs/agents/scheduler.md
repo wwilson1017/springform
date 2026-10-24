@@ -88,7 +88,7 @@ App jobs named in the plan: `crm.touch_count` every 2 min (drains ≤20 deals, L
 
 All `at` times are install-local.
 
-Open: the hourly outbound-MCP discovery (`mcp.md`) has no job in this list.
+Open (pinned by the implementing workstream, which updates this doc): the hourly outbound-MCP discovery (`mcp.md`) has no job in this list.
 
 ## 9. Step 1
 

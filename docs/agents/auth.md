@@ -68,7 +68,7 @@ core_login_tokens(token_hash PK, user_id, purpose CHECK (purpose IN ('invite','r
 core_login_attempts(key, at)   -- DB-backed rate limits; pruned hourly by core.login_attempts_prune
 ```
 
-Open: `core_totp` and `core_trusted_devices` columns are not listed in the plan (lift CakeCRM's shape). Open: the "…" columns of `core_users` (e.g. `created_at`, `updated_at`).
+Open (pinned by the implementing workstream, which updates this doc): `core_totp` and `core_trusted_devices` columns are not listed in the plan (lift CakeCRM's shape). The "…" columns of `core_users` (e.g. `created_at`, `updated_at`).
 
 ### The system principal
 
@@ -94,7 +94,7 @@ One seeded row: `id=0`, `role='system'`, email `system@springform.local`, `passw
 3. Account and IP rate limits are DB-backed in `core_login_attempts(key, at)`; over the limit → **429**.
 4. A user with TOTP enrolled completes a second step (TOTP code or backup code), unless a valid trusted-device cookie is present.
 
-Open: the limits (counts and windows) are not stated (lift CakeCRM's). Open: the response when a TOTP step is required, and the TOTP verify route, are not in the API block.
+Open (pinned by the implementing workstream, which updates this doc): the limits (counts and windows) are not stated (lift CakeCRM's). The response when a TOTP step is required, and the TOTP verify route, are not in the API block.
 
 ## 7. Google sign-in (OIDC, `google.py`)
 
@@ -126,7 +126,7 @@ Configuration: client id and secret in encrypted `core_settings`. Redirect URI b
 
 A Google sign-in **skips local TOTP**. Springform does not verify that the Google account used 2-step verification. The admin setting **`auth.require_totp_for_google`** (default off) adds the local TOTP step for installs that want it.
 
-Open: the Google route paths are not stated. The plan refers to `google/start` (and a callback); `/api/auth/google/start` and `/api/auth/google/callback` are the likely shape. Open: Settings has a "Test sign-in" action (Risks, item 6) with no stated contract.
+Open (pinned by the implementing workstream, which updates this doc): the Google route paths are not stated. The plan refers to `google/start` (and a callback); `/api/auth/google/start` and `/api/auth/google/callback` are the likely shape. Settings has a "Test sign-in" action (Risks, item 6) with no stated contract.
 
 ## 8. Proxy
 
@@ -143,7 +143,7 @@ Open: the Google route paths are not stated. The plan refers to `google/start` (
 4. The same token mechanism serves "forgot password" (purpose `reset`).
 5. Step 1 ships the copyable link only (no mail).
 
-Open: invite, accept, reset and user-admin routes are not stated (shape to be pinned by W1). Open: whether an expired invite can be re-sent or the token is single-use beyond `used_at`.
+Open (pinned by the implementing workstream, which updates this doc): invite, accept, reset and user-admin routes are not stated (shape to be pinned by W1). Whether an expired invite can be re-sent or the token is single-use beyond `used_at`.
 
 ## 10. Deactivation
 

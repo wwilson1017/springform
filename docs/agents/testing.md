@@ -17,7 +17,7 @@
 8. HTTP to external services is mocked (Google token endpoint) or served locally (a FastMCP stub, `httpx.ASGITransport`).
 9. The contract test runs against every app in `backend/apps/` and against `backend/tests/fixtures/bad_app`, which it must fail.
 
-Open: the user-creation helper for two-member tests. Both members have the role `member`, so `login_as(client, role)` alone cannot tell them apart.
+Open (pinned by the implementing workstream, which updates this doc): the user-creation helper for two-member tests. Both members have the role `member`, so `login_as(client, role)` alone cannot tell them apart.
 
 ### Vitest (`frontend/vitest.config.ts`)
 

@@ -95,7 +95,7 @@ Drainer and consumer rules:
 7. A consumer registers with `outbox.consumer(hook, external=False)`; `external=True` declares the external-effect, at-least-once kind (rule 4).
 8. Worked example: the CRM sets `crm_deals.touch_dirty` in the sync hook (durable with the write) and does its LLM work from the outbox or its own job, never inside a write lock.
 
-Open: how an app's `after_record_changed` subscriber (`fn(payload)`, which may open its own transaction) maps onto `outbox.consumer(hook, external=…)`. Such a subscriber cannot commit its effect together with `processed_at`, so rule 3's exactly-once does not hold for it; until this is pinned, write it to be idempotent.
+Open (pinned by the implementing workstream, which updates this doc): how an app's `after_record_changed` subscriber (`fn(payload)`, which may open its own transaction) maps onto `outbox.consumer(hook, external=…)`. Such a subscriber cannot commit its effect together with `processed_at`, so rule 3's exactly-once does not hold for it; until this is pinned, write it to be idempotent.
 
 ## 5. Migration runner
 

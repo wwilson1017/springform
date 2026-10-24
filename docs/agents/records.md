@@ -51,7 +51,7 @@ GET  /api/core/timeline?entity_type=&entity_id=&before=<id>&limit=50  -> [{id, k
 POST /api/core/timeline {entity_type, entity_id, body, kind?: "note"|"comment"} -> the new entry; kind defaults to "note"
 ```
 
-Open: how a comment differs from a note, and the `core_timeline_mentions` columns.
+Open (pinned by the implementing workstream, which updates this doc): how a comment differs from a note, and the `core_timeline_mentions` columns.
 
 ## 2. Files
 
@@ -122,7 +122,7 @@ GET  /api/core/files/{id}/download   -> bytes, Content-Disposition: attachment
 DELETE /api/core/files/{id}          -> 204
 ```
 
-Open: how a missing blob is reported beyond `missing_at`, the mime allow-list's contents, and how the sweep enumerates "a file without a row" (a directory walk under `/data/files`).
+Open (pinned by the implementing workstream, which updates this doc): how a missing blob is reported beyond `missing_at`, the mime allow-list's contents, and how the sweep enumerates "a file without a row" (a directory walk under `/data/files`).
 
 ## 3. Custom fields
 
@@ -137,7 +137,7 @@ Source: CakeCRM `backend/crm/field_service.py` (427 → ~400).
 | Authorization | Values are read and written only after `authorize`. |
 | Merge | Target's non-empty value wins, else the source's. |
 
-Open: table columns and routes are not stated (shape to be pinned by W2).
+Open (pinned by the implementing workstream, which updates this doc): table columns and routes are not stated (shape to be pinned by W2).
 
 ## 4. Saved views
 
@@ -150,7 +150,7 @@ core_saved_views(surface, entity_type, name, version, payload JSON, owner_user_i
 1. Views store filters, not rows, so there is no record authorization beyond ownership / `is_shared`.
 2. `version` lets the client refuse a stale view (`SavedViewBar` stale-version refusal, Vitest).
 
-Open: routes and what `surface` names are not stated.
+Open (pinned by the implementing workstream, which updates this doc): routes and what `surface` names are not stated.
 
 ## 5. Reports registry
 
@@ -166,7 +166,7 @@ Report(key, label, app, params, run(params, user) -> (columns, rows), admin_only
 4. `GET /api/core/reports/{key}?format=csv` streams CSV via `core.csv_export.stream_csv` (shape to be pinned by W2).
 5. CakeCRM's `report_service.py` stays CRM-owned in `apps/crm/reports.py`.
 
-Open: the `params` schema format, the JSON (non-CSV) response shape, and a report-listing route are not stated.
+Open (pinned by the implementing workstream, which updates this doc): the `params` schema format, the JSON (non-CSV) response shape, and a report-listing route are not stated.
 
 ## 6. Notifications
 
@@ -207,7 +207,7 @@ deliver_in(conn, title, message, user_id=None, entity=None, link=None)
 3. Failures bump `attempts` and record `last_error`.
 4. CakeCRM's Telegram branch becomes a `register_channel` extension point.
 
-Open: `entity` is passed as one argument while the table has two columns; its type (a `(type, id)` tuple is implied) is not stated. Open: the `status` values of `core_notification_deliveries`, the retry limit, the `register_channel` signature, and the notification routes (list, mark read) are not stated. Open: what happens when both `user_id` and `entity` are given and the user cannot read the entity.
+Open (pinned by the implementing workstream, which updates this doc): `entity` is passed as one argument while the table has two columns; its type (a `(type, id)` tuple is implied) is not stated. The `status` values of `core_notification_deliveries`, the retry limit, the `register_channel` signature, and the notification routes (list, mark read) are not stated. What happens when both `user_id` and `entity` are given and the user cannot read the entity.
 
 ## 7. Reminders
 
@@ -222,7 +222,7 @@ core_reminders(owner_user_id, entity_type, entity_id, due_at, repeat, series_id,
 3. At fire time the reminder re-checks `authorize(read)` for its owner and **voids itself** otherwise.
 4. Merges repoint reminders (`contacts.md`).
 
-Open: `status` values (including the "void" state's name) and the series/repeat columns' format (lifted from CakeCRM) are not stated here. Open: reminder routes.
+Open (pinned by the implementing workstream, which updates this doc): `status` values (including the "void" state's name) and the series/repeat columns' format (lifted from CakeCRM) are not stated here. Reminder routes.
 
 ## 8. Change log
 
@@ -237,7 +237,7 @@ core_change_log(id, at, user_id, app, entity, entity_id, field, old, new, reason
 4. The ChangeLog viewer and `/api/core/changelog` apply `authorize(read)` per row and hide the rest. Filters: app, user, entity (`frontend-shell.md`).
 5. `user_id` may be the system principal (`id=0`) for unattended actions.
 
-Open: `record_in`'s signature, whether `field` holds one field per row or a set, and `/api/core/changelog`'s query and response shape (shape to be pinned by W3).
+Open (pinned by the implementing workstream, which updates this doc): `record_in`'s signature, whether `field` holds one field per row or a set, and `/api/core/changelog`'s query and response shape (shape to be pinned by W3).
 
 ## 9. Frontend (`frontend/src/core/records/`)
 
@@ -257,7 +257,7 @@ Open: `record_in`'s signature, whether `field` holds one field per row or a set,
 | `ReminderPicker` | `components/ReminderForm.tsx` (205) | Set a reminder on a record. |
 | `RemindersPage` | `RemindersPage.tsx` (206) | The user's reminders. |
 
-Open: every prop other than `entityType` (the record id prop's name and type, callbacks) is not stated. The donor files listed are the likely sources by name; the plan gives only the totals and the `NotesThread` + `ActivityTimeline` merge.
+Open (pinned by the implementing workstream, which updates this doc): every prop other than `entityType` (the record id prop's name and type, callbacks) is not stated. The donor files listed are the likely sources by name; the plan gives only the totals and the `NotesThread` + `ActivityTimeline` merge.
 
 ## Tests that pin this
 

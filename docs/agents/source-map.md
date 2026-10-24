@@ -33,12 +33,12 @@ All lifted code is the author's sole authorship (Decisions, License); the proven
 | `backend/core/localtime.py` | CakeCRM | `backend/core/localtime.py` | 67 (head) | lift | |
 | `backend/core/clock.py` | — | — | — | new | `now_iso()`, `normalize`. |
 | `backend/core/secrets.py` | CakeCRM | `backend/core/secret_store.py` | 309 (head) | lift | Minus keychain. Key: env → `/data/.encryption-key` → generated. |
-| `backend/core/secrets.py` (encryption) | CakeCRM | `backend/core/encryption.py` | 151 (head) | lift | `enc:v1:` format. Open: whether it lands as its own module. |
+| `backend/core/secrets.py` (encryption) | CakeCRM | `backend/core/encryption.py` | 151 (head) | lift | `enc:v1:` format. Open (pinned by the implementing workstream, which updates this doc): whether it lands as its own module. |
 | `backend/core/backup.py` | todo-gtd | `backend/backup.py` | 103 (head) | port | Adapted: recovery sets, manifests written last, blob pinning, key fingerprint. |
 | `scripts/restore.sh` | — | — | — | new | |
 | `backend/core/scheduler.py` | todo-gtd | `backend/main.py` `_tick` (line 75) | ~300 target (plan) | port | Loop shape only; jobs, guard, semaphore, statuses are new. |
 | `backend/core/ratelimit.py` | todo-gtd | `backend/ratelimit.py` | 119 (head) | lift | §6. |
-| `backend/core/logscrub.py` | — | — | — | — | Open: source not stated (todo-gtd has `backend/logscrub.py`, 88 at head). |
+| `backend/core/logscrub.py` | — | — | — | — | Open (pinned by the implementing workstream, which updates this doc): source not stated (todo-gtd has `backend/logscrub.py`, 88 at head). |
 | `backend/core/registry.py`, `entities.py`, `kv.py`, `settings.py`, `errors.py`, `pagination.py`, `changelog.py`, `preview.py` | — | — | `entities.py` ~260 (plan) | new | |
 | `backend/main.py` | — | — | — | new | |
 
@@ -127,7 +127,7 @@ All lifted code is the author's sole authorship (Decisions, License); the proven
 | `backend/apps/crm/tools.py` | CakeCRM | `backend/crm/tools.py` | 2,471 (head) | port | Todo/reminder/GTD tools dropped. |
 | `backend/apps/crm/router.py` | CakeCRM | `backend/crm/router.py` | 1,887 (head); 72 → ~42 routes | port | |
 | `backend/apps/crm/reports.py` | CakeCRM | `backend/crm/report_service.py` | 477 (head) | port | |
-| `backend/apps/crm/activity.py` | CakeCRM | `activity_log` code | — | port | Open: donor range not stated. |
+| `backend/apps/crm/activity.py` | CakeCRM | `activity_log` code | — | port | Open (pinned by the implementing workstream, which updates this doc): donor range not stated. |
 | `backend/apps/crm/entities.py`, `hooks.py`, `api.py`, `migrations/20261101000000_crm_init.sql` | — | — | — | new | |
 | `backend/apps/crm/docs/` | CakeCRM | `backend/help/content/` | 12 topics (of 44 files at head) | port | |
 | Dropped | CakeCRM | GTD cluster (`gtd_*`, `todo_*`; 2,912 backend + 6,195 frontend), `alerts`, gmail/gmail_scan/telegram, the built-in assistant (Baker), `MemoryPage`, `AssistantLauncher`, `setup_status_service.py` | — | — | |
@@ -190,7 +190,7 @@ All lifted code is the author's sole authorship (Decisions, License); the proven
 4. **Anything not the author's is rewritten or dropped.** (All checked so far is the author's.)
 5. Record the sha you actually copied from; for a private donor the row names the repo and sha only.
 
-Open: the `docs/PROVENANCE.md` row format (columns, one row per file vs per range) is not stated.
+Open (pinned by the implementing workstream, which updates this doc): the `docs/PROVENANCE.md` row format (columns, one row per file vs per range) is not stated.
 
 ## Tests that pin this
 
