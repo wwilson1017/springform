@@ -40,6 +40,7 @@ if ! docker compose version >/dev/null 2>&1; then
   apt-get update -qq
   apt-get install -y -qq docker-ce docker-ce-cli containerd.io docker-buildx-plugin \
     docker-compose-plugin >/dev/null
+  systemctl enable --now docker >/dev/null 2>&1
 fi
 
 echo "== Firewall and automatic security updates"
@@ -91,7 +92,7 @@ if [ -z "$remote" ] && [ ! -f /etc/cron.d/springform-offsite ]; then
 fi
 if [ -n "$remote" ]; then
   command -v rclone >/dev/null || apt-get install -y -qq rclone >/dev/null
-  if rclone listremotes | grep -qxF "${remote%%:*}:"; then
+  if rclone listremotes 2>/dev/null | grep -qxF "${remote%%:*}:"; then
     echo "0 4 * * * root $DIR/offsite.sh '$remote' >>/var/log/springform-offsite.log 2>&1" \
       >/etc/cron.d/springform-offsite
     echo "Off-site copy scheduled nightly at 04:00 server time to $remote"
