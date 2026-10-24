@@ -141,7 +141,7 @@ jobs:
           set -euo pipefail
           data=$(mktemp -d)
           docker run -d --name springform -p 8000:8000 -v "$data:/data" springform:ci
-          for _ in $(seq 60); do curl -fsS http://localhost:8000/up && break; sleep 1; done
+          for _ in $(seq 60); do curl -fsS -o /dev/null http://localhost:8000/up && break; sleep 1; done
           curl -fsS http://localhost:8000/up
           curl -fsS http://localhost:8000/api/health | python3 -c '
           import json, sys

@@ -24,7 +24,7 @@ ask() {
 
 echo "== Packages"
 apt-get update -qq
-apt-get install -y -qq ca-certificates curl gnupg ufw unattended-upgrades >/dev/null
+apt-get install -y -qq ca-certificates curl gnupg openssl cron ufw unattended-upgrades >/dev/null
 if ! docker compose version >/dev/null 2>&1; then
   install -m 0755 -d /etc/apt/keyrings
   curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc

@@ -104,5 +104,5 @@ else
   done
   [ -n "$run_id" ] || { echo "No CI run started on $repo for $sha" >&2; exit 1; }
   gh run watch "$run_id" --repo "$repo" --exit-status
+  echo "Fork ready: https://github.com/$repo (local clone: $dir)"
 fi
-echo "Fork ready: https://github.com/$repo (local clone: $dir)"
