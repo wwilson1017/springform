@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { putJson } from '../../core/api/client';
 import { useJson } from '../../core/api/useJson';
 import { useAuth } from '../../core/auth/AuthContext';
 import { LoadError } from '../../shared/LoadError';
@@ -7,17 +8,6 @@ import { API } from './api';
 import type { TodoFilters, Visibility } from './types';
 
 const KEY = 'todos.default_visibility';
-
-// simplification: a one-off PUT until the core client gains putJson (on its way with the Settings
-// cards); switch to it then. Admin-only, so no 401 redirect is needed here.
-async function putSetting(key: string, value: unknown): Promise<void> {
-  const res = await fetch('/api/core/settings', {
-    method: 'PUT', credentials: 'same-origin',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ values: { [key]: value } }),
-  });
-  if (!res.ok) throw new Error(`settings: ${res.status}`);
-}
 
 const LABEL: Record<Visibility, string> = {
   private: 'Only the person who adds it',
@@ -39,7 +29,7 @@ export default function TodosSettingsCard() {
     if (value === current || !data) return;
     setBusy(true);
     try {
-      await putSetting(KEY, value);
+      await putJson('/api/core/settings', { values: { [KEY]: value } });
       setData({ ...data, default_visibility: value });
       toast.success('Saved.');
     } catch {
