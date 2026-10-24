@@ -122,7 +122,7 @@ function Entry({ entry, fields, userName }: { entry: TimelineEntry; fields: Fiel
         </ul>
       ) : (
         <p className={`m-0 whitespace-pre-wrap text-sm ${entry.kind === 'system' ? 'text-sf-ink-soft' : 'text-sf-ink'}`}>
-          {bodySegments(entry.body ?? '').map((seg, i) => typeof seg === 'string' ? seg : (
+          {bodySegments(entry.body).map((seg, i) => typeof seg === 'string' ? seg : (
             <span key={i} title={`Mentioned ${seg.name}`} className="rounded bg-sf-accent-soft px-1 font-medium text-sf-accent-text">@{seg.name}</span>
           ))}
         </p>

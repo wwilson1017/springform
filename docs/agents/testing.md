@@ -135,6 +135,7 @@ Runs against a seeded `PREVIEW_MODE=1` build with the FakeProvider and the Googl
 - `CustomFields` by type.
 - `SavedViewBar` stale-version refusal.
 - A grep guard that `apps/crm` contains no `contact_id|company_id`.
+- Type twins (`src/core/typeTwins.test.ts`): no `src/core/**/types.ts` declares an interface or object type under a generated schema name; it aliases `components['schemas'][…]` instead.
 - `gen-types` diff clean (a CI step in the Frontend job, not a vitest).
 
 ## 4. Playwright smoke

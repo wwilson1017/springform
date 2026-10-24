@@ -35,7 +35,7 @@ export function confirmReducer(state: ConfirmState, event: ConfirmEvent): Confir
       const { status, result, error, current } = event.body;
       // An answer this client does not know is shown as an error, never as success.
       const outcome = OUTCOMES.includes(status) ? status : 'error';
-      return { phase: 'resolved', decision: state.decision, outcome, result, error, current };
+      return { phase: 'resolved', decision: state.decision, outcome, result, error: error ?? undefined, current: current ?? undefined };
     }
   }
 }

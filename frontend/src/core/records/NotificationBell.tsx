@@ -11,7 +11,7 @@ import { fetchJson } from '../api/client';
 import { IconBell } from '../../shared/icons';
 import { toast } from '../../shared/toast';
 import { NOTIFICATIONS, NOTIFICATIONS_CHANGED, inAppLink, markAllRead, markRead, relTime } from './notifications';
-import type { AppNotification } from './types';
+import type { AppNotification, UnreadCount } from './types';
 import { BTN_LINK } from './ui';
 
 const POLL_MS = 60_000;
@@ -28,7 +28,7 @@ export function NotificationBell() {
     let live = true;
     const poll = () => {
       if (document.visibilityState !== 'visible') return;
-      fetchJson<{ count: number }>(`${NOTIFICATIONS}/unread-count`).then(r => { if (live) setCount(r.count); }, () => {});
+      fetchJson<UnreadCount>(`${NOTIFICATIONS}/unread-count`).then(r => { if (live) setCount(r.count); }, () => {});
     };
     poll();
     const timer = setInterval(poll, POLL_MS);

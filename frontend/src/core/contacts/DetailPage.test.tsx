@@ -13,7 +13,8 @@ const ada: PersonDetail = {
   title: 'Owner', source: null, status: null, tags: ['supplier'], notes: null, owner_user_id: null,
   archived_at: null, merged_into_id: null, created_at: '2026-10-20T15:00:00Z', updated_at: '2026-10-20T15:00:00Z',
   organizations: [{ organization_id: 4, name: 'Example Bakery Supply', archived_at: null, role: 'Owner', is_primary: true, started_on: null, ended_on: null }],
-  channels: [{ id: 1, owner_type: 'person', owner_id: 1, kind: 'email', value: 'ada@example.com', label: 'work', is_primary: true }],
+  channels: [{ id: 1, owner_type: 'person', owner_id: 1, kind: 'email', value: 'ada@example.com', label: 'work', is_primary: true,
+    created_at: '2026-10-20T15:00:00Z', updated_at: '2026-10-20T15:00:00Z' }],
   addresses: [],
 };
 

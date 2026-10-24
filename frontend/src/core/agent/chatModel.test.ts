@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { applyEvent, fromServer, type ChatMessage } from './chatModel';
 import type { ChatEvent, ServerMessage } from './types';
 
-const row = (id: number, role: string, text: string, tool_calls: ServerMessage['tool_calls'] = []): ServerMessage =>
+const row = (id: number, role: ServerMessage['role'], text: string, tool_calls: ServerMessage['tool_calls'] = []): ServerMessage =>
   ({ id, role, text, tool_calls, model: role === 'assistant' ? 'm' : null, created_at: '2026-10-24T10:00:00Z' });
 
 describe('fromServer', () => {
@@ -13,7 +13,7 @@ describe('fromServer', () => {
         { tool: 'example_create_widget', tool_use_id: 't1', args: { name: 'A' }, tool_run_id: 9, status: 'pending', result: null, error: null },
       ]),
       row(3, 'assistant', 'Waiting for you.'),
-      row(4, 'system', 'ignored'),
+      row(4, 'tool', 'ignored'),
     ]);
     expect(msgs.map(m => m.role)).toEqual(['user', 'assistant']);
     expect(msgs[1].parts).toEqual([

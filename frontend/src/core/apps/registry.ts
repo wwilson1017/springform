@@ -5,7 +5,7 @@
  */
 import { lazy, type ComponentType, type LazyExoticComponent } from 'react';
 import manifests from 'virtual:springform-apps';
-import type { SettingsCardManifest } from '../api/types';
+import type { SettingsCard } from '../api/types';
 import type { AppContributions, AppManifest, AppModule, NavItem, RecordPanelProps } from './types';
 
 const contributions = import.meta.glob<AppContributions>('../../apps/*/contributions.ts', { eager: true, import: 'default' });
@@ -19,7 +19,7 @@ export interface RegisteredApp {
   Screen: LazyExoticComponent<ComponentType>;
 }
 
-export interface RegisteredSettingsCard extends SettingsCardManifest {
+export interface RegisteredSettingsCard extends SettingsCard {
   slug: string;
   Card: LazyExoticComponent<ComponentType>;
 }

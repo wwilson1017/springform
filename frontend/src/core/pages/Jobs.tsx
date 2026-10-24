@@ -13,8 +13,8 @@ const TONE: Record<RunStatus, 'green' | 'red' | 'amber' | 'plain'> = {
 };
 const StatusChip = ({ status }: { status: RunStatus }) => <Chip tone={TONE[status] ?? 'plain'}>{status.replace('_', ' ')}</Chip>;
 
-function took(run: { started_at: string | null; finished_at: string | null }): string {
-  if (!run.started_at || !run.finished_at) return '';
+function took(run: { started_at: string; finished_at: string | null }): string {
+  if (!run.finished_at) return '';
   return formatSeconds((Date.parse(run.finished_at) - Date.parse(run.started_at)) / 1000);
 }
 
@@ -89,7 +89,7 @@ export function JobsPage() {
                     {j.last_run ? (
                       <>
                         <StatusChip status={j.last_run.status} />{' '}
-                        <span className="text-xs">{j.last_run.started_at ? formatDate(j.last_run.started_at) : ''}</span>
+                        <span className="text-xs">{formatDate(j.last_run.started_at)}</span>
                         {j.last_run.error && <div className="mt-1 text-xs break-words text-sf-red-text">{j.last_run.error}</div>}
                       </>
                     ) : <span className="text-xs text-sf-ink-dim">Never run</span>}
@@ -129,7 +129,7 @@ export function JobsPage() {
             <Table head={['Started', 'Job', 'Trigger', 'Status', 'Took', 'Error']}>
               {runs.map(r => (
                 <tr key={r.id}>
-                  <Td>{r.started_at ? formatDate(r.started_at) : '—'}</Td>
+                  <Td>{formatDate(r.started_at)}</Td>
                   <Td>{r.job}{r.scheduled_for && <span className="block text-xs text-sf-ink-dim">for {r.scheduled_for}</span>}</Td>
                   <Td>{r.trigger}</Td>
                   <Td><StatusChip status={r.status} /></Td>

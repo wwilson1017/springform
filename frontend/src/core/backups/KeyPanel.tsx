@@ -23,7 +23,7 @@ export function KeyPanel({ keySource, keyShown }: { keySource: KeySource; keySho
     setError(null);
     try {
       const r = await postJson<KeyReveal>('/api/core/backups/key');
-      setView(r.key_source === 'file' ? { kind: 'revealed', key: r.key, fingerprint: r.fingerprint } : { kind: 'shown' });
+      setView(r.key ? { kind: 'revealed', key: r.key, fingerprint: r.fingerprint } : { kind: 'shown' });
     } catch (e) {
       if (e instanceof ApiError && e.status === 410) setView({ kind: 'shown' });
       else setError(errorText(e, "Couldn't fetch the key. Try again."));

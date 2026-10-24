@@ -118,6 +118,7 @@ Responses are fine as generated: a defaulted field is always present in what the
 | Contrast | Guards on shipped CSS. |
 | Components | `Timeline`, `CustomFields` by type, `SavedViewBar` stale-version refusal. |
 | CRM grep | `apps/crm` contains no `contact_id\|company_id`. |
+| Type twins | No core `types.ts` hand-writes a shape `types.gen.ts` has; it aliases the schema. |
 | TZ pin | Vitest runs with a non-UTC `TZ`. |
 | Types | `gen-types` diff clean. |
 

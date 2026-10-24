@@ -3,7 +3,7 @@ import { MemoryRouter, Route, Routes, useLocation } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { callsTo, mockFetch } from '../../testing';
 import ListPage from './ListPage';
-import type { ContactPage, PersonRow } from './types';
+import type { PersonPage, PersonRow } from './types';
 
 const PEOPLE = '/api/core/contacts/people';
 const person = (id: number, name: string, extra: Partial<PersonRow> = {}): PersonRow => ({
@@ -12,7 +12,7 @@ const person = (id: number, name: string, extra: Partial<PersonRow> = {}): Perso
   created_at: '2026-10-20T15:00:00Z', updated_at: '2026-10-20T15:00:00Z',
   primary_organization_id: null, primary_organization_name: null, ...extra,
 });
-const page = (items: PersonRow[]): ContactPage<PersonRow> => ({ items, total: items.length, page: 1, page_size: 50 });
+const page = (items: PersonRow[]): PersonPage => ({ items, total: items.length, page: 1, page_size: 50 });
 
 /** The current query string, on the page where a test can read it. */
 function Where() {

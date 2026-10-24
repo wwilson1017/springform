@@ -82,7 +82,7 @@ function AppTile({ app, badge }: { app: CoreApp; badge?: Badge }) {
           <span className="mt-1 line-clamp-2 block text-sm text-sf-ink-soft">{app.description}</span>
         </span>
         {badge && badge.count > 0 && (
-          <span title={badge.label} aria-label={badge.label ?? `${badge.count} new`}
+          <span title={badge.label ?? undefined} aria-label={badge.label ?? `${badge.count} new`}
             className="h-fit min-w-6 rounded-full bg-sf-accent px-2 py-0.5 text-center text-xs font-medium text-sf-accent-ink">
             {badge.count}
           </span>

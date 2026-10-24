@@ -9,13 +9,13 @@ import { useJson } from '../api/useJson';
 import { confirmDialog } from '../../shared/confirm';
 import { toast } from '../../shared/toast';
 import { duplicatesUrl, errorText, KINDS, mergeRecords, pageOf } from './api';
-import type { ContactKind, DuplicateGroup } from './types';
+import type { ContactKind, ContactDuplicates } from './types';
 import * as ui from './ui';
 
-const MATCH_LABEL: Record<DuplicateGroup['match_on'], string> = { email: 'Same email', phone: 'Same phone', name: 'Same name', domain: 'Same domain' };
+const MATCH_LABEL: Record<ContactDuplicates['match_on'], string> = { email: 'Same email', phone: 'Same phone', name: 'Same name', domain: 'Same domain' };
 
 export function DuplicatesPanel({ kind }: { kind: ContactKind }) {
-  const { data: groups } = useJson<DuplicateGroup[]>(duplicatesUrl(kind));
+  const { data: groups } = useJson<ContactDuplicates[]>(duplicatesUrl(kind));
   // A failed load hides the panel: it is a convenience beside the list, not the page's data.
   if (!groups?.length) return null;
   return (
@@ -30,7 +30,7 @@ export function DuplicatesPanel({ kind }: { kind: ContactKind }) {
   );
 }
 
-function Group({ kind, group }: { kind: ContactKind; group: DuplicateGroup }) {
+function Group({ kind, group }: { kind: ContactKind; group: ContactDuplicates }) {
   const navigate = useNavigate();
   const [keep, setKeep] = useState(group.records[0].id);
   const [busy, setBusy] = useState(false);

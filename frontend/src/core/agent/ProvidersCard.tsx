@@ -4,7 +4,7 @@ import { useJson } from '../api/useJson';
 import BootFallback from '../components/BootFallback';
 import { LoadError } from '../../shared/LoadError';
 import { toast } from '../../shared/toast';
-import type { ProviderInfo } from './types';
+import type { ProviderInfo, ProviderTest } from './types';
 import { BUTTON, HINT, INPUT, LABEL, PRIMARY } from './ui';
 
 const NAMES: Record<string, string> = { anthropic: 'Anthropic (Claude)', openai: 'OpenAI (GPT)' };
@@ -38,7 +38,7 @@ function ProviderRow({ p, onSaved }: { p: ProviderInfo; onSaved: (p: ProviderInf
     setBusy(true);
     setTest(null);
     try {
-      const r = await postJson<{ ok: boolean; model: string; reply: string }>(`/api/agent/providers/${p.provider}/test`);
+      const r = await postJson<ProviderTest>(`/api/agent/providers/${p.provider}/test`);
       setTest({ ok: true, text: `${r.model} answered: ${r.reply || '(empty reply)'}` });
     } catch (e) {
       const detail = e instanceof ApiError ? e.detail : 'Could not reach the server.';

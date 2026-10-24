@@ -1,5 +1,5 @@
 import type { ComponentType } from 'react';
-import type { Role, SettingsCardManifest } from '../api/types';
+import type { Role, SettingsCard } from '../api/types';
 
 /** `backend/apps/<slug>/app.json`, as `virtual:springform-apps` serves it (see vite-plugin-apps.ts). */
 export interface AppManifest {
@@ -14,7 +14,7 @@ export interface AppManifest {
   docs?: string;
   version: string;
   requires_core?: string;
-  settings_cards?: SettingsCardManifest[];
+  settings_cards?: SettingsCard[];
   sheets?: Array<{ name: string; mode: string; description: string }>;
   publishes?: string[];
 }
