@@ -24,7 +24,9 @@ The motivating failure: a previous fork of CakeCRM had to edit 25 CakeCRM files 
 | MCP | Each user can mint an MCP link that is an API key for that user. Admins can connect Whisk outward to other MCP servers. |
 | AI keys | The whole install works with zero AI keys. Only Whisk waits for one. |
 
-`backend/main.py` `create_app()` discovers apps and mounts their routers **at import**. The lifespan runs, in order: **checks → migrate → seed → scheduler**. Seed runs every app's idempotent `seed(conn)` at every startup; in `PREVIEW_MODE` it also seeds the preview users and runs every app's `sample(conn)`. The checks include the `flock`, the SQLite version and FTS5 assertion (`database-and-transactions.md`), the `requires_core` check (run by the migration runner before any migration) and the `PREVIEW_MODE` real-secrets refusal (`auth.md`).
+`backend/main.py` `create_app()` discovers apps and mounts their routers **at import**. The lifespan runs, in order: **checks → migrate → seed → setup token → core startup hooks → scheduler**. Seed runs every app's idempotent `seed(conn)` at every startup; in `PREVIEW_MODE` it also seeds the preview users and runs every app's `sample(conn)`. The checks include the `flock`, the SQLite version and FTS5 assertion (`database-and-transactions.md`), the `requires_core` check (run by the migration runner before any migration) and the `PREVIEW_MODE` real-secrets refusal (`auth.md`).
+
+**Core packages contribute like apps.** A core package `backend/core/<pkg>/` may hold `router.py`, `hooks.py`, `jobs.py`, `tools.py` and `startup.py`, and `registry.install()` discovers them (`apps-and-contracts.md` §9). Nobody edits `main.py` or `registry.py` to add one.
 
 ## Repo tree
 
@@ -33,8 +35,9 @@ springform/
   AGENTS.md  CLAUDE.md(@AGENTS.md)  LICENSE  CHANGELOG.md  springform-version  fork-allow.txt
   pyproject.toml  uv.lock  Dockerfile  entrypoint.sh  railway.json  run.py
   backend/
-    main.py                 create_app(): discover + mount at import; lifespan = checks → migrate → seed → scheduler
+    main.py                 create_app(): discover + mount at import; lifespan = checks → migrate → seed → setup token → startup hooks → scheduler
     core/
+      <pkg>/       optional router.py hooks.py jobs.py tools.py startup.py, discovered by registry.install()
       db.py settings.py secrets.py kv.py registry.py entities.py scheduler.py backup.py changelog.py
       clock.py localtime.py errors.py pagination.py ratelimit.py logscrub.py csv_export.py sheets.py github.py docs.py preview.py
       auth/        service.py jwt.py deps.py router.py totp.py google.py invites.py mail.py bootstrap.py users_router.py csrf.py
@@ -183,7 +186,7 @@ Because nothing an app may reference disappears inside a major, a fresh install 
 | Doc | Covers |
 |---|---|
 | `database-and-transactions.md` | Connection, `transaction()`, `_in` forms, hooks vs outbox, migrations, identifiers, timestamps, money, search, single process, SQLite version. |
-| `apps-and-contracts.md` | `app.json`, discovered modules, frontend contributions, the contract test, `apps/example`, `new-app.sh`, hiding apps. |
+| `apps-and-contracts.md` | `app.json`, discovered modules, frontend contributions, the contract test, `apps/example`, `new-app.sh`, hiding apps, core packages. |
 | `authorization.md` | `Entity`, `authorize`, hooks, roles, stored copies, the system principal, the two-member test. |
 | `auth.md` | Sessions, CSRF, users, setup token, Google, TOTP, invites, deactivation, preview mode. |
 | `contacts.md` | People, organizations, links, channels, merge, `contacts.api`. |

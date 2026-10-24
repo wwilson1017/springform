@@ -13,7 +13,7 @@ Job(name, fn, every | at, app, timeout=300)
 
 | Field | Contract |
 |---|---|
-| `name` | `<slug>.<job>` for apps (contract test); `core.<job>` for core. |
+| `name` | `<slug>.<job>` for apps (contract test); `core.<job>` for core, including a core package's `jobs.py`. |
 | `fn` | The job function, `fn(cancel_event: threading.Event)`; the event is its only argument. Runs in `asyncio.to_thread`. Checks `cancel_event` between steps. |
 | `every` | An interval in seconds (`int`). Not caught up when missed. |
 | `at` | `"HH:MM"` install-local. Runs once per install-local day. |

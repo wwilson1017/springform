@@ -132,7 +132,7 @@ The hash is the sha256 of `json.dumps(fields, sort_keys=True)` over the fields a
 
 ### Registry sources and refresh
 
-Sources: core tool sources (context files, memory), discovered apps' `get_tools()`, and MCP servers (`mcp.md`). A refresh builds a new registry and **swaps it in atomically**. Old specs stay valid for already-pending approvals only until their `tool_def_sha256` check fails.
+Sources: core packages' `tools.py` (context files, memory; `apps-and-contracts.md` §9), discovered apps' `get_tools()`, and MCP servers (`mcp.md`). A refresh builds a new registry and **swaps it in atomically**. Old specs stay valid for already-pending approvals only until their `tool_def_sha256` check fails.
 
 Deferred tools (`deferred.py`): groups keyed by app slug, deferral threshold 100 tools.
 

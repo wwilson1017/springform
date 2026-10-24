@@ -1,6 +1,6 @@
 # Apps and the app contract
 
-**What this covers:** `app.json` and the `AppManifest` model, every auto-discovered backend module and what it exports, the frontend contract (`contributions.ts`, `index.tsx`), the contract test and its Vitest twin, `apps/example` as the integration fixture, `scripts/new-app.sh`, and hiding apps.
+**What this covers:** `app.json` and the `AppManifest` model, every auto-discovered backend module and what it exports, the frontend contract (`contributions.ts`, `index.tsx`), the contract test and its Vitest twin, `apps/example` as the integration fixture, `scripts/new-app.sh`, hiding apps, and core packages, which contribute the way apps do.
 **Who reads it:** anyone writing or porting an app (CRM, Todos, a client's app), and anyone working on `core/registry.py`, `frontend/src/core/apps/registry.ts` or the contract tests.
 
 The app contract replaces the 25 core edits a previous CakeCRM fork needed. An app touches nothing outside `backend/apps/<slug>/`, `frontend/src/apps/<slug>/` and (in a fork) `docs/apps/`.
@@ -244,6 +244,20 @@ scripts/new-app.sh <slug> "<Name>"
 Scaffolds an app (backend folder, frontend folder) that **passes** the contract test and the Vitest twin as generated.
 
 Open (pinned by the implementing workstream, which updates this doc): the scaffold's file list and whether it copies `apps/example` are not stated.
+
+## 9. Core packages contribute like apps
+
+A core package is a folder `backend/core/<pkg>/` with an `__init__.py`. `registry.install()` discovers these modules in every core package; each is optional.
+
+| Module | Exports | Contract |
+|---|---|---|
+| `router.py` | `router` | Included as-is. It sets its own `/api/...` prefix, and no manifest role guard is added, so its routes declare their own auth dependencies. |
+| `hooks.py` | `HOOKS` | Same keys and signatures as an app's (`authorization.md` §3). |
+| `jobs.py` | `JOBS` | Names `core.<job>` (`scheduler.md`). |
+| `tools.py` | `get_tools()` | Names prefixed `core_`; the registry sets `app="core"` (`agent.md` §4). |
+| `startup.py` | `on_startup()` | Called from the lifespan after migrations and seeds, inside the process lock, before the scheduler starts. |
+
+A workstream adds a package. Nobody edits `main.py` or `registry.py` to add one.
 
 ## Tests that pin this
 
