@@ -20,6 +20,8 @@ Base: CakeCRM `backend/assistant/` (Chatty's loop already trimmed, with server-s
 | `backend/core/memory/observer.py`, `dreaming.py`, `jobs.py` | The observer from Chatty plus CakeCRM `backend/memory/observer.py`; dreaming is new, plain Python with no model call (it merges duplicate facts); nightly and setting-gated | 580 |
 | `router.py`; the inbound server `backend/core/mcp/` and the outbound client `backend/core/mcp_servers/` (landing with the MCP workstream) | CakeCRM `assistant/router.py` and `providers/router.py`, minus uploads; new; new | 250 / 250 / 320 |
 
+Inbound MCP landed as its own core package, `backend/core/mcp/` (`mcp.md` §1), not `agent/mcp_server.py`. `execute.py` (`run_tool(user, spec, args, *, source)`) is the one path that runs a tool call and records its tool run: the turn loop's ungated calls, `confirm` (which passes the pending run's id to claim it), and inbound MCP.
+
 ## 2. Tables
 
 ```sql
@@ -228,7 +230,8 @@ conversation_id, compacted, text, tool_start, tool_args, tool_end, usage, confir
 | `GET /api/agent/providers`, `PUT /api/agent/providers/{provider}`, `POST /api/agent/providers/{provider}/test` (admin) | Provider keys and default and light models, one `core_agent_providers` row per vendor. |
 | `GET /api/core/context-files[?agent=<slug>]`, `GET` / `PUT /api/core/context-files/{filename}[?agent=<slug>]` | Context files per agent (default `whisk`). Members list them and read the unprotected ones; admins read all and write through `PUT`. Protected files (`soul.md`, `MEMORY.md`) refuse the REST editor: they change only through the confirmed chat tool. |
 | `GET /api/core/memory/facts[?q=&limit=&offset=&history=]`, `POST /api/core/memory/facts {text, tags, valid_from?}`, `DELETE /api/core/memory/facts/{id}` (admin) | Install-shared facts, not per agent. Admins see provenance, and `history=true` (admins only) adds ended facts. `DELETE` ends the fact's validity (§3). |
-| MCP links, MCP servers | Not built yet; shape to be pinned by W14/W15 (`mcp.md`). |
+| MCP links | `GET` / `POST /api/core/mcp/links`, `DELETE /api/core/mcp/links/{id}` (`mcp.md` §1). |
+| MCP servers | Not built yet; shape to be pinned by W15 (`mcp.md`). |
 
 The routes under `/api/agent` are in `backend/core/agent/router.py`; the memory routes are in `backend/core/memory/router.py`.
 
