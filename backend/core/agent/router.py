@@ -58,7 +58,6 @@ class AgentPatch(BaseModel):
     model_config = ConfigDict(extra="forbid")
     name: str | None = Field(default=None, min_length=1, max_length=80)
     personality: str | None = Field(default=None, max_length=20_000)
-    soul: str | None = Field(default=None, max_length=20_000)
     provider_override: Literal["anthropic", "openai"] | None = None
     model_override: str | None = Field(default=None, max_length=200)
     model_tier: Literal["default", "light"] | None = None

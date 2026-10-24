@@ -257,7 +257,7 @@ def test_memory_seam(login_as, monkeypatch):
     a = login_as("member")
     whisk = agents.get()
     static, volatile = assembly.system_prompt(whisk, a.principal, query="oven")
-    assert "I bake." in static and whisk["soul"] not in static  # soul.md replaces the row's soul, unfenced
+    assert "I bake." in static  # soul.md, unfenced, in the cached half
     assert "<recorded_memory" in volatile and "the oven is hot" in volatile and "the oven is hot" not in static
     assert asked == [("oven", False)]
     _, volatile = assembly.system_prompt(whisk, a.principal, query=None)  # a continuation still gets the files
@@ -268,4 +268,3 @@ def test_memory_seam(login_as, monkeypatch):
 
     monkeypatch.setattr(assembly, "_memory", SimpleNamespace(context_for=lambda *a: 1 / 0))
     assert assembly.memory_context(a.principal, "whisk", "hot") == ""  # memory never breaks a turn
-    assert whisk["soul"] in assembly.system_prompt(whisk, a.principal, query="x")[0]  # no split: the row's soul

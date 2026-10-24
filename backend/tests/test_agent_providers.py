@@ -71,9 +71,10 @@ def test_llm_complete(db, monkeypatch):
 def test_agents_routes(login_as):
     admin, member = login_as("admin"), login_as("member")
     whisk = member.get("/api/agent/agents").json()[0]
-    assert (whisk["name"], whisk["is_default"], whisk["model_tier"]) == ("Whisk", True, "default") and whisk["soul"]
+    assert (whisk["name"], whisk["is_default"], whisk["model_tier"]) == ("Whisk", True, "default") and "soul" not in whisk
     assert member.patch("/api/agent/agents/whisk", json={"name": "Pip"}).status_code == 403
     r = admin.patch("/api/agent/agents/whisk", json={"personality": "Answer in haiku.", "model_tier": "light"})
     assert r.status_code == 200 and (r.json()["personality"], r.json()["model_tier"]) == ("Answer in haiku.", "light")
     assert admin.patch("/api/agent/agents/nobody", json={"name": "x"}).status_code == 404
     assert admin.patch("/api/agent/agents/whisk", json={"model_tier": "huge"}).status_code == 422
+    assert admin.patch("/api/agent/agents/whisk", json={"soul": "x"}).status_code == 422  # soul.md is the soul

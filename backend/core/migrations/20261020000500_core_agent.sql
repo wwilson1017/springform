@@ -5,8 +5,7 @@ CREATE TABLE core_agents (
     id                INTEGER PRIMARY KEY AUTOINCREMENT,
     slug              TEXT NOT NULL UNIQUE,
     name              TEXT NOT NULL,
-    personality       TEXT NOT NULL DEFAULT '',       -- the admin's instructions; '' = none
-    soul              TEXT NOT NULL DEFAULT '',
+    personality       TEXT NOT NULL DEFAULT '',       -- the admin's instructions; '' = none (the soul is memory's soul.md)
     provider_override TEXT,
     model_override    TEXT,
     model_tier        TEXT NOT NULL DEFAULT 'default' CHECK (model_tier IN ('default', 'light')),

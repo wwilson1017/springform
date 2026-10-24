@@ -2,10 +2,11 @@
 (ported from CakeCRM `assistant/identity.py`: a fixed singleton there, rows here).
 
 The prompt is a (static, volatile) pair so Anthropic can cache the static half. Static: who the
-agent is, the admin's personality, the soul, the installed apps, the confirmation and
-untrusted-content contracts, the deferred-tool catalog. The contracts come after both editable
-texts, so neither can talk the model out of them. Volatile: today's date in the install
-timezone, who is asking, and the memory block for this turn.
+agent is, the admin's personality, the memory package's protected instructions (soul.md,
+MEMORY.md), the installed apps, the confirmation and untrusted-content contracts, the
+deferred-tool catalog. The contracts come after both editable texts, so neither can talk the
+model out of them. The soul lives only in memory's soul.md, never on the agent row.
+Volatile: today's date in the install timezone, who is asking, and the memory block for this turn.
 """
 
 from __future__ import annotations
@@ -18,14 +19,7 @@ from backend.core.errors import NotFound
 
 DEFAULT_SLUG = "whisk"
 DEFAULT_NAME = "Whisk"
-DEFAULT_SOUL = (
-    "I am the business assistant for this install. I know its installed apps, its contacts "
-    "directory and each app's records, and I answer from them rather than from guesses. Before I "
-    "change anything I propose the change and wait for approval, and afterwards I say what I "
-    "changed. I am plain-spoken and brief. I am careful with anything that would leave the "
-    "install or hide a record from people who rely on it."
-)
-COLUMNS = "id, slug, name, personality, soul, provider_override, model_override, model_tier, is_default, created_at"
+COLUMNS = "id, slug, name, personality, provider_override, model_override, model_tier, is_default, created_at"
 
 CONFIRMATION_NOTE = (
     "## Changes and approvals\n"
@@ -55,9 +49,9 @@ def ensure_default() -> None:
         return
     with db.transaction() as conn:
         conn.execute(
-            """INSERT OR IGNORE INTO core_agents (slug, name, soul, model_tier, is_default, created_at)
-               VALUES (?, ?, ?, 'default', 1, ?)""",
-            (DEFAULT_SLUG, DEFAULT_NAME, DEFAULT_SOUL, now_iso()),
+            """INSERT OR IGNORE INTO core_agents (slug, name, model_tier, is_default, created_at)
+               VALUES (?, ?, 'default', 1, ?)""",
+            (DEFAULT_SLUG, DEFAULT_NAME, now_iso()),
         )
 
 
@@ -85,7 +79,7 @@ def get_by_id(agent_id: int) -> dict:
     return _agent(row)
 
 
-UPDATABLE = ("name", "personality", "soul", "provider_override", "model_override", "model_tier")
+UPDATABLE = ("name", "personality", "provider_override", "model_override", "model_tier")
 
 
 def update_in(conn: db.Conn, slug: str, fields: dict) -> None:
@@ -116,7 +110,9 @@ def user_note(user: User) -> str:
     return " ".join(parts + [_ROLE_NOTES.get(user.role, "")]).strip()
 
 
-def build_system_prompt(agent: dict, user: User, *, catalog: str = "", memory: str = "") -> tuple[str, str]:
+def build_system_prompt(
+    agent: dict, user: User, *, instructions: str = "", catalog: str = "", memory: str = "",
+) -> tuple[str, str]:
     from backend.core import registry  # registry imports this package; resolve at call time
 
     install = _one_line(settings.get_setting("install_name"), 120) or "this business"
@@ -125,7 +121,7 @@ def build_system_prompt(agent: dict, user: User, *, catalog: str = "", memory: s
     static = "\n\n".join(p for p in [
         f"You are {agent['name']}, the assistant for {install}.",
         agent["personality"],
-        agent["soul"],
+        instructions,
         apps_block,
         CONFIRMATION_NOTE,
         delimiters.SAFETY_INSTRUCTION,

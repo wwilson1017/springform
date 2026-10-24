@@ -13,8 +13,8 @@ any fence the cut leaves open.
 
 The memory seam, when `backend.core.memory` is installed:
 - `memory.instructions_for(conn, agent_slug)`: the protected files (soul.md, MEMORY.md, admin-
-  written through a confirmed tool). They go unfenced into the static half on every turn and
-  replace the agent row's `soul`.
+  written through a confirmed tool). They go unfenced into the static half on every turn;
+  soul.md is the only soul.
 - `memory.context_for(conn, user, agent_slug, query, include_protected=False)`: facts and the
   other files, fenced as untrusted data in the volatile half.
 - `memory.after_turn(conn, conversation_id)`: inside a transaction after each finished turn.
@@ -127,17 +127,16 @@ def has_untrusted(messages: list[dict]) -> bool:
 # ── Memory seam ───────────────────────────────────────────────────────────────
 
 
-def memory_instructions(agent_slug: str) -> str | None:
-    """The protected files as unfenced instructions, or None when there is no such seam (or it
-    failed), in which case the agent row's soul is used."""
+def memory_instructions(agent_slug: str) -> str:
+    """The protected files as unfenced instructions; "" without the seam or when it fails."""
     fn = getattr(_memory, "instructions_for", None)
     if fn is None:
-        return None
+        return ""
     try:
-        return fn(db.get_conn(), agent_slug)
+        return fn(db.get_conn(), agent_slug) or ""
     except Exception:
-        logger.warning("memory.instructions_for failed; using the agent's own soul", exc_info=True)
-        return None
+        logger.warning("memory.instructions_for failed; turn continues without the soul", exc_info=True)
+        return ""
 
 
 def memory_context(user: User, agent_slug: str, query: str | None) -> str:
@@ -169,7 +168,7 @@ def after_turn(conversation_id: int) -> None:
 
 
 def system_prompt(agent: dict, user: User, *, query: str | None, catalog: str = "") -> tuple[str, str]:
-    instructions = memory_instructions(agent["slug"])
-    if instructions is not None:  # soul.md is the soul once the memory package owns it
-        agent = {**agent, "soul": instructions}
-    return agents.build_system_prompt(agent, user, catalog=catalog, memory=memory_context(user, agent["slug"], query))
+    return agents.build_system_prompt(
+        agent, user, instructions=memory_instructions(agent["slug"]), catalog=catalog,
+        memory=memory_context(user, agent["slug"], query),
+    )
