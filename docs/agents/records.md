@@ -42,16 +42,16 @@ and runs the sync `on_record_changed` subscribers (through `on_record_changed_in
 1. Reads and writes go through `entities.authorize`.
 2. `system` rows record platform actions (e.g. "merged #<source> into this record").
 3. Merges repoint timeline rows keeping the original author and time (`contacts.md`).
-4. An @-mention notifies only users who `can_read` the record (`deliver_in` to each mentioned user who passes).
+4. A mention in `body` is written `@[Name](user:ID)`. It notifies only users who `can_read` the record (`deliver_in` to each mentioned user who passes).
 
 ### API
 
 ```
-GET  /api/core/timeline?entity_type=&entity_id=  -> [{id, kind: "note"|"comment"|"field_change"|"system", body, changes, author:{id,name}, created_at}]
-POST /api/core/timeline {entity_type, entity_id, body} -> the new entry
+GET  /api/core/timeline?entity_type=&entity_id=&before=<id>&limit=50  -> [{id, kind: "note"|"comment"|"field_change"|"system", body, changes, author:{id,name}, created_at}], newest first
+POST /api/core/timeline {entity_type, entity_id, body, kind?: "note"|"comment"} -> the new entry; kind defaults to "note"
 ```
 
-Open: which `kind` `POST` creates (note vs comment) and how a comment differs from a note are not stated. Open: mention syntax in `body` and the `core_timeline_mentions` columns are not stated. Open: list order and pagination (`core/pagination.py` exists) are not stated.
+Open: how a comment differs from a note, and the `core_timeline_mentions` columns.
 
 ## 2. Files
 
