@@ -3564,7 +3564,7 @@ export interface components {
             /** Error */
             error: string | null;
             /** Finished At */
-            finished_at: string | null;
+            finished_at: string;
             /** Id */
             id: number;
             /** Manifest */
@@ -3579,7 +3579,7 @@ export interface components {
              * Status
              * @enum {string}
              */
-            status: "running" | "ok" | "error" | "skipped";
+            status: "ok" | "error" | "skipped";
         };
         /**
          * BackupRunUnrecorded

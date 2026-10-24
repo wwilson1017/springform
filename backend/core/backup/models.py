@@ -24,8 +24,8 @@ class BackupRun(Out):
 
     id: int
     started_at: str
-    finished_at: str | None
-    status: Literal["running", "ok", "error", "skipped"]
+    finished_at: str
+    status: Literal["ok", "error", "skipped"]
     snapshot: str | None
     manifest: str | None
     byte_size: int | None
