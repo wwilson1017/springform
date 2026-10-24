@@ -3,8 +3,8 @@ import { Link } from 'react-router';
 import type { User } from '../api/types';
 import { IconChevronDown } from '../../shared/icons';
 
-/** The signed-in user's name; opens to their email and role, Settings and Sign out. */
-export function UserMenu({ user, onSignOut }: { user: User; onSignOut: () => void }) {
+/** The signed-in user's name; opens to their email and role, the core menu pages, Settings and Sign out. */
+export function UserMenu({ user, items = [], onSignOut }: { user: User; items?: Array<{ to: string; label: string }>; onSignOut: () => void }) {
   const [open, setOpen] = useState(false);
   const close = () => setOpen(false);
   return (
@@ -23,6 +23,10 @@ export function UserMenu({ user, onSignOut }: { user: User; onSignOut: () => voi
               <div className="truncate text-sm text-sf-ink">{user.email}</div>
               <div className="text-xs text-sf-ink-dim">{user.role === 'admin' ? 'Admin' : 'Member'}</div>
             </div>
+            {items.map(item => (
+              <Link key={item.to} role="menuitem" to={item.to} onClick={close}
+                className="block rounded px-3 py-2 text-sm text-sf-ink no-underline hover:bg-sf-hover">{item.label}</Link>
+            ))}
             <Link role="menuitem" to="/settings" onClick={close}
               className="block rounded px-3 py-2 text-sm text-sf-ink no-underline hover:bg-sf-hover">Settings</Link>
             <button role="menuitem" type="button" onClick={() => { close(); onSignOut(); }}
