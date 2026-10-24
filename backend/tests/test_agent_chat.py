@@ -235,3 +235,24 @@ def test_deferred_tools_split_by_app_and_load_on_demand():
     assert [s.name for s in deferred.find("crm_t7", rest)] == ["crm_t7"]
     assert len(deferred.find("crm", rest)) == deferred.MAX_RESULTS
     assert deferred.split(specs[:100], {}) == (specs[:100], [], "")
+
+
+def test_memory_seam_is_fenced_into_the_prompt_and_after_turn_runs_in_a_transaction(login_as, monkeypatch):
+    from types import SimpleNamespace
+
+    from backend.core.agent import agents
+
+    seen = []
+    memory = SimpleNamespace(
+        context_for=lambda conn, user, slug, query: f"Fact for {slug}: the oven is {query}.",
+        after_turn=lambda conn, conversation_id: seen.append((conn.in_transaction, conversation_id)),
+    )
+    monkeypatch.setattr(assembly, "_memory", memory)
+    a = login_as("member")
+    static, volatile = assembly.system_prompt(agents.get(), a.principal, query="hot")
+    assert "<recorded_memory" in volatile and "the oven is hot" in volatile and "the oven is hot" not in static
+    cid = chat(a, message="hello")[0]["id"]
+    assert seen == [(True, cid)]
+
+    monkeypatch.setattr(assembly, "_memory", SimpleNamespace(context_for=lambda *a: 1 / 0))
+    assert assembly.memory_context(a.principal, "whisk", "hot") == ""  # memory never breaks a turn
