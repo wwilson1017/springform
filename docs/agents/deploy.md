@@ -17,10 +17,9 @@ Runtime image settings: `VOLUME /data`, `HEALTHCHECK` on `/up`, `STOPSIGNAL SIGT
 
 1. Starts as **root**.
 2. `chown -R app /data` (Railway and fresh volumes are root-owned).
-3. `exec setpriv --reuid=app --regid=app --init-groups uvicorn --workers 1 --timeout-graceful-shutdown 10`.
+3. `exec setpriv --reuid=app --regid=app --init-groups uvicorn backend.main:app --host 0.0.0.0 --port ${PORT:-8000} --workers 1 --timeout-graceful-shutdown 10`.
 4. With `TRUST_PROXY=1`, uvicorn also gets `--proxy-headers --forwarded-allow-ips='*'`.
-
-Open: the uvicorn app target (`run.py` is in the repo root; its role is not stated) and the bind address and port (the Caddyfile proxies to `app:8000`) are not stated.
+5. `run.py` at the repo root is the dev runner only; the image never uses it.
 
 ## 3. Health endpoints
 
@@ -51,14 +50,12 @@ With `TRUST_PROXY=1` the app port is bound only on the compose network, never pu
 
 1. Install Docker + the compose plugin, **pinned**.
 2. Create `/srv/springform/data`, which `compose.yml` mounts at `/data`. No other host directory is created; backups live inside it.
-3. Write `.env` with generated secrets and a `DOMAIN` prompt.
+3. Write `.env` with a generated `SECRET_KEY` and `ENCRYPTION_KEY`, and a `DOMAIN` prompt.
 4. ufw: allow 22, 80, 443.
 5. Enable unattended-upgrades.
 6. `compose up -d`.
 7. Print the **setup token** (`auth.md` §5).
 8. Offer the rclone off-site cron (§7 below).
-
-Open: which "generated secrets" `.env` holds (at least `ENCRYPTION_KEY`; a JWT secret if one is env-sourced).
 
 ### `deploy.sh`
 
@@ -89,7 +86,7 @@ Lifted from CakeCRM `core/secret_store.py` (minus keychain) and `core/encryption
 
 ### The job (`core.backup`, 03:00 install-local)
 
-1. `VACUUM INTO` a `.tmp` file, then `os.replace` into `/data/backups/<stamp>.sqlite`.
+1. `VACUUM INTO` a `.tmp` file, then `os.replace` into `/data/backups/<stamp>.sqlite`. `<stamp>` is `YYYYMMDDTHHMMSSZ`.
 2. Write `/data/backups/<stamp>.manifest.json` **last**, containing:
    - the snapshot filename and its sha256;
    - the list of blob sha256s referenced by `core_files` at snapshot time;
@@ -109,7 +106,7 @@ Lifted from CakeCRM `core/secret_store.py` (minus keychain) and `core/encryption
 
 `deploy/setup.sh` offers an rclone cron on the host. It reads the sets from `/srv/springform/data/backups` and copies, **in order**: blobs → snapshot → manifest (so a remote set is complete when its manifest is present), and the volume's `.encryption-key` if it exists.
 
-Open: the `<stamp>` format, the `core_backups` columns, and the Backups page's download route are not stated.
+Open: the `core_backups` columns, and the Backups page's download route.
 
 ## 8. `scripts/restore.sh`
 
