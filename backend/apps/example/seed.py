@@ -14,9 +14,10 @@ def seed(conn) -> None:
 
 
 def sample(conn) -> None:
-    """Demo data for PREVIEW_MODE: one public and one private widget owned by the first admin."""
+    """Demo data for PREVIEW_MODE (runs on each preview boot, so idempotent): one public and one
+    private widget owned by the first admin."""
     admin = conn.execute("SELECT id FROM core_users WHERE role = 'admin' ORDER BY id LIMIT 1").fetchone()
-    if admin is None:
+    if admin is None or conn.execute("SELECT 1 FROM example_widgets LIMIT 1").fetchone():
         return
     now = clock.now_iso()
     conn.executemany(

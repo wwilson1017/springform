@@ -12,7 +12,15 @@ name=$2
 root=$(cd "$(dirname "$0")/.." && pwd)
 
 [[ $slug =~ ^[a-z][a-z0-9_]{1,29}$ ]] || { echo "slug must match ^[a-z][a-z0-9_]{1,29}\$ (it becomes the table prefix)" >&2; exit 1; }
-case " core api auth mcp up assets " in *" $slug "*) echo "slug '$slug' is reserved" >&2; exit 1;; esac
+# Keep in step with RESERVED_SLUGS in backend/core/registry.py.
+reserved=" core api auth mcp up assets agent me health settings people organizations guide requests login setup invite changelog backups jobs sheets notifications reminders whisk files timeline export "
+case "$reserved" in *" $slug "*) echo "slug '$slug' is reserved" >&2; exit 1;; esac
+# Table ownership is by name prefix: a slug may not extend core's or another app's, nor be extended.
+for other in core $(ls "$root/backend/apps"); do
+  [ "$other" = core ] || [ -f "$root/backend/apps/$other/app.json" ] || continue
+  case "$slug" in "${other}_"*) echo "slug '$slug' starts with '${other}_', which '$other' owns" >&2; exit 1;; esac
+  case "$other" in "${slug}_"*) echo "app '$other' already uses the '${slug}_' prefix" >&2; exit 1;; esac
+done
 [[ $name =~ ^[A-Za-z0-9][A-Za-z0-9\ -]{0,39}$ ]] || { echo "name: letters, digits, spaces and hyphens, up to 40" >&2; exit 1; }
 backend="$root/backend/apps/$slug"
 frontend="$root/frontend/src/apps/$slug"
@@ -22,7 +30,7 @@ frontend="$root/frontend/src/apps/$slug"
 stamp=$(date -u +%Y%m%d%H%M%S)
 [ "$stamp" -ge 20261101000000 ] || stamp=20261101000000
 
-mkdir -p "$backend/migrations" "$backend/docs" "$frontend"
+mkdir -p "$backend/migrations" "$backend/docs"
 touch "$backend/__init__.py"
 
 cat > "$backend/app.json" <<EOF
@@ -142,7 +150,7 @@ def seed(conn) -> None:
 
 
 def sample(conn) -> None:
-    """Demo data for PREVIEW_MODE."""
+    """Demo data for PREVIEW_MODE; runs on every preview boot, so keep it idempotent."""
 EOF
 
 cat > "$backend/settings.py" <<EOF
@@ -155,6 +163,8 @@ cat > "$backend/docs/index.md" <<EOF
 What this app is for, written for the people who use it.
 EOF
 
+if [ -d "$root/frontend/src" ]; then
+mkdir -p "$frontend"
 cat > "$frontend/contributions.ts" <<EOF
 import type { AppContributions } from '../../core/apps/types';
 
@@ -179,6 +189,10 @@ function App() {
 
 export default { slug: '$slug', App } satisfies AppModule;
 EOF
+created_frontend=" and frontend/src/apps/$slug"
+else
+created_frontend=" (no frontend/src here, so no screen placeholders)"
+fi
 
-echo "Created backend/apps/$slug and frontend/src/apps/$slug."
+echo "Created backend/apps/$slug${created_frontend}."
 echo "Check it: uv run pytest backend/tests/test_app_contract.py"

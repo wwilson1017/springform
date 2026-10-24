@@ -107,6 +107,10 @@ def test_core_migration_may_not_drop_or_rename(tmp_path):
     with pytest.raises(MigrationError, match="core_bad.sql uses RENAME"):
         core_db.migrate([], core_dir)
     assert "core_settings" in _tables()
+    (core_dir / "20261020000200_core_bad.sql").unlink()
+    (core_dir / "20261020999900_core_v1_baseline.sql").write_text("DROP TABLE core_requests;")  # a major's baseline
+    core_db.migrate([], core_dir)
+    assert "core_requests" not in _tables()
 
 
 def test_no_sql_reads_the_database_clock():
