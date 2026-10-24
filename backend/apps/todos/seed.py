@@ -18,7 +18,9 @@ def seed(conn) -> None:
 
 def sample(conn) -> None:
     """Preview data: a team area and project with shared todos, and a private todo each for the
-    first admin and the first member."""
+    first admin and the first member. Runs on every preview boot, so it does nothing once todos exist."""
+    if conn.execute("SELECT 1 FROM todos_areas UNION ALL SELECT 1 FROM todos_items LIMIT 1").fetchone():
+        return
     rows = conn.execute(
         """SELECT id, email, name, role, tz, is_active, token_epoch FROM core_users
             WHERE role IN ('admin', 'member') AND is_active = 1 ORDER BY id DESC"""
