@@ -37,7 +37,7 @@ def test_mentions_notify_readers_except_the_author(login_as, make_user):
     assert [(n["title"], n["message"], n["entity_type"], n["entity_id"], n["link"]) for n in listed] == [(
         f"{author.user['name']} mentioned you on Widget — Gear",
         f"@{reader.user['name']} can you check? cc @{author.user['name']} @Gone @System @Nobody",
-        W, w["id"], f"/example/widgets/{w['id']}",
+        W, w["id"], f"/example/{w['id']}",
     )]  # fmt: skip
     assert core_db.rows("SELECT user_id FROM core_notifications") == [{"user_id": reader.user["id"]}]
 

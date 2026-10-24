@@ -6,11 +6,13 @@ here. SQL never reads the database's own clock (test_db greps for it).
 
 from __future__ import annotations
 
+import logging
+import os
 from datetime import UTC, datetime, timedelta
 from zoneinfo import ZoneInfo
 
 FORMAT = "%Y-%m-%dT%H:%M:%SZ"
-_frozen: datetime | None = None
+logger = logging.getLogger(__name__)
 
 
 def now() -> datetime:
@@ -70,3 +72,20 @@ def freeze(iso: str | None) -> None:
     """Test hook: pin now() to a canonical instant, or unpin with None."""
     global _frozen
     _frozen = parse(iso) if iso else None
+
+
+def _from_env() -> datetime | None:
+    """`SPRINGFORM_FREEZE_CLOCK=<iso>` pins the clock for Playwright, honoured only in PREVIEW_MODE.
+    Reads the env directly: `settings` imports this module, so `settings.preview_mode()` is not yet defined."""
+    value = os.environ.get("SPRINGFORM_FREEZE_CLOCK", "").strip()
+    if not value:
+        return None
+    if os.environ.get("PREVIEW_MODE") != "1":
+        logger.warning("SPRINGFORM_FREEZE_CLOCK is ignored outside PREVIEW_MODE; the clock runs normally")
+        return None
+    frozen = parse(normalize(value, "UTC"))
+    logger.warning("SPRINGFORM_FREEZE_CLOCK: the clock is frozen at %s", to_iso(frozen))
+    return frozen
+
+
+_frozen: datetime | None = _from_env()

@@ -11,7 +11,7 @@
 2. **No FakeConn.** Never fake the connection or the database.
 3. **`freeze(iso)`**: a fixture that freezes `core.clock` at an ISO instant (reminders, scheduler, sweep ages, `at` catch-up).
 4. **`login_as(role, email=None, on=app)`**: a fixture that creates a new user of that role and returns a new signed-in `TestClient` with `.user`. The first account goes through the real setup-token path as an admin; later ones sign in through `/api/auth/login`. **`make_user(role, email=None, password=…)`** creates a user directly, without HTTP.
-5. **Skip/xfail ban**: conftest fails the run on `skip` / `xfail` (lifted from CakeCRM).
+5. **Skip/xfail ban**: conftest fails collection when a test carries a `skip`, `skipif` or `xfail` marker (lifted from CakeCRM). `ALLOWED_SUPPRESSIONS` lists node ids allowed one, each with a reason; it is empty. `test_conftest_guards.py` self-tests it.
 6. Two-member tests create two real members and one restrictive record: every `login_as("member")` call makes a new, distinct member.
 7. Providers: a **FakeProvider** stands in for LLM providers; nothing calls a real model.
 8. HTTP to external services is mocked (Google token endpoint) or served locally (a FastMCP stub, `httpx.ASGITransport`).
@@ -81,6 +81,7 @@ Runs against a seeded `PREVIEW_MODE=1` build with the FakeProvider and the Googl
 
 - Stale `running` → `interrupted`.
 - Missed `at` catches up once.
+- A never-run `at` job waits for its next slot; a manual run after the slot is not followed by a catch-up.
 - Overlapping job skipped.
 - A job that ignores its timeout: no second instance starts, and the slot is released only when it ends.
 

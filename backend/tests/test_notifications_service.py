@@ -48,7 +48,7 @@ def test_private_widget_notification_reaches_its_owner_only(login_as, freeze):
     assert notifications.deliver("Ping", "hello", user_id=other.user["id"], entity=(W, w["id"])) == []
     assert owner.get("/api/core/notifications").json() == [{
         "id": nid, "title": "Ping", "message": "hello", "entity_type": W, "entity_id": w["id"],
-        "link": f"/example/widgets/{w['id']}", "created_at": "2026-11-02T09:00:00Z", "read_at": None,
+        "link": f"/example/{w['id']}", "created_at": "2026-11-02T09:00:00Z", "read_at": None,
     }]  # fmt: skip
     assert other.get("/api/core/notifications").json() == []
     assert other.post(f"/api/core/notifications/{nid}/read").status_code == 404
@@ -214,7 +214,7 @@ def test_delete_hides_and_merge_repoints(login_as, fake_channel):
         entities.on_entity_merged_in(conn, W, c["id"], b["id"])
     assert [n["id"] for n in member.get("/api/core/notifications").json()] == [on_b]
     moved = core_db.one("SELECT entity_id, link FROM core_notifications WHERE id = ?", (on_b,))
-    assert moved == {"entity_id": c["id"], "link": f"/example/widgets/{c['id']}"}
+    assert moved == {"entity_id": c["id"], "link": f"/example/{c['id']}"}
     assert notifications.flush() == {"sent": 1, "retry": 0, "failed": 0, "dropped": 1}
 
 
