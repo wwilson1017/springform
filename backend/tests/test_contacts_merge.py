@@ -109,8 +109,8 @@ def test_merge_drives_subscribers_and_records_itself(user):
     assert widgets.get_widget(user, widget["id"])["person_id"] == target  # the example app's subscriber
     entries = timeline.list_for(user, "core.person", target)
     assert [(e["kind"], e["body"], e["author"]["id"]) for e in entries] == [
-        ("system", f"merged #{source} into this record", user.id), ("note", "met at the fair", user.id),
-    ]
+        ("system", f"merged #{source} into this record", 0), ("note", "met at the fair", user.id),
+    ]  # the system principal writes the merge row; the change log below keeps who merged
     log = core_db.rows("SELECT entity, entity_id, field, old, new, user_id FROM core_change_log WHERE field = 'merged_from'")
     assert log == [{"entity": "core.person", "entity_id": target, "field": "merged_from", "old": "null", "new": str(source), "user_id": user.id}]
 

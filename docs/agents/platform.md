@@ -108,7 +108,7 @@ The data directory is `DATA_DIR` (the donor's env var, kept; default `./data` fo
 |---|---|---|
 | `PORT` | The HTTP port, default `8000`. Railway sets it. | `deploy.md` |
 | `DATA_DIR` | The data directory, default `./data`; `/data` in the container. | `database-and-transactions.md` |
-| `PUBLIC_URL` | The install's public URL, default `http://localhost:8000`: Google redirect URI, CSRF origin, invite and reset links, scheme warning. Not a `core_settings` key. | `auth.md` |
+| `PUBLIC_URL` | The install's public URL, default `http://localhost:8000`: Google redirect URI, CSRF origin, invite and reset links, scheme warning. Not a `core_settings` key; `GET /api/core/workspace` returns it as `public_url` so Settings can show it read-only. | `auth.md` |
 | `SECRET_KEY` | The session JWT signing key; when unset, `<DATA_DIR>/.secret-key` is generated at first boot. | `auth.md` |
 | `ENCRYPTION_KEY` | Fernet key; when set, no key file is written. | `deploy.md` |
 | `TRUST_PROXY` | `1` → uvicorn `--proxy-headers --forwarded-allow-ips='*'`. | `auth.md`, `deploy.md` |
@@ -135,15 +135,16 @@ The settings an admin changes through `/api/core/settings` are the core keys bel
 | `github.token` | none | Secret. A fine-grained token with issues read/write. |
 | `files.max_bytes` | 25 MB | Upload size cap. |
 | `agent.nightly_enabled` | `false` | Gates `core.agent_nightly`. |
+| `agent.context_budget_chars` | `12000` | Whole number above zero. Caps the memory block Whisk reads per turn. |
 | `auth.require_totp_for_google` | `false` | Adds the local TOTP step to Google sign-in. |
 
-Some keys are written only by their own routes, never through `/api/core/settings`: `auth.google_client_id` and `auth.google_client_secret` by `PUT /api/auth/google/config`, `sheets.service_account_json` by `PUT /api/core/sheets/credentials`, and `notifications.vapid_public_key` / `notifications.vapid_private_key`, which are generated.
+`GET /api/core/settings` lists exactly these keys, so saving every listed value back succeeds. Other `core_settings` rows are internal and not listed. Some keys are written only by their own routes, never through `/api/core/settings`: `auth.google_client_id` and `auth.google_client_secret` by `PUT /api/auth/google/config`, `sheets.service_account_json` by `PUT /api/core/sheets/credentials`, and `notifications.vapid_public_key` / `notifications.vapid_private_key`, which are generated.
 
 ```
 GET    /api/core/settings        (admin) -> {values, secrets: {key: bool}, defaults}; never a secret value
 PUT    /api/core/settings        (admin) {values: {key: value}} -> the same view; every key is validated first, so one bad value writes nothing
 DELETE /api/core/settings/{key}  (admin) -> back to the default
-GET    /api/core/workspace       -> {name, timezone, version, preview}
+GET    /api/core/workspace       -> {name, timezone, version, preview, public_url}
 ```
 
 ## Roles

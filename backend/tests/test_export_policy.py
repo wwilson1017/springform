@@ -25,8 +25,12 @@ def test_cell_guard(value, expected):
     assert csv_export._cell(value) == expected
 
 
-def test_stream_csv_is_a_utf8_bom_attachment(app):
+def test_stream_csv_is_a_utf8_bom_attachment():
+    """Its own small app: on create_app() a built frontend's SPA catch-all would shadow the route."""
+    from fastapi import FastAPI
     from fastapi.testclient import TestClient
+
+    app = FastAPI()
 
     @app.get("/test-csv")
     def _csv():
@@ -48,7 +52,10 @@ def test_report_csv_respects_admin_only_and_app_roles(app, login_as):
     echo = lambda params, user: (["param", "value"], sorted(params.items()))  # noqa: E731
     reports.register(Report(key="example.secret", label="Secret", app="example", run=echo, admin_only=True))
     reports.register(Report(key="example.admins", label="Admins", app="example", run=echo, roles=("admin",)))
-    reports.register(Report(key="example.echo", label="Echo", app="example", run=echo, roles=("admin", "member")))
+    params = {"type": "object", "properties": {
+        "since": {"type": "string", "format": "date"}, "q": {"type": "string"}, "limit": {"type": "integer", "default": 10},
+    }}
+    reports.register(Report(key="example.echo", label="Echo", app="example", run=echo, roles=("admin", "member"), params=params))
     admin, member = login_as("admin"), login_as("member")
     member.post("/api/example/widgets", json={"name": "Cog", "color": "teal"})
 
@@ -56,8 +63,15 @@ def test_report_csv_respects_admin_only_and_app_roles(app, login_as):
     assert r.status_code == 200 and r.content.decode("utf-8-sig").splitlines() == ["color,widgets", "teal,1"]
     assert r.headers["content-disposition"] == 'attachment; filename="example.widgets_by_color.csv"'
     assert member.get("/api/core/reports/example.echo/csv?since=2026-01-01&q==x").content.decode("utf-8-sig").splitlines() == [
-        "param,value", "q,'=x", "since,2026-01-01",
+        "param,value", "limit,10", "q,'=x", "since,2026-01-01",
+    ]  # params parsed like the JSON route: the default applied
+    assert member.get("/api/core/reports/example.echo/csv?limit=3").content.decode("utf-8-sig").splitlines() == [
+        "param,value", "limit,3",
     ]
+    for bad, detail in (("since=2026-02-30", "since: expected a date (YYYY-MM-DD)"),
+                        ("limit=many", "limit: expected an integer"), ("format=xlsx", "unknown param: format")):
+        r = member.get(f"/api/core/reports/example.echo/csv?{bad}")
+        assert (r.status_code, r.json()) == (422, {"detail": detail}), bad
     assert member.get("/api/core/reports/example.secret/csv").json() == {"detail": "admin_only"}
     assert member.get("/api/core/reports/example.admins/csv").status_code == 403
     assert member.get("/api/core/reports/example.nope/csv").status_code == 404

@@ -1756,8 +1756,8 @@ export interface paths {
         };
         /**
          * Report Csv
-         * @description A report as CSV. Query parameters are the report's params (strings). Who may run it: one of
-         *     the app's roles, and admin for admin_only reports. Unknown key 404, not allowed 403.
+         * @description A report as CSV, through the same checks as the JSON route: unknown key 404, not allowed
+         *     403, params coerced to the report's spec with defaults applied, bad params 422.
          */
         get: operations["core_report_csv"];
         put?: never;

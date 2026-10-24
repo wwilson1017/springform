@@ -56,7 +56,7 @@ def test_titles_for_drops_what_the_user_cannot_read(app, make_user):
     conn = core_db.get_conn()
     assert entities.titles_for(owner, conn, "example.widget", [a["id"], b["id"], 999]) == {a["id"]: "Open", b["id"]: "Hidden"}
     assert entities.titles_for(other, conn, "example.widget", [a["id"], b["id"]]) == {a["id"]: "Open"}
-    assert entities.url_for("example.widget", a["id"]) == f"/example/widgets/{a['id']}"
+    assert entities.url_for("example.widget", a["id"]) == f"/example/{a['id']}"
     assert entities.url_for("core.person", 3) == "/people/3"
 
 
