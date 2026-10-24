@@ -51,6 +51,8 @@ Conventions:
 
 ### Changed
 
+- One type-to-search user picker for record owners (people, organizations, deals), the CRM owner
+  filter and user custom fields. Members can pick any active user, and an owner reads by name.
 - CRM Weekly touches shows its window by the install-local days the server applied
   (`start_day`, `end_day`) and carries those days to a rep's page.
 - Todos pages start their change feed from the current rev (`GET /api/todos/changes?head=1`)

@@ -9,10 +9,10 @@
  */
 import { useId, useState } from 'react';
 import { ApiError, putJson } from '../api/client';
-import type { UserRef } from '../api/types';
 import { useJson } from '../api/useJson';
 import { LoadError } from '../../shared/LoadError';
 import { toast } from '../../shared/toast';
+import { useUserNames } from '../../shared/users';
 import { FieldInput } from './FieldInput';
 import { displayValue, draftChanged, fromDraft, toDraft, type Draft } from './fieldValues';
 import { recordChanged } from './recordEvents';
@@ -31,8 +31,10 @@ export function CustomFields({ entityType, entityId }: CustomFieldsProps) {
   const record = new URLSearchParams({ entity_type: entityType, entity_id: String(entityId) });
   const defs = useJson<FieldDefinition[]>(`/api/core/fields/definitions?${new URLSearchParams({ entity_type: entityType })}`);
   const values = useJson<Values>(`/api/core/fields/values?${record}`);
-  const needsUsers = defs.data?.some(d => d.type === 'user') ?? false;
-  const users = useJson<UserRef[]>(needsUsers ? '/api/core/timeline/mentionable' : null);
+  const userName = useUserNames((defs.data ?? []).filter(d => d.type === 'user').map(d => {
+    const v = values.data?.[d.key];
+    return typeof v === 'number' ? v : null;
+  }));
   const [drafts, setDrafts] = useState<Record<string, Draft> | null>(null);
   const [readOnly, setReadOnly] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -45,8 +47,6 @@ export function CustomFields({ entityType, entityId }: CustomFieldsProps) {
   if (!defs.data || !values.data || defs.data.length === 0) return null;
   const fields = defs.data;
   const current = values.data;
-  const userList = users.data ?? [];
-  const userName = (id: number) => userList.find(u => u.id === id)?.name ?? `User #${id}`;
 
   function startEdit() {
     setDrafts(Object.fromEntries(fields.map(d => [d.key, toDraft(d, current[d.key])])));
@@ -94,7 +94,7 @@ export function CustomFields({ entityType, entityId }: CustomFieldsProps) {
             return (
               <div key={d.id}>
                 <label id={`${id}-label`} htmlFor={id} className={LABEL}>{d.label}{d.required ? ' *' : ''}</label>
-                <FieldInput def={d} id={id} draft={drafts[d.key]} users={userList} disabled={saving}
+                <FieldInput def={d} id={id} draft={drafts[d.key]} disabled={saving}
                   onChange={next => setDrafts(prev => ({ ...prev, [d.key]: next }))} />
               </div>
             );

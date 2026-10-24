@@ -113,6 +113,3 @@ export const settingsUrl = `${BASE}/settings`;
 export const saveSettings = (body: Partial<CrmSettings>) => patchJson<CrmSettings>(settingsUrl, body);
 export const resetCrm = () => postJson<{ deals: number; activity: number }>(`${BASE}/reset`, { confirm: 'RESET' });
 
-/** Active users, for the owner picker. Any member may read it (the mention list). */
-// simplification: at most 20 users (the mention route's cap), upgrade path: a paged core users directory.
-export const usersUrl = '/api/core/timeline/mentionable';

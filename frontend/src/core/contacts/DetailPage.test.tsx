@@ -1,9 +1,10 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { CoreAppsProvider } from '../apps/CoreAppsContext';
 import { AuthProvider } from '../auth/AuthContext';
 import { callsTo, mockFetch } from '../../testing';
+import { resetUserNames } from '../../shared/users';
 import DetailPage from './DetailPage';
 import type { PersonDetail } from './types';
 
@@ -39,7 +40,10 @@ function renderAt(url: string, routes: Record<string, unknown>) {
   return fetchMock;
 }
 
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => {
+  vi.unstubAllGlobals();
+  resetUserNames();
+});
 
 describe('Person page', () => {
   it('a merged id moves to the survivor and says so', async () => {
@@ -66,6 +70,26 @@ describe('Person page', () => {
     // Record services title their own parts; no wrapper heading sits over them.
     expect(screen.queryByRole('heading', { name: 'Services' })).toBeNull();
     expect(await screen.findAllByRole('heading', { name: 'Reminders' })).toHaveLength(1);
+  });
+
+  it("shows a member the owner's name and lets them pick another owner by typing", async () => {
+    const owned = { ...ada, owner_user_id: 5 };
+    const fetchMock = renderAt('/people/1', {
+      'GET /api/core/contacts/people/1': owned,
+      'GET /api/core/timeline/mentionable?q=': [{ id: 5, name: 'Olive Owner' }],
+      'GET /api/core/timeline/mentionable?q=pat': [{ id: 9, name: 'Pat Partner' }],
+      'PATCH /api/core/contacts/people/1': { ...owned, owner_user_id: 9 },
+    });
+    expect(await screen.findByText('Olive Owner')).toBeTruthy();
+    fireEvent.click(screen.getAllByRole('button', { name: 'Edit' })[0]); // the header's, first on the page
+    const owner = screen.getByLabelText('Owner') as HTMLInputElement;
+    expect(owner.value).toBe('Olive Owner');
+    fireEvent.focus(owner);
+    fireEvent.change(owner, { target: { value: 'pat' } });
+    fireEvent.click(await screen.findByRole('option', { name: 'Pat Partner' }));
+    fireEvent.click(within(screen.getByRole('form', { name: 'Edit person' })).getByRole('button', { name: 'Save' }));
+    await vi.waitFor(() => expect(callsTo(fetchMock, 'PATCH', '/api/core/contacts/people/1')).toHaveLength(1));
+    expect(JSON.parse(callsTo(fetchMock, 'PATCH', '/api/core/contacts/people/1')[0][1]!.body as string)).toEqual({ owner_user_id: 9 });
   });
 
   it('an unknown id says so', async () => {

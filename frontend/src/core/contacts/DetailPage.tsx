@@ -11,7 +11,6 @@ import { ApiError } from '../api/client';
 import { useJson } from '../api/useJson';
 import { useCoreApps } from '../apps/CoreAppsContext';
 import { appBySlug, recordPanelsFor } from '../apps/registry';
-import { useAuth } from '../auth/AuthContext';
 import { Attachments } from '../records/Attachments';
 import { RecordServices } from '../records/RecordServices';
 import { Timeline } from '../records/Timeline';
@@ -20,6 +19,7 @@ import { formatDate } from '../../shared/formatDate';
 import { IconArrowLeft } from '../../shared/icons';
 import { LoadError } from '../../shared/LoadError';
 import { toast } from '../../shared/toast';
+import { useUserNames } from '../../shared/users';
 import {
   archiveRecord, errorText, KINDS, mergeRecords, pageOf, recordUrl, restoreRecord, splitTags, updateRecord, type RecordInput,
 } from './api';
@@ -135,21 +135,8 @@ function Columns({ kind, props }: { kind: ContactKind; props: SectionProps }) {
 
 // ── Header ──────────────────────────────────────────────────────────────────
 
-/** Owner choices: admins can read the user list; a member can pick only themselves. */
-function useOwners(): { owners: ContactRef[]; nameOf: (id: number) => string } {
-  const { user, isAdmin } = useAuth();
-  const { data } = useJson<ContactRef[]>(isAdmin ? '/api/auth/users?status=active' : null);
-  // simplification: members have no readable user directory, so another owner shows as
-  // "User #n"; upgrade when core publishes a member-readable user list.
-  const owners = data ?? (user ? [{ id: user.id, name: user.name }] : []);
-  return { owners, nameOf: id => owners.find(o => o.id === id)?.name ?? `User #${id}` };
-}
-
-function editFields(kind: ContactKind, owners: ContactRef[], current: ContactRef | null): FieldSpec[] {
-  // The current owner stays a choice even when this user can't list them, or the select would
-  // show "Nobody" for a record someone owns.
-  const choices = current && !owners.some(o => o.id === current.id) ? [...owners, current] : owners;
-  const own: FieldSpec = { key: 'owner_user_id', label: 'Owner', type: 'select', options: [['', 'Nobody'], ...choices.map(o => [String(o.id), o.name] as [string, string])] };
+function editFields(kind: ContactKind): FieldSpec[] {
+  const own: FieldSpec = { key: 'owner_user_id', label: 'Owner', type: 'user', options: [['', 'Nobody']] };
   const common: FieldSpec[] = [
     { key: 'status', label: 'Status', suggest: STATUS_SUGGEST },
     { key: 'source', label: 'Source', suggest: SOURCE_SUGGEST },
@@ -168,11 +155,11 @@ const asText = (v: unknown) => (Array.isArray(v) ? v.join(', ') : v == null ? ''
 
 function Header({ kind, record, onSaved }: { kind: ContactKind; record: ContactDetail; onSaved: (d: ContactDetail) => void }) {
   const navigate = useNavigate();
-  const { owners, nameOf } = useOwners();
+  const nameOf = useUserNames([record.owner_user_id]);
   const [mode, setMode] = useState<'view' | 'edit' | 'merge'>('view');
   const [busy, setBusy] = useState(false);
   const noun = KINDS[kind].noun;
-  const fields = editFields(kind, owners, record.owner_user_id ? { id: record.owner_user_id, name: nameOf(record.owner_user_id) } : null);
+  const fields = editFields(kind);
   const rec = record as unknown as Record<string, unknown>;
 
   /** PATCH only what changed; a blank clears (null), tags go as a list. */

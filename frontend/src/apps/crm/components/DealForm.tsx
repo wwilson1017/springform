@@ -11,7 +11,6 @@ import { STAGE_ORDER, stageLabel } from '../constants';
 import { inputToCents } from '../money';
 import { btnPrimary, btnSecondary, input, label } from '../ui';
 import { Dialog } from './Dialog';
-import { useUsers } from '../useUsers';
 import { OwnerSelect } from './OwnerSelect';
 
 type Ref = { id: number; name: string };
@@ -23,7 +22,6 @@ export function DealForm({ person, organization, onClose, onCreated }: {
   onCreated: (deal: Deal) => void;
 }) {
   const { user } = useAuth();
-  const users = useUsers();
   const [title, setTitle] = useState('');
   const [stage, setStage] = useState<Stage>('lead');
   const [value, setValue] = useState('');
@@ -94,7 +92,7 @@ export function DealForm({ person, organization, onClose, onCreated }: {
         </div>
         <div>
           <label htmlFor="deal-owner" className={label}>Owner</label>
-          <OwnerSelect id="deal-owner" value={owner} onChange={setOwner} users={users} currentName={user?.name} />
+          <OwnerSelect id="deal-owner" value={owner} onChange={setOwner} currentName={user?.name} />
         </div>
         <div className="mt-2 flex justify-end gap-2">
           <button type="button" onClick={onClose} className={btnSecondary}>Cancel</button>
