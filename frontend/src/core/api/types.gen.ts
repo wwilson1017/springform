@@ -2778,6 +2778,12 @@ export interface components {
             areas: components["schemas"]["NamedId"][];
             /** Contexts */
             contexts: string[];
+            /**
+             * Default Visibility
+             * @description What a new todo, project or area is when the caller does not say
+             * @enum {string}
+             */
+            default_visibility: "private" | "team";
             /** Members */
             members: components["schemas"]["NamedId"][];
             /** People */

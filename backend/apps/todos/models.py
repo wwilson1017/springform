@@ -271,6 +271,7 @@ class Filters(BaseModel):
     status_counts: dict[str, int]
     tz: str
     members: list[NamedId]
+    default_visibility: Visibility = Field(description="What a new todo, project or area is when the caller does not say")
 
 
 class Moved(BaseModel):

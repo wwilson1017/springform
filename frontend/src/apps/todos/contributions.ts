@@ -1,9 +1,12 @@
 import type { AppContributions } from '../../core/apps/types';
 
-// Placeholder until the Todos UI lands: it keeps the app contract satisfied (every manifest has
-// contributions.ts, every settings card a loader). Lazy loaders and plain data only.
+// Loaded eagerly into the shell: lazy loaders and plain data only, never a static screen import.
 export default {
   slug: 'todos',
   settingsCards: { todos: () => import('./SettingsCard') },
+  recordPanels: {
+    'core.person': () => import('./RecordPanel'),
+    'core.organization': () => import('./RecordPanel'),
+  },
   nav: [{ label: 'Todos', to: '/todos' }],
 } satisfies AppContributions;

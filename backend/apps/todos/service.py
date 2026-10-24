@@ -801,7 +801,8 @@ def delete_container(user: User, kind: str, row_id: int) -> None:
 def filters(user: User) -> dict:
     """What the pickers offer, from the todos the user can see: contexts, tags, people, active
     areas, per-status counts (every status, zeros included; open ones leave out deferred todos,
-    as the lists do), the user's timezone and the active members (the assignee picker)."""
+    as the lists do), the user's timezone, the active members (the assignee picker) and the
+    default visibility a new row gets (members cannot read settings, and the form starts there)."""
     conn = db.get_conn()
     vis = visible("t")
 
@@ -829,6 +830,7 @@ def filters(user: User) -> dict:
         "status_counts": counts,
         "tz": zone(user).key,
         "members": [dict(r) for r in members],
+        "default_visibility": default_visibility(),
     }
 
 
