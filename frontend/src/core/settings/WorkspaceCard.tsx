@@ -9,7 +9,7 @@ import { setWorkspace, useWorkspace } from './useWorkspace';
 
 const TIMEZONES = Intl.supportedValuesOf('timeZone');
 
-/** Install name and timezone (admins edit them), with the running version and the preview flag. */
+/** Install name and timezone (admins edit them), the public URL when the server reports it, the version and the preview flag. */
 export function WorkspaceCard() {
   const { isAdmin } = useAuth();
   const workspace = useWorkspace();
@@ -21,6 +21,13 @@ export function WorkspaceCard() {
           <dt className="text-sf-ink-dim">Name</dt><dd className="m-0 text-sf-ink">{workspace.name}</dd>
           <dt className="text-sf-ink-dim">Timezone</dt><dd className="m-0 text-sf-ink">{workspace.timezone}</dd>
         </dl>
+      )}
+      {workspace.public_url !== undefined && (
+        <div>
+          <div className={labelClass}>Public URL</div>
+          <div className="break-all text-sm text-sf-ink">{workspace.public_url || 'Not set'}</div>
+          <p className="mb-0 mt-1 text-xs text-sf-ink-dim">Comes from the server's environment (PUBLIC_URL); change it there, then restart.</p>
+        </div>
       )}
       <p className="m-0 flex items-center gap-2 text-xs text-sf-ink-dim">
         Springform {workspace.version}
