@@ -21,6 +21,14 @@ def get_tools() -> list[ToolSpec]:
             handler=lambda user, args: service.list_widgets(user),
         ),
         ToolSpec(
+            name="example_count_widgets",
+            description="Count the widgets you can see. Admins only: the fixture's role-limited tool.",
+            input_schema={"type": "object", "properties": {}},
+            writes=False,
+            handler=lambda user, args: {"count": len(service.list_widgets(user))},
+            enabled=lambda user: user.is_admin,
+        ),
+        ToolSpec(
             name="example_create_widget",
             description="Create a widget, optionally linked to a person.",
             input_schema={

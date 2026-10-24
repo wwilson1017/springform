@@ -27,6 +27,12 @@ Conventions:
 - Settings: editable workspace name and timezone, app hide/show and reorder, GitHub and Google Sheets
   integrations, export download and upload limit; a Backups page with "Back up now", downloads and the
   one-time encryption-key reveal.
+- MCP connector: each person can make a link in Settings that lets claude.ai, Claude Desktop or
+  Claude Code use Whisk's tools as them. Links can be revoked, and stop working when the person is
+  deactivated.
+- People and Organizations pages: search, tag, organization and archived filters, duplicates and
+  merge, contact details and addresses with a primary, roles between people and organizations,
+  and a contact picker other screens can reuse.
 
 ### Changed
 
