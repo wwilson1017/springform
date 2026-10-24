@@ -13,11 +13,13 @@ Status = Literal["inbox", "next_action", "waiting_for", "delegated", "someday_ma
 ProjectStatus = Literal["active", "someday", "completed", "dropped"]
 AreaStatus = Literal["active", "dropped"]
 Visibility = Literal["private", "team"]
-def Short():  # noqa: N802 — reads as a type in the field lists below
+
+
+def Short():  # capitalised: reads as a type in the field lists below
     return Field(default=None, max_length=MAX_SHORT_CHARS)
 
 
-def Text():  # noqa: N802
+def Text():
     return Field(default=None, max_length=MAX_TEXT_CHARS)
 
 
