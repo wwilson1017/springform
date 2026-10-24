@@ -38,6 +38,9 @@ Conventions:
 - People and Organizations pages: search, tag, organization and archived filters, duplicates and
   merge, contact details and addresses with a primary, roles between people and organizations,
   and a contact picker other screens can reuse.
+- Whisk chat at `/whisk`: streamed answers, an approval card before any write, and a conversation
+  list with search, rename, private and delete. Settings, AI holds the provider keys, the agent,
+  memory (context files and facts) and the nightly run.
 
 ### Changed
 
