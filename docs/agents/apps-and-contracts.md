@@ -89,12 +89,12 @@ Open: signatures for the example's `get_widget` / `widgets_for_person` are not s
 
 | Export | Contract |
 |---|---|
-| `seed(conn)` | The app's seed data. Writes through published APIs (the CRM seed writes through `contacts.api`). |
-| `sample(conn)` | Sample data. |
+| `seed(conn)` | The app's reference data. Runs at **every startup** and must be idempotent. Writes through published APIs (the CRM seed writes through `contacts.api`). |
+| `sample(conn)` | Sample data. Runs at startup only in `PREVIEW_MODE`, and must be idempotent. |
 | `RESET_TABLES` | The app's owned **real tables** (no indexes, views or FTS shadow tables). Must **equal** that set (contract test). Used by `registry.reset_app_in`. |
 | `EXPORT` | Table → column allow-list for the admin export, separate from reset ownership. Each entry names its entity type (`sheets-and-export.md`). |
 
-Open: when `seed(conn)` and `sample(conn)` run (every boot? first boot? only under `PREVIEW_MODE`, which the lifespan calls "preview seed"?) and whether they must be idempotent is not stated. Open: the exact Python shape of `EXPORT` (how the entity type is attached to a table's entry) is not stated.
+Open: the exact Python shape of `EXPORT` (how the entity type is attached to a table's entry) is not stated.
 
 ### `settings.py`
 

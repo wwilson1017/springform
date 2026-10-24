@@ -24,7 +24,7 @@ The motivating failure: a previous fork of CakeCRM had to edit 25 CakeCRM files 
 | MCP | Each user can mint an MCP link that is an API key for that user. Admins can connect Whisk outward to other MCP servers. |
 | AI keys | The whole install works with zero AI keys. Only Whisk waits for one. |
 
-`backend/main.py` `create_app()` discovers apps and mounts their routers **at import**. The lifespan runs, in order: **checks → migrate → preview seed → scheduler**. The checks include the `flock`, the SQLite version and FTS5 assertion (`database-and-transactions.md`), the `requires_core` check (run by the migration runner before any migration) and the `PREVIEW_MODE` real-secrets refusal (`auth.md`).
+`backend/main.py` `create_app()` discovers apps and mounts their routers **at import**. The lifespan runs, in order: **checks → migrate → seed → scheduler**. Seed runs every app's idempotent `seed(conn)` at every startup; in `PREVIEW_MODE` it also seeds the preview users and runs every app's `sample(conn)`. The checks include the `flock`, the SQLite version and FTS5 assertion (`database-and-transactions.md`), the `requires_core` check (run by the migration runner before any migration) and the `PREVIEW_MODE` real-secrets refusal (`auth.md`).
 
 ## Repo tree
 
@@ -33,7 +33,7 @@ springform/
   AGENTS.md  CLAUDE.md(@AGENTS.md)  LICENSE  CHANGELOG.md  springform-version  fork-allow.txt
   pyproject.toml  uv.lock  Dockerfile  entrypoint.sh  railway.json  run.py
   backend/
-    main.py                 create_app(): discover + mount at import; lifespan = checks → migrate → preview seed → scheduler
+    main.py                 create_app(): discover + mount at import; lifespan = checks → migrate → seed → scheduler
     core/
       db.py settings.py secrets.py kv.py registry.py entities.py scheduler.py backup.py changelog.py
       clock.py localtime.py errors.py pagination.py ratelimit.py logscrub.py csv_export.py sheets.py github.py docs.py preview.py
