@@ -29,6 +29,12 @@ Conventions:
   Mine / Everyone switch, changes from others every 30 seconds, a To-dos panel on people and
   organizations, and a Settings card for the default visibility.
 - The Todos filters answer carries `default_visibility`, so members see the default too.
+- Settings: editable workspace name and timezone, app hide/show and reorder, GitHub and Google Sheets
+  integrations, export download and upload limit; a Backups page with "Back up now", downloads and the
+  one-time encryption-key reveal.
+- MCP connector: each person can make a link in Settings that lets claude.ai, Claude Desktop or
+  Claude Code use Whisk's tools as them. Links can be revoked, and stop working when the person is
+  deactivated.
 
 ### Changed
 

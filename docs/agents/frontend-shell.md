@@ -56,7 +56,7 @@ Core areas contribute to the shell by discovery, like apps; nobody edits `Root.t
 
 Core page paths: `/`, `/login`, `/setup`, `/invite/:token`, `/reset-password/:token`, `/people`, `/people/:id`, `/organizations`, `/organizations/:id`, `/settings/*`, `/guide`, `/guide/:slug`, `/reports`, `/requests`, `/changelog`, `/backups`, `/jobs`, `/whisk`, `/reminders`, `/notifications`. The backend mails `PUBLIC_URL/invite/<token>` and `PUBLIC_URL/reset-password/<token>` links. Each first segment is a reserved slug (`apps-and-contracts.md` §1).
 
-Open (pinned by the implementing workstream, which updates this doc): the Sheets admin page's path (it is not in the list above; `sheets` is reserved).
+Settings and Backups as built: there is no Sheets admin page; connected sheets are administered in Settings → Integrations (`/settings/integrations`), so `sheets` stays reserved but unrouted. Core sections: Workspace (10) and Apps (20) from `settings/`, member-visible read-only and edited by admins; Integrations (50: GitHub with `github.repo`, `github.token` and `requests.warning_text`; Google Sheets) from `integrations/`; Data (60: Export, Files with `files.max_bytes`) from `settings/`. `/backups` is `src/core/backups/` (route plus an admin-only user-menu item). The header's install name comes from `GET /api/core/workspace` through `settings/useWorkspace.ts`.
 
 ## 4. Type generation (§12)
 

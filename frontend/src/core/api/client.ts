@@ -23,15 +23,15 @@ export class ApiError extends Error {
   }
 }
 
-/** On these pages a 401 is an answer ("wrong password"), not an expired session. */
-const AUTH_PAGES = ['/login', '/setup'];
+/** On these pages a 401 is an answer ("wrong password", "wrong 2FA code"), not an expired session. */
+const AUTH_PAGES = /^\/(login|setup)$|^\/(invite|reset-password)\//;
 
 /**
  * True when it navigated away. Outside the auth pages a 401 means the session is gone, so the
  * page goes to /login.
  */
 function redirectOn401(status: number): boolean {
-  if (status !== 401 || AUTH_PAGES.includes(window.location.pathname)) return false;
+  if (status !== 401 || AUTH_PAGES.test(window.location.pathname)) return false;
   window.location.assign('/login');
   return true;
 }
@@ -65,6 +65,7 @@ function send<T>(method: string, path: string, body?: unknown): Promise<T> {
 export const fetchJson = <T>(path: string, signal?: AbortSignal) => request<T>(path, { signal });
 export const postJson = <T>(path: string, body?: unknown) => send<T>('POST', path, body);
 export const patchJson = <T>(path: string, body: unknown) => send<T>('PATCH', path, body);
+export const putJson = <T>(path: string, body: unknown) => send<T>('PUT', path, body);
 export const del = (path: string) => request<void>(path, { method: 'DELETE' });
 /** Multipart POST; the browser sets the boundary, so no Content-Type header here. */
 export const upload = <T>(path: string, form: FormData) => request<T>(path, { method: 'POST', body: form });
