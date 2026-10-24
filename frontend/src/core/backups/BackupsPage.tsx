@@ -114,7 +114,7 @@ function KeyMismatch({ manifest }: { manifest: string }) {
   return (
     <p role="alert" className="m-0 rounded-lg border border-solid border-sf-red/30 bg-sf-red/8 px-4 py-3 text-sm text-sf-red-text">
       The encryption key on this server does not match the newest backup ({manifest}). Stored credentials cannot be
-      read until the matching key is restored. <Link to="/guide/backups-and-restore" className="font-medium text-sf-red-text">How to restore the key</Link>
+      read until the matching key is restored. <Link to="/guide/backups-and-restore" className="font-medium text-sf-red-text underline">How to restore the key</Link>
     </p>
   );
 }
