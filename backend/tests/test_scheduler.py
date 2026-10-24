@@ -99,15 +99,21 @@ def test_stale_running_rows_become_interrupted_on_start(db):
     assert [r["status"] for r in _runs("core.x")] == ["interrupted", "interrupted", "ok"]
 
 
-def test_at_jobs_run_once_per_local_day_with_one_catch_up(db, freeze):
-    job = Job("core.nightly", lambda cancel: None, at="03:00")
+def _chicago():
     with core_db.transaction() as conn:
         conn.execute("INSERT INTO core_settings (key, value, updated_at) VALUES ('timezone', '\"America/Chicago\"', 'x')")
 
-    def due():
-        return [(j.name, day) for j, day in scheduler.due_jobs({job.name: job})]
 
-    freeze("2026-11-05T15:00:00Z")  # 09:00 in Chicago; down for days, so one catch-up for today only
+def test_at_jobs_run_once_per_local_day_with_one_catch_up(db, freeze):
+    job = Job("core.nightly", lambda cancel: None, at="03:00")
+    _chicago()
+
+    def due():
+        return [(j.name, day) for j, day in scheduler.due_jobs({job.name: job}, clock.parse("2026-11-01T00:00:00Z"))]
+
+    freeze("2026-11-02T09:00:30Z")  # 03:00 in Chicago: the slot runs
+    asyncio.run(_run_scheduled(job, "2026-11-02"))
+    freeze("2026-11-05T15:00:00Z")  # 09:00 local; down for days, so one catch-up for today only
     assert due() == [("core.nightly", "2026-11-05")]
     asyncio.run(_run_scheduled(job, "2026-11-05"))
     assert due() == []
@@ -115,6 +121,46 @@ def test_at_jobs_run_once_per_local_day_with_one_catch_up(db, freeze):
     assert due() == []
     freeze("2026-11-06T09:00:00Z")  # 03:00 local
     assert due() == [("core.nightly", "2026-11-06")]
+
+
+def test_a_never_run_at_job_waits_for_its_next_slot(db, freeze):
+    """A fresh install does not run every `at` job at boot: catch-up needs a previous run."""
+    job = Job("core.nightly", lambda cancel: None, at="03:00")
+    _chicago()
+    freeze("2026-11-05T15:00:00Z")  # first boot at 09:00 local, after today's 03:00 slot
+
+    async def go():
+        s = Scheduler({job.name: job})
+        await s.tick_once()
+        assert _runs(job.name) == []
+        freeze("2026-11-06T08:59:30Z")  # 02:59 local
+        await s.tick_once()
+        assert _runs(job.name) == []
+        freeze("2026-11-06T09:00:00Z")  # 03:00 local: the first slot after boot
+        await s.tick_once()
+        await s.wait_idle()
+        freeze("2026-11-06T09:00:30Z")
+        await s.tick_once()  # ran for today already
+
+    asyncio.run(go())
+    assert [(r["trigger"], r["status"], r["scheduled_for"]) for r in _runs(job.name)] == [("schedule", "ok", "2026-11-06")]
+
+
+def test_a_manual_run_after_the_slot_is_not_followed_by_a_catch_up(db, freeze):
+    job = Job("core.nightly", lambda cancel: None, at="03:00")
+    _chicago()
+    freeze("2026-11-05T16:00:00Z")  # 10:00 local, first boot an hour earlier
+    since = clock.parse("2026-11-05T15:00:00Z")
+    asyncio.run(_run_now(job))
+    assert scheduler.due_jobs({job.name: job}, since) == []  # today's 03:00 slot predates that run
+    freeze("2026-11-06T09:00:00Z")
+    assert [day for _, day in scheduler.due_jobs({job.name: job}, since)] == ["2026-11-06"]
+
+
+async def _run_now(job):
+    s = Scheduler({job.name: job})
+    assert await s.run_now(job.name)
+    await s.wait_idle()
 
 
 async def _run_scheduled(job, day):
@@ -139,12 +185,13 @@ def test_last_slot_day_is_dst_safe():
 def test_every_jobs_are_due_after_their_interval(db, freeze):
     job = Job("core.often", lambda cancel: None, every=60)
     freeze("2026-11-02T09:00:00Z")
-    assert len(scheduler.due_jobs({job.name: job})) == 1
+    since = clock.now()
+    assert len(scheduler.due_jobs({job.name: job}, since)) == 1
     asyncio.run(_run_scheduled(job, None))
     freeze("2026-11-02T09:00:59Z")
-    assert scheduler.due_jobs({job.name: job}) == []
+    assert scheduler.due_jobs({job.name: job}, since) == []
     freeze("2026-11-02T09:01:00Z")
-    assert len(scheduler.due_jobs({job.name: job})) == 1
+    assert len(scheduler.due_jobs({job.name: job}, since)) == 1
 
 
 def test_a_commit_with_outbox_rows_wakes_the_drainer(db):
@@ -181,6 +228,8 @@ def test_job_validation():
         Job("core.x", print)
     with pytest.raises(ValueError, match="HH:MM"):
         Job("core.x", print, at="3am")
+    with pytest.raises(ValueError, match="whole number"):
+        Job("core.x", print, every=0.5)
     scheduler.clear()
     with pytest.raises(ValueError, match="core.<job>"):
         scheduler.register(Job("tidy", print, every=1))

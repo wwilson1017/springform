@@ -8,7 +8,8 @@
 - A timeout cannot stop a thread. The run is marked `timed_out` and its cancel_event is set, but
   the guard and the semaphore slot are held until the thread actually returns.
 - `at` jobs run once per install-local day (timezone from the `timezone` setting), with a single
-  catch-up when the slot was missed. `every` jobs are not caught up.
+  catch-up when the slot since the job's last run was missed. A job that has never run waits for
+  its next slot, so a fresh install does not run every `at` job at boot. `every` jobs are not caught up.
 - Startup marks stale `running`/`timed_out` rows `interrupted`. Runs only in the process that
   holds the data-dir lock (main.py starts it after db.init).
 - A committed transaction that queued outbox rows nudges `core.outbox_drain` immediately.
@@ -23,7 +24,7 @@ import re
 import threading
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import datetime, time, timedelta
+from datetime import date, datetime, time, timedelta
 from typing import Any
 from zoneinfo import ZoneInfo
 
@@ -40,7 +41,7 @@ _AT = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
 class Job:
     name: str
     fn: Callable[[threading.Event], Any]
-    every: float | None = None
+    every: int | None = None  # seconds
     at: str | None = None
     app: str = "core"
     timeout: float = 300
@@ -50,8 +51,8 @@ class Job:
             raise ValueError(f"Job {self.name!r}: give exactly one of every= or at=")
         if self.at is not None and not _AT.match(self.at):
             raise ValueError(f"Job {self.name!r}: at must be 'HH:MM'")
-        if self.every is not None and self.every <= 0:
-            raise ValueError(f"Job {self.name!r}: every must be positive")
+        if self.every is not None and (not isinstance(self.every, int) or self.every <= 0):
+            raise ValueError(f"Job {self.name!r}: every must be a positive whole number of seconds")
 
 
 _JOBS: dict[str, Job] = {}
@@ -86,18 +87,26 @@ def last_slot_day(at: str, now: datetime, zone: ZoneInfo) -> str:
     return day.isoformat()
 
 
-def due_jobs(registered: dict[str, Job]) -> list[tuple[Job, str | None]]:
-    """Jobs due now, each with the local day an `at` job's run covers (None for `every`)."""
+def due_jobs(registered: dict[str, Job], since: datetime) -> list[tuple[Job, str | None]]:
+    """Jobs due now, each with the local day an `at` job's run covers (None for `every`).
+
+    An `at` job is due when its latest slot has no run and came after the job's last run, or, for
+    a job that has never run, after `since` (when the scheduler started). Slots are compared as
+    install-local wall-clock times, like `last_slot_day`."""
     now, zone, due = clock.now(), localtime.tz(), []
     for job in registered.values():
+        last = db.one("SELECT max(started_at) AS t FROM core_job_runs WHERE job = ?", (job.name,))["t"]
         if job.every is not None:
-            last = db.one("SELECT max(started_at) AS t FROM core_job_runs WHERE job = ?", (job.name,))["t"]
             if last is None or clock.parse(last) + timedelta(seconds=job.every) <= now:
                 due.append((job, None))
-        else:
-            day = last_slot_day(job.at, now, zone)
-            if not db.one("SELECT 1 AS x FROM core_job_runs WHERE job = ? AND scheduled_for = ?", (job.name, day)):
-                due.append((job, day))
+            continue
+        day = last_slot_day(job.at, now, zone)
+        if db.one("SELECT 1 AS x FROM core_job_runs WHERE job = ? AND scheduled_for = ?", (job.name, day)):
+            continue
+        slot = datetime.combine(date.fromisoformat(day), time(*map(int, job.at.split(":"))))
+        anchor = clock.parse(last) if last else since
+        if slot >= anchor.astimezone(zone).replace(tzinfo=None):
+            due.append((job, day))
     return due
 
 
@@ -147,6 +156,7 @@ class Scheduler:
         self._nudged = asyncio.Event()
         self._loop: asyncio.AbstractEventLoop | None = None
         self._loop_task: asyncio.Task | None = None
+        self.since = clock.now()  # a never-run `at` job waits for a slot after this
 
     async def start(self) -> None:
         await asyncio.to_thread(mark_interrupted)
@@ -180,7 +190,7 @@ class Scheduler:
         return self._spawn(self.jobs[name], "manual", None)
 
     async def tick_once(self) -> None:
-        for job, day in await asyncio.to_thread(due_jobs, self.jobs):
+        for job, day in await asyncio.to_thread(due_jobs, self.jobs, self.since):
             if not self._spawn(job, "schedule", day):
                 await asyncio.to_thread(_insert_run, job, "schedule", "skipped", day)
 
