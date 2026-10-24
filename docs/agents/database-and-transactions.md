@@ -156,11 +156,9 @@ except Exception:
    1. runs `entities.delete_record_in` for every row of the app's entity tables, which cascades timeline, files, fields, reminders, notifications and change-log rows through the `on_entity_deleted` subscribers;
    2. then `DELETE`s the app's non-entity `RESET_TABLES`;
    3. ids keep climbing.
-3. Only the admin **factory reset** clears every table and every sequence together. It is allowed in `PREVIEW_MODE` or on an install with no human data, and refused otherwise.
+3. Only the admin **factory reset** clears every table and every sequence together. It is allowed only when `PREVIEW_MODE` is on, or when no human user other than the caller exists **and** every app's `RESET_TABLES`, `core_people` and `core_organizations` hold zero rows. It is refused otherwise.
 4. Change-log rows written before a delete keep `entity_id` and get `core_change_log.deleted_at` (`TEXT NULL`) set, so history stays distinguishable from any later record.
 5. The CRM's port replaces CakeCRM's `TRUNCATE … RESTART IDENTITY` (`crm/service.py::_truncate_all`) with `registry.reset_app_in(conn, "crm")`; the reset regression test runs through the CRM's own reset entry point.
-
-Open: what "no human data" means for the factory-reset gate.
 
 ## 7. Timestamps
 
