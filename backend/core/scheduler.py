@@ -164,7 +164,7 @@ class Scheduler:
             event.set()
         if self._tasks:
             await asyncio.wait(self._tasks, timeout=grace)
-        for task in self._tasks:
+        for task in list(self._tasks):
             task.cancel()
         await asyncio.to_thread(mark_interrupted)
 
