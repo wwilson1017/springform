@@ -161,7 +161,7 @@ Revoked and deactivated MCP links return 404 (`mcp.md`).
 1. `PREVIEW_MODE=1` seeds `preview-admin@example.com` and `preview-member@example.com`.
 2. `LoginPage` shows a role picker → `POST /api/auth/preview {role}`.
 3. `google/start` redirects to a local stub, so Playwright covers the Google path.
-4. **Startup refuses preview mode if real secrets are set**: `ENCRYPTION_KEY` in the environment, `RESEND_API_KEY`, or any `core_settings` row with `is_secret=1`.
+4. **Startup refuses preview mode if real secrets are set**: any of the environment variables `ENCRYPTION_KEY`, `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GEMINI_API_KEY`, `GOOGLE_API_KEY` or `RESEND_API_KEY`. It is the first startup step and reads only the environment, not `core_settings`.
 5. The factory reset is allowed in preview mode (`database-and-transactions.md` §6).
 
 ## 12. Frontend (`frontend/src/core/auth/`)
