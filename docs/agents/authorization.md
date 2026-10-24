@@ -34,7 +34,7 @@ Apps register entities in `entities.py` as `ENTITIES = [Entity(...)]`. Core regi
 
 `can_read` and `can_write` always take `(user, conn, id)`, as in the dataclass.
 
-Open: whether entity type strings must be `<slug>.<name>` (every example is) and whether registration validates it.
+Entity type strings are `<slug>.<name>`; core's use `core.`. The format is enforced, and the contract test checks it.
 
 ### Registered entity types in the plan
 

@@ -97,7 +97,7 @@ In the CakeCRM donor (`assistant/confirm_tier.py`), `confirm_tier` has one legal
 ### Validation at `build_registry()` (fails boot)
 
 1. Names are unique.
-2. Names carry the `<slug>_` prefix (app tools).
+2. Names carry the `<slug>_` prefix (app tools). The contract test checks it too.
 3. `writes` is a `bool`.
 4. `confirm_tier` is allowed only when `writes`.
 5. A write tool has `handler_in` **and** `targets`, or is marked `external_effect`.

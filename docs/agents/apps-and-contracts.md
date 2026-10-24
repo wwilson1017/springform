@@ -56,7 +56,7 @@ Open: the `icon` vocabulary is not stated.
 | Module | Exports | Contract |
 |---|---|---|
 | `app.json` | manifest | §1 above. |
-| `router.py` | `router` | Mounted at `/api/<slug>`, tagged `<slug>` (stable `operationId`s for type generation). `registry.mount()` adds `Depends(require_roles(manifest.roles))`. Every route carries the auth dependency unless allow-listed. |
+| `router.py` | `router` | Mounted at `/api/<slug>`, tagged `<slug>` (stable `operationId`s for type generation). `registry.mount()` adds `Depends(require_roles(manifest.roles))`. Every route carries the auth dependency unless listed in `ALLOW_UNAUTHENTICATED` in the contract test. |
 | `api.py` | published functions | **The only module another app may import** (`from apps.<x>.api import …`). Every published function has an `_in(conn, …)` form. |
 | `entities.py` | `ENTITIES = [Entity(...)]` | Table, labels, URL and title builders, `can_read(user, conn, id)` / `can_write(user, conn, id)` (`authorization.md`). |
 | `hooks.py` | `HOOKS = {"on_entity_deleted": [...], "on_entity_merged": [...], "on_record_changed": [...], "after_record_changed": [...]}` | The registry subscribes them. The three sync keys take `fn(conn, entity_type, entity_id, **kw)` in the caller's transaction; `after_record_changed` takes `fn(payload: dict)` after commit, via the outbox (`authorization.md` §3, `database-and-transactions.md` §4). |
@@ -177,7 +177,7 @@ Falsifiable against `backend/tests/fixtures/bad_app` (the test must fail it). It
 2. `slug` equals the folder name.
 3. `path` equals `/<slug>`.
 4. `slug` is not reserved and does not prefix-collide with another installed slug.
-5. `router.py` is present, and every route carries the auth dependency unless allow-listed.
+5. `router.py` is present, and every route carries the auth dependency unless listed in the test's `ALLOW_UNAUTHENTICATED`.
 6. The mounted router carries the manifest's role guard.
 
 **Migrations and ownership** (after migrating a temp DB)
@@ -203,8 +203,8 @@ Falsifiable against `backend/tests/fixtures/bad_app` (the test must fail it). It
 14. `docs/index.md` is present.
 15. `JOBS` names are prefixed `<slug>.`.
 16. Cross-app imports happen only via `api` (grep).
-
-Open: the route allow-list (which routes may skip the auth dependency, e.g. a public webhook) has no stated format or location. Open: whether the test also enforces tool-name prefixes (`build_registry()` already fails boot on unprefixed tools; `agent.md`).
+17. Tool names carry the `<slug>_` prefix (`build_registry()` checks it at boot as well).
+18. Entity types are `<slug>.<name>`.
 
 ### Vitest twin
 
