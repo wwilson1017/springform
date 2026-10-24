@@ -35,7 +35,8 @@ export function UserPicker({ id, value, onChange, options = [], valueName, 'aria
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [found, setFound] = useState<{ query: string; users: UserRef[]; failed: boolean } | null>(null);
-  const [active, setActive] = useState(0);
+  // The highlighted row's value; null = the current value's row while nothing is typed, else the first.
+  const [active, setActive] = useState<string | null>(null);
 
   const fixed = options.find(([v]) => v === value);
   const userId = !fixed && /^\d+$/.test(value) ? Number(value) : null;
@@ -49,7 +50,8 @@ export function UserPicker({ id, value, onChange, options = [], valueName, 'aria
     ...options.filter(([, label]) => label.toLowerCase().includes(q.toLowerCase())),
     ...(fresh ? found.users.filter(u => !taken.has(String(u.id))).map(u => [String(u.id), u.name] as [string, string]) : []),
   ];
-  const index = rows.length === 0 ? 0 : Math.min(active, rows.length - 1);
+  const at = (v: string | null) => rows.findIndex(([rv]) => rv === v);
+  const index = Math.max(at(active) >= 0 ? at(active) : q === '' ? at(value) : 0, 0);
 
   useEffect(() => {
     if (!open) return;
@@ -71,7 +73,7 @@ export function UserPicker({ id, value, onChange, options = [], valueName, 'aria
   function openList() {
     if (open || disabled) return;
     setQuery('');
-    setActive(Math.max(options.findIndex(([v]) => v === value), 0));
+    setActive(null);
     setOpen(true);
   }
 
@@ -86,7 +88,7 @@ export function UserPicker({ id, value, onChange, options = [], valueName, 'aria
     if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
       e.preventDefault();
       if (!open) { openList(); return; }
-      if (rows.length) setActive((index + (e.key === 'ArrowDown' ? 1 : -1) + rows.length) % rows.length);
+      if (rows.length) setActive(rows[(index + (e.key === 'ArrowDown' ? 1 : -1) + rows.length) % rows.length][0]);
     } else if (e.key === 'Enter') {
       // Swallowed while open: the picker usually sits in a form.
       if (!open) return;
@@ -99,7 +101,7 @@ export function UserPicker({ id, value, onChange, options = [], valueName, 'aria
 
   // Hover follows the pointer, not rows scrolling under a still cursor during keyboard moves.
   const onHover = (i: number) => (e: MouseEvent) => {
-    if (e.movementX !== 0 || e.movementY !== 0) setActive(i);
+    if (e.movementX !== 0 || e.movementY !== 0) setActive(rows[i][0]);
   };
   const searching = open && !fresh;
 
@@ -118,7 +120,7 @@ export function UserPicker({ id, value, onChange, options = [], valueName, 'aria
         disabled={disabled}
         value={open ? query : current}
         placeholder={open ? current || 'Search people…' : 'Search people…'}
-        onChange={e => { setQuery(e.target.value); setActive(0); }}
+        onChange={e => { setQuery(e.target.value); setActive(null); }}
         onFocus={openList}
         onClick={openList}
         onBlur={() => setOpen(false)}

@@ -77,6 +77,16 @@ describe('UserPicker', () => {
     expect(screen.getByTestId('value').textContent).toBe('');
   });
 
+  it("starts the highlight on the current user's row", async () => {
+    mockFetch({ [`GET ${FIRST}`]: { body: PEOPLE } });
+    render(<Harness initial="2" />);
+    fireEvent.focus(input());
+    const max = await screen.findByRole('option', { name: 'Max Member' });
+    expect(max.getAttribute('aria-selected')).toBe('true');
+    fireEvent.keyDown(input(), { key: 'ArrowUp' });
+    expect(screen.getByRole('option', { name: 'Ada Admin' }).getAttribute('aria-selected')).toBe('true');
+  });
+
   it('picks a row by click', async () => {
     mockFetch({ [`GET ${FIRST}`]: { body: PEOPLE } });
     render(<Harness initial="2" />);
