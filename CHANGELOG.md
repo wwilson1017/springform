@@ -74,6 +74,7 @@ Conventions:
 
 ### Fixed
 
+- CRM deal page: shows the deal's custom fields and reminders beside its files, as the CRM Guide says.
 - Whisk names the business from the workspace name setting.
 - Report CSV downloads check and default their params like the report page (bad params are 422).
 - The settings API lists only keys an admin can change, so saving every listed value works.
