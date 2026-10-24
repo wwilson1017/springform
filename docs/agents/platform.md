@@ -120,6 +120,8 @@ Login is invite-only. The first admin is created with a one-time setup token, ne
 
 ## Built-in apps
 
+Springform ships two business apps plus the Example fixture. Example is hidden from clients by default.
+
 | App | Folder | What |
 |---|---|---|
 | CRM | `backend/apps/crm`, `frontend/src/apps/crm` | CakeCRM ported to SQLite onto the core directory, minus its GTD, Gmail, Telegram and built-in assistant (Baker) code. Path `/crm`, API `/api/crm`. |
@@ -127,8 +129,6 @@ Login is invite-only. The first admin is created with a one-time setup token, ne
 | Example | `backend/apps/example`, `frontend/src/apps/example` | The integration fixture: contributes every seam from its own folder (`apps-and-contracts.md`). |
 
 Core screens (not apps): launcher, settings, people and organizations, Guide, Requests board, ChangeLog, Backups, Jobs, connected Google Sheets, the Whisk page (`frontend-shell.md`).
-
-Open: the plan's overview says "Four built-in apps ship in the repo: **CRM** … **Todos** … plus the core screens". Which four are meant is not stated.
 
 ## Build order
 
