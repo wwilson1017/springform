@@ -146,7 +146,7 @@ def test_preview_role_picker(client, db, monkeypatch):
     r = client.post("/api/auth/preview", json={"role": "member"})
     assert r.json()["user"]["email"] == "preview-member@example.com"
     assert client.get("/api/me").json()["role"] == "member"
-    assert client.get("/api/auth/status").json() == {"setup_required": False, "google": False, "preview": True}
+    assert client.get("/api/auth/status").json() == {"setup_required": False, "google": True, "preview": True}  # the stub
     assert _login(client, "preview-admin@example.com", "!").status_code == 401  # no password to guess
 
 
