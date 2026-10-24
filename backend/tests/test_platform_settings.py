@@ -83,8 +83,18 @@ def test_settings_are_admin_only_and_workspace_is_for_every_member(login_as, app
         "timezone": "Europe/Paris",
         "version": workspace["version"],
         "preview": False,
+        "public_url": "http://localhost:8000",
     }
     assert workspace["version"]
+
+
+def test_workspace_shows_public_url_from_the_env_auth_uses(login_as, monkeypatch):
+    from backend.core.auth import google
+
+    monkeypatch.setenv("PUBLIC_URL", "https://crm.example.com/")
+    workspace = login_as("member").get("/api/core/workspace").json()
+    assert workspace["public_url"] == "https://crm.example.com"
+    assert google.redirect_uri() == workspace["public_url"] + "/api/auth/google/callback"
 
 
 def test_get_lists_only_settable_keys_so_a_round_trip_put_succeeds(login_as):

@@ -17,6 +17,24 @@ _ENV = (
     "ANTHROPIC_API_KEY", "OPENAI_API_KEY", "GEMINI_API_KEY", "GOOGLE_API_KEY", "RESEND_API_KEY",
 )
 _counter = itertools.count(1)
+pytest_plugins = ["pytester"]  # test_conftest_guards runs a real inner session
+
+SUPPRESSIONS = ("skip", "skipif", "xfail")
+# Node ids allowed to carry one of SUPPRESSIONS, each with a one-line reason. Empty: fix the cause.
+ALLOWED_SUPPRESSIONS: frozenset[str] = frozenset()
+CHECKED = pytest.StashKey[int]()
+
+
+def pytest_collection_modifyitems(config, items):
+    """Fail collection when a test carries a skip, skipif or xfail marker (lifted from CakeCRM)."""
+    offenders = [
+        f"{item.nodeid}: @pytest.mark.{marker.name}"
+        for item in items if item.nodeid not in ALLOWED_SUPPRESSIONS
+        for marker in item.iter_markers() if marker.name in SUPPRESSIONS
+    ]  # fmt: skip
+    config.stash[CHECKED] = len(items)
+    if offenders:
+        raise pytest.UsageError("Suppression markers are banned (fix the cause instead):\n" + "\n".join(offenders))
 
 
 @pytest.fixture(autouse=True)

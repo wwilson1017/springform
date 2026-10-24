@@ -64,11 +64,13 @@ def reset_setting(key: str) -> dict:
 
 
 def workspace() -> dict:
+    """`public_url` is the PUBLIC_URL env value auth builds links and redirect URIs from; read-only."""
     return {
         "name": keys.get("workspace.name"),
         "timezone": keys.get("timezone"),
         "version": VERSION,
         "preview": settings.preview_mode(),
+        "public_url": settings.public_url(),
     }
 
 
