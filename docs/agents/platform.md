@@ -59,21 +59,20 @@ springform/
       app.json  router.py  api.py  service.py  models.py  entities.py  hooks.py  reports.py  tools.py  jobs.py  seed.py  settings.py
       migrations/YYYYMMDDHHMMSS_<slug>_<name>.sql   docs/index.md
     apps/crm/   apps/todos/   apps/example/   (example is the integration fixture: it contributes every seam)
-    tests/      conftest.py  test_app_contract.py  fixtures/bad_app/  test_core_*.py
+    tests/      conftest.py  test_app_contract.py  fixtures/{bad_app,apps_admin}/  test_<area>.py
   frontend/
     vite.config.ts  vitest.config.ts  vite-plugin-apps.ts (virtual:springform-apps from backend/apps/*/app.json)
     src/core/   api/{client.ts,types.gen.ts}  apps/registry.ts  shell/  auth/  contacts/  records/  agent/  pages/  settings/  theme/
     src/shared/ (lifted CakeCRM: toast, confirm, icons, styles, MobileMenuDrawer, …)
     src/apps/<slug>/contributions.ts (light: lazy loaders)  index.tsx (heavy: the app)  api.ts  pages/  components/
   docs/agents/*.md   docs/AUTO_ISSUES.md   docs/PROVENANCE.md   docs/apps/ (fork-owned)
-  deploy/   setup.sh  deploy.sh  compose.yml  Caddyfile  .env.example
-  scripts/  new-fork.sh  check-fork-scope.sh  seed-labels.sh  gen-types.sh  new-app.sh  update-from-upstream.sh
+  deploy/   setup.sh  deploy.sh  offsite.sh  compose.yml  Caddyfile  .env.example
+  scripts/  new-fork.sh  check-fork-scope.sh  test-fork-scope.sh  seed-labels.sh  gen-types.sh  new-app.sh  update-from-upstream.sh  restore.sh  check-sqlite.py
   .github/workflows/  ci.yml  release.yml
 ```
 
-`scripts/restore.sh` (§1) is not drawn in the plan's tree but is named in §1 and Step 1; it lives in `scripts/`.
 
-There is no fork workflow template: one `ci.yml` serves upstream and forks, with the conditional Fork scope job (`forks.md` §5).
+There is no fork workflow template: one `ci.yml` serves upstream and forks. Its Fork scope job always runs and passes on upstream, which has no `FORK.md` (`forks.md` §5).
 
 ## Hosting contract
 
@@ -81,11 +80,11 @@ The image follows ONCE's contract: **one port, `/up`, data in `/data`, configura
 
 | Item | Contract |
 |---|---|
-| Port | One HTTP port: `PORT` from the environment, default 8000. Railway sets `PORT`; Caddy proxies to `app:8000`. |
+| Port | One HTTP port: `PORT` from the environment, default 8000. Railway sets `PORT`; Caddy proxies to `app:{$PORT}`. |
 | `/up` | `SELECT 1`, then `200 "ok"`. No auth. Docker `HEALTHCHECK` and Railway's healthcheck use it. |
 | `/api/health` | `{version, sqlite_version, fts5, preview, apps:[slug], last_backup_at}`. No auth. `version` is read from `springform-version`. |
 | `/data` | The only state. Everything a restore needs is in it (see below). |
-| Env config | No configuration is baked into the image. |
+| Env config | Configuration comes from the environment. The image bakes in only `DATA_DIR=/data` and `SPRINGFORM_REQUIRE_SQLITE=1`. |
 
 ### `/data` layout (every path the plan names)
 
@@ -107,17 +106,18 @@ The data directory is `DATA_DIR` (the donor's env var, kept; default `./data` fo
 |---|---|---|
 | `PORT` | The HTTP port, default `8000`. Railway sets it. | `deploy.md` |
 | `DATA_DIR` | The data directory, default `./data`; `/data` in the container. | `database-and-transactions.md` |
-| `PUBLIC_URL` | The install's public URL: Google redirect URI, CSRF origin, scheme warning. Shown read-only in Settings; not a `core_settings` key. | `auth.md` |
-| `SECRET_KEY` | The session JWT signing key. | `auth.md` |
+| `PUBLIC_URL` | The install's public URL, default `http://localhost:8000`: Google redirect URI, CSRF origin, invite and reset links, scheme warning. Not a `core_settings` key. | `auth.md` |
+| `SECRET_KEY` | The session JWT signing key; when unset, `<DATA_DIR>/.secret-key` is generated at first boot. | `auth.md` |
 | `ENCRYPTION_KEY` | Fernet key; when set, no key file is written. | `deploy.md` |
 | `TRUST_PROXY` | `1` → uvicorn `--proxy-headers --forwarded-allow-ips='*'`. | `auth.md`, `deploy.md` |
 | `PREVIEW_MODE` | `1` → seeded preview users, role picker, Google stub. | `auth.md` |
 | `SPRINGFORM_FREEZE_CLOCK` | `<iso>` → the server clock is frozen there, for Playwright. Honoured only in `PREVIEW_MODE`. | `testing.md` |
 | `RESEND_API_KEY`, `MAIL_FROM` | Invite and reset mail via Resend. | `auth.md` |
 | `MCP_ALLOW_PRIVATE` | `1` → outbound MCP may reach private addresses and `http://`. | `mcp.md` |
-| `AGENT_VECTOR` | `1` → optional `core_agent_vectors`. | `agent.md` |
+| `SPRINGFORM_REQUIRE_SQLITE` | `1` → refuse to start on SQLite older than 3.51.3 (else a warning). The image sets it. | `database-and-transactions.md` |
+| `SHEETS_FAKE` | `1` → a fake Google Sheets client, for local runs and tests. | `sheets-and-export.md` |
 | `DOMAIN` | Caddy site address in `deploy/`. | `deploy.md` |
-| `IMAGE` | Image `compose.yml` and `railway.json` run. | `deploy.md`, `forks.md` |
+| `IMAGE` | The image `compose.yml` runs, default the upstream image; written by `setup.sh`. Railway builds from the `Dockerfile` instead. | `deploy.md`, `forks.md` |
 | `RAILWAY_DEPLOYMENT_DRAINING_SECONDS` | `15`, documented for Railway. | `deploy.md` |
 
 ### Install settings (`core_settings`)
