@@ -82,6 +82,21 @@ def test_keeps_the_newest_seven_sets_and_clears_abandoned_files(db, freeze):
     assert next(s for s in service.list_sets() if s["stamp"] == "20200101T000001Z")["manifest_ok"] is False
 
 
+def test_runs_in_the_same_second_each_get_a_complete_set(db, freeze):
+    freeze("2026-11-02T15:00:00Z")  # SPRINGFORM_FREEZE_CLOCK, or a double click on "Back up now"
+    first, second = service.run("manual"), service.run("manual")
+    assert (first["status"], first["snapshot"]) == ("ok", "20261102T150000Z.sqlite")
+    assert (second["status"], second["snapshot"], second["manifest"]) == ("ok", "20261102T150000Z-2.sqlite", "20261102T150000Z-2.manifest.json")
+    assert service.read_manifest("20261102T150000Z-2")["snapshot"]["filename"] == second["snapshot"]
+    assert service.snapshot_path("20261102T150000Z-2").name == second["snapshot"]
+    assert [(s["stamp"], s["manifest_ok"]) for s in service.list_sets()] == [("20261102T150000Z-2", True), ("20261102T150000Z", True)]
+    for _ in range(9):  # -3 … -11: retention counts -10 after -9, not after the plain stamp
+        assert service.run()["status"] == "ok"
+    kept = [f"20261102T150000Z-{n}" for n in range(11, 4, -1)]
+    assert [s["stamp"] for s in service.list_sets()] == kept
+    assert service.complete_stamps() == kept[::-1]
+
+
 def test_low_free_space_skips_the_backup_and_says_why(db, monkeypatch):
     monkeypatch.setattr(shutil, "disk_usage", lambda path: SimpleNamespace(free=50 * 2**20))
     row = service.run()

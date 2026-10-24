@@ -78,6 +78,8 @@ Conventions:
   sample (the CRM's deals) no longer has to seed them itself.
 - A `springform-version` that is not a PEP 440 version (such as `0.1.0-dryrun-b`) stops the boot
   with a message naming the file and the value, instead of an uncaught `InvalidVersion`.
+- A second backup in the same second (a frozen clock, a double click on "Back up now") is saved as
+  `<stamp>-2`, `-3`, … instead of failing with "already exists".
 - A boot whose encryption key does not match the newest backup's logs an error with the remedy and
   records it for the Backups page, instead of serving with every stored secret silently unset.
 

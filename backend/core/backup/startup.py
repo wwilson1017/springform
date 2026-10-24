@@ -19,11 +19,10 @@ KEY_MISMATCH = "backups.key_mismatch"
 
 def _newest_fingerprint() -> tuple[str, str] | None:
     """(manifest filename, key fingerprint) of the newest readable manifest, if any."""
-    out = service.backups_dir()
-    for p in sorted(out.glob(f"*{service.MANIFEST}"), reverse=True) if out.is_dir() else []:
-        manifest = service.read_manifest(p.name[: -len(service.MANIFEST)])
+    for stamp in reversed(service.complete_stamps()):
+        manifest = service.read_manifest(stamp)
         if isinstance(manifest, dict) and manifest.get("key_fingerprint"):
-            return p.name, manifest["key_fingerprint"]
+            return f"{stamp}{service.MANIFEST}", manifest["key_fingerprint"]
     return None
 
 

@@ -101,7 +101,7 @@ Lifted from CakeCRM `core/secret_store.py` (minus keychain) and `core/encryption
 
 ### The job (`core.backup`, 03:00 install-local)
 
-1. `VACUUM INTO` a `.tmp` file, then `os.replace` into `/data/backups/<stamp>.sqlite`. `<stamp>` is `YYYYMMDDTHHMMSSZ`.
+1. `VACUUM INTO` a `.tmp` file, then `os.replace` into `/data/backups/<stamp>.sqlite`. `<stamp>` is `YYYYMMDDTHHMMSSZ`; a second set in the same second (a frozen clock, a double click) is `-2`, `-3`, …, and retention sorts the numbers as numbers.
 2. Write `/data/backups/<stamp>.manifest.json` **last**, containing:
    - the snapshot filename and its sha256;
    - the list of blob sha256s referenced by `core_files` at snapshot time;

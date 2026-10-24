@@ -1,4 +1,5 @@
 """Recovery sets: `<data>/backups/<stamp>.sqlite` plus `<stamp>.manifest.json`, written last.
+A stamp is the start second (`20261102T150000Z`); a second set in the same second gets `-2`, `-3`, ….
 
 A set is complete iff its manifest exists. The manifest lists every blob (`core_files.sha256`)
 the snapshot references; the files sweep never deletes a blob a retained manifest lists, so
@@ -28,7 +29,7 @@ logger = logging.getLogger(__name__)
 KEEP = 7
 MIN_FREE_BYTES = 100 * 1024 * 1024  # free space that must remain after a snapshot the size of the DB
 ORPHAN_AGE = 3600  # seconds before a snapshot without a manifest, or a .tmp, counts as abandoned
-STAMP = re.compile(r"^\d{8}T\d{6}Z$")
+STAMP = re.compile(r"^\d{8}T\d{6}Z(-\d+)?$")
 SNAPSHOT, MANIFEST = ".sqlite", ".manifest.json"
 KEY_SHOWN = "backups.key_shown_at"
 MANIFEST_VERSION = 1
@@ -54,6 +55,18 @@ def sha256_file(path: Path) -> str:
         while chunk := f.read(1 << 20):
             h.update(chunk)
     return h.hexdigest()
+
+
+def stamp_order(stamp: str) -> tuple[str, int]:
+    """Sort key, oldest first: `<second>` before `<second>-2` before `<second>-10`."""
+    base, _, n = stamp.partition("-")
+    return base, int(n) if n.isdigit() else 1
+
+
+def complete_stamps() -> list[str]:
+    """The stamps of the sets that have a manifest, oldest first."""
+    out = backups_dir()
+    return sorted((p.name[: -len(MANIFEST)] for p in out.glob(f"*{MANIFEST}")), key=stamp_order) if out.is_dir() else []
 
 
 def _write_synced(path: Path, data: bytes) -> None:
@@ -94,10 +107,12 @@ def _take(started: datetime) -> tuple[str, dict]:
     if free < need:
         return "skipped", {"error": f"low disk space: {free // 2**20} MB free, {need // 2**20} MB needed"}
     out.mkdir(exist_ok=True)
-    stamp = started.strftime("%Y%m%dT%H%M%SZ")
+    # A frozen clock or a double click takes the same second twice: number the later sets after the
+    # highest one on disk, never a lower number pruning has freed (that set would sort oldest).
+    base = started.strftime("%Y%m%dT%H%M%SZ")
+    taken = [stamp_order(p.name.split(".", 1)[0])[1] for p in out.glob(f"{base}*")]
+    stamp = f"{base}-{max(taken) + 1}" if taken else base
     final, manifest = out / f"{stamp}{SNAPSHOT}", out / f"{stamp}{MANIFEST}"
-    if final.exists() or manifest.exists():
-        raise FileExistsError(f"a backup named {stamp} already exists; try again in a second")
     tmp = out / f"{stamp}{SNAPSHOT}.tmp"
     tmp.unlink(missing_ok=True)
     try:
@@ -151,8 +166,7 @@ def prune() -> None:
     """Keep the newest KEEP complete sets; drop older ones (manifest first, so a set is never
     complete without its snapshot) and abandoned snapshots or temp files."""
     out = backups_dir()
-    complete = sorted(p.name[: -len(MANIFEST)] for p in out.glob(f"*{MANIFEST}"))
-    for stamp in complete[:-KEEP]:
+    for stamp in complete_stamps()[:-KEEP]:
         (out / f"{stamp}{MANIFEST}").unlink(missing_ok=True)
         (out / f"{stamp}{SNAPSHOT}").unlink(missing_ok=True)
     now = time.time()
@@ -191,7 +205,7 @@ def list_sets() -> list[dict]:
     }
     statuses = {r["snapshot"]: r["status"] for r in db.rows("SELECT snapshot, status FROM core_backups ORDER BY id")}
     sets = []
-    for stamp in sorted((s for s in stamps if STAMP.match(s)), reverse=True):
+    for stamp in sorted((s for s in stamps if STAMP.match(s)), key=stamp_order, reverse=True):
         manifest, snap = read_manifest(stamp), out / f"{stamp}{SNAPSHOT}"
         size = snap.stat().st_size if snap.is_file() else None
         try:
@@ -212,9 +226,8 @@ def list_sets() -> list[dict]:
 
 def last_backup_at() -> str | None:
     """When the newest complete set on this volume was taken (None when there is none)."""
-    out = backups_dir()
-    for p in sorted(out.glob(f"*{MANIFEST}"), reverse=True) if out.is_dir() else []:
-        manifest = read_manifest(p.name[: -len(MANIFEST)])
+    for stamp in reversed(complete_stamps()):
+        manifest = read_manifest(stamp)
         if isinstance(manifest, dict) and manifest.get("created_at"):
             return manifest["created_at"]
     return None
