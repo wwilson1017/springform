@@ -24,7 +24,7 @@ Lifted from todo-gtd `backend/db.py` 499–540 and 782–825.
 ## 2. `transaction()`
 
 ```python
-class NestedTransaction(Exception): ...
+class NestedTransaction(RuntimeError): ...
 
 @contextmanager
 def transaction() -> Iterator[Conn]:
@@ -34,15 +34,15 @@ def transaction() -> Iterator[Conn]:
     # 4. yield conn
     # 5. on any exception: ROLLBACK, re-raise
     # 6. COMMIT
-    # 7. after COMMIT: nudge the outbox drainer (set an asyncio Event), fire-and-forget
+    # 7. after COMMIT: if the transaction enqueued outbox rows, nudge the drainer, fire-and-forget
 ```
 
 Rules:
 
 1. `transaction()` is **never nested**. It raises `NestedTransaction` if the thread's connection is already in one.
 2. The write lock is process-wide (`_write_lock`), on top of SQLite's own `BEGIN IMMEDIATE` lock.
-3. `transaction()` does **not** drain the outbox inline. It only nudges the drainer after `COMMIT`. A failed nudge can never make a committed API call look failed.
-4. **No network or LLM call inside `transaction()`.** A test patches `transaction()` to fail on `httpx`/provider calls.
+3. `transaction()` does **not** drain the outbox inline. It only nudges the drainer after `COMMIT`, and only when the transaction called `outbox.enqueue_in`; other commits and rollbacks never nudge. A failed nudge can never make a committed API call look failed.
+4. **No network or LLM call inside `transaction()`.** An autouse test fixture patches `httpx.Client.send` and `httpx.AsyncClient.send` to raise whenever `db.in_transaction()` is true, in every test.
 5. Local disk operations are allowed under the lock where a protocol needs them (file publication `rename`, sweep `unlink`; `records.md`).
 
 ## 3. The `fn` / `fn_in(conn, …)` convention
@@ -58,7 +58,7 @@ Rules:
 
 1. `fn(...)` is `with transaction() as conn: return fn_in(conn, ...)`, or equivalent.
 2. `fn_in` never calls `transaction()` and never makes a network call.
-3. **Every** published `api.py` function has an `_in(conn, …)` form, reads included, so a caller inside a transaction reads through its own `conn`.
+3. **Every** published `api.py` function has an `_in(conn, …)` form, reads included, so a caller inside a transaction reads through its own `conn`. Exceptions: `timeline.api.list_for` has no `_in` form, `record_changes_in` has only the `_in` form, and functions that call out (the sheets `write`) have none.
 
 ## 4. Sync hooks vs the durable outbox
 
@@ -73,7 +73,7 @@ Work that must happen after commit is **durable, not in-memory**. `record_change
 ```sql
 core_outbox(
   id,            -- integer primary key
-  hook,          -- consumer name (e.g. after_record_changed)
+  hook,          -- consumer name; one per after_record_changed subscriber: after_record_changed:<module>.<qualname>
   payload,       -- JSON TEXT
   created_at,    -- now_iso()
   available_at,  -- not claimable before this (retry backoff)
@@ -163,7 +163,7 @@ except Exception:
 
 1. Canonical form: `YYYY-MM-DDTHH:MM:SSZ` (UTC, second precision).
 2. Written only by `core.clock.now_iso()`. A test greps SQL for `datetime('now')` and `CURRENT_TIMESTAMP`.
-3. User-supplied instants go through `clock.normalize(value: str | datetime, tz: str) -> str`, which returns the canonical UTC string.
+3. User-supplied instants go through `clock.normalize(value: str | datetime, tz: str | ZoneInfo | None = None) -> str`, which returns the canonical UTC string. A value without an offset is read in `tz`, by default the install timezone.
 4. Day bucketing for reports happens in Python via `zoneinfo` and the install timezone (`core/localtime.py`, lifted from CakeCRM). SQL only compares against precomputed UTC bounds. Never `substr(col,1,10)` (that is a UTC date).
 5. The install timezone is `core_settings.timezone` (IANA, default UTC).
 
@@ -190,8 +190,8 @@ Required for the WAL-reset corruption fix.
 | Where | How it is satisfied |
 |---|---|
 | Docker image | Stage `sqlite` builds the SHA-pinned 3.51.3 amalgamation; the runtime stage copies `libsqlite3.so.0*`. |
-| Dev and CI | `pysqlite3-binary`, imported as `try: import pysqlite3 as sqlite3` (falling back to the stdlib module). |
-| Startup | Asserts `sqlite3.sqlite_version_info >= (3, 51, 3)` **from the connection actually in use**, and that `fts5` is compiled in (`PRAGMA compile_options`). |
+| Dev and CI | `pysqlite3-binary`, installed only on Linux x86_64 and imported as `try: import pysqlite3 as sqlite3` (falling back to the stdlib module). It bundles SQLite 3.51.1, below the floor. |
+| Startup | Reads `SELECT sqlite_version()` **from the connection actually in use**. Without FTS5 it always refuses to start. A version below 3.51.3 refuses only when `SPRINGFORM_REQUIRE_SQLITE=1`, which the Docker image sets; otherwise it logs a warning (a marked simplification until a newer wheel ships). |
 | CI image test | Runs the container and asserts `/api/health` reports `sqlite_version >= 3.51.3` and `fts5: true`. |
 
 ## 11. PG→SQLite checklist
@@ -229,7 +229,7 @@ Written for the CRM port (§7); grep each before a ported module is done.
 - Fresh apply; an upgrade from the previous tagged release plus a private fixture app applies cleanly on both a fresh and an upgraded database, with a fixture whose historical migration references a deprecated core column.
 - The DROP/RENAME lint fails a core migration not named `*_baseline.sql`; the `requires_core` refusal is tested with a fixture declaring `<0.1`.
 - `now_iso` is the only timestamp writer (grep test).
-- No `httpx` inside `transaction()` (`transaction()` patched to fail on `httpx`/provider calls).
+- No `httpx` inside `transaction()` (an autouse fixture makes `httpx` sends raise inside one).
 - Nested `transaction()` raises.
 - A core merge that invokes a failing CRM subscriber leaves no partial change (a merge with a failing subscriber rolls back entirely).
 - After-commit hooks run after `COMMIT` only.
