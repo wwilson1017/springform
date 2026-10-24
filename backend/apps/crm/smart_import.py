@@ -5,7 +5,8 @@ and its import routes (docs/PROVENANCE.md).
 
 `parse` saves nothing; the model call, when needed, runs outside any transaction. `confirm` is
 one transaction with a savepoint per row, so a row that fails is skipped with its reason and the
-rest are kept.
+rest are kept. A row whose email (or, without one, whose name) is already in contacts or
+repeats an earlier row is skipped as a duplicate, so importing the same file twice is harmless.
 """
 
 from __future__ import annotations
@@ -195,12 +196,41 @@ def parse(user: User, filename: str, data: bytes) -> dict:
     return {"people": people, "method": method, "warnings": warnings}
 
 
+def _already_in(conn: db.Conn, by: str, value: str) -> bool:
+    """A live or archived person (not merged away) with this email, or this name. SQLite's lower()
+    folds ASCII only; both sides go through it, so the match is at least consistent."""
+    if by == "email":
+        sql = """SELECT 1 FROM core_contact_channels c JOIN core_people p ON p.id = c.owner_id
+                  WHERE c.owner_type = 'person' AND c.kind = 'email' AND lower(trim(c.value)) = lower(?) AND p.merged_into_id IS NULL"""
+    else:
+        sql = "SELECT 1 FROM core_people WHERE lower(trim(name)) = lower(?) AND merged_into_id IS NULL"
+    return conn.execute(f"{sql} LIMIT 1", (value,)).fetchone() is not None
+
+
+def _new_rows_in(conn: db.Conn, people: list[dict], skipped: list[str]) -> list[tuple[int, dict]]:
+    """The rows that are nobody already in contacts or earlier in the file, matched by email,
+    or by name when a row has no email; the rest go to `skipped` with the reason."""
+    rows, seen = [], set()
+    for i, p in enumerate(people, 1):
+        by, value = ("email", p["email"].strip()) if p["email"].strip() else ("name", p["name"].strip())
+        if (by, value.casefold()) in seen:
+            skipped.append(f"Row {i} ({p['name'][:60]}): the same {by} as an earlier row")
+        elif _already_in(conn, by, value):
+            skipped.append(f"Row {i} ({p['name'][:60]}): already in contacts (same {by})")
+        else:
+            seen.add((by, value.casefold()))
+            rows.append((i, p))
+    return rows
+
+
 def confirm(user: User, people: list[dict]) -> dict:
-    """Create the reviewed people (owned by the importer) and link their organizations."""
+    """Create the reviewed people (owned by the importer) and link their organizations. A row
+    whose person is already in contacts, or repeats an earlier row, is skipped."""
     created, linked, skipped = [], 0, []
     with db.transaction() as conn:
-        org_ids = contacts.resolve_or_create_organizations_in(conn, user, [p["organization"] for p in people if p["organization"]])
-        for i, p in enumerate(people, 1):
+        rows = _new_rows_in(conn, people, skipped)
+        org_ids = contacts.resolve_or_create_organizations_in(conn, user, [p["organization"] for _, p in rows if p["organization"]])
+        for i, p in rows:
             conn.execute("SAVEPOINT crm_import_row")
             try:
                 fields = {k: p[k] for k in ("email", "phone", "title", "source", "notes") if p[k]}
