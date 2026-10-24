@@ -1948,7 +1948,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List Timeline */
+        /**
+         * List Timeline
+         * @description Newest first; pass the last id seen as `before` for the next page.
+         */
         get: operations["core_list_timeline"];
         put?: never;
         /** Add Note */
@@ -3170,6 +3173,12 @@ export interface components {
             entity_id: number;
             /** Entity Type */
             entity_type: string;
+            /**
+             * Kind
+             * @default note
+             * @enum {string}
+             */
+            kind: "note" | "comment";
         };
         /** Notification */
         Notification: {
@@ -8167,8 +8176,8 @@ export interface operations {
             query: {
                 entity_type: string;
                 entity_id: number;
-                limit?: number | null;
-                offset?: number | null;
+                before?: number | null;
+                limit?: number;
             };
             header?: never;
             path?: never;

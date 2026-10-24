@@ -39,7 +39,6 @@ package = false
 [tool.pytest.ini_options]
 testpaths = ["backend/tests"]
 pythonpath = ["."]
-addopts = "-q"
 filterwarnings = ["ignore:Using `httpx` with `starlette.testclient`"]
 
 [tool.ruff]

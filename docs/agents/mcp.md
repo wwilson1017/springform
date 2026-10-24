@@ -3,9 +3,9 @@
 **What this covers:** §6. Inbound: a per-user MCP link that is an API key for that user, immediate writes, exclusions, the HTTP rules lifted from todo-gtd, the SDK choice, URL forms. Outbound: the servers table, discovery and refresh, naming, every call confirms, untrusted fencing, the address policy enforced at connection time, and the DNS-rebinding test.
 **Who reads it:** W14 (MCP server), W15 (MCP client), W9/W12 (registry and confirmation), the MCP settings cards.
 
-Code: `backend/core/agent/mcp_server.py`, `backend/core/agent/mcp_client.py`. Both work with zero AI keys.
+Code: the inbound server is the core package `backend/core/mcp/`, and the outbound client is `backend/core/mcp_servers/`; both land with the MCP workstream. Both work with zero AI keys.
 
-## 1. Inbound (`mcp_server.py`)
+## 1. Inbound (`backend/core/mcp/`)
 
 ### Table
 
@@ -95,12 +95,13 @@ core_agent_mcp_servers(id, name, url, token_enc, prefix UNIQUE, enabled, tools_j
 
 1. Remote specs have `always_confirm=True`, `untrusted_source=True`, `external_effect=True`, `mcp_exposed=False`, `handler` (never `handler_in`). `build_registry` refuses a remote spec (`server_url` set) without the first three.
 2. Remote annotations are **untrusted metadata**: `readOnlyHint` sets `writes` (for display and the write budget) but never skips confirmation.
-3. Results are fenced by the engine with `delimiters.wrap_untrusted_external` and taint the turn. A result is the text blocks (or the structured content when there is no text); a server-flagged error comes back as `{"error": …}`.
-4. Remote tools are external-effect: claimed in one transaction, executed outside, resolved in another; a failure or timeout marks `uncertain` (`agent.md` §6).
+3. Results are fenced by the engine with `delimiters.wrap_untrusted_external` and taint the whole conversation, so every later write in it confirms (`agent.md` §5). A result is the text blocks (or the structured content when there is no text); a server-flagged error comes back as `{"error": …}`.
+4. Remote tools are external-effect: claimed in one transaction, executed outside, resolved in another; any failure, a timeout included, marks `uncertain` (`agent.md` §6).
 5. `tool_def_sha256` for a remote tool includes the server id **and URL**.
 6. Remote tools are never exposed inbound and never run from jobs.
 7. The handler re-reads the server row at call time and refuses if it was disabled, deleted or moved to another URL since the spec was built.
 8. Remote tools are offered to every signed-in user's Whisk (the server and its token are install-wide); each user approves their own calls. The settings card says so.
+9. The Approve card shows the full args.
 
 ### Address policy (enforced at connection time)
 
