@@ -6,10 +6,10 @@ export const SOURCE_LABEL: Record<Todo['source'], string> = { ui: 'web', agent: 
 
 export const STATUS_META: Record<TodoStatus, { label: string; chip: string }> = {
   inbox: { label: 'Inbox', chip: 'bg-sf-bg text-sf-ink-dim' },
-  next_action: { label: 'Next', chip: 'bg-sf-green/15  text-sf-green-text ' },
-  waiting_for: { label: 'Waiting', chip: 'bg-sf-amber/15  text-sf-amber-text ' },
-  delegated: { label: 'Delegated', chip: 'bg-sf-ai/15  text-sf-ai-text ' },
-  someday_maybe: { label: 'Someday', chip: 'bg-sf-accent-soft  text-sf-accent-text ' },
+  next_action: { label: 'Next', chip: 'bg-sf-green/15 text-sf-green-text' },
+  waiting_for: { label: 'Waiting', chip: 'bg-sf-amber/15 text-sf-amber-text' },
+  delegated: { label: 'Delegated', chip: 'bg-sf-ai/15 text-sf-ai-text' },
+  someday_maybe: { label: 'Someday', chip: 'bg-sf-accent-soft text-sf-accent-text' },
   done: { label: 'Done', chip: 'bg-sf-bg text-sf-ink-dim' },
   dropped: { label: 'Dropped', chip: 'bg-sf-bg text-sf-ink-dim line-through' },
 };

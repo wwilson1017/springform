@@ -102,7 +102,7 @@ export function ProjectsPage() {
   return (
     <TodoShell active="projects">
       <div className="mb-4 flex items-center justify-between gap-2">
-        <div className="flex gap-1 overflow-x-auto no-scrollbar border-b border-sf-line">
+        <div className="flex gap-1 overflow-x-auto border-b border-sf-line">
           {PROJECT_STATUSES.map(s => (
             <button
               key={s}

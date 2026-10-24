@@ -102,7 +102,7 @@ export function NextActionsPage() {
       <div className="space-y-6">
         {starred.length > 0 && (
           <section>
-            <h2 className="mb-2 text-xs font-display font-bold uppercase tracking-wide text-sf-amber-text ">
+            <h2 className="mb-2 text-xs font-display font-bold uppercase tracking-wide text-sf-amber-text">
               ★ Starred
             </h2>
             {rows(starred)}

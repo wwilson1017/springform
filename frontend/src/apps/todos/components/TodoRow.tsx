@@ -47,7 +47,7 @@ export function TodoRow({ todo, onToggleDone, onToggleStar, onEdit, showStatus }
           {todo.repeat && (
             <span
               role="img"
-              className="ml-1 text-sf-ai-text "
+              className="ml-1 text-sf-ai-text"
               title="Recurring"
               aria-label="Recurring"
             >

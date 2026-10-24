@@ -23,6 +23,10 @@ visibility and assignee.
 **Weekly review** walks your inbox, last week's completions, what is due, projects without a next
 action, what you are waiting for, routines, what is coming up and what has gone stale.
 
+**Mine or everyone.** The working lists (Inbox, To Do, Waiting, Someday, Done) show your work
+until you switch to Everyone, which shows every todo you can see. Lists pick up what other people
+change within about 30 seconds.
+
 **Linked records.** A todo can point at any record (a person, an organization, a deal). The
 record's page lists its team todos and your private ones.
 

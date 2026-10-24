@@ -617,7 +617,7 @@ export function TriageCard({ todo, projects, contexts, onProcessed, onChanged, o
           disabled={busy}
           onClick={() => void patch({ status: 'done' }, true)}
           title="It took under 2 minutes — done"
-          className="mt-2 rounded-lg border border-sf-green px-3 py-1.5 text-sm font-display text-sf-green-text disabled:opacity-50  hover:bg-sf-green/10 "
+          className="mt-2 rounded-lg border border-sf-green px-3 py-1.5 text-sm font-display text-sf-green-text disabled:opacity-50 hover:bg-sf-green/10"
         >
           Took 2 minutes — Done ✓
         </button>

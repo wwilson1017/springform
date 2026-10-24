@@ -97,7 +97,7 @@ export function ReviewPage() {
       {review && (
         <div className="mt-3 flex flex-wrap items-center gap-3">
           {review.review_due ? (
-            <span role="status" className="rounded-full border border-sf-amber/40 bg-sf-amber/10   px-3 py-1 text-sm font-semibold text-sf-ink">
+            <span role="status" className="rounded-full border border-sf-amber/40 bg-sf-amber/10 px-3 py-1 text-sm font-semibold text-sf-ink">
               Review due{review.days_since_review === null
                 ? ' — none recorded yet'
                 : ` — last one ${daysAgo(review.days_since_review)}`}
@@ -166,7 +166,7 @@ export function ReviewPage() {
               <div className="space-y-1">
                 {data.stalledProjects.map(p => (
                   <Link key={p.id} to={todoPath(`/projects/${p.id}`)}
-                        className="block rounded-lg border border-sf-amber/40 bg-sf-amber/10   px-3 py-2 text-sm text-sf-ink hover:border-sf-accent/50">
+                        className="block rounded-lg border border-sf-amber/40 bg-sf-amber/10 px-3 py-2 text-sm text-sf-ink hover:border-sf-accent/50">
                     {p.name}
                   </Link>
                 ))}

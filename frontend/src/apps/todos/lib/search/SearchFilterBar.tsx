@@ -1,21 +1,21 @@
 import { useState, type ReactNode } from 'react';
 import { SlidersHorizontal, ChevronDown, X } from './icons';
 import SearchInput from './SearchInput';
-import SortControl from './SortControl';
-import type { FacetGroup, FacetOption, SortState } from './types';
+import type { FacetGroup, FacetOption } from './types';
 
 /**
- * The shared search / filter / sort bar (ported from cake-os `shared/search`).
+ * The shared search / filter bar (ported from cake-os `shared/search`; its sort control, which
+ * no Todos page uses, is left out).
  *
  * ## What it is
  *
- * One row of chrome — keyword box, facet disclosure, sort control, result count, clear-all —
+ * One row of chrome — keyword box, facet disclosure, result count, clear-all —
  * that every client-side list renders instead of hand-rolling its own.
  *
  * ## State ownership — the contract
  *
  * The bar is **fully controlled and owns nothing** except which disclosure panels are open.
- * Query text, facet selections and sort all live in the PAGE, which computes ONE filtered
+ * Query text and facet selections live in the PAGE, which computes ONE filtered
  * array that it renders from.
  *
  * ## Facet groups are data, app-specific controls are slots
@@ -55,26 +55,13 @@ interface Props {
    */
   extraChips?: ReactNode;
 
-  sort?: {
-    /** Pass the app's `SortFieldDef[]` table directly — see `SortControl`. */
-    options: readonly { value: string; label: string }[];
-    value: SortState;
-    defaultSort: SortState;
-    onChange: (next: SortState) => void;
-    /** Not the resting order — see `SortControl`'s `active` prop for why this is passed in. */
-    active: boolean;
-    note?: string;
-    /** Accessible name for the field select, e.g. "Sort deals by". */
-    ariaLabel?: string;
-  };
-
   /** Rendered as "N of M" whenever both are supplied — unconditionally, not only while filtering. */
   visibleCount?: number;
   totalCount?: number;
   /** What the counts are counting, e.g. "cards" — "2258 of 2258" alone is hard to read. */
   countNoun?: string;
   /** Trailing note on the count line, e.g. the collection layer's "· column moves only" while a
-   *  filtered board allows stage changes but not reordering (#3078). Sibling of `sort.note`. */
+   *  filtered board allows stage changes but not reordering (#3078). */
   countNote?: string;
 
   /** Whether anything is filtering right now (drives the Clear affordance). */
@@ -105,7 +92,6 @@ export default function SearchFilterBar({
   groups = [],
   extraFacets,
   extraChips,
-  sort,
   visibleCount,
   totalCount,
   countNoun,
@@ -152,18 +138,6 @@ export default function SearchFilterBar({
             Filters{activeFacetCount > 0 ? ` (${activeFacetCount})` : ''}
             <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showFacets ? 'rotate-180' : ''}`} aria-hidden="true" />
           </button>
-        )}
-
-        {sort && (
-          <SortControl
-            options={sort.options}
-            value={sort.value}
-            defaultSort={sort.defaultSort}
-            onChange={sort.onChange}
-            active={sort.active}
-            note={sort.note}
-            ariaLabel={sort.ariaLabel}
-          />
         )}
 
         {showCount && (

@@ -55,7 +55,7 @@ export function TodayPage() {
             {section('Overdue', overdue, 'text-sf-accent-text')}
             {section('Due today', dueToday)}
             {section('Time to revisit', revisit)}
-            {section('★ Starred', starred, 'text-sf-amber-text ')}
+            {section('★ Starred', starred, 'text-sf-amber-text')}
           </div>
         )
       )}

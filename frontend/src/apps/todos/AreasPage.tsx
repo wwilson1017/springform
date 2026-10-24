@@ -109,7 +109,7 @@ export function AreasPage() {
           Add
         </button>
       </form>
-      {error && <p role="alert" className="mb-3 text-sm text-sf-red-text ">{error}</p>}
+      {error && <p role="alert" className="mb-3 text-sm text-sf-red-text">{error}</p>}
 
       {failed && <LoadFailed retry={reload} />}
       {!failed && areas === null && <LoadingRows />}

@@ -91,7 +91,7 @@ export function ContextRename({ context, onRenamed }: {
         Cancel
       </button>
       {(confirming || error) && (
-        <p role="alert" className={`w-full ${error ? 'text-sf-red-text ' : 'text-sf-ink'}`}>
+        <p role="alert" className={`w-full ${error ? 'text-sf-red-text' : 'text-sf-ink'}`}>
           {error || confirm?.text}
         </p>
       )}

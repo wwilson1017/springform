@@ -263,7 +263,7 @@ export function ProjectDetailPage() {
                 </button>
               ) : (
                 <button type="button" onClick={() => void setProjectStatus('completed')}
-                        className="rounded-lg border border-sf-green px-3 py-1.5 text-sm font-display text-sf-green-text  hover:bg-sf-green/10 ">
+                        className="rounded-lg border border-sf-green px-3 py-1.5 text-sm font-display text-sf-green-text hover:bg-sf-green/10">
                   ✓ Mark Completed
                 </button>
               )}
@@ -325,11 +325,11 @@ export function ProjectDetailPage() {
               the status select. `role="alert"` because the eye is on the editor,
               which stays open above this with the typed text intact. */}
           {saveError && (
-            <p role="alert" className="mt-2 text-sm text-sf-red-text ">{saveError.text}</p>
+            <p role="alert" className="mt-2 text-sm text-sf-red-text">{saveError.text}</p>
           )}
 
           {project.status === 'active' && !hasNext && (
-            <p className="mt-3 rounded-lg border border-sf-amber/40 bg-sf-amber/10   px-3 py-2 text-sm text-sf-ink">
+            <p className="mt-3 rounded-lg border border-sf-amber/40 bg-sf-amber/10 px-3 py-2 text-sm text-sf-ink">
               This active project has <strong>no next action</strong> — decide the very next
               physical step, or it will stall.
             </p>

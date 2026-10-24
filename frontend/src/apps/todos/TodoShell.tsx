@@ -157,7 +157,7 @@ export function LoadingRows() {
 
 export function LoadFailed({ retry }: { retry: () => void }) {
   return (
-    <div className="rounded-xl border border-sf-red/40 bg-sf-red/10   p-4 text-sm text-sf-ink">
+    <div className="rounded-xl border border-sf-red/40 bg-sf-red/10 p-4 text-sm text-sf-ink">
       Couldn't load todos.{' '}
       <button type="button" onClick={retry} className="underline">Retry</button>
     </div>

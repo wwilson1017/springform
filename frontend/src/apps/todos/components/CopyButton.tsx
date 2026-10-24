@@ -26,7 +26,7 @@ export function CopyButton({ text, label }: Props) {
       title={label}
       className={`inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-lg border px-2.5 text-xs font-display transition-colors ${
         copied
-          ? 'border-sf-green text-sf-green-text '
+          ? 'border-sf-green text-sf-green-text'
           : failed
             ? 'border-sf-accent text-sf-accent-text'
             : 'border-sf-line-strong text-sf-ink-dim hover:bg-sf-hover'

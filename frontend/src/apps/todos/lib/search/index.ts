@@ -9,4 +9,4 @@
  */
 export { default as SearchFilterBar } from './SearchFilterBar';
 export { toggleValue } from './persist';
-export type { FacetOption, FacetGroup, SortDir, SortState, SortFieldDef } from './types';
+export type { FacetOption, FacetGroup } from './types';

@@ -1,4 +1,4 @@
-/** Shared search / filter / sort types. */
+/** Shared search / filter types. */
 
 /** One selectable value inside a facet group. */
 export interface FacetOption {
@@ -40,54 +40,3 @@ export interface FacetGroup {
    */
   display?: 'chips' | 'list';
 }
-
-export type SortDir = 'asc' | 'desc';
-
-/**
- * The sort selection. `field` matches a `SortFieldDef.value`.
- *
- * Deliberately a bare `string` rather than a generic key so the state can cross a component
- * boundary (the bar, a list view's column headers, sessionStorage) without every consumer
- * carrying the item type. Apps recover the safety a generic key would have given by passing
- * their `as const satisfies` field table STRAIGHT to `SortControl` and `coerceSortState`, so a
- * control option can never name a field that has no definition behind it — the failure a bare
- * string would otherwise allow (a label renders, and `sortItems` silently returns input order).
- */
-export interface SortState {
-  field: string;
-  dir: SortDir;
-}
-
-/**
- * One sortable field.
- *
- * A discriminated union so a sortable field CANNOT be declared without a getter: with an
- * optional `get`, a forgotten or typo'd getter yields `undefined` for every row, every pair
- * ties, and the sort silently does nothing — no error, no visual signal. `tsc -b` refuses it
- * instead.
- *
- * `get` returns `null` for "no value for this field", which sorts to the bottom in BOTH
- * directions. It must never return `0` for an unparseable value: `0` is a real number and
- * would sort to the TOP ascending. For a timestamp column that may be unparseable, parse
- * with `core/utils/date.ts`'s `parseUTC` and map `Number.isNaN` to `null` — do not reach for
- * `utcMillis`, whose `0`-on-failure contract is documented safe only in a descending sort.
- */
-export type SortFieldDef<T> =
-  | {
-      value: string;
-      label: string;
-      /**
-       * The field IS the array's own order — sorting short-circuits to the input order
-       * rather than re-sorting a column that goes stale after an optimistic drag. This is
-       * the only field kind for which `isManualSort` can be true, and therefore the only
-       * one under which drag-to-reorder is safe.
-       */
-      arrayOrder: true;
-      get?: never;
-    }
-  | {
-      value: string;
-      label: string;
-      arrayOrder?: false;
-      get: (item: T) => number | string | null;
-    };

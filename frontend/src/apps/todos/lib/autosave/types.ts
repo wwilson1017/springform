@@ -42,10 +42,3 @@ export interface AutoSave {
    */
   reset: () => void;
 }
-
-export interface SaveStatusProps {
-  status: AutoSaveStatus;
-  errorMessage?: string | null;
-  /** Extra classes for the caller's layout; the status colour is owned here. */
-  className?: string;
-}

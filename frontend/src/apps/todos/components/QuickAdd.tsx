@@ -14,11 +14,11 @@ interface Props {
 }
 
 const CHIP_STYLES: Record<QuickAddChip['kind'], string> = {
-  due: 'bg-sf-ai/15  text-sf-ai-text ',
-  repeat: 'bg-sf-accent-soft  text-sf-accent-text ',
+  due: 'bg-sf-ai/15 text-sf-ai-text',
+  repeat: 'bg-sf-accent-soft text-sf-accent-text',
   project: 'bg-sf-bg text-sf-ink-dim',
   context: 'bg-sf-bg text-sf-ink-dim',
-  star: 'bg-sf-amber/15  text-sf-amber-text ',
+  star: 'bg-sf-amber/15 text-sf-amber-text',
 };
 
 /** One-line capture with live natural-language parsing. Recognized fragments
