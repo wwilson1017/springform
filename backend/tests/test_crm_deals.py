@@ -72,8 +72,10 @@ def test_lead_to_won_to_archive_to_restore_to_merge(me, people, freeze):
     assert merged["id"] == deal["id"] and merged["title"] == "Wedding cakes" and merged["person_id"] == people["zoe"]
     source = deals.get(me, other["id"])
     assert (source["archived_reason"], source["archived_by"]) == (f"Merged into deal #{deal['id']}", me.id)
-    bodies = [e["body"] for e in timeline.list_for(me, "crm.deal", deal["id"]) if e["kind"] == "note"]
-    assert "Asked about a three-tier cake" in bodies and any(b.startswith(f"Merged deal #{other['id']}") for b in bodies)
+    entries = timeline.list_for(me, "crm.deal", deal["id"])
+    assert "Asked about a three-tier cake" in [e["body"] for e in entries if e["kind"] == "note"]
+    merge_row = next(e for e in entries if e["body"].startswith(f"Merged deal #{other['id']}"))
+    assert (merge_row["kind"], merge_row["author"]["id"]) == ("system", 0)
     assert [a["deal_id"] for a in activity.list_(me)] == [deal["id"]]
     assert stage_moves(deal["id"]) == [("", "lead"), ("lead", "won")]
 

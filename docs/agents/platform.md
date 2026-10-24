@@ -24,7 +24,7 @@ The motivating failure: a previous fork of CakeCRM had to edit 25 CakeCRM files 
 | MCP | Each user can mint an MCP link that is an API key for that user. Admins can connect Whisk outward to other MCP servers. |
 | AI keys | The whole install works with zero AI keys. Only Whisk waits for one. |
 
-`backend/main.py` `create_app()` discovers apps and mounts their routers **at import**. The lifespan runs, in order: **open the data directory → key files → migrate → preview check → seed → setup token → core startup hooks → scheduler**. Opening the data directory runs the write probe, takes the `flock` and checks the SQLite version and FTS5 (`database-and-transactions.md`). The key files step makes sure the encryption key and the session secret exist, writing them on first boot; a bad one stops startup there. The migration runner checks `requires_core` before any migration. The preview check is the `PREVIEW_MODE` real-secrets refusal; it runs after migrate because it reads `core_settings` (`auth.md` §11). Seed runs every app's idempotent `seed(conn)` at every startup; in `PREVIEW_MODE` it also seeds the preview users and runs every app's idempotent `sample(conn)` on every boot.
+`backend/main.py` `create_app()` discovers apps and mounts their routers **at import**. The lifespan runs, in order: **open the data directory → key files → migrate → preview check → seed → setup token → core startup hooks → scheduler**. Opening the data directory runs the write probe, takes the `flock` and checks the SQLite version and FTS5 (`database-and-transactions.md`). The key files step makes sure the encryption key and the session secret exist, writing them on first boot; a bad one stops startup there. The migration runner checks `requires_core` before any migration. The preview check is the `PREVIEW_MODE` real-secrets refusal; it runs after migrate because it reads `core_settings` (`auth.md` §11). Seed runs every app's idempotent `seed(conn)` at every startup; in `PREVIEW_MODE` it also seeds the preview users, then core's sample directory (people and organizations), then runs every app's idempotent `sample(conn)` on every boot, so an app's sample can build on core's.
 
 **Core packages contribute like apps.** A core package `backend/core/<pkg>/` may hold `router.py`, `hooks.py`, `jobs.py`, `tools.py` and `startup.py`, and `registry.install()` discovers them (`apps-and-contracts.md` §9). Nobody edits `main.py` or `registry.py` to add one.
 
@@ -42,11 +42,11 @@ springform/
       clock.py localtime.py errors.py pagination.py preview.py
       ratelimit.py                     (in-process rate limits; the inbound MCP endpoint uses them)
       auth/        service.py jwt.py deps.py router.py totp.py trusted.py google.py invites.py mail.py bootstrap.py users_router.py csrf.py
-      contacts/    service.py api.py router.py seed.py startup.py
+      contacts/    service.py api.py router.py seed.py
       timeline/ files/ fields/ views/ notifications/ reminders/     (each: service.py api.py router.py, plus hooks.py / jobs.py where they contribute)
       reports/     registry.py service.py router.py
       platform/    keys.py service.py router.py      (settings, workspace, apps, jobs and changelog routes)
-      backup/      service.py restore.py jobs.py router.py
+      backup/      service.py restore.py jobs.py router.py startup.py
       sheets/      api.py service.py google.py jobs.py router.py startup.py
       export/      csv_export.py policy.py service.py router.py
       guide/       library.py router.py startup.py

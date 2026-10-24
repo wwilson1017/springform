@@ -3,7 +3,7 @@
 **What this covers:** §3: the core people and organizations tables, the primary-channel sync rule, merge rules in full, the published `contacts.api`, routes, `can_read` / `can_write`, and the frontend components.
 **Who reads it:** W2 (contacts backend), W11 (contacts frontend), the CRM port (W10/W13), any app that points at people or organizations.
 
-Code: `backend/core/contacts/{service.py, api.py, router.py, seed.py, startup.py}` (`seed.py` and `startup.py` add sample contacts once in `PREVIEW_MODE`), `frontend/src/core/contacts/`.
+Code: `backend/core/contacts/{service.py, api.py, router.py, seed.py}` (`seed.py` adds sample contacts once in `PREVIEW_MODE`; `core/preview.py` runs it before any app's `sample`), `frontend/src/core/contacts/`.
 
 The directory is core so every app points at the same people. People and organizations are many-to-many with a role.
 
@@ -29,7 +29,8 @@ core_organizations(
   name, domain, website, industry, email, phone, notes,
   source, status, tags, owner_user_id, archived_at, merged_into_id
 )
--- UNIQUE lower(trim(name)) WHERE merged_into_id IS NULL
+-- UNIQUE lower(trim(name)) WHERE merged_into_id IS NULL (ASCII-only: the service compares
+-- names trimmed and casefold()ed in Python first, so "Café" and "CAFÉ" collide; the index is a backstop)
 
 core_person_organizations(person_id, organization_id, role, is_primary, started_on, ended_on)
 -- UNIQUE(person_id, organization_id, role)
@@ -103,7 +104,7 @@ Each function has an `_in(conn, …)` form.
 | `people_for` | People of an organization. |
 | `resolve_or_create_organizations` | Match organizations by name, creating the missing ones. |
 | `merge_people`, `merge_organizations` | §3; the `_in` forms take `(conn, user, target_id, source_id)`. |
-| `find_duplicates` | Lifted from CakeCRM `analytics_service.py:234-330`. |
+| `find_duplicates` | Lifted from CakeCRM `analytics_service.py:234-330`. Keys (email, phone digits, person name, organization domain) are trimmed and `casefold()`ed in Python, so accented names group. |
 | `resolve` | Follows `merged_into_id` to the chain head. |
 
 Open (pinned by the implementing workstream, which updates this doc): the full argument lists of the remaining functions (see `backend/core/contacts/api.py`).

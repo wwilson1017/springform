@@ -113,9 +113,12 @@ def for_record(entity_type: str, entity_id: int, include_done: bool = False, use
 
 @router.get("/changes", response_model=Changes)
 def changes(
-    since_rev: int = Query(0, ge=0), limit: int = Query(500, ge=1, le=500), user: User = Depends(current_user)
+    since_rev: int = Query(0, ge=0),
+    limit: int = Query(500, ge=1, le=500),
+    head: bool = Query(False, description="Only the current cursor: next_since_rev, no rows"),
+    user: User = Depends(current_user),
 ) -> dict:
-    return service.changes(user, since_rev, limit)
+    return service.changes(user, since_rev, limit, head_only=head)
 
 
 @router.get("/filters", response_model=Filters)

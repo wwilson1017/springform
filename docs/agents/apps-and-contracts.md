@@ -88,7 +88,7 @@ Published APIs the plan fixes so far:
 | Export | Contract |
 |---|---|
 | `seed(conn)` | The app's reference data. Runs at **every startup** and must be idempotent. Writes through published APIs (the CRM seed writes through `contacts.api`). |
-| `sample(conn)` | Sample data. Runs at startup only in `PREVIEW_MODE`, and must be idempotent. |
+| `sample(conn)` | Sample data. Runs at startup only in `PREVIEW_MODE`, after the preview users and core's sample directory (so it may link to sample people and organizations), and must be idempotent. |
 | `RESET_TABLES` | The app's owned **real tables** (no indexes, views or FTS shadow tables). Must **equal** that set (contract test). Used by `registry.reset_app_in`. |
 | `EXPORT` | `{"<table>": {"entity": "<slug>.<name>", "columns": [...], "id_column"?, "where"?, "owner_column"?}}`: the column allow-list for the admin export, separate from reset ownership. `entity` is required: one of the app's own entity types, or `None` for no row check. `id_column` (default `"id"`) and `owner_column` must name real columns. Same shape as `CORE_EXPORT` (`sheets-and-export.md` §6). |
 
@@ -184,7 +184,7 @@ Falsifiable against `backend/tests/fixtures/bad_app` (the test must fail it). It
 8. **Ownership is by name prefix for every object type.** Each row of `sqlite_master` (table, index, trigger, view, virtual table) must be named one of:
    - `core_*`;
    - `_migrations_applied`;
-   - a SQLite-generated `sqlite_autoindex_*`, `sqlite_sequence` or `sqlite_stat*`;
+   - a SQLite-generated `sqlite_autoindex_*` (a `UNIQUE` or `PRIMARY KEY` constraint's index, attributed to the table it indexes, so rule 9 applies), `sqlite_sequence` or `sqlite_stat*`;
    - an FTS5 shadow table `<fts>_data`, `<fts>_idx`, `<fts>_content`, `<fts>_docsize`, `<fts>_config`, attributed to its virtual table's owner;
    - `<slug>_*` for **exactly one** installed slug.
 9. An index or trigger must target a table its own prefix owns (`tbl_name` check).

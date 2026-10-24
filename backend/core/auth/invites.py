@@ -7,7 +7,8 @@ Google button, which links whichever Google account they pick (the token proved 
 Resending issues a new link; the old one stops working. Links are single use.
 
 Forgot password mails a one-hour `PUBLIC_URL/reset-password/<token>` link when the account
-exists and mail is configured, and answers the same 202 either way. A reset or a password
+exists and mail is configured, and answers the same 202 either way. Without mail, an admin issues
+the same link from the Users card and passes it on (it is also mailed when mail is configured). A reset or a password
 change ends every other session and forgets trusted devices. Accepting an invite and resetting
 a password both end like a password sign-in: a session, or the TOTP challenge when 2FA is on.
 """
@@ -44,6 +45,15 @@ def _send_invite(inviter: User, row: dict, url: str) -> bool:
     )
 
 
+def _send_reset(address: str, url: str) -> bool:
+    return mail.send(
+        address, f"Reset your {_host()} password",
+        f"A password reset was requested for {address} on {_host()}.\n\n"
+        f"Open this link within an hour to choose a new one:\n{url}\n\n"
+        "If you weren't expecting this, ignore this message; your password has not changed.",
+    )
+
+
 def invite(admin: User, email: str, name: str, role: str) -> dict:
     with db.transaction() as conn:
         row = service.create_user_in(conn, email, name, role, None, invited_by=admin.id)
@@ -62,6 +72,18 @@ def resend(admin: User, user_id: int) -> dict:
         token = service.issue_token_in(conn, user_id, "invite", admin.id)
     url = settings.public_url() + INVITE_PATH + token
     return {"invite_url": url, "mailed": _send_invite(admin, row, url)}
+
+
+def reset_link(admin: User, user_id: int) -> dict:
+    """A one-hour reset link for an active human account, issued by an admin (the forgot-password
+    link when mail is off); the user's earlier unused reset link stops working."""
+    with db.transaction() as conn:
+        row = service.human_in(conn, user_id)
+        if not row["is_active"]:
+            raise NotFound()
+        token = service.issue_token_in(conn, user_id, "reset", admin.id)
+    url = settings.public_url() + RESET_PATH + token
+    return {"reset_url": url, "mailed": _send_reset(row["email"], url)}
 
 
 def _set_password_by_token(token: str, purpose: str, password: str) -> dict:
@@ -135,6 +157,11 @@ class PasswordIn(BaseModel):
     new: str
 
 
+class ResetLink(BaseModel):
+    reset_url: str
+    mailed: bool
+
+
 @router.post("/api/auth/users")
 def invite_user(body: InviteIn, admin: User = Depends(require_admin)) -> dict:
     return invite(admin, body.email, body.name, body.role)
@@ -143,6 +170,11 @@ def invite_user(body: InviteIn, admin: User = Depends(require_admin)) -> dict:
 @router.post("/api/auth/users/{user_id}/resend-invite")
 def resend_invite(user_id: int, admin: User = Depends(require_admin)) -> dict:
     return resend(admin, user_id)
+
+
+@router.post("/api/auth/users/{user_id}/reset-link", response_model=ResetLink)
+def issue_reset_link(user_id: int, admin: User = Depends(require_admin)) -> dict:
+    return reset_link(admin, user_id)
 
 
 @router.get("/api/auth/invite/{token}")
@@ -165,13 +197,7 @@ def forgot_password(body: ForgotIn, request: Request, background: BackgroundTask
     except service.RateLimited:
         raise HTTPException(429, detail="rate_limited") from None
     if found:  # after the response, so its timing does not say whether the account exists
-        address, url = found
-        background.add_task(
-            mail.send, address, f"Reset your {_host()} password",
-            f"Someone asked to reset the password for {address} on {_host()}.\n\n"
-            f"Open this link within an hour to choose a new one:\n{url}\n\n"
-            "If it wasn't you, ignore this message; your password has not changed.",
-        )
+        background.add_task(_send_reset, *found)
     return {"mail": mail.configured()}
 
 

@@ -36,6 +36,15 @@ def test_comment_kind_and_before_paging(login_as):
     assert member.get("/api/core/timeline", params={**q, "limit": 201}).status_code == 422
 
 
+def test_apps_write_system_rows_through_the_api(login_as):
+    member = login_as("member")
+    w = _widget(member)
+    with core_db.transaction() as conn:
+        timeline.add_system_in(conn, "example.widget", w["id"], "Merged widget #9 into this widget.")
+    [entry] = member.get("/api/core/timeline", params={"entity_type": "example.widget", "entity_id": w["id"]}).json()
+    assert (entry["kind"], entry["body"], entry["author"]["id"]) == ("system", "Merged widget #9 into this widget.", 0)
+
+
 def test_note_validation_and_missing_records(login_as):
     member = login_as("member")
     w = _widget(member)

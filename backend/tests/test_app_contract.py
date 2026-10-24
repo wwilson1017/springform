@@ -99,6 +99,8 @@ def contract_problems(app_dir: Path, tmp_path: Path) -> list[str]:
         if o["name"] in core_names:
             continue
         own = owner(o["name"])
+        if own == "sqlite" and o["type"] == "index":  # sqlite_autoindex_*: a UNIQUE constraint's, owned with its table
+            own = slug  # the tbl_name check below attributes it
         if own != slug:
             p.append(f"{o['type']} {o['name']!r} is not named {slug}_*")
             continue
@@ -182,6 +184,7 @@ def test_bad_app_breaks_every_rule(tmp_path):
         r"table 'widgets' is not named bad_app_\*",
         r"table 'core_hack' is not named bad_app_\*",
         r"index 'bad_app_users_name' targets 'core_users'",
+        r"index 'sqlite_autoindex_widgets_1' targets 'widgets'",
         r"view 'bad_app_peek' reads 'example_widgets'",
         r"table 'bad_app_things' REFERENCES 'example_widgets'",
         r"entity 'example\.thing'",
@@ -202,6 +205,7 @@ def test_bad_app_breaks_every_rule(tmp_path):
     ]
     for pattern in expected:
         assert re.search(pattern, problems), f"rule not caught: {pattern}\n---\n{problems}"
+    assert "sqlite_autoindex_bad_app_things" not in problems  # a UNIQUE column on an owned table is fine
 
 
 def _manifest(**overrides) -> dict:

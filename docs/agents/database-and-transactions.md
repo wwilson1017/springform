@@ -58,7 +58,7 @@ Rules:
 
 1. `fn(...)` is `with transaction() as conn: return fn_in(conn, ...)`, or equivalent.
 2. `fn_in` never calls `transaction()` and never makes a network call.
-3. **Every** published `api.py` function has an `_in(conn, …)` form, reads included, so a caller inside a transaction reads through its own `conn`. Exceptions: `timeline.api.list_for` has no `_in` form, `record_changes_in` has only the `_in` form, and functions that call out (the sheets `write`) have none.
+3. **Every** published `api.py` function has an `_in(conn, …)` form, reads included, so a caller inside a transaction reads through its own `conn`. Exceptions: `timeline.api.list_for` has no `_in` form, `record_changes_in` and `timeline.api.add_system_in` have only the `_in` form, and functions that call out (the sheets `write`) have none.
 
 ## 4. Sync hooks vs the durable outbox
 
@@ -108,7 +108,7 @@ Ported from CakeCRM `backend/core/postgres.py:181-248`. Runs at **startup only**
 | App files | `backend/apps/<slug>/migrations/*.sql`, named `YYYYMMDDHHMMSS_<slug>_<name>.sql` (contract test regex `\d{14}_<slug>_`). |
 | Collection | Core files first, then app files. Core always first. |
 | Sort | Within each group, by `(timestamp, path)`. |
-| Stamps | Core migrations are stamped `20261020…`; app migrations `>= 20261101…`. |
+| Stamps | Core migrations are stamped `20261020…`; app migrations `>= 20261101…`. No two core files share a stamp (a test checks it). Two apps may share one (`crm_init` and `example_init` are both `20261101000000`): app files tie-break on path, and apps never reference each other. |
 | Core init | `20261020000100_core_init.sql` (settings, change_log, job_runs, apps_state, requests, backups, outbox, file blobs, users incl. the system user, totp, trusted_devices, login_tokens, login_attempts, contacts tables, timeline, files). |
 | Per workstream | Every workstream adds its **own** `20261020…_core_<area>.sql` and **never edits one that has landed**. |
 

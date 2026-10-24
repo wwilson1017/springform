@@ -490,8 +490,9 @@ def restore(user: User, deal_id: int) -> dict:
 def merge_in(conn: db.Conn, user: User, target_id: int, source_id: int) -> dict:
     """Fold `source` into `target`: the source's timeline, files, custom fields (the target's
     values win), reminders, notifications, linked todos and activity move to the target through
-    the on_entity_merged subscribers; the source is archived with "Merged into deal #T". The
-    target's own fields are not edited. Both must be live."""
+    the on_entity_merged subscribers; the source is archived with "Merged into deal #T", and the
+    target gets a system timeline row (not a note, so the merge is not a touch). The target's own
+    fields are not edited. Both must be live."""
     if target_id == source_id:
         raise Invalid("A deal cannot be merged into itself")
     for deal_id in sorted((target_id, source_id)):
@@ -502,7 +503,7 @@ def merge_in(conn: db.Conn, user: User, target_id: int, source_id: int) -> dict:
     entities.on_entity_merged_in(conn, ENTITY, target_id, source_id)
     reason = f"Merged into deal #{target_id}"
     _apply_in(conn, user, source, {"archived_at": clock.now_iso(), "archived_by": user.id, "archived_reason": reason}, touch=False)
-    timeline.add_note_in(conn, user, ENTITY, target_id, f'Merged deal #{source_id} ("{source["title"]}") into this deal.')
+    timeline.add_system_in(conn, ENTITY, target_id, f'Merged deal #{source_id} ("{source["title"]}") into this deal.')
     conn.execute("UPDATE crm_deals SET touch_dirty = 1 WHERE id = ?", (target_id,))
     scoring.refresh_in(conn, deal_ids=[target_id, source_id], person_ids=[target["person_id"], source["person_id"]])
     return deal_in(conn, target_id)

@@ -176,3 +176,21 @@ def test_an_environment_key_is_never_returned(login_as, monkeypatch):
     manifest = json.loads((_out() / row["manifest"]).read_text())
     assert (manifest["key_source"], manifest["key_fingerprint"]) == ("env", secrets.key_fingerprint())
     assert not (core_db.data_dir() / ".encryption-key").exists()
+
+
+def test_boot_flags_a_key_that_is_not_the_newest_backups(db, caplog):
+    from backend.core import settings
+    from backend.core.backup import startup
+
+    startup.on_startup()  # no backups yet: nothing to compare
+    assert settings.get_setting(startup.KEY_MISMATCH) is None
+    _out().mkdir(parents=True, exist_ok=True)
+    (_out() / "20261001T030000Z.manifest.json").write_text(json.dumps({"key_fingerprint": secrets.key_fingerprint()}))
+    (_out() / "20261002T030000Z.manifest.json").write_text(json.dumps({"key_fingerprint": "0123456789abcdef"}))
+    startup.on_startup()  # a hand-copied /data under another key: boots, flags, logs the remedy
+    assert settings.get_setting(startup.KEY_MISMATCH) == "20261002T030000Z.manifest.json"
+    [error] = [r for r in caplog.records if r.levelname == "ERROR"]
+    assert "20261002T030000Z.manifest.json" in error.getMessage() and "Restore the matching key" in error.getMessage()
+    (_out() / "20261003T030000Z.manifest.json").write_text(json.dumps({"key_fingerprint": secrets.key_fingerprint()}))
+    startup.on_startup()  # the newest set matches again
+    assert settings.get_setting(startup.KEY_MISMATCH) is None
