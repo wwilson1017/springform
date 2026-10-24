@@ -18,6 +18,7 @@ The app contract replaces the 25 core edits a previous CakeCRM fork needed. An a
 | `icon` | string | Icon name for the tile. |
 | `roles` | list | Subset of `admin`, `member`. Enforced on the router at mount and inherited by the app's entities, reports and tools (`authorization.md`). |
 | `order` | int | Default launcher order; `core_apps_state.position` overrides it when set. |
+| `hidden_by_default` | bool, optional | Default `false`. When `true`, the app starts hidden (§4) on an install that has not seen it before: it is read only when the app's `core_apps_state` row is first created, at boot or after a factory reset, so an admin's later show or hide always wins. The example sets it. |
 | `badge` | string, optional | A route returning `{count, label?}` (the example uses `"/api/example/badge"`). |
 | `docs` | string | The app's Guide docs (the example uses `"docs/index.md"`). |
 | `version` | string | The app's version; part of `tool_def_sha256` for the app's tools. |
@@ -37,6 +38,7 @@ The current fixture manifest (`backend/apps/example/app.json`):
   "icon": "flask",
   "roles": ["admin", "member"],
   "order": 900,
+  "hidden_by_default": true,
   "badge": "/api/example/badge",
   "docs": "docs/index.md",
   "version": "0.1.0",
@@ -126,7 +128,7 @@ Badge routes return {count, label?}. Errors: `{detail}`; 401 not signed in, 403 
 
 ## 4. Hiding apps (hide, never disable)
 
-`core_apps_state(slug PK, hidden, position)` holds the admin's per-install choices from Settings → Apps (order/hide).
+`core_apps_state(slug PK, hidden, position)` holds the admin's per-install choices from Settings → Apps (order/hide). Each boot creates a missing app's row with `hidden` from the manifest's `hidden_by_default` and never touches an existing row.
 
 1. An installed app is **hidden, not disabled**. `GET /api/core/apps` omits hidden apps for members; admins receive them with `hidden: true`, and the launcher shows them hidden tiles.
 2. Hiding removes the tile and nav for members. The app's routes, jobs, tools and record panels stay active, and admins can still open the app.
