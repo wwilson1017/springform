@@ -189,7 +189,7 @@ Deactivating a user:
 
 1. bumps `token_epoch` (kills every session);
 2. deletes the user's trusted devices and unused invite and reset links;
-3. will revoke the user's MCP links (`core_agent_mcp_links.revoked_at`) once MCP exists; nothing registers that yet;
+3. revokes the user's MCP links (`core_agent_mcp_links.revoked_at`), through the `ON_DEACTIVATE` hook `core/mcp/links.py` registers;
 4. sets `is_active` false and `deactivated_at`, then runs the `ON_DEACTIVATE` hooks.
 
 Private todos are hidden because an inactive user fails `can_read`; an admin may transfer them with `POST /api/todos/transfer`. Team todos stay in place. Deactivating, or demoting, the last active admin who can sign in is refused with **409** `last_admin`.
