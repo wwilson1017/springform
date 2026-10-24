@@ -70,7 +70,7 @@ function AppTile({ app, badge }: { app: CoreApp; badge?: Badge }) {
   return (
     <li>
       <Link to={app.path} aria-label={app.name}
-        className={`flex h-full gap-3 rounded-lg border border-sf-line-strong bg-sf-card p-4 no-underline hover:border-sf-accent ${app.hidden ? 'opacity-80' : ''}`}>
+        className={`flex h-full gap-3 rounded-lg border border-sf-line-strong bg-sf-card p-4 no-underline hover:border-sf-accent`}>
         <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-sf-raised text-sf-ink-mute">
           <AppIcon name={app.icon} size={22} aria-hidden />
         </span>

@@ -70,11 +70,13 @@ export function Attachments({ entityType, entityId }: AttachmentsProps) {
         : (
           <ul className="m-0 list-none divide-y divide-sf-line p-0">
             {files.map(f => (
-              <li key={f.id} className="flex items-center gap-3 py-2 text-sm">
-                <a href={`/api/core/files/${f.id}/download`} className="min-w-0 flex-1 truncate text-sf-accent-text">{f.filename}</a>
-                <span className="hidden text-xs text-sf-ink-dim sm:inline">
-                  {formatBytes(f.byte_size)} · {f.uploaded_by?.name ?? 'Unknown'} · {formatDate(f.created_at)}
-                </span>
+              <li key={f.id} className="flex items-start gap-3 py-2 text-sm">
+                <div className="min-w-0 flex-1">
+                  <a href={`/api/core/files/${f.id}/download`} className="block truncate text-sf-accent-text">{f.filename}</a>
+                  <span className="text-xs text-sf-ink-dim">
+                    {formatBytes(f.byte_size)} · {f.uploaded_by?.name ?? 'Unknown'} · {formatDate(f.created_at)}
+                  </span>
+                </div>
                 <button type="button" onClick={() => void remove(f)}
                   className="cursor-pointer border-0 bg-transparent p-1 font-sans text-xs text-sf-red-text">
                   Delete
