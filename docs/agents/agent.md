@@ -67,15 +67,15 @@ ToolSpec(
     writes,             # bool
     confirm_tier,       # only when writes
     always_confirm,     # forces confirmation, even for reads (remote tools set it)
-    hides_when,
+    hides_when,         # Callable[[User], bool] | None
     handler | handler_in,
     targets,            # targets(args) -> list[(entity_type, id)]
     enabled,            # enabled(user) -> bool
     untrusted_source,   # results fenced as untrusted (remote tools)
     external_effect: bool = False,   # acts outside the install (remote MCP, email, HTTP); run per §6 rule 1
-    mcp_exposed=True,
+    mcp_exposed: bool = True,
     app,                # owning app slug, or core
-    revision,
+    revision,           # the owning app's version string
 )
 ```
 
@@ -97,13 +97,13 @@ In the CakeCRM donor (`assistant/confirm_tier.py`), `confirm_tier` has one legal
 ### Validation at `build_registry()` (fails boot)
 
 1. Names are unique.
-2. Names carry the `<slug>_` prefix (app tools). The contract test checks it too.
+2. Names carry the `<slug>_` prefix (app tools; the contract test checks it too). Core tools are prefixed `core_`.
 3. `writes` is a `bool`.
 4. `confirm_tier` is allowed only when `writes`.
 5. A write tool has `handler_in` **and** `targets`, or is marked `external_effect`.
 6. `always_confirm` is allowed on any spec.
 
-Open: `hides_when`, `revision` and `mcp_exposed` are named but not defined (whether `mcp_exposed=False` removes a tool from `for_source("mcp")` is the natural reading). Open: the prefix rule for core tools (context files, memory) is not stated.
+Open: what `hides_when` hides, beside `enabled`, and whether `mcp_exposed=False` removes a tool from `for_source("mcp")` (the natural reading).
 
 ### Filtering
 
@@ -128,7 +128,7 @@ Hash of:
 
 So a pending approval is bound to exactly what was shown, where it will run, and the implementation revision.
 
-Open: the serialization used before hashing (canonical JSON, key order) is not stated.
+The hash is the sha256 of `json.dumps(fields, sort_keys=True)` over the fields above.
 
 ### Registry sources and refresh
 
@@ -163,7 +163,9 @@ Further rules:
 3. A double approve returns **`already_resolved`**; the tool runs once.
 4. A deny is recorded (`denied`, `resolved_by`, `resolved_at`).
 
-Open: the request body of `POST /api/agent/confirm` (tool run id, approve/deny) and how `already_resolved` and `stale` are returned (status code, body) are not stated (shape to be pinned by W12).
+`POST /api/agent/confirm {tool_run_id, decision: "approve" | "deny"}` returns `{status, result?}`. `already_resolved` is a response status, never a row status.
+
+Open: the HTTP status code that accompanies `stale` and `already_resolved`.
 
 ## 7. Tool-run status enum
 
@@ -171,7 +173,7 @@ Open: the request body of `POST /api/agent/confirm` (tool run id, approve/deny) 
 pending | executing | done | denied | error | stale | uncertain | interrupted
 ```
 
-`core_agent_tool_runs.status` takes exactly these eight values; the table's `CHECK` lists all eight, `stale` included.
+`core_agent_tool_runs.status` takes exactly these eight values; the table's `CHECK` lists all eight, `stale` included. `already_resolved` is only a response status of `POST /api/agent/confirm` (§6).
 
 ## 8. SSE events
 
