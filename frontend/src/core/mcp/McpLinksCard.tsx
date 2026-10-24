@@ -74,7 +74,7 @@ export default function McpLinksCard() {
       <form onSubmit={create} className="flex flex-wrap gap-2">
         <label htmlFor="mcp-link-label" className="sr-only">Link name</label>
         <input id="mcp-link-label" value={label} onChange={e => setLabel(e.target.value)} maxLength={80}
-          placeholder="Name it, e.g. Claude Desktop on my laptop" className={inputClass} />
+          placeholder="e.g. Claude Desktop" className={inputClass} />
         <button type="submit" disabled={busy || !label.trim()} className={primaryClass}>Create link</button>
       </form>
 
@@ -86,12 +86,14 @@ export default function McpLinksCard() {
         : (
           <ul aria-label="Your MCP links" className="m-0 list-none divide-y divide-sf-line p-0">
             {links.map(link => (
-              <li key={link.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 py-2.5">
-                <span className="min-w-0 flex-1 truncate text-sf-ink">{link.label}</span>
-                <span className="text-xs text-sf-ink-dim">
-                  {link.last_used_at ? `Last used ${formatDate(link.last_used_at)}` : 'Never used'}
-                  {' · '}made {formatDate(link.created_at)}
-                </span>
+              <li key={link.id} className="flex items-center gap-3 py-2.5">
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-sf-ink">{link.label}</div>
+                  <div className="text-xs text-sf-ink-dim">
+                    {link.last_used_at ? `Last used ${formatDate(link.last_used_at)}` : 'Never used'}
+                    {' · '}made {formatDate(link.created_at)}
+                  </div>
+                </div>
                 <button type="button" onClick={() => revoke(link)} aria-label={`Revoke ${link.label}`} className={secondaryClass}>
                   Revoke
                 </button>
