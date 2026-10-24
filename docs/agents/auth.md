@@ -169,7 +169,9 @@ A failure redirects with `error=` one of `not_invited`, `link_required`, `google
 POST  /api/auth/users                         (admin) invite -> {user, invite_url, mailed}
 POST  /api/auth/users/{id}/resend-invite      (admin)
 POST  /api/auth/users/{id}/reset-link         (admin) -> {reset_url, mailed}; 404 for an unknown, system or deactivated user
-GET   /api/auth/users                         (admin)
+GET   /api/auth/users[?status=active|inactive] (admin) -> [{id, email, name, role, tz, is_active, invite_pending, has_password,
+                                                 google_linked, totp_enabled, invited_by, last_login_at, deactivated_at, created_at}];
+                                                 never the system principal; invite_pending = no password and no Google link
 PATCH /api/auth/users/{id}                    (admin) name, role, tz
 POST  /api/auth/users/{id}/deactivate         (admin)
 POST  /api/auth/users/{id}/reactivate         (admin)
