@@ -22,6 +22,9 @@ Conventions:
 
 - Repository tooling: CI for upstream and forks, Docker image with SQLite 3.51.3, one-script VPS
   deploy, fork scripts and release workflow.
+- MCP connector: each person can make a link in Settings that lets claude.ai, Claude Desktop or
+  Claude Code use Whisk's tools as them. Links can be revoked, and stop working when the person is
+  deactivated.
 
 ### Schema
 

@@ -44,7 +44,8 @@ springform/
       contacts/    service.py api.py router.py
       timeline/ files/ fields/ views/ reports/ notifications/ reminders/     (each: service.py api.py router.py)
       agent/       providers/ spec.py registry.py confirm_tier.py engine.py history.py assembly.py compaction.py
-                   deferred.py agents.py memory/ context_files/ observer.py dreaming.py router.py mcp_server.py mcp_client.py jobs.py
+                   deferred.py agents.py memory/ context_files/ observer.py dreaming.py router.py execute.py mcp_client.py jobs.py
+      mcp/         links.py server.py router.py ratelimit.py startup.py   (inbound MCP links, mcp.md §1)
       migrations/  20261020HHMMSS_core_<name>.sql
       docs/        core Guide topics
     apps/<slug>/

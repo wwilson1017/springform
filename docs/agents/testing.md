@@ -110,7 +110,7 @@ Runs against a seeded `PREVIEW_MODE=1` build with the FakeProvider and the Googl
 
 ### MCP
 
-- MCP link lists role-filtered tools and executes an attributed write via a real `ClientSession` over `httpx.ASGITransport`.
+- MCP link lists role-filtered tools and executes an attributed write via a real `ClientSession` over `httpx2.ASGITransport` (the `mcp` 2.x client speaks `httpx2`).
 - Revoked and deactivated links 404.
 - Origin refused.
 - Outbound against a local FastMCP stub: discovery, prefixing, every call confirms, private address refused, fenced result.

@@ -22,6 +22,8 @@ Base: CakeCRM `backend/assistant/` (Chatty's loop already trimmed, with server-s
 
 `delimiters.py` and `write_budget.py` are in the lift list but not drawn in the plan's repo tree.
 
+Inbound MCP landed as its own core package, `backend/core/mcp/` (`mcp.md` §1), not `agent/mcp_server.py`. `execute.py` (`run_tool(user, spec, args, *, source)`) is the one path that runs a tool call and records its tool run: the turn loop's ungated calls, `confirm` (which passes the pending run's id to claim it), and inbound MCP.
+
 ## 2. Tables
 
 ```sql
@@ -205,7 +207,8 @@ Whisk is the business assistant for this install; knows the installed apps, the 
 |---|---|
 | `GET /api/agent/status` | `{configured: bool, …}`. |
 | `POST /api/agent/confirm` | §6. |
-| Chat (SSE), conversations, context files, providers/keys, MCP links, MCP servers | Under `/api/agent/...`; shape to be pinned by W9/W12/W14/W15. |
+| Chat (SSE), conversations, context files, providers/keys, MCP servers | Under `/api/agent/...`; shape to be pinned by W9/W12/W15. |
+| MCP links | `/api/core/mcp/links` (`mcp.md` §1). |
 
 ## 12. Jobs
 
