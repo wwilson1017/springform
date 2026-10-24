@@ -80,21 +80,22 @@ core_outbox(
   attempts,      -- bumped on failure
   processed_at,  -- set when the consumer's effect is recorded
   last_error,
-  dead_at        -- set after 5 failed attempts
+  dead_at        -- set at the 5th failure
 )
 ```
 
 Drainer and consumer rules:
 
 1. **There is exactly one drainer**: the scheduler job `core.outbox_drain` (every 30 s, plus the post-`COMMIT` nudge). The scheduler's per-job in-flight guard makes it single-flight.
-2. **Atomic claim, one row per transaction:** `UPDATE core_outbox SET claimed_at=? WHERE id=? AND claimed_at IS NULL`. Two drainers started by hand claim disjoint rows.
+2. **Atomic claim, one row per transaction:** `UPDATE core_outbox SET claimed_at=? WHERE id=? AND (claimed_at IS NULL OR claimed_at < ?)`, where the last parameter is now minus **600 s**: a claim older than that is stale and may be taken again. Two drainers started by hand claim disjoint rows.
 3. A consumer with **local DB effects** performs them and sets `processed_at` in **one** transaction. It is exactly-once by construction: a crash between effect and `processed_at` cannot happen.
-4. A consumer with **external effects** (LLM call, HTTP) is **at-least-once**. It uses the outbox `id` as its idempotency key where the remote supports one, and records the effect's own id before marking processed. After a crash the row is re-claimed when `claimed_at` is older than the job timeout, and replays once with the same idempotency key.
-5. Failures bump `attempts` with backoff. After 5 attempts the row gets `dead_at` and shows on the Jobs page.
+4. A consumer with **external effects** (LLM call, HTTP) is **at-least-once**. It uses the outbox `id` as its idempotency key where the remote supports one, and records the effect's own id before marking processed. After a crash the row is re-claimed when `claimed_at` is older than 600 s, and replays once with the same idempotency key.
+5. Failures bump `attempts` and back off **30 s, 2 min, 10 min, 1 h, 6 h**. The 5th failure sets `dead_at`, and the row shows on the Jobs page.
 6. Consumers never start a drain and never call `transaction()` while already inside one.
-7. Worked example: the CRM sets `crm_deals.touch_dirty` in the sync hook (durable with the write) and does its LLM work from the outbox or its own job, never inside a write lock.
+7. A consumer registers with `outbox.consumer(hook, external=False)`; `external=True` declares the external-effect, at-least-once kind (rule 4).
+8. Worked example: the CRM sets `crm_deals.touch_dirty` in the sync hook (durable with the write) and does its LLM work from the outbox or its own job, never inside a write lock.
 
-Open: the backoff schedule is not stated. Open: the re-claim predicate for a stale claim (the claim SQL above only matches `claimed_at IS NULL`) and which timeout applies ("the job timeout", `Job.timeout` default 300 s, is the likely reading). Open: how a consumer declares itself local or external.
+Open: how an app's `after_record_changed` subscriber (`fn(payload)`, which may open its own transaction) maps onto `outbox.consumer(hook, external=…)`. Such a subscriber cannot commit its effect together with `processed_at`, so rule 3's exactly-once does not hold for it; until this is pinned, write it to be idempotent.
 
 ## 5. Migration runner
 
