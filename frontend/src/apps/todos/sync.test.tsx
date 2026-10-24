@@ -6,8 +6,8 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { getChangesMock } = vi.hoisted(() => ({ getChangesMock: vi.fn() }));
-vi.mock('./api', () => ({ getChanges: getChangesMock, listTodos: vi.fn(), updateTodo: vi.fn() }));
+const { getChangesMock, getHeadMock } = vi.hoisted(() => ({ getChangesMock: vi.fn(), getHeadMock: vi.fn() }));
+vi.mock('./api', () => ({ getChanges: getChangesMock, getChangesHead: getHeadMock, listTodos: vi.fn(), updateTodo: vi.fn() }));
 
 import { useTodos } from './hooks';
 import { applyChanges, resetFeed, SYNC_MS, toBatch, useChangeFeed, type FeedBatch } from './sync';
@@ -75,6 +75,7 @@ beforeEach(() => {
   visibility = 'visible';
   vi.spyOn(document, 'visibilityState', 'get').mockImplementation(() => visibility);
   getChangesMock.mockReset();
+  getHeadMock.mockReset();
   resetFeed();
 });
 
@@ -98,11 +99,10 @@ async function tick(ms: number) {
 }
 
 describe('useChangeFeed', () => {
-  it('finds the cursor first, then applies upserts and tombstones every 30 s while visible', async () => {
+  it('asks only for the head first, then applies upserts and tombstones every 30 s while visible', async () => {
+    // The first poll: the current rev, without walking the history the page already holds.
+    getHeadMock.mockResolvedValueOnce(page({ since_rev: 640, next_since_rev: 640 }));
     getChangesMock
-      // The first walk: history the page already holds, in two pages of the journal.
-      .mockResolvedValueOnce(page({ next_since_rev: 500, more: true, changed: true, items: [todo(9)] }))
-      .mockResolvedValueOnce(page({ since_rev: 500, next_since_rev: 640, changed: true }))
       // Thirty seconds on: one todo arrives, one goes private elsewhere (a tombstone).
       .mockResolvedValueOnce(page({
         since_rev: 640, next_since_rev: 642, changed: true, items: [todo(3)],
@@ -111,8 +111,9 @@ describe('useChangeFeed', () => {
     let ids: number[] = [];
     await act(async () => { root.render(<Harness rows={[todo(1), todo(2)]} seen={v => { ids = v; }} />); });
     await tick(0);
-    expect(getChangesMock.mock.calls.map(c => c[0])).toEqual([0, 500]);
-    expect(ids).toEqual([1, 2]); // the walk's replay is not applied
+    expect(getHeadMock).toHaveBeenCalledTimes(1);
+    expect(getChangesMock).not.toHaveBeenCalled();
+    expect(ids).toEqual([1, 2]);
 
     await tick(SYNC_MS);
     expect(getChangesMock).toHaveBeenLastCalledWith(640);
@@ -120,19 +121,21 @@ describe('useChangeFeed', () => {
   });
 
   it('skips the poll while the tab is hidden and catches up when it is shown', async () => {
-    getChangesMock.mockResolvedValue(page({ next_since_rev: 5 }));
+    getHeadMock.mockResolvedValue(page({ since_rev: 5, next_since_rev: 5 }));
+    getChangesMock.mockResolvedValue(page({ since_rev: 5, next_since_rev: 5 }));
     await act(async () => { root.render(<Harness rows={[]} seen={() => {}} />); });
     await tick(0);
-    expect(getChangesMock).toHaveBeenCalledTimes(1);
+    expect(getHeadMock).toHaveBeenCalledTimes(1);
 
     visibility = 'hidden';
     await tick(SYNC_MS * 3);
-    expect(getChangesMock).toHaveBeenCalledTimes(1);
+    expect(getHeadMock).toHaveBeenCalledTimes(1);
+    expect(getChangesMock).not.toHaveBeenCalled();
 
     visibility = 'visible';
     await act(async () => { document.dispatchEvent(new Event('visibilitychange')); });
     await tick(0);
-    expect(getChangesMock).toHaveBeenCalledTimes(2);
+    expect(getChangesMock).toHaveBeenCalledTimes(1);
     expect(getChangesMock).toHaveBeenLastCalledWith(5);
   });
 
@@ -143,8 +146,8 @@ describe('useChangeFeed', () => {
       useTodos(rows, null, inbox);
       return null;
     }
+    getHeadMock.mockResolvedValueOnce(page({ since_rev: 9, next_since_rev: 9 }));
     getChangesMock
-      .mockResolvedValueOnce(page({ next_since_rev: 9 }))
       .mockResolvedValueOnce(page({ since_rev: 9, next_since_rev: 2, reset: true, changed: true, items: [todo(1)] }));
     await act(async () => { root.render(<Refetching />); });
     await tick(0);

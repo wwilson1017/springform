@@ -4,7 +4,7 @@
 // given away). Pages apply a batch to the list on screen (`applyChanges`); `reset` means the
 // cursor is no good any more and every page refetches.
 import { useEffect } from 'react';
-import { getChanges } from './api';
+import { getChanges, getChangesHead } from './api';
 import type { Changes, Todo } from './types';
 
 export const SYNC_MS = 30_000;
@@ -75,11 +75,8 @@ let cursorOwner = '';
 
 /**
  * Poll the feed for `owner` (the signed-in user's id; '' = nobody) every SYNC_MS while the tab is
- * visible, and at once when it becomes visible again. The first walk only finds the cursor: the
- * pages have just loaded what it would say.
- *
- * simplification: finding the cursor walks the whole journal 500 rows a request, once per page
- * load; a head-only query on the server is the upgrade path if an install grows large.
+ * visible, and at once when it becomes visible again. The first poll only asks for the head (the
+ * current rev): the pages have just loaded everything before it.
  */
 export function useChangeFeed(owner: string, onBatch?: (batch: FeedBatch) => void) {
   useEffect(() => {
@@ -91,9 +88,13 @@ export function useChangeFeed(owner: string, onBatch?: (batch: FeedBatch) => voi
       if (running || cancelled || document.visibilityState !== 'visible') return;
       running = true;
       try {
-        const first = cursor === null;
+        if (cursor === null) {
+          const head = await getChangesHead();
+          if (!cancelled && cursorOwner === owner) cursor = head.next_since_rev;
+          return;
+        }
         const pages: Changes[] = [];
-        let since = cursor ?? 0;
+        let since = cursor;
         for (;;) {
           const page = await getChanges(since);
           if (cancelled || cursorOwner !== owner) return;
@@ -103,8 +104,7 @@ export function useChangeFeed(owner: string, onBatch?: (batch: FeedBatch) => voi
         }
         cursor = since;
         const batch = toBatch(pages);
-        // The first walk replays history the pages already hold, unless the server says reset.
-        if (batch.reset || (!first && pages.some(p => p.changed))) {
+        if (batch.reset || pages.some(p => p.changed)) {
           publishFeed(batch);
           onBatch?.(batch);
         }

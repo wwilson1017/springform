@@ -7,7 +7,7 @@
 
 | Piece | CakeCRM source | Notes |
 |---|---|---|
-| `src/shared/` | `frontend/src/shared/` subset (~900 of 8,307 lines) | Toast, confirm, icons, styles, `MobileMenuDrawer`, … |
+| `src/shared/` | `frontend/src/shared/` subset (~900 of 8,307 lines) | Toast, confirm, icons, styles, `MobileMenuDrawer`, … Written here: `UserPicker` (the one user chooser, a type-to-search select over `GET /api/core/timeline/mentionable?q=`) and `users.ts` (its search and the shared name cache, `useUserNames`). |
 | `BootFallback` | `frontend/src/core/components/BootFallback.tsx` (36) | |
 | `ChunkErrorBoundary` | `frontend/src/core/components/ChunkErrorBoundary.tsx` (298) | |
 | `useTheme` + contrast tests | `frontend/src/core/theme/useTheme.ts` (87) | Contrast guards run on shipped CSS. |
@@ -52,7 +52,7 @@ Core areas contribute to the shell by discovery, like apps; nobody edits `Root.t
 
 | File | Default export | Contract |
 |---|---|---|
-| `src/core/<area>/routes.tsx` | `CoreRoute[]`, `{path, element, public?, admin?}` (`src/core/shell/coreRoutes.ts`) | Shell routes render inside the signed-in Layout, admin ones behind `RequireAdmin`; `public` ones (an invite or reset link) render beside `/login`. Paths have no leading slash, and the first segment must be a reserved slug. |
+| `src/core/<area>/routes.tsx` | `CoreRoute[]`, `{path, element, public?, admin?}` (`src/core/shell/coreRoutes.ts`) | Shell routes render inside the signed-in Layout, admin ones behind `RequireAdmin` (a member sees a Not allowed page at that URL); `public` ones (an invite or reset link) render beside `/login`. Paths have no leading slash, and the first segment must be a reserved slug. |
 | `src/core/<area>/nav.tsx` | `CoreNavItem[]`, `{to, label, icon, placement: "primary" \| "menu", adminOnly?, order?}` (`src/core/shell/coreNav.ts`) | `icon` is an element sized 18, not a name. `primary` items sit in the header nav after Organizations and before the apps (keep it to one per area); `menu` items in the user menu and the mobile drawer. Lower `order` first, default 100. |
 | `src/core/<area>/settingsCards.ts` | `SettingsSection[]`, `{id, label, order?, cards: [{id, title, adminOnly, Card}]}` (`src/core/settings/settingsSections.ts`) | The section id is the URL segment `/settings/<id>`. A section shows only when one of its cards does. Core sections sort by `order` (default 0) and member-visible sections take a lower `order` than admin-only ones; app sections follow. |
 

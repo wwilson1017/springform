@@ -1,4 +1,3 @@
-/* eslint-disable react-refresh/only-export-components -- a route-data module: lazy pages and a default-exported array */
 import { lazy } from 'react';
 import type { CoreRoute } from '../shell/coreRoutes';
 

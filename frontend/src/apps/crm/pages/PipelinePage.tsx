@@ -16,6 +16,7 @@ import { useJson } from '../../../core/api/useJson';
 import { useAuth } from '../../../core/auth/AuthContext';
 import { LoadError } from '../../../shared/LoadError';
 import { toast } from '../../../shared/toast';
+import { UserPicker } from '../../../shared/UserPicker';
 import {
   boardUrl, bulkMove, markLost, markWon, searchUrl, stageCriteriaUrl, updateDeal,
   type Board, type Deal, type Stage, type StageCriteria,
@@ -28,14 +29,12 @@ import { DealForm } from '../components/DealForm';
 import { DealTemperatureIcon } from '../components/DealTemperatureIcon';
 import { ReasonDialog } from '../components/ReasonDialog';
 import { ScorePill, TouchCountPill } from '../components/badges';
-
 import { formatCents } from '../money';
 import {
   NO_FILTERS, filterDeals, groupByStage, lastContactLabel, loadShowClosed, movedDeal, openTotals,
   saveShowClosed, visibleStages, type BoardFilters,
 } from '../pipelineBoard';
 import { btnLink, btnPrimary, btnSecondary, field, muted, pageTitle } from '../ui';
-import { useUsers } from '../useUsers';
 
 /** A move that needs an answer first: the closing day for Won, the reason for Lost. */
 type PendingMove = { ids: number[]; stage: 'won' | 'lost'; title: string };
@@ -45,7 +44,6 @@ export function PipelinePage() {
   const [params] = useSearchParams();
   const focusStage = params.get('stage');
   const { user } = useAuth();
-  const users = useUsers();
   const [includeArchived, setIncludeArchived] = useState(false);
   const [showClosed, setShowClosed] = useState(() => loadShowClosed() || CLOSED_STAGES.includes(focusStage as Stage));
   const [filters, setFilters] = useState<BoardFilters>(NO_FILTERS);
@@ -196,12 +194,10 @@ export function PipelinePage() {
         <input id="deal-search" type="search" value={query} onChange={e => setQuery(e.target.value)} placeholder="Search deals, people, organizations"
           className={`${field} w-full md:w-72`} />
         <label htmlFor="filter-owner" className="sr-only">Owner</label>
-        <select id="filter-owner" value={filters.owner} onChange={e => setFilters(f => ({ ...f, owner: e.target.value }))} className={field}>
-          <option value="">Any owner</option>
-          {user && <option value={String(user.id)}>Mine</option>}
-          {users.filter(u => u.id !== user?.id).map(u => <option key={u.id} value={String(u.id)}>{u.name}</option>)}
-          <option value="unassigned">Unassigned</option>
-        </select>
+        <div className="w-full md:w-48">
+          <UserPicker id="filter-owner" className={`${field} w-full`} value={filters.owner} onChange={owner => setFilters(f => ({ ...f, owner }))}
+            options={[['', 'Any owner'], ...(user ? [[String(user.id), 'Mine'] as [string, string]] : []), ['unassigned', 'Unassigned']]} />
+        </div>
         <label htmlFor="filter-temp" className="sr-only">Temperature</label>
         <select id="filter-temp" value={filters.temperature} onChange={e => setFilters(f => ({ ...f, temperature: e.target.value }))} className={field}>
           <option value="">Any temperature</option>

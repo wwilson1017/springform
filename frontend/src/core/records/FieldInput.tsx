@@ -1,14 +1,13 @@
-import type { UserRef } from '../api/types';
+import { UserPicker } from '../../shared/UserPicker';
 import type { Draft } from './fieldValues';
 import type { FieldDefinition } from './types';
 import { INPUT } from './ui';
 
 /** The editor for one custom field, chosen by its type. `id` labels the control. */
-export function FieldInput({ def, draft, onChange, users, id, disabled }: {
+export function FieldInput({ def, draft, onChange, id, disabled }: {
   def: FieldDefinition;
   draft: Draft;
   onChange: (next: Draft) => void;
-  users: UserRef[];
   id: string;
   disabled?: boolean;
 }) {
@@ -39,13 +38,7 @@ export function FieldInput({ def, draft, onChange, users, id, disabled }: {
         </select>
       );
     case 'user':
-      return (
-        <select {...common} value={text} onChange={e => onChange(e.target.value)}>
-          <option value="">—</option>
-          {users.map(u => <option key={u.id} value={String(u.id)}>{u.name}</option>)}
-          {text && !users.some(u => String(u.id) === text) && <option value={text}>User #{text}</option>}
-        </select>
-      );
+      return <UserPicker id={id} disabled={disabled} className={INPUT} value={text} onChange={onChange} options={[['', '—']]} />;
     case 'multiselect': {
       const picked = Array.isArray(draft) ? draft : [];
       return (

@@ -1,7 +1,8 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { TimelineEntry } from '../api/types';
 import { callsTo, mockFetch } from '../../testing';
+import { recordChanged } from './recordEvents';
 import { Timeline } from './Timeline';
 
 const BASE = '/api/core/timeline?entity_type=example.widget&entity_id=7';
@@ -14,12 +15,39 @@ const entries: TimelineEntry[] = [
 afterEach(() => vi.unstubAllGlobals());
 
 describe('Timeline', () => {
-  it('renders a field change as "changed X from A to B"', async () => {
-    mockFetch({ [`GET ${LIST}`]: { body: entries } });
+  it('renders a field change as "X changed from A to B"', async () => {
+    const fetchMock = mockFetch({ [`GET ${LIST}`]: { body: entries } });
     render(<Timeline entityType="example.widget" entityId={7} />);
-    expect(await screen.findByText('changed color from red to blue')).toBeTruthy();
-    expect(screen.getByText('changed is private from no to yes')).toBeTruthy();
+    expect(await screen.findByText('Color changed from red to blue')).toBeTruthy();
+    expect(screen.getByText('Is private changed from no to yes')).toBeTruthy();
     expect(screen.getByText('First note')).toBeTruthy();
+    // No custom field among the changes: no definitions fetch.
+    expect(fetchMock.mock.calls.filter(([url]) => String(url).startsWith('/api/core/fields/'))).toHaveLength(0);
+  });
+
+  it("names a custom field change by the field's label, fetched once per entity type", async () => {
+    const custom: TimelineEntry = { ...entries[0], id: 5, changes: [{ field: 'field.favourite_cake', old: null, new: 'Lemon' }] };
+    const defs = '/api/core/fields/definitions?entity_type=core.person&include_archived=true';
+    const fetchMock = mockFetch({
+      'GET /api/core/timeline?entity_type=core.person&entity_id=1&limit=50': { body: [custom] },
+      'GET /api/core/timeline?entity_type=core.person&entity_id=2&limit=50': { body: [custom] },
+      [`GET ${defs}`]: { body: [{ id: 1, entity_type: 'core.person', key: 'favourite_cake', label: 'Favourite cake', type: 'text',
+        options: null, required: false, position: 0, archived_at: null }] },
+    });
+    render(<><Timeline entityType="core.person" entityId={1} /><Timeline entityType="core.person" entityId={2} /></>);
+    expect(await screen.findAllByText('Favourite cake changed from empty to Lemon')).toHaveLength(2);
+    expect(callsTo(fetchMock, 'GET', defs)).toHaveLength(1);
+  });
+
+  it("refetches when this record's custom fields are saved, and only this record's", async () => {
+    const fetchMock = mockFetch({ [`GET ${LIST}`]: { body: [entries[1]] } });
+    render(<Timeline entityType="example.widget" entityId={7} />);
+    await screen.findByText('First note');
+    act(() => recordChanged('example.widget', 8));
+    act(() => recordChanged('core.person', 7));
+    expect(callsTo(fetchMock, 'GET', LIST)).toHaveLength(1);
+    act(() => recordChanged('example.widget', 7));
+    await vi.waitFor(() => expect(callsTo(fetchMock, 'GET', LIST)).toHaveLength(2));
   });
 
   it('posts a note for this record and reloads the list', async () => {

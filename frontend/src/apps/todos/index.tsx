@@ -21,7 +21,6 @@ import { WaitingPage } from './WaitingPage';
 
 /** Mounted by Root under `/todos/*` inside the core Layout, so these routes are relative to it.
  *  Today is the app's home. The change feed runs here, once, rather than in the per-page shell. */
-// eslint-disable-next-line react-refresh/only-export-components -- the contract is a default-exported { slug, App }
 function App() {
   const { user, isAdmin } = useAuth();
   const onBatch = useCallback(() => { void refreshMeta(); }, []);

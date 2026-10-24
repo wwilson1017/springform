@@ -7,7 +7,7 @@ import { LoadError } from '../../../shared/LoadError';
 import { touchDetailUrl, type WeeklyTouchDetail } from '../api';
 import { StageBadge, TouchCountPill } from '../components/badges';
 import { formatCents } from '../money';
-import { parseOwnerParam } from '../touches';
+import { parseOwnerParam, windowText } from '../touches';
 import { muted, page, pageTitle } from '../ui';
 
 export function TouchDetailPage() {
@@ -30,7 +30,7 @@ export function TouchDetailPage() {
           <>
             <div>
               <h1 className={pageTitle}>{data.rep.name || (owner === 'unassigned' ? 'Unassigned' : 'Rep')}</h1>
-              <p className="m-0 mt-1 text-sm text-sf-ink-mute">{data.window.label} · {data.rep.touches} touches · {data.rep.open_deals} open deals</p>
+              <p className="m-0 mt-1 text-sm text-sf-ink-mute">{windowText(data.window)} · {data.rep.touches} touches · {data.rep.open_deals} open deals</p>
             </div>
             {data.deals.length === 0 ? <p className={muted}>No deals touched in this window.</p> : (
               <ul className="m-0 list-none divide-y divide-sf-line rounded-lg border border-sf-line-strong bg-sf-card p-0">

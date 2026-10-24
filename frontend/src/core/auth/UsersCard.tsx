@@ -1,6 +1,7 @@
 /**
  * Admins manage accounts: invite (a one-hour link, mailed when mail is set up and always shown
- * to copy), resend, edit name/role/time zone, deactivate and reactivate. There is no delete: a
+ * to copy), resend, a password reset link for someone else, edit name/role/time zone, deactivate
+ * and reactivate. There is no delete: a
  * departed person's name keeps rendering on what they touched. The server keeps one active admin
  * who can sign in (`last_admin`); the card only hides the controls that would lock you out.
  */
@@ -16,7 +17,7 @@ import { toast } from '../../shared/toast';
 import { useAuth } from './AuthContext';
 import {
   alertText, btnDanger, btnLink, btnPrimary, btnSecondary, errorText, inputSm, labelSm, noteText,
-  type AdminUser, type InviteLink,
+  type AdminUser, type InviteLink, type ResetLink,
 } from './api';
 import { CopyField, TimezoneSelect } from './fields';
 
@@ -144,14 +145,15 @@ function UserRow({ user, onSaved, onRemoved, onLink }: {
   const [editing, setEditing] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [reset, setReset] = useState<ResetLink | null>(null);
 
-  async function act<T>(fn: () => Promise<T>, fallback: string): Promise<T | undefined> {
+  async function act<T>(fn: () => Promise<T>, fallback: string, codes: Record<string, string> = USER_ERRORS): Promise<T | undefined> {
     setError('');
     setBusy(true);
     try {
       return await fn();
     } catch (err) {
-      setError(errorText(err, USER_ERRORS, fallback));
+      setError(errorText(err, codes, fallback));
     } finally {
       setBusy(false);
     }
@@ -170,6 +172,14 @@ function UserRow({ user, onSaved, onRemoved, onLink }: {
   async function resend() {
     const r = await act(() => postJson<InviteLink>(`/api/auth/users/${user.id}/resend-invite`), "Couldn't create a new invite link.");
     if (r) onLink(r);
+  }
+
+  async function resetLink() {
+    setReset(null);
+    // A 404 is an account that can't take one (deactivated, or gone since the list loaded).
+    const r = await act(() => postJson<ResetLink>(`/api/auth/users/${user.id}/reset-link`), "Couldn't create a reset link.",
+      { ...USER_ERRORS, not_found: "This account can't get a reset link. Reload the list." });
+    if (r) setReset(r);
   }
 
   return (
@@ -193,6 +203,8 @@ function UserRow({ user, onSaved, onRemoved, onLink }: {
         <div className="flex flex-wrap gap-2">
           {user.is_active && !editing && <button type="button" disabled={busy} className={btnSecondary} onClick={() => { setError(''); setEditing(true); }}>Edit</button>}
           {user.is_active && user.invite_pending && !self && <button type="button" disabled={busy} className={btnSecondary} onClick={() => void resend()}>New invite link</button>}
+          {/* A pending invite gets a new invite link instead; a reset is for an account already set up. */}
+          {user.is_active && !user.invite_pending && !self && <button type="button" disabled={busy} className={btnSecondary} onClick={() => void resetLink()}>Reset link</button>}
           {!self && (user.is_active
             ? <button type="button" disabled={busy} className={btnDanger} onClick={() => void setActive(false)}>Deactivate</button>
             : <button type="button" disabled={busy} className={btnSecondary} onClick={() => void setActive(true)}>Reactivate</button>)}
@@ -204,6 +216,15 @@ function UserRow({ user, onSaved, onRemoved, onLink }: {
             const r = await act(() => patchJson<AdminUser>(`/api/auth/users/${user.id}`, changes), "Couldn't save the changes.");
             if (r) { onSaved(r); setEditing(false); }
           }} />
+      )}
+      {reset && (
+        <div role="status" className="mt-3 flex flex-col gap-2 rounded-md border border-sf-green bg-sf-card p-3">
+          <p className="m-0 text-sm text-sf-ink">
+            Password reset link for <strong>{user.name || user.email}</strong>. It works once, for an hour, and any earlier reset link stops working.{reset.mailed && ' Sent by email too.'}
+          </p>
+          <CopyField label="Reset link" value={reset.reset_url} />
+          <button type="button" className={`${btnLink} self-start`} onClick={() => setReset(null)}>Done</button>
+        </div>
       )}
       {error && <p role="alert" className={`${alertText} mt-2`}>{error}</p>}
     </li>

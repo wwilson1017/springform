@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { Navigate } from 'react-router';
 import BootFallback from '../components/BootFallback';
+import { NotAllowed } from '../shell/Pages';
 import { useAuth } from './AuthContext';
 
 /** Signed-out visitors go to /login. The same spinner as a chunk load while /api/me is in flight. */
@@ -11,8 +12,8 @@ export function RequireAuth({ children }: { children: ReactNode }) {
   return children;
 }
 
-/** Members are sent to `fallback`. UI gating only: the server refuses the routes regardless. */
-export function RequireAdmin({ children, fallback = '/' }: { children: ReactNode; fallback?: string }) {
+/** Members get the Not allowed page, at the URL they asked for. UI gating only: the server refuses the routes regardless. */
+export function RequireAdmin({ children }: { children: ReactNode }) {
   const { isAdmin } = useAuth();
-  return isAdmin ? children : <Navigate to={fallback} replace />;
+  return isAdmin ? children : <NotAllowed />;
 }

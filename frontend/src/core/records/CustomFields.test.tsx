@@ -1,13 +1,15 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { callsTo, mockFetch } from '../../testing';
+import { resetUserNames } from '../../shared/users';
 import { CustomFields } from './CustomFields';
 import { fromDraft, toDraft } from './fieldValues';
+import { onRecordChanged } from './recordEvents';
 import type { FieldDefinition, FieldType } from './types';
 
 const DEFS = '/api/core/fields/definitions?entity_type=example.widget';
 const VALUES = '/api/core/fields/values?entity_type=example.widget&entity_id=7';
-const USERS = '/api/core/timeline/mentionable';
+const USERS = '/api/core/timeline/mentionable?q=';
 
 let nextId = 1;
 const def = (key: string, type: FieldType, extra: Partial<FieldDefinition> = {}): FieldDefinition => ({
@@ -21,7 +23,10 @@ const ALL = [
 ];
 const STORED = { notes: 'Handle with care', size: 2.5, fragile: true, ships_on: '2026-11-02', tier: 'Gold', tags: ['a', 'c'], site: 'https://example.com', rep: 2 };
 
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => {
+  vi.unstubAllGlobals();
+  resetUserNames();
+});
 
 function renderAll(values: Record<string, unknown> = STORED, put: { status?: number; body?: unknown } = { body: STORED }) {
   const fetchMock = mockFetch({
@@ -48,19 +53,22 @@ describe('CustomFields', () => {
 
   it('renders the editor each type needs and PUTs only what changed, typed, in one request', async () => {
     const fetchMock = renderAll({ notes: 'Handle with care', tier: 'Gold', tags: ['a'] });
+    const changed = vi.fn();
+    const unsubscribe = onRecordChanged(changed);
     fireEvent.click(await screen.findByRole('button', { name: 'Edit' }));
     expect((screen.getByLabelText('size') as HTMLInputElement).type).toBe('number');
     expect((screen.getByLabelText('ships on') as HTMLInputElement).type).toBe('date');
     expect((screen.getByLabelText('site') as HTMLInputElement).type).toBe('url');
     expect(screen.getByLabelText('fragile').tagName).toBe('SELECT');
     expect(within(screen.getByRole('group', { name: 'tags' })).getAllByRole('checkbox')).toHaveLength(3);
-    await screen.findByRole('option', { name: 'Max Member' });
+    expect(screen.getByLabelText('rep').getAttribute('role')).toBe('combobox');
 
     fireEvent.change(screen.getByLabelText('size'), { target: { value: '12' } });
     fireEvent.change(screen.getByLabelText('fragile'), { target: { value: 'no' } });
     fireEvent.change(screen.getByLabelText('ships on'), { target: { value: '2026-12-01' } });
     fireEvent.click(within(screen.getByRole('group', { name: 'tags' })).getByLabelText('b'));
-    fireEvent.change(screen.getByLabelText('rep'), { target: { value: '2' } });
+    fireEvent.focus(screen.getByLabelText('rep'));
+    fireEvent.click(await screen.findByRole('option', { name: 'Max Member' }));
     fireEvent.change(screen.getByLabelText('tier'), { target: { value: '' } }); // clearing sends null
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
@@ -70,6 +78,9 @@ describe('CustomFields', () => {
       entity_type: 'example.widget', entity_id: 7,
       values: { size: 12, fragile: false, ships_on: '2026-12-01', tags: ['a', 'b'], rep: 2, tier: null },
     });
+    // The record's Timeline hears about the save, so the change entry shows.
+    await vi.waitFor(() => expect(changed).toHaveBeenCalledWith('example.widget', 7));
+    unsubscribe();
   });
 
   it('turns read-only when the server says the record is not writable', async () => {
