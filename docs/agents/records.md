@@ -39,8 +39,8 @@ and runs the sync `on_record_changed` subscribers (through `on_record_changed_in
 
 ### Rules
 
-1. Listing and adding notes go through `entities.authorize`; a note needs write access to its record. `record_changes_in` and the delete and merge hooks do not authorize: the caller has already authorized the edit.
-2. `system` rows record platform actions (e.g. "merged #<source> into this record").
+1. Listing and adding notes go through `entities.authorize`; a note needs write access to its record. `record_changes_in`, `add_system_in` and the delete and merge hooks do not authorize: the caller has already authorized the edit.
+2. `system` rows record platform actions (e.g. "merged #<source> into this record"). Core writes them with `timeline.add_system_in(conn, entity_type, entity_id, body)`; the author is the system principal (`id=0`), and the acting user is in the change log.
 3. Merges repoint timeline rows keeping the original author and time (`contacts.md`).
 4. A mention in `body` is written `@[Name](user:ID)`. Each mentioned active human user who can read the record gets a `core_timeline_mentions(timeline_id, user_id, display_name)` row and a notification (`deliver_in`, in the note's transaction), except the author. Anyone else named in the body gets neither.
 5. A comment is stored and listed exactly like a note; only its `kind` differs.
@@ -193,7 +193,7 @@ Report(key, label, app, run, params=None, admin_only=False, roles=("admin", "mem
 1. Apps register via `reports.py` (`REPORTS = [Report(...)]`).
 2. `run` receives the user and **must apply `can_read`**.
 3. An app's reports default to "user has one of the app's roles" before their own checks; `admin_only` restricts to admins.
-4. `GET /api/core/reports` lists the reports the caller may run. `GET /api/core/reports/{key}` runs one and returns `{columns, rows}`: every query parameter is a report param, and an unknown one, `format` included, is refused with 422. `GET /api/core/reports/{key}/csv` (served from `backend/core/export/router.py`) streams the same report as CSV through `backend.core.export.csv_export.stream_csv`.
+4. `GET /api/core/reports` lists the reports the caller may run. `GET /api/core/reports/{key}` runs one and returns `{columns, rows}`: every query parameter is a report param, and an unknown one, `format` included, is refused with 422. `GET /api/core/reports/{key}/csv` (served from `backend/core/export/router.py`) streams the same report as CSV through `backend.core.export.csv_export.stream_csv`, after the same role check and param parsing (`reports.service.run`: defaults applied, bad params 422).
 5. CakeCRM's `report_service.py` stays CRM-owned in `apps/crm/reports.py`.
 
 `params` is a JSON schema object, `{"type": "object", "properties": {...}, "required": [...]}`. Each property has a `type` of `integer`, `number`, `boolean` or `string` (`format: "date"` allowed) and an optional `default`. Query-string values are coerced to those types, empty ones count as absent, and a missing required one is refused.

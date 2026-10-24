@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from typing import Any
 from zoneinfo import ZoneInfo
 
-from backend.core import settings
+from backend.core import memory, settings
 from backend.core.errors import Invalid
 
 DEFAULT_WARNING = (
@@ -75,6 +75,7 @@ CORE_KEYS: dict[str, Key] = {
     "github.token": Key(None, _text(500, required=True), secret=True),  # fine-grained token, issues read/write
     "files.max_bytes": Key(25 * 1024 * 1024, _positive_int),
     "agent.nightly_enabled": Key(False, _bool),  # off: the nightly run spends AI credits
+    "agent.context_budget_chars": Key(memory.DEFAULT_BUDGET, _positive_int),  # memory block size per turn
     "auth.require_totp_for_google": Key(False, _bool),
 }
 

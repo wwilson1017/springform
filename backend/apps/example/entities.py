@@ -17,7 +17,7 @@ def can_write(user, conn, widget_id: int) -> bool:
 ENTITIES = [
     Entity(
         type="example.widget", table="example_widgets", label="Widget", label_plural="Widgets",
-        url_fn=lambda widget_id: f"/example/widgets/{widget_id}", title_fn=title_from("example_widgets"),
+        url_fn=lambda widget_id: f"/example/{widget_id}", title_fn=title_from("example_widgets"),
         can_read=can_read, can_write=can_write, searchable=("name",),
     ),
 ]
