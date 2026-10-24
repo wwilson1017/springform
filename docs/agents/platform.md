@@ -97,6 +97,7 @@ The data directory is `DATA_DIR` (the donor's env var, kept; default `./data` fo
 | `PORT` | The HTTP port, default `8000`. Railway sets it. | `deploy.md` |
 | `DATA_DIR` | The data directory, default `./data`; `/data` in the container. | `database-and-transactions.md` |
 | `PUBLIC_URL` | The install's public URL: Google redirect URI, CSRF origin, scheme warning. Shown read-only in Settings; not a `core_settings` key. | `auth.md` |
+| `SECRET_KEY` | The session JWT signing key. | `auth.md` |
 | `ENCRYPTION_KEY` | Fernet key; when set, no key file is written. | `deploy.md` |
 | `TRUST_PROXY` | `1` → uvicorn `--proxy-headers --forwarded-allow-ips='*'`. | `auth.md`, `deploy.md` |
 | `PREVIEW_MODE` | `1` → seeded preview users, role picker, Google stub. | `auth.md` |

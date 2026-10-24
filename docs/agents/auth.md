@@ -35,7 +35,7 @@ Why a cookie: the Google callback is a top-level redirect; fetch-based SSE sends
 
 Dependencies (`deps.py`): `current_user`, `require_admin`, `require_roles(roles)` (used by `registry.mount()` with the manifest's roles; `authorization.md`).
 
-Open: the JWT signing key's source (environment, `core_settings`, or generated into `/data`) is not stated.
+The JWT signing key is the `SECRET_KEY` environment variable.
 
 ## 3. CSRF (`csrf.py`)
 
@@ -45,7 +45,7 @@ Open: the JWT signing key's source (environment, `core_settings`, or generated i
 4. A request carrying **both** a cookie and a bearer header is treated as cookie-authenticated (rule 1 applies).
 5. Preflights (`OPTIONS`) are not authenticated and pass.
 
-Open: the refusal status code (403 is the natural reading of "denied") and which methods count as state-changing (everything but `GET`/`HEAD`/`OPTIONS` is the usual reading) are not stated.
+A refusal is **403** `{detail: "csrf"}`. State-changing means every method except `GET`, `HEAD` and `OPTIONS`.
 
 ## 4. Tables
 
@@ -161,10 +161,8 @@ Revoked and deactivated MCP links return 404 (`mcp.md`).
 1. `PREVIEW_MODE=1` seeds `preview-admin@example.com` and `preview-member@example.com`.
 2. `LoginPage` shows a role picker → `POST /api/auth/preview {role}`.
 3. `google/start` redirects to a local stub, so Playwright covers the Google path.
-4. **Startup refuses preview mode if real secrets are set.**
+4. **Startup refuses preview mode if real secrets are set**: `ENCRYPTION_KEY` in the environment, `RESEND_API_KEY`, or any `core_settings` row with `is_secret=1`.
 5. The factory reset is allowed in preview mode (`database-and-transactions.md` §6).
-
-Open: which settings or env vars count as "real secrets" for the refusal is not stated.
 
 ## 12. Frontend (`frontend/src/core/auth/`)
 
