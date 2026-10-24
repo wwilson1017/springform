@@ -2,7 +2,8 @@
 
 `build_registry(specs)` validates everything at boot (a malformed tool fails startup, so a new
 source can never silently clobber or weaken another). The live registry is replaced atomically
-(`set_current`), so an in-flight turn keeps the set it started with.
+(`set_current`), so an in-flight turn keeps the set it started with. Outbound MCP servers are the
+one source that changes after boot: `swap_server` replaces a server's tools the same way.
 
 Exposure: `for_user(user)` filters by `enabled(user)` (which the app registry wraps with the
 app's roles); `for_source(source)` applies what a source may ever see. A caller wants the
@@ -12,6 +13,7 @@ intersection, e.g. MCP exposes `for_user(link_user)` ∩ `for_source("mcp")`.
 from __future__ import annotations
 
 import re
+import threading
 from collections.abc import Iterable
 from typing import TYPE_CHECKING, Literal
 
@@ -77,6 +79,8 @@ def _problems(spec: ToolSpec) -> list[str]:
         p.append("an external_effect tool runs through handler, outside any transaction")
     if spec.writes is False and spec.handler_in is not None:
         p.append("a read runs through handler, not handler_in")
+    if spec.remote and not (spec.always_confirm and spec.untrusted_source and spec.external_effect):
+        p.append("a remote tool is always_confirm, untrusted_source and external_effect")
     return [f"tool {spec.name!r}: {x}" for x in p]
 
 
@@ -94,11 +98,21 @@ def build_registry(specs: Iterable[ToolSpec]) -> ToolRegistry:
 
 
 _current = ToolRegistry()
+_swap_lock = threading.Lock()
 
 
 def set_current(registry: ToolRegistry) -> None:
     global _current
     _current = registry
+
+
+def swap_server(server_id: str, specs: Iterable[ToolSpec]) -> None:
+    """Replace one outbound MCP server's tools in the live registry (no specs drops them). The
+    whole set is rebuilt and validated, then swapped in at once; on ToolSpecError nothing changes.
+    A pending approval of a replaced spec fails its tool_def_sha256 check at confirm time."""
+    with _swap_lock:
+        keep = [s for s in _current.all() if s.server_id != server_id]
+        set_current(build_registry([*keep, *specs]))
 
 
 def current() -> ToolRegistry:
