@@ -125,7 +125,7 @@ class GuardedTransport(httpx2.AsyncBaseTransport):
         response = await pool.handle_async_request(request)
         problem = None
         if response.status_code in (401, 403):  # the SDK would report only "an error response"
-            problem = f"The server refused the token (HTTP {response.status_code})"
+            problem = f"The server refused the request (HTTP {response.status_code}); check the token"
         elif response.headers.get("content-encoding", "identity") != "identity":
             problem = "The server sent a compressed response, which is refused"
         if problem:

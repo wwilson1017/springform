@@ -109,7 +109,7 @@ def test_failing_discovery_drops_the_servers_tools_and_records_the_error(admin, 
     server = add(admin, url)
     assert remote_names() == ["stub__add_item", "stub__list_items"]
     broken = admin.patch(f"{BASE}/{server['id']}", json={"token": "wrong"}).json()
-    assert broken["last_error"] == "The server refused the token (HTTP 401)" and broken["tools"] == []
+    assert broken["last_error"] == "The server refused the request (HTTP 401); check the token" and broken["tools"] == []
     assert broken["last_discovered_at"] == server["last_discovered_at"]  # the last success
     assert remote_names() == []
     assert admin.get("/api/agent/status").status_code == 200  # the app is fine
@@ -288,7 +288,7 @@ def test_routes_are_admin_only_and_validate(admin, login_as, stub, allow_private
     refreshed = admin.post(f"{BASE}/{server['id']}/refresh").json()
     assert len(refreshed["tools"]) == 2 and refreshed["last_discovered_at"]
     cleared = admin.patch(f"{BASE}/{server['id']}", json={"token": ""}).json()
-    assert cleared["has_token"] is False and cleared["last_error"] == "The server refused the token (HTTP 401)"
+    assert cleared["has_token"] is False and cleared["last_error"] == "The server refused the request (HTTP 401); check the token"
     assert admin.delete(f"{BASE}/{server['id']}").status_code == 204
     assert admin.get(BASE).json() == [] and remote_names() == []
     assert admin.post(f"{BASE}/{server['id']}/refresh").status_code == 404

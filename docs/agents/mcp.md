@@ -114,7 +114,7 @@ core_agent_mcp_servers(id, name, url, token_enc, prefix UNIQUE, enabled, tools_j
    3. connects to a validated IP; httpcore then starts TLS with the URL's hostname, so SNI and certificate verification are unchanged;
    4. does **not** follow redirects (`max_redirects=0`, which also stops the SDK's own same-origin following).
 5. 30 s timeout (per request and for the whole exchange); response capped at **1 MB** (counted on the wire); compressed responses are refused (`Accept-Encoding: identity`), so the cap holds after decoding. No proxies or netrc from the environment.
-6. HTTP 401/403 surfaces as "The server refused the token"; the SDK would only say "an error response".
+6. HTTP 401/403 surfaces as "The server refused the request (HTTP 401); check the token"; the SDK would only say "an error response".
 7. The transport refuses to send inside a database transaction.
 
 ### Routes (admin, `/api/core/mcp/servers`)
