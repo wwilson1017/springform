@@ -119,7 +119,7 @@ Pinned since the block was written (the block stays verbatim; these refine it):
 | `/api/todos` + `/api/todos/badge` + `/api/todos/for/{entity_type}/{entity_id}` | Todos app | W7 |
 | `/api/crm/...` | CRM app | W10 |
 | Google start/callback, invites, reset, TOTP, users admin | `auth.md` | W1 |
-| `run_now` (admin) | `scheduler.md` | W3 |
+| `POST /api/core/jobs/{name}/run` (admin run now) | `scheduler.md` | W3 |
 
 Open: `/api/todos/badge` and `/api/todos/for/...` are the plan's `/badge` and `/for/...` under the Todos mount; the full paths are inferred from the mount rule.
 

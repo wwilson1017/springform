@@ -14,15 +14,13 @@ Job(name, fn, every | at, app, timeout=300)
 | Field | Contract |
 |---|---|
 | `name` | `<slug>.<job>` for apps (contract test); `core.<job>` for core. |
-| `fn` | The job function. Runs in `asyncio.to_thread`. Checks its `cancel_event` between steps. |
-| `every` | An interval. Not caught up when missed. |
+| `fn` | The job function, `fn(cancel_event: threading.Event)`; the event is its only argument. Runs in `asyncio.to_thread`. Checks `cancel_event` between steps. |
+| `every` | An interval in seconds (`int`). Not caught up when missed. |
 | `at` | `"HH:MM"` install-local. Runs once per install-local day. |
 | `app` | Owning app slug (or core). |
 | `timeout` | Seconds, default **300**. |
 
 Apps declare `JOBS = [Job(name="<slug>.<job>", fn, every=…|at="HH:MM")]` in `jobs.py`.
-
-Open: the type of `every` (seconds, `timedelta`) and how `fn` receives its `cancel_event` are not stated.
 
 ## 2. The loop
 
@@ -43,18 +41,20 @@ Open: the type of `every` (seconds, `timedelta`) and how `fn` receives its `canc
 
 ## 4. Shutdown and startup
 
-1. Shutdown sets every `cancel_event`, waits up to the graceful period, then marks what is still running `interrupted`.
+1. Shutdown sets every `cancel_event`, waits up to **10 s** (matching uvicorn's `--timeout-graceful-shutdown 10`, `deploy.md`), then marks what is still running `interrupted`.
 2. On startup, stale `running` and `timed_out` rows become `interrupted`.
 
-Open: the graceful period's length is not stated for the scheduler; the entrypoint runs uvicorn with `--timeout-graceful-shutdown 10` (`deploy.md`).
+## 5. `core_job_runs`
 
-## 5. `core_job_runs.status`
+```sql
+core_job_runs(id, job, started_at, finished_at, status, error, triggered_by)
+```
+
+`status`:
 
 ```
 running | ok | error | timed_out | interrupted | skipped
 ```
-
-Open: `core_job_runs` columns (beyond `status`) are not stated (job name, started/finished times, error text are implied by the Jobs page).
 
 ## 6. `at` and `every`
 
@@ -67,9 +67,7 @@ Timezone: `core_settings.timezone` (IANA, default `UTC`). Nothing hardcoded.
 
 ## 7. `run_now`
 
-An admin endpoint runs a job now, through the same in-flight guard (it never overlaps a running instance). The Jobs page lists runs and offers "run now"; "Back up now" on the Backups page runs `core.backup` the same way.
-
-Open: the `run_now` route path and response are not stated (shape to be pinned by W3), nor what `run_now` returns when the job is already in flight.
+`POST /api/core/jobs/{name}/run` (admin) runs a job now, through the same in-flight guard (it never overlaps a running instance). It returns **202**, or **409** when the job is already in flight. The Jobs page lists runs and offers "run now"; "Back up now" on the Backups page runs `core.backup` the same way.
 
 ## 8. Core jobs
 
@@ -81,14 +79,16 @@ Open: the `run_now` route path and response are not stated (shape to be pinned b
 | `core.reminders.fire_due` | every 60 s | Fire due reminders (`records.md`). |
 | `core.notifications.flush` | every 30 s | Send queued external deliveries (`records.md`). |
 | `core.outbox_drain` | every 30 s + nudge after `COMMIT` | The single outbox drainer (`database-and-transactions.md`). |
-| `core.files.sweep` | nightly | Delete unreferenced, unpinned blobs (`records.md`). |
-| `core.job_runs_prune` | daily | Keep 30 days of `core_job_runs`. |
+| `core.files.sweep` | `at` 03:30 | Delete unreferenced, unpinned blobs (`records.md`). |
+| `core.job_runs_prune` | `at` 04:00 | Keep 30 days of `core_job_runs`. |
 | `core.login_attempts_prune` | hourly | Prune `core_login_attempts`. |
-| `agent.nightly` | `at` 02:00, setting-gated | Observer + dreaming; exits early with zero keys (`agent.md`). |
+| `core.agent_nightly` | `at` 02:00, gated by the setting `agent.nightly_enabled` | Observer + dreaming; exits early with zero keys (`agent.md`). |
 
 App jobs named in the plan: `crm.touch_count` every 2 min (drains ≤20 deals, LLM call outside the transaction, skipped with zero keys).
 
-Open: the clock times for "nightly" (`core.files.sweep`) and "daily" (`core.job_runs_prune`) are not stated. Open: `agent.nightly` does not follow the `core.` prefix the other core jobs use. Open: the hourly outbound-MCP discovery (`mcp.md`) has no job in this list. Open: the setting key gating `agent.nightly`.
+All `at` times are install-local.
+
+Open: the hourly outbound-MCP discovery (`mcp.md`) has no job in this list.
 
 ## 9. Step 1
 

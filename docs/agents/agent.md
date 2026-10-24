@@ -191,7 +191,7 @@ conversation_id, compacted, text, tool_start, tool_args, tool_end, usage, confir
 2. Chat returns **400** "add a key".
 3. The Whisk page shows the card with an admin link to Settings → AI.
 4. The registry and inbound MCP still work.
-5. Nightly jobs (`agent.nightly`, observer, dreaming) exit early. The CRM's `crm.touch_count` LLM work is skipped too.
+5. The nightly job `core.agent_nightly` (observer, dreaming) exits early. The CRM's `crm.touch_count` LLM work is skipped too.
 
 ## 10. Default `soul.md`
 
@@ -207,7 +207,7 @@ Whisk is the business assistant for this install; knows the installed apps, the 
 
 ## 12. Jobs
 
-`agent.nightly` at 02:00, setting-gated, skipped with zero keys (observer + dreaming). See `scheduler.md`.
+`core.agent_nightly` at 02:00, gated by the setting `agent.nightly_enabled`, skipped with zero keys (observer + dreaming). See `scheduler.md`.
 
 ## 13. Step 1 stub
 
@@ -241,4 +241,4 @@ Chatty's inline styles move to Tailwind tokens (`--color-sf-*`), budgeted in W12
 
 ## Source
 
-Build plan: §5 (all), §2 (system principal), §6 (exclusions, remote specs), §11 (`agent.nightly`), Decisions (Agent), Step 1, Step 2 W9, Step 3 W12, Step 4 W14–W16, Risks 5 and 8, Verification.
+Build plan: §5 (all), §2 (system principal), §6 (exclusions, remote specs), §11 (the nightly agent job), Decisions (Agent), Step 1, Step 2 W9, Step 3 W12, Step 4 W14–W16, Risks 5 and 8, Verification.

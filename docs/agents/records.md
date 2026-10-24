@@ -87,7 +87,7 @@ core_file_blobs(sha256 PK, byte_size, created_at, unreferenced_since, missing_at
 4. The same bytes uploaded to the same record (`UNIQUE(entity_type, entity_id, sha256)`) return **200** with the existing row.
 5. When a blob's last `core_files` row is deleted, the files service sets `core_file_blobs.unreferenced_since` in the same transaction.
 
-### Sweep (`core.files.sweep`, nightly)
+### Sweep (`core.files.sweep`, 03:30 install-local)
 
 1. Inside **one** `transaction()`:
    1. select blobs whose `unreferenced_since` is older than **7 days** **and** whose sha256 appears in **no retained backup manifest**;
