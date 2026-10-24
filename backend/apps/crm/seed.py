@@ -35,6 +35,10 @@ SAMPLE = [
 
 def seed(conn) -> None:
     stage_criteria.seed_in(conn)
+    seed_meta_in(conn)
+
+
+def seed_meta_in(conn) -> None:
     conn.execute("INSERT OR IGNORE INTO crm_meta (id, updated_at) VALUES (1, ?)", (clock.now_iso(),))
 
 
@@ -63,4 +67,5 @@ def sample(conn) -> None:
             deals.update_in(conn, owner, deal["id"], {"stage": stage})
         if stage in ("proposal", "negotiation"):
             activity.log_in(conn, owner, "call", f"Talked through {title.lower()}", deal_id=deal["id"], person_id=person_ids.get(email))
+    seed_meta_in(conn)
     conn.execute("UPDATE crm_meta SET sample_data_loaded = 1, updated_at = ? WHERE id = 1", (clock.now_iso(),))

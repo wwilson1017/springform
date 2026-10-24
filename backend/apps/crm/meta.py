@@ -23,6 +23,7 @@ def get() -> dict:
 
 def dismiss_onboarding() -> dict:
     with db.transaction() as conn:
+        seed.seed_meta_in(conn)
         conn.execute("UPDATE crm_meta SET onboarding_dismissed = 1, updated_at = ? WHERE id = 1", (clock.now_iso(),))
     return get()
 
