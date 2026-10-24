@@ -165,6 +165,9 @@ jobs:
           persist-credentials: false
           fetch-depth: 0
 
+      - name: Self-test the scope check
+        run: scripts/test-fork-scope.sh
+
       # Upstream has no FORK.md, so this passes there. In a fork it fetches the pinned upstream
       # tag and fails if any core path differs from it.
       - name: Core equals the pinned upstream tag
