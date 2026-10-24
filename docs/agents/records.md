@@ -223,16 +223,17 @@ Open: `status` values (including the "void" state's name) and the series/repeat 
 ## 8. Change log
 
 ```sql
-core_change_log(id, at, user_id, app, entity, entity_id, field, old, new, reason, request_id)
+core_change_log(id, at, user_id, app, entity, entity_id, field, old, new, reason, request_id,
+                deleted_at TEXT NULL)
 ```
 
 1. `record_changes_in` writes one row per change, alongside the timeline `field_change` row.
 2. `core.changelog.record_in` is a frozen Step 1 stub signature that W3 fills.
-3. Rows written before a delete keep `entity_id` plus a `deleted_at` marker.
+3. Rows written before a delete are kept: they keep `entity_id`, and the delete cascade sets their `deleted_at`, so history stays distinguishable from any later record.
 4. The ChangeLog viewer and `/api/core/changelog` apply `authorize(read)` per row and hide the rest. Filters: app, user, entity (`frontend-shell.md`).
 5. `user_id` may be the system principal (`id=0`) for unattended actions.
 
-Open: `record_in`'s signature, the `deleted_at` column (not in the §1 column list), whether `field` holds one field per row or a set, and `/api/core/changelog`'s query and response shape (shape to be pinned by W3).
+Open: `record_in`'s signature, whether `field` holds one field per row or a set, and `/api/core/changelog`'s query and response shape (shape to be pinned by W3).
 
 ## 9. Frontend (`frontend/src/core/records/`)
 

@@ -157,10 +157,10 @@ Open: how the lint decides which migrations belong to "a minor release" (e.g. fi
    2. then `DELETE`s the app's non-entity `RESET_TABLES`;
    3. ids keep climbing.
 3. Only the admin **factory reset** clears every table and every sequence together. It is allowed in `PREVIEW_MODE` or on an install with no human data, and refused otherwise.
-4. Change-log rows written before a delete keep `entity_id` plus a `deleted_at` marker, so history stays distinguishable from any later record.
+4. Change-log rows written before a delete keep `entity_id` and get `core_change_log.deleted_at` (`TEXT NULL`) set, so history stays distinguishable from any later record.
 5. The CRM's port replaces CakeCRM's `TRUNCATE … RESTART IDENTITY` (`crm/service.py::_truncate_all`) with `registry.reset_app_in(conn, "crm")`; the reset regression test runs through the CRM's own reset entry point.
 
-Open: `core_change_log`'s column list in §1 does not include `deleted_at`; the marker's column is not named there. Open: what "no human data" means for the factory-reset gate.
+Open: what "no human data" means for the factory-reset gate.
 
 ## 7. Timestamps
 
