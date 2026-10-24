@@ -8,9 +8,8 @@ function App() {
   return (
     <Routes>
       <Route index element={<WidgetsPage />} />
+      {/* Also the entity registry's url for a widget (notification and reminder links). */}
       <Route path=":id" element={<WidgetPage />} />
-      {/* The entity registry's url for a widget (notification and reminder links). */}
-      <Route path="widgets/:id" element={<WidgetPage />} />
     </Routes>
   );
 }

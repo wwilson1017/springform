@@ -49,6 +49,8 @@ Conventions:
 
 ### Changed
 
+- The example app serves a widget at one URL, `/example/<id>`, the one the backend links to; the
+  `/example/widgets/<id>` alias is gone.
 - A fresh install no longer runs every daily job (backup, files sweep, agent nightly) at first
   boot; a job that has never run waits for its first slot. Missed slots still catch up once.
 
