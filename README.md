@@ -15,3 +15,41 @@ ready to run yet.
   change outside the app folders.
 
 License: MIT.
+
+## Run it
+
+Development, with Python 3.12, [uv](https://docs.astral.sh/uv/) and Node 22:
+
+```bash
+uv sync && (cd frontend && npm ci && npm run build)
+uv run uvicorn backend.main:app --reload      # http://localhost:8000, data in ./data
+```
+
+Or the image: `docker build -t springform . && docker run -p 8000:8000 -v springform-data:/data springform`.
+On first boot the log prints a one-time setup token (also in `/data/setup-token`) for creating the
+first admin.
+
+## Deploy
+
+**A server.** On a fresh Ubuntu 24.04 machine whose DNS name already points at it:
+
+```bash
+git clone https://github.com/wwilson1017/springform.git
+sudo DOMAIN=crm.example.com springform/deploy/setup.sh
+```
+
+It installs Docker, opens only ports 22/80/443, turns on automatic security updates, writes
+`/srv/springform/.env` with fresh secrets, starts the app behind Caddy (automatic HTTPS), prints the
+setup token, and offers a nightly off-site copy of the backups with rclone. Update later with
+`sudo /srv/springform/deploy.sh`. A fork runs its own image: set `IMAGE=` in `.env` (and run
+`docker login ghcr.io` first if the image is private).
+
+**Deploys are stop-before-start.** SQLite has one writer, and the app holds a lock on
+`/data/.springform.lock` so a second copy refuses to start. `docker compose up` stops the old
+container before starting the new one, so expect a few seconds of downtime per deploy. Never run
+two copies against one `/data`, and never raise `--workers` above 1.
+
+**Railway.** `railway.json` builds the Dockerfile, health-checks `/up` and requires a volume at
+`/data`. Set `SECRET_KEY`, `PUBLIC_URL`, `TRUST_PROXY=1` and `RAILWAY_DEPLOYMENT_DRAINING_SECONDS=15`
+(time for a graceful shutdown). With a volume attached, Railway stops the old deployment before
+starting the new one, which the lock relies on.
