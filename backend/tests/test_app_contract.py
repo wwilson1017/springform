@@ -6,6 +6,7 @@ import importlib
 import json
 import re
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 from fastapi import APIRouter, Depends, FastAPI
@@ -133,8 +134,13 @@ def contract_problems(app_dir: Path, tmp_path: Path) -> list[str]:
                 p.append(f"EXPORT names {table!r}, which {slug} does not own")
             elif missing := set(spec.get("columns", [])) - columns[table]:
                 p.append(f"EXPORT {table!r} names columns that do not exist: {sorted(missing)}")
-            if spec.get("entity") not in entity_types:
-                p.append(f"EXPORT {table!r} names entity {spec.get('entity')!r}, which {slug} does not register")
+            if "entity" not in spec:
+                p.append(f"EXPORT {table!r} needs an entity (an entity type of {slug}, or None)")
+            elif spec["entity"] is not None and spec["entity"] not in entity_types:
+                p.append(f"EXPORT {table!r} names entity {spec['entity']!r}, which {slug} does not register")
+            for key in ("id_column", "owner_column"):  # optional keys that name a column of the table
+                if key in spec and spec[key] not in columns.get(table, set()):
+                    p.append(f"EXPORT {table!r} {key} {spec[key]!r} is not a column")
 
     for job in getattr(mods.get("jobs"), "JOBS", []):
         if not job.name.startswith(f"{slug}."):
@@ -185,6 +191,8 @@ def test_bad_app_breaks_every_rule(tmp_path):
         r"EXPORT names 'core_users'",
         r"EXPORT 'bad_app_things' names columns that do not exist: \['nope'\]",
         r"EXPORT 'bad_app_things' names entity 'bad_app\.nothing'",
+        r"EXPORT 'bad_app_things' id_column 'thing_ref' is not a column",
+        r"EXPORT 'bad_app_things' owner_column 'owner' is not a column",
         r"job 'tidy' must be named bad_app\.<job>",
         r"tool 'make_thing' must be named bad_app_<tool>",
         r"unknown hook 'on_saved'",
@@ -204,6 +212,8 @@ def _manifest(**overrides) -> dict:
 @pytest.mark.parametrize("overrides, message", [
     ({"slug": "Widgets", "path": "/Widgets"}, "pattern"),
     ({"slug": "auth", "path": "/auth"}, "reserved"),
+    ({"slug": "people", "path": "/people"}, "reserved"),
+    ({"slug": "core_tools", "path": "/core_tools"}, "core_"),
     ({"path": "/other"}, "path must be '/widgets'"),
     ({"roles": ["admin", "owner"]}, "roles"),
     ({"roles": []}, "roles"),
@@ -228,21 +238,36 @@ def test_core_migrations_reference_only_core(tmp_path):
         assert all(t.startswith("core_") for t in o["fks"]), o["name"]
 
 
-def anonymous_reachable(fastapi_app: FastAPI, slug: str) -> list[str]:
-    """Routes under /api/<slug>/ that answer something other than 401 without a session."""
+# The only /api routes that answer without a session; every other one, core and app, must 401.
+# Sign-in flows from the login package; /api/auth/google/stub is out of the schema (PREVIEW_MODE only).
+ALLOW_UNAUTHENTICATED = {
+    "GET /api/health",
+    "GET /api/auth/status", "POST /api/auth/setup", "POST /api/auth/login", "POST /api/auth/login/totp",
+    "POST /api/auth/logout", "POST /api/auth/preview",
+    "GET /api/auth/google/start", "GET /api/auth/google/callback",
+    "GET /api/auth/invite/{token}", "POST /api/auth/invite/{token}", "POST /api/auth/forgot", "POST /api/auth/reset",
+}
+
+
+def anonymous_reachable(fastapi_app: FastAPI, slug: str | None = None) -> list[str]:
+    """/api routes (only `/api/<slug>/` when given) outside ALLOW_UNAUTHENTICATED that answer
+    something other than 401 without a session."""
+    prefix = f"/api/{slug}/" if slug else "/api/"
     client, found = TestClient(fastapi_app), []
     for path, ops in fastapi_app.openapi()["paths"].items():
-        if path.startswith(f"/api/{slug}/"):
-            for method in ops:
+        for method in ops:
+            route = f"{method.upper()} {path}"
+            if path.startswith(prefix) and route not in ALLOW_UNAUTHENTICATED:
                 status = client.request(method.upper(), re.sub(r"\{[^}]+\}", "1", path)).status_code
                 if status != 401:
-                    found.append(f"{method.upper()} {path} -> {status}")
+                    found.append(f"{route} -> {status}")
     return found
 
 
-@pytest.mark.parametrize("app_dir", INSTALLED, ids=[d.name for d in INSTALLED])
-def test_every_mounted_route_carries_the_guard(app, app_dir):
-    assert anonymous_reachable(app, app_dir.name) == []
+def test_every_api_route_needs_a_session_unless_allow_listed(app):
+    assert anonymous_reachable(app) == []
+    routes = {f"{m.upper()} {p}" for p, ops in app.openapi()["paths"].items() for m in ops}
+    assert ALLOW_UNAUTHENTICATED <= routes, f"stale entries: {sorted(ALLOW_UNAUTHENTICATED - routes)}"
 
 
 def test_guard_check_catches_an_unguarded_route(db):
@@ -254,8 +279,21 @@ def test_guard_check_catches_an_unguarded_route(db):
 
     bare = FastAPI()
     bare.include_router(router, prefix="/api/demo")
-    assert anonymous_reachable(bare, "demo") == ["GET /api/demo/open -> 200"]
+    assert anonymous_reachable(bare) == ["GET /api/demo/open -> 200"]
 
     guarded = FastAPI()
     guarded.include_router(router, prefix="/api/demo", dependencies=[Depends(require_roles(["member"]))])
-    assert anonymous_reachable(guarded, "demo") == []
+    assert anonymous_reachable(guarded) == []
+
+
+def test_no_slug_extends_another_slugs_prefix():
+    registry.check_slug_prefixes([d.name for d in INSTALLED])
+    with pytest.raises(AppContractError, match="start with 'shop_'"):
+        registry.check_slug_prefixes(["shop", "shop_extras"])
+
+
+def test_publishes_is_checked_at_boot(tmp_path):
+    manifest = AppManifest.model_validate(_manifest(publishes=["get_widget"]))
+    api = SimpleNamespace(get_widget=lambda: None)  # no get_widget_in
+    with pytest.raises(AppContractError, match="no get_widget_in"):
+        registry.mount_app(FastAPI(), registry.App(manifest, tmp_path, {"router": SimpleNamespace(router=APIRouter()), "api": api}))
