@@ -112,6 +112,32 @@ def test_app_slugs_and_order(tmp_path):
         library.load((("core", str(core)), ("shop", str(app_docs))))
 
 
+def test_runtime_skips_a_bad_topic_and_keeps_the_rest(tmp_path, monkeypatch, caplog):
+    core, app_docs = tmp_path / "core", tmp_path / "app"
+    core.mkdir()
+    app_docs.mkdir()
+    (core / "good.md").write_text(_topic("Good"), encoding="utf-8")
+    (core / "shop.md").write_text(_topic("Core shop"), encoding="utf-8")
+    (core / "long.md").write_text(_topic("Long", body="x" * (library.MAX_TOPIC_CHARS + 1)), encoding="utf-8")
+    (core / "Bad_Name.md").write_text(_topic("Bad"), encoding="utf-8")
+    (app_docs / "index.md").write_text(_topic("App shop"), encoding="utf-8")  # slug "shop": duplicate
+    (app_docs / "returns.md").write_text("no front matter\n", encoding="utf-8")
+    (app_docs / "help.md").write_text(_topic("Help"), encoding="utf-8")
+    sources = (("core", str(core)), ("shop", str(app_docs)))
+
+    with pytest.raises(library.GuideError):  # tests and CI stay strict
+        library.load(sources)
+    monkeypatch.setattr(library, "sources", lambda: sources)
+    assert [(t.slug, t.title) for t in library.topics()] == [
+        ("good", "Good"),
+        ("shop", "Core shop"),
+        ("shop.help", "Help"),
+    ]
+    skipped = " ".join(r.getMessage() for r in caplog.records if r.levelname == "WARNING")
+    for name in ("long.md", "Bad_Name.md", "index.md", "returns.md"):
+        assert name in skipped
+
+
 def test_warm_never_raises(monkeypatch):
     def boom():
         raise library.GuideError("bad topic")

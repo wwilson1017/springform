@@ -12,9 +12,10 @@ Each file opens with front matter (hand-parsed; three keys):
     order: 10                     (optional integer; lower sorts first, default 1000)
     ---
 
-A body over MAX_TOPIC_CHARS, an unknown key or a duplicate slug is an error: a broken topic must
-fail a test loudly, not ship as a library that silently lost a page. `warm()` (startup) is the
-one caller that swallows it. Content is immutable per deploy, so one cache and no invalidation.
+A body over MAX_TOPIC_CHARS, an unknown key, a bad file name or a duplicate slug makes a topic
+bad. `load(strict=True)` raises on it, so a test (and a fork's CI) fails loudly; at runtime
+`topics()` loads with strict=False, logging and skipping a bad topic so one broken doc never takes
+the Guide down. Content is immutable per deploy, so one cache and no invalidation.
 
 Search is a deterministic ranking pass: title beats summary beats body, ties break on slug.
 """
@@ -95,20 +96,28 @@ def parse_topic(slug: str, app: str, text: str) -> Topic:
     return Topic(slug, app, title, summary, order, body)
 
 
-def load(sources: tuple[tuple[str, str], ...]) -> tuple[Topic, ...]:
-    """Every topic under each `(app, folder)` source, in source order, then (order, slug)."""
+def load(sources: tuple[tuple[str, str], ...], *, strict: bool = True) -> tuple[Topic, ...]:
+    """Every topic under each `(app, folder)` source, in source order, then (order, slug).
+    strict: raise on the first bad topic; otherwise log it and skip it (a duplicate slug keeps
+    the topic loaded first, so core wins over an app)."""
     topics: list[Topic] = []
+    seen: set[str] = set()
     for app, folder in sources:
         found = []
         for path in sorted(Path(folder).glob("*.md")):
-            if not _STEM.match(path.stem):
-                raise GuideError(f"{path.name}: file names are lowercase words joined by single hyphens")
-            slug = path.stem if app == "core" else (app if path.stem == "index" else f"{app}.{path.stem}")
-            found.append(parse_topic(slug, app, path.read_text(encoding="utf-8")))
+            try:
+                if not _STEM.match(path.stem):
+                    raise GuideError(f"{path.name}: file names are lowercase words joined by single hyphens")
+                slug = path.stem if app == "core" else (app if path.stem == "index" else f"{app}.{path.stem}")
+                if slug in seen:
+                    raise GuideError(f"{path.name}: duplicate Guide slug {slug!r}")
+                found.append(parse_topic(slug, app, path.read_text(encoding="utf-8")))
+                seen.add(slug)
+            except (GuideError, OSError, UnicodeDecodeError) as e:
+                if strict:
+                    raise
+                logger.warning("Guide skipped %s: %s", path, e)
         topics += sorted(found, key=lambda t: (t.order, t.slug))
-    slugs = [t.slug for t in topics]
-    if dupes := sorted({s for s in slugs if slugs.count(s) > 1}):
-        raise GuideError(f"duplicate Guide slugs: {', '.join(dupes)}")
     return tuple(topics)
 
 
@@ -118,17 +127,17 @@ def sources() -> tuple[tuple[str, str], ...]:
 
 @functools.lru_cache(maxsize=4)
 def _cached(sources_: tuple[tuple[str, str], ...]) -> tuple[Topic, ...]:
-    return load(sources_)
+    return load(sources_, strict=False)
 
 
 def topics() -> tuple[Topic, ...]:
-    """The installed library, loaded on first use."""
+    """The installed library, loaded on first use; bad topics are logged and left out."""
     return _cached(sources())
 
 
 def warm() -> None:
-    """Load at startup so the first reader does not pay for it. Never raises; a failure is logged
-    and the routes retry (and fail) lazily."""
+    """Load at startup so the first reader does not pay for it. Never raises; an unexpected
+    failure is logged and the routes retry lazily."""
     try:
         count = len(topics())
     except Exception:

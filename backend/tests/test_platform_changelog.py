@@ -10,7 +10,7 @@ def _changes(client, **params) -> list[dict]:
     return r.json()
 
 
-def test_rows_are_filtered_by_read_access_and_deleted_rows_go_to_admins_only(login_as):
+def test_rows_are_filtered_by_read_access_and_gone_rows_go_only_to_their_writer(login_as):
     admin, owner, other = login_as("admin"), login_as("member"), login_as("member")
     secret = widgets.create_widget(owner.principal, WidgetIn(name="Secret", is_private=True))
     public = widgets.create_widget(owner.principal, WidgetIn(name="Public"))
@@ -31,23 +31,34 @@ def test_rows_are_filtered_by_read_access_and_deleted_rows_go_to_admins_only(log
         (secret["id"], "Secret"),
     ]
 
+    # A deleted private record's history stays with the person who wrote it; admins get no extra access.
     with core_db.transaction() as conn:
         entities.delete_record_in(conn, "example.widget", secret["id"])
-    gone = [r for r in _changes(admin) if r["entity_id"] == secret["id"]]
+    gone = [r for r in _changes(owner) if r["entity_id"] == secret["id"]]
     assert len(gone) == 1 and gone[0]["deleted_at"] and gone[0]["title"] is None and gone[0]["url"] is None
     assert gone[0]["new"] == "red"
-    assert [r["entity_id"] for r in _changes(owner)] == [public["id"]]  # gone records: admins only
+    assert [r["entity_id"] for r in _changes(admin)] == [public["id"]]
+    assert [r["entity_id"] for r in _changes(other)] == [public["id"]]
+
+    # Two writers on one record: after the delete each sees only their own rows.
+    widgets.update_widget(admin.principal, public["id"], WidgetPatch(color="gold"))
+    with core_db.transaction() as conn:
+        entities.delete_record_in(conn, "example.widget", public["id"])
+    assert [(r["entity_id"], r["new"]) for r in _changes(admin)] == [(public["id"], "gold")]
+    assert [(r["entity_id"], r["new"]) for r in _changes(owner)] == [(public["id"], "blue"), (secret["id"], "red")]
+    assert _changes(other) == []
 
     # A row whose entity type is no longer installed counts as gone too.
     with core_db.transaction() as conn:
         conn.execute(
             """INSERT INTO core_change_log (at, user_id, app, entity, entity_id, field, old, new)
-               VALUES ('2026-10-24T00:00:00Z', 0, 'gone', 'gone.thing', 1, 'name', '"a"', '"b"')"""
+               VALUES ('2026-10-24T00:00:00Z', ?, 'gone', 'gone.thing', 1, 'name', '"a"', '"b"')""",
+            (admin.user["id"],),
         )
     orphan = _changes(admin)[0]
-    assert (orphan["entity_type"], orphan["user"], orphan["deleted_at"], orphan["url"]) == (
+    assert (orphan["entity_type"], orphan["deleted_at"], orphan["title"], orphan["url"]) == (
         "gone.thing",
-        {"id": 0, "name": "System"},
+        None,
         None,
         None,
     )

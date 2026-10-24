@@ -165,10 +165,11 @@ _CHANGELOG_SELECT = """SELECT c.id, c.at, c.user_id, u.name AS user_name, c.app,
 
 
 def _access(user: User, conn: db.Conn, entity_type: str, entity_id: int, deleted_at: str | None) -> str:
-    """ "live" (readable record), "gone" (deleted record or uninstalled type: admins only), or "hidden"."""
+    """The record's state for this caller: "live" (readable), "gone" (deleted, or its type is no
+    longer installed), or "hidden" (exists, not readable)."""
     known = any(e.type == entity_type for e in entities.all_entities())
     if deleted_at or not known or not entities.exists(conn, entity_type, entity_id):
-        return "gone" if user.is_admin else "hidden"
+        return "gone"
     try:
         entities.authorize(user, conn, entity_type, entity_id, "read")
     except NotFound:
@@ -187,7 +188,9 @@ def changelog_list(
     limit: int | None = None,
 ) -> list[dict]:
     """Newest first. `before` is the id cursor: pass the last row's id to get the next page.
-    Rows the caller may not read are skipped, and the scan continues until the page is full."""
+    Rows the caller may not read are skipped, and the scan continues until the page is full.
+    A row about a gone record is shown only to the user who wrote it, admins included: a private
+    record's history stays private after the record is deleted."""
     # simplification: a caller who can read little of a large log scans it all in one request;
     # upgrade path: cap the scan and return an explicit next cursor with the page.
     limit, _ = pagination.window(limit)
@@ -208,7 +211,7 @@ def changelog_list(
             key = (row["entity"], row["entity_id"])
             if key not in access:
                 access[key] = _access(user, conn, *key, row["deleted_at"])
-            if access[key] != "hidden":
+            if access[key] == "live" or (access[key] == "gone" and row["user_id"] == user.id):
                 page.append((dict(row), access[key]))
                 if len(page) == limit:
                     break
