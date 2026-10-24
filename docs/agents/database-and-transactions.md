@@ -108,7 +108,7 @@ Ported from CakeCRM `backend/core/postgres.py:181-248`. Runs at **startup only**
 | App files | `backend/apps/<slug>/migrations/*.sql`, named `YYYYMMDDHHMMSS_<slug>_<name>.sql` (contract test regex `\d{14}_<slug>_`). |
 | Collection | Core files first, then app files. Core always first. |
 | Sort | Within each group, by `(timestamp, path)`. |
-| Stamps | Core migrations are stamped `20261020…`; app migrations `>= 20261101…`. |
+| Stamps | Core migrations are stamped `20261020…`; app migrations `>= 20261101…`. No two core files share a stamp (a test checks it). Two apps may share one (`crm_init` and `example_init` are both `20261101000000`): app files tie-break on path, and apps never reference each other. |
 | Core init | `20261020000100_core_init.sql` (settings, change_log, job_runs, apps_state, requests, backups, outbox, file blobs, users incl. the system user, totp, trusted_devices, login_tokens, login_attempts, contacts tables, timeline, files). |
 | Per workstream | Every workstream adds its **own** `20261020…_core_<area>.sql` and **never edits one that has landed**. |
 

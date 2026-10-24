@@ -50,6 +50,8 @@ Conventions:
 
 - A fresh install no longer runs every daily job (backup, files sweep, agent nightly) at first
   boot; a job that has never run waits for its first slot. Missed slots still catch up once.
+- The outbound MCP servers migration is now `20261020000530_core_mcp_servers.sql`, so no two core
+  migrations share a stamp. A development database created before this change must be recreated.
 
 ### Fixed
 
