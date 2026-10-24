@@ -20,6 +20,8 @@ Base: CakeCRM `backend/assistant/` (Chatty's loop already trimmed, with server-s
 | `observer.py`, `dreaming.py`, `jobs.py` | Chatty; nightly, setting-gated, skipped with zero keys | 580 |
 | `router.py`, `mcp_server.py`, `mcp_client.py` | CakeCRM `assistant/router.py` minus uploads; new; new | 250 / 250 / 320 |
 
+The outbound client landed as its own core package, `backend/core/mcp_servers/` (`mcp.md` §2), not `agent/mcp_client.py`.
+
 `delimiters.py` and `write_budget.py` are in the lift list but not drawn in the plan's repo tree.
 
 ## 2. Tables
@@ -132,7 +134,7 @@ The hash is the sha256 of `json.dumps(fields, sort_keys=True)` over the fields a
 
 ### Registry sources and refresh
 
-Sources: core packages' `tools.py` (context files, memory; `apps-and-contracts.md` §9), discovered apps' `get_tools()`, and MCP servers (`mcp.md`). A refresh builds a new registry and **swaps it in atomically**. Old specs stay valid for already-pending approvals only until their `tool_def_sha256` check fails.
+Sources: core packages' `tools.py` (context files, memory; `apps-and-contracts.md` §9), discovered apps' `get_tools()`, and MCP servers (`mcp.md`). Outbound MCP servers are the one source that changes after boot: `registry.swap_server(server_id, specs)` replaces one server's specs, rebuilds and validates the whole registry, and **swaps it in atomically** (a refused build changes nothing). Old specs stay valid for already-pending approvals only until their `tool_def_sha256` check fails. `build_registry` also refuses a remote spec (`server_url` set) that is not `always_confirm`, `untrusted_source` and `external_effect`.
 
 Deferred tools (`deferred.py`): groups keyed by app slug, deferral threshold 100 tools.
 

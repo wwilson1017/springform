@@ -52,7 +52,7 @@ def test_sources_apply_their_exclusions():
         read(name="core_careful", always_confirm=True),
         read(name="core_web", untrusted_source=True),
         read(name="core_protected", mcp_exposed=False),
-        read(name="core_remote", always_confirm=True, untrusted_source=True, server_id="1", server_url="https://x"),
+        read(name="core_remote", always_confirm=True, untrusted_source=True, external_effect=True, server_id="1", server_url="https://x"),
     ])
     names = lambda specs: sorted(s.name for s in specs)  # noqa: E731
     assert names(reg.for_source("job")) == ["core_protected", "core_read"]

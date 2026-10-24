@@ -12,6 +12,7 @@ dependencies = [
     "fastapi>=0.115",
     "google-auth>=2.62.0",
     "httpx>=0.27",
+    "mcp==2.3.0",
     "openai>=3.37.0",
     "packaging>=24",
     "pillow>=11",

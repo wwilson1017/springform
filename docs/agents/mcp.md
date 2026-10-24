@@ -63,53 +63,71 @@ Use the `mcp` SDK's **low-level `Server`** with `StreamableHTTPSessionManager(st
 
 The MCP bearer is the link token, not the session JWT. The cookie CSRF rules (`auth.md` §3) cover cookie-authenticated `/api` requests; `/mcp` sits outside `/api` and authenticates by link token.
 
-## 2. Outbound (`mcp_client.py`)
+## 2. Outbound (`backend/core/mcp_servers/`)
+
+Code: `client.py` (discovery, remote specs, calls), `transport.py` (the address policy), `service.py` (the table), `router.py`, `jobs.py`, `startup.py`. Frontend: `frontend/src/core/mcp_servers/` (Settings → MCP servers).
 
 ### Table
 
 ```sql
-core_agent_mcp_servers(id, name, url, token_enc, prefix UNIQUE, enabled, tools_json, last_discovered_at, last_error)
+core_agent_mcp_servers(id, name, url, token_enc, prefix UNIQUE, enabled, tools_json, last_discovered_at, last_error, created_at, updated_at)
 ```
 
-`token_enc` is encrypted with the install key (`enc:v1:`).
+`token_enc` is encrypted with the install key (`enc:v1:`, `''` = no token) and sent as `Authorization: Bearer <token>`. `tools_json` is what the registry holds for the server now (`[{name, description, read_only_hint}]`, `[]` when disabled or failing). `last_discovered_at` is the last successful discovery; `last_error` the last failure (cleared by a success).
 
 ### Discovery and refresh
 
-1. Client: `mcp` SDK `streamable_http_client` + `ClientSession`.
-2. Discovery runs at startup, on "Refresh" (admin), and hourly.
-3. Discovered tools are swapped into the registry **atomically**. Old specs stay valid for already-pending approvals only until their `tool_def_sha256` check fails.
-4. A failing server drops its tools (and records `last_error`), not the app.
-
-Open (pinned by the implementing workstream, which updates this doc): the hourly discovery job is not in §11's core job list; its job name and whether it runs through the scheduler are not stated.
+1. Client: `mcp` SDK `streamable_http_client` + `ClientSession`, one short session per exchange, driven from sync code with `anyio.run` in a worker thread.
+2. Discovery runs at startup (`startup.py`, in a background thread, so boot never waits on the network), on create, update and "Refresh" (admin), and hourly through the job **`core.mcp_discover`** (scheduler, `every=3600`, servers one after another).
+3. Each server's tools are swapped into the registry **atomically** with `agent.registry.swap_server(server_id, specs)`: the whole registry is rebuilt and validated, then replaced. Old specs stay valid for already-pending approvals only until their `tool_def_sha256` check fails.
+4. A failing server drops its tools (and records `last_error`), not the app. Disabling a server drops its tools; deleting it too.
+5. A tool whose wire name would not match `^[a-zA-Z0-9_-]{1,64}$` or whose schema is not `type: object` is skipped (logged). At most 200 tools per server; descriptions are cut at 1,000 characters.
 
 ### Naming
 
 | Where | Form |
 |---|---|
 | Wire name (sent to providers) | `<prefix>__<tool>`, e.g. `todogtd__todo_create` (provider APIs forbid `.`). |
-| Display name | `<prefix>.<tool>`, e.g. `todogtd.todo_create`. |
+| Display name | `<prefix>.<tool>`, e.g. `todogtd.todo_create`. The spec's description starts with it: `todogtd.todo_create, a remote tool on <server name>: …`, so the Approve card shows it. |
+| Prefix | `^[a-z][a-z0-9_]{1,19}$`, unique, not a reserved slug or an installed app's slug. The spec's `app` is the prefix (deferred-tool grouping). |
 
 ### Every remote call confirms
 
-1. Remote specs have `always_confirm=True`.
-2. Remote annotations are **untrusted metadata**: `readOnlyHint` is recorded for display but never trusted to skip confirmation.
-3. Remote specs have `untrusted_source=True`: results are fenced with `delimiters.wrap_untrusted_external` and taint the turn.
-4. Remote tools are external-effect: claimed in one transaction, executed outside, resolved in another; a timeout marks `uncertain` (`agent.md` §6).
+1. Remote specs have `always_confirm=True`, `untrusted_source=True`, `external_effect=True`, `mcp_exposed=False`, `handler` (never `handler_in`). `build_registry` refuses a remote spec (`server_url` set) without the first three.
+2. Remote annotations are **untrusted metadata**: `readOnlyHint` sets `writes` (for display and the write budget) but never skips confirmation.
+3. Results are fenced by the engine with `delimiters.wrap_untrusted_external` and taint the turn. A result is the text blocks (or the structured content when there is no text); a server-flagged error comes back as `{"error": …}`.
+4. Remote tools are external-effect: claimed in one transaction, executed outside, resolved in another; a failure or timeout marks `uncertain` (`agent.md` §6).
 5. `tool_def_sha256` for a remote tool includes the server id **and URL**.
 6. Remote tools are never exposed inbound and never run from jobs.
-7. The Approve card shows the full args.
+7. The handler re-reads the server row at call time and refuses if it was disabled, deleted or moved to another URL since the spec was built.
+8. Remote tools are offered to every signed-in user's Whisk (the server and its token are install-wide); each user approves their own calls. The settings card says so.
 
 ### Address policy (enforced at connection time)
 
 1. Destinations: **https only**.
-2. **Refused:** loopback, private-network, link-local, and IPv4-mapped IPv6 addresses.
-3. `MCP_ALLOW_PRIVATE=1` permits those addresses and also permits `http://` to them, for local development.
-4. Enforced **at connection time**, not by a one-off hostname check. A custom `httpx` transport:
-   1. resolves the host;
-   2. validates **every** returned address;
-   3. connects to a validated IP while keeping the original hostname for SNI and certificate verification;
-   4. does **not** follow redirects.
-5. 30 s timeout; response capped at **1 MB**.
+2. **Refused:** loopback, private-network, link-local, and IPv4-mapped IPv6 addresses; in code, any address that is not `is_global`, is multicast or is IPv4-mapped. IP literals in the URL go through the same check.
+3. `MCP_ALLOW_PRIVATE=1` permits those addresses and also permits `http://`, but `http://` only to them (never to a public address).
+4. Enforced **at connection time**, not by a one-off hostname check. A custom `httpx2` transport (the SDK's HTTP client) whose httpcore network backend:
+   1. resolves the host on every new connection;
+   2. validates **every** returned address before connecting to any;
+   3. connects to a validated IP; httpcore then starts TLS with the URL's hostname, so SNI and certificate verification are unchanged;
+   4. does **not** follow redirects (`max_redirects=0`, which also stops the SDK's own same-origin following).
+5. 30 s timeout (per request and for the whole exchange); response capped at **1 MB** (counted on the wire); compressed responses are refused (`Accept-Encoding: identity`), so the cap holds after decoding. No proxies or netrc from the environment.
+6. HTTP 401/403 surfaces as "The server refused the token"; the SDK would only say "an error response".
+7. The transport refuses to send inside a database transaction.
+
+### Routes (admin, `/api/core/mcp/servers`)
+
+| Route | Contract |
+|---|---|
+| `GET /` | `[S]`. |
+| `POST /` `{name, url, token?, prefix}` | Creates, discovers, returns `S`. 422 on a bad prefix or URL (http only with `MCP_ALLOW_PRIVATE=1`), 409 `prefix_taken`. |
+| `PATCH /{id}` `{name?, url?, token?, prefix?, enabled?}` | `token: ""` clears it; null or omitted leaves a field. Rediscovers; returns `S`. |
+| `DELETE /{id}` | 204; the server's tools leave the registry. |
+| `POST /{id}/refresh` | Rediscovers; returns `S` (tools or `last_error`). |
+| `POST /{id}/test` | `{ok, tools: n, error?}`; changes nothing. |
+
+`S = {id, name, url, prefix, enabled, has_token, tools: [{name, description, read_only_hint}], last_discovered_at, last_error, created_at, updated_at}`. The token is never returned.
 
 ### First target
 
@@ -121,8 +139,8 @@ todogtd.com is the first outbound server the plan names.
 - Revoked and deactivated links 404.
 - Origin refused.
 - `for_source("mcp")` excludes protected and remote tools.
-- Outbound against a local FastMCP stub: discovery, prefixing, every call confirms, private address refused, fenced result.
-- DNS rebinding: a stub resolver returns a public address first and a private one second; the connection is refused.
+- Outbound (`test_mcp_servers.py`, against a local `MCPServer` stub over loopback with `MCP_ALLOW_PRIVATE=1`): discovery and prefixing, the hash covers the URL (a URL change makes a pending approval stale), a remote read still confirms through the engine and runs once on approve, the result is fenced and taints the conversation, a failing server drops its tools and sets `last_error`, disabling drops tools, private/loopback/link-local/IPv4-mapped destinations refused, `http://` only with `MCP_ALLOW_PRIVATE=1`, 1 MB cap, no send inside a transaction.
+- DNS rebinding: a stub resolver returns a public address first and a private one second; the second connection is refused and nothing connects to the private address. A mixed answer (public + private) is refused before any connection.
 
 ## Source
 

@@ -22,6 +22,8 @@ Conventions:
 
 - Repository tooling: CI for upstream and forks, Docker image with SQLite 3.51.3, one-script VPS
   deploy, fork scripts and release workflow.
+- Outbound MCP: admins connect Whisk to other MCP servers (Settings, MCP servers); every remote
+  tool call asks for approval, results are treated as untrusted, and private addresses are refused.
 
 ### Schema
 
