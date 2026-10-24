@@ -11,6 +11,8 @@ export interface AppManifest {
   roles: Role[];
   order: number;
   badge?: string | null;
+  /** Hidden from members until an admin shows it; read once, when the install first sees the app. */
+  hidden_by_default?: boolean;
   docs?: string;
   version: string;
   requires_core?: string;

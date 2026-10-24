@@ -151,7 +151,7 @@ One flow, `PREVIEW_MODE=1`, seeded:
 6. Guide.
 7. Requests validation.
 8. Settings cards by role (example app's card present).
-9. Example record panel on a person.
+9. Example record panel on a person (as admin; Example is hidden from members by default).
 10. Back up now creates a file.
 11. Password login → enable 2FA (pyotp) → Google login via the preview stub.
 12. Whisk answers with FakeProvider → a write tool shows Approve and runs on approve → zero-key card.
