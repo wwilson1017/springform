@@ -50,14 +50,14 @@ Open: the app-contract section of the plan writes `can_read(user, id)` / `can_wr
 |---|---|
 | `get(type)` | The registered `Entity`, or an error for an unknown type. Replaces CakeCRM's `VALID_ENTITY_TYPES` checks. |
 | `assert_exists(conn, type, id)` | Raises when the record does not exist. |
-| **`authorize(user, conn, type, id, "read" \| "write")`** | **404** when the record is missing, **403** when denied. Called by every core service and router **before touching a record**. |
+| **`authorize(user, conn, type, id, "read" \| "write")`** | `read`: **404** when the record is missing **or** not readable, so existence never leaks. `write`: **404** when missing or not readable, **403** when readable but not writable. Called by every core service and router **before touching a record**. |
 | `url_for(type, id)` | The record's URL via `url_fn`. |
 | `titles_for(user, conn, type, ids)` | Titles via `title_fn`, **dropping titles the user may not read**. |
 | `delete_record_in(conn, type, id)` | Deletes the record and runs the `on_entity_deleted_in` subscribers **in the same transaction**. |
 
 Open: §4 names the delete function `delete_record(conn, type, id)`, while the SQLite rules and the CRM checklist name it `entities.delete_record_in`. It takes `conn` either way; the `_in` name matches the convention. Open: `url_for`'s exact signature is not stated.
 
-Open (status codes): `authorize` is specified as "404 on missing, 403 on denied". The API block says `GET /api/example/widgets/{id}` → "404 when missing or not readable" and lists "403 denied, 404 missing or not readable". So a read the caller may not perform returns 404 in the API block, 403 in the plan. The orchestrator must pick one rule (and say whether a write denied on a readable record is 403).
+Role-guarded routes refuse with **403**: a member calling an admin-only app's API (§4).
 
 ## 3. Hooks
 

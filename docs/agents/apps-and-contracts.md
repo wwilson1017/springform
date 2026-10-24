@@ -116,7 +116,7 @@ Open: key namespacing for app settings is not stated (core keys seen in the plan
 1. `create_app()` discovers apps and mounts routers **at import**, so `app.openapi()` works without a DB (`frontend-shell.md`, type generation).
 2. Each router mounts at `/api/<slug>` with `Depends(require_roles(manifest.roles))`. A member calling an admin-only app's API directly gets **403**.
 3. Badge routes return `{count, label?}`. The launcher polls them every 60 s while visible.
-4. Errors are `{detail}`: 401 not signed in, 403 denied, 404 missing or not readable, 422 invalid.
+4. Errors are `{detail}`: 401 not signed in; 404 missing or not readable, for reads and writes alike, so existence never leaks; 403 when the record is readable but not writable, or a role-guarded route refuses the caller; 422 invalid (`authorization.md` §2).
 
 ```
 GET  /api/core/apps    -> [{slug, name, description, path, icon, roles, order, badge, hidden, settings_cards, version}] for the caller's role; admins also receive hidden apps with hidden:true

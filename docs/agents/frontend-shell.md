@@ -97,6 +97,10 @@ DELETE /api/core/files/{id}          -> 204
 Badge routes return {count, label?}. Errors: `{detail}`; 401 not signed in, 403 denied, 404 missing or not readable, 422 invalid.
 ```
 
+Pinned since the block was written (the block stays verbatim; these refine it):
+
+- **Errors:** 404 when a record is missing or not readable, for reads and writes alike; 403 only when the record is readable but not writable, or a role-guarded route refuses the caller (`authorization.md` §2).
+
 ### Routes named elsewhere in the plan (shape to be pinned by the implementing workstream)
 
 | Route | Doc | Workstream |
