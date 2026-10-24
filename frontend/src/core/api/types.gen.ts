@@ -4892,15 +4892,32 @@ export interface components {
         StageConversion: {
             /** Advanced */
             advanced: number;
-            /** Entered */
+            /**
+             * Entered
+             * @description Deals whose first entry into the stage is in the window
+             */
             entered: number;
-            /** Rate Pct */
-            rate_pct: number | null;
+            /** Lost */
+            lost: number;
+            /**
+             * Progression Rate
+             * @description (advanced + won) / entered, 0-1
+             */
+            progression_rate: number | null;
             /**
              * Stage
              * @enum {string}
              */
             stage: "lead" | "qualified" | "proposal" | "negotiation" | "won" | "lost";
+            /** Still Here */
+            still_here: number;
+            /**
+             * Win Rate
+             * @description won / entered, 0-1
+             */
+            win_rate: number | null;
+            /** Won */
+            won: number;
         };
         /** StageCriteria */
         StageCriteria: {
@@ -4929,10 +4946,13 @@ export interface components {
         StageDuration: {
             /** Avg Days */
             avg_days: number | null;
-            /** Deals */
-            deals: number;
             /** Median Days */
             median_days: number | null;
+            /**
+             * Samples
+             * @description Finished stays in the stage that started in the window
+             */
+            samples: number;
             /**
              * Stage
              * @enum {string}

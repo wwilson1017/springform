@@ -326,16 +326,20 @@ class Analytics(BaseModel):
 
 class StageDuration(BaseModel):
     stage: Stage
-    deals: int
-    median_days: float | None
+    samples: int = Field(description="Finished stays in the stage that started in the window")
     avg_days: float | None
+    median_days: float | None
 
 
 class StageConversion(BaseModel):
     stage: Stage
-    entered: int
+    entered: int = Field(description="Deals whose first entry into the stage is in the window")
+    still_here: int
     advanced: int
-    rate_pct: float | None
+    won: int
+    lost: int
+    progression_rate: float | None = Field(description="(advanced + won) / entered, 0-1")
+    win_rate: float | None = Field(description="won / entered, 0-1")
 
 
 class Velocity(BaseModel):
