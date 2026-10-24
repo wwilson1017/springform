@@ -46,7 +46,7 @@ springform/
       timeline/ files/ fields/ views/ notifications/ reminders/     (each: service.py api.py router.py, plus hooks.py / jobs.py where they contribute)
       reports/     registry.py service.py router.py
       platform/    keys.py service.py router.py      (settings, workspace, apps, jobs and changelog routes)
-      backup/      service.py restore.py jobs.py router.py
+      backup/      service.py restore.py jobs.py router.py startup.py
       sheets/      api.py service.py google.py jobs.py router.py startup.py
       export/      csv_export.py policy.py service.py router.py
       guide/       library.py router.py startup.py

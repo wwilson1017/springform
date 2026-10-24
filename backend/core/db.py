@@ -25,7 +25,7 @@ from contextlib import contextmanager
 from pathlib import Path
 
 from packaging.specifiers import InvalidSpecifier, SpecifierSet
-from packaging.version import Version
+from packaging.version import InvalidVersion, Version
 
 from backend.core import REPO_ROOT, VERSION
 from backend.core.clock import now_iso
@@ -254,10 +254,17 @@ def lint_core_migration(sql: str) -> list[str]:
 
 
 def check_requires_core(app_dirs_: list[Path], version: str = VERSION) -> None:
+    try:
+        current = Version(version)
+    except InvalidVersion:
+        raise MigrationError(
+            f"Springform refuses to start: springform-version holds {version!r}, which is not a PEP 440 "
+            "version (for example 0.1.0, 0.1.0rc1 or 0.1.0+fork.1)."
+        ) from None
     for d in app_dirs_:
         spec = json.loads((d / "app.json").read_text(encoding="utf-8")).get("requires_core")
         try:
-            ok = bool(spec) and SpecifierSet(spec).contains(Version(version), prereleases=True)
+            ok = bool(spec) and SpecifierSet(spec).contains(current, prereleases=True)
         except InvalidSpecifier:
             ok = False
         if not ok:
