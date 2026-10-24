@@ -22,9 +22,23 @@ Conventions:
 
 - Repository tooling: CI for upstream and forks, Docker image with SQLite 3.51.3, one-script VPS
   deploy, fork scripts and release workflow.
+- Setting `agent.context_budget_chars`: how much business memory Whisk reads per turn.
+- The workspace API returns the install's public URL (`PUBLIC_URL`) for Settings to show read-only.
 - People and Organizations pages: search, tag, organization and archived filters, duplicates and
   merge, contact details and addresses with a primary, roles between people and organizations,
   and a contact picker other screens can reuse.
+
+### Changed
+
+- A fresh install no longer runs every daily job (backup, files sweep, agent nightly) at first
+  boot; a job that has never run waits for its first slot. Missed slots still catch up once.
+
+### Fixed
+
+- Whisk names the business from the workspace name setting.
+- Report CSV downloads check and default their params like the report page (bad params are 422).
+- The settings API lists only keys an admin can change, so saving every listed value works.
+- Example widget links open the widget page.
 
 ### Schema
 
