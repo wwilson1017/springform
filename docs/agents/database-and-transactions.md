@@ -63,11 +63,11 @@ Rules:
 
 ### Sync hooks (in-transaction)
 
-`on_entity_deleted_in`, `on_entity_merged_in`, `on_record_changed_in` receive `conn` and run **inside the caller's transaction**. A failing subscriber rolls the whole write back. They are for cheap bookkeeping only: set a flag, write a row. Registered from each app's `hooks.py`, never signals (`authorization.md` has the registry side).
+Subscribers to the `HOOKS` keys `on_entity_deleted`, `on_entity_merged` and `on_record_changed` are `fn(conn, entity_type, entity_id, **kw)`. Core's `_in` dispatchers (`on_entity_deleted_in`, `on_entity_merged_in`, `on_record_changed_in`) call them **inside the caller's transaction**. A failing subscriber rolls the whole write back. They are for cheap bookkeeping only: set a flag, write a row. Registered from each app's `hooks.py`, never signals (`authorization.md` §3 has the registry side).
 
 ### Durable outbox (after commit)
 
-Work that must happen after commit is **durable, not in-memory**. `record_changes_in` writes a `core_outbox` row in the same transaction as the change.
+Work that must happen after commit is **durable, not in-memory**. `record_changes_in` writes a `core_outbox` row in the same transaction as the change (through `after_record_changed_in`). `after_record_changed` subscribers are `fn(payload: dict)`: the drainer runs them after `COMMIT`, outside any transaction, and a subscriber may open its own. The payload is `{entity_type, entity_id, changes: {field: [old, new]}, user_id, at}`.
 
 ```sql
 core_outbox(
@@ -93,7 +93,7 @@ Drainer and consumer rules:
 6. Consumers never start a drain and never call `transaction()` while already inside one.
 7. Worked example: the CRM sets `crm_deals.touch_dirty` in the sync hook (durable with the write) and does its LLM work from the outbox or its own job, never inside a write lock.
 
-Open: the backoff schedule is not stated. Open: the re-claim predicate for a stale claim (the claim SQL above only matches `claimed_at IS NULL`) and which timeout applies ("the job timeout", `Job.timeout` default 300 s, is the likely reading). Open: how a consumer declares itself local or external, and the payload shape per hook. Open: hook naming is inconsistent across the plan (`HOOKS` keys `on_record_changed`/`on_entity_deleted`/`on_entity_merged` in the app contract; `on_*_in` sync names and `after_record_changed` outbox name in §4; "queues `on_record_changed` for after commit" in the §4 timeline row); see `authorization.md`.
+Open: the backoff schedule is not stated. Open: the re-claim predicate for a stale claim (the claim SQL above only matches `claimed_at IS NULL`) and which timeout applies ("the job timeout", `Job.timeout` default 300 s, is the likely reading). Open: how a consumer declares itself local or external.
 
 ## 5. Migration runner
 
@@ -153,7 +153,7 @@ Open: how the lint decides which migrations belong to "a minor release" (e.g. fi
 
 1. Every table that other rows point at polymorphically (anything in `ENTITIES`, `core_timeline`, `core_files`) uses `INTEGER PRIMARY KEY AUTOINCREMENT`, so a deleted id is never reused under an old timeline or audit reference.
 2. **An app reset never touches `sqlite_sequence`.** `registry.reset_app_in(conn, slug)`:
-   1. runs `entities.delete_record_in` for every row of the app's entity tables, which cascades timeline, files, fields, reminders, notifications and change-log rows through `on_entity_deleted_in`;
+   1. runs `entities.delete_record_in` for every row of the app's entity tables, which cascades timeline, files, fields, reminders, notifications and change-log rows through the `on_entity_deleted` subscribers;
    2. then `DELETE`s the app's non-entity `RESET_TABLES`;
    3. ids keep climbing.
 3. Only the admin **factory reset** clears every table and every sequence together. It is allowed in `PREVIEW_MODE` or on an install with no human data, and refused otherwise.

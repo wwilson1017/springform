@@ -76,7 +76,7 @@ Open: whether `core_organizations.email` / `phone` are mirrored the same way (`_
 | Custom field values | The target's non-empty value wins, else the source's. |
 | Timeline rows | Repointed, keeping their original author and time, plus one `system` row on the survivor: "merged #<source> into this record". |
 | Reminders | Repointed. |
-| App data | Through `on_entity_merged_in` subscribers in the same transaction. Example: the CRM's subscriber repoints deals and keeps the higher `crm_person_scores` score. |
+| App data | Through `on_entity_merged` subscribers (dispatched by `on_entity_merged_in`) in the same transaction. Example: the CRM's subscriber repoints deals and keeps the higher `crm_person_scores` score. |
 
 **After the move**
 

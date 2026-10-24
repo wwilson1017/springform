@@ -33,9 +33,9 @@ In the caller's transaction it writes:
 
 1. one `field_change` row in `core_timeline`;
 2. one `core_change_log` row;
-3. a `core_outbox` row so `after_record_changed` work runs after commit;
+3. a `core_outbox` row so the `after_record_changed` subscribers run after commit, with the payload `{entity_type, entity_id, changes: {field: [old, new]}, user_id, at}`;
 
-and runs the sync `on_record_changed_in` subscribers (implied: the CRM sets `touch_dirty` from the sync hook; the plan states only the three writes for `record_changes_in`). The scoring and touch-count imports at CakeCRM `chatter_service.py:25` become CRM subscribers.
+and runs the sync `on_record_changed` subscribers (through `on_record_changed_in`) with the same fields. The CRM sets `touch_dirty` from that sync hook (`authorization.md` §3). The scoring and touch-count imports at CakeCRM `chatter_service.py:25` become CRM subscribers.
 
 ### Rules
 

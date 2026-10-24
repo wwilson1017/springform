@@ -55,7 +55,7 @@ Open: whether entity type strings must be `<slug>.<name>` (every example is) and
 | **`authorize(user, conn, type, id, "read" \| "write")`** | `read`: **404** when the record is missing **or** not readable, so existence never leaks. `write`: **404** when missing or not readable, **403** when readable but not writable. Called by every core service and router **before touching a record**. |
 | `url_for(type, id)` | The record's URL via `url_fn`. |
 | `titles_for(user, conn, type, ids)` | Titles via `title_fn`, **dropping titles the user may not read**. |
-| `delete_record_in(conn, type, id)` | Deletes the record and runs the `on_entity_deleted_in` subscribers **in the same transaction**. |
+| `delete_record_in(conn, type, id)` | Deletes the record and runs the `on_entity_deleted` subscribers (through `on_entity_deleted_in`) **in the same transaction**. |
 
 `entities.delete_record_in` is the only delete function; there is no form without `_in`, and it always runs on the caller's `conn`.
 
@@ -65,29 +65,42 @@ Role-guarded routes refuse with **403**: a member calling an admin-only app's AP
 
 ## 3. Hooks
 
-Registered from each app's `hooks.py` by the registry, never through signals.
-
-| Hook | Kind | Runs | Use |
-|---|---|---|---|
-| `on_entity_deleted_in(conn, …)` | Sync | Inside the deleting transaction. | Cascade owned rows (core uses it for timeline, files, fields, reminders, notifications, change log). |
-| `on_entity_merged_in(conn, …)` | Sync | Inside the merge transaction. | Repoint or reconcile app rows (CRM keeps the higher `crm_person_scores` score). |
-| `on_record_changed_in(conn, …)` | Sync | Inside the changing transaction. | Cheap bookkeeping (CRM sets `crm_deals.touch_dirty`). |
-| `after_record_changed` | Outbox | After `COMMIT`, via the single drainer. | Expensive or external work (`database-and-transactions.md` §4). |
-
-Rules:
-
-1. Sync hooks receive `conn` and run in the caller's transaction; a failing subscriber rolls the whole write back.
-2. Sync hooks do cheap bookkeeping only: set a flag, write a row. No network, no `transaction()`.
-3. After-commit work is durable: a `core_outbox` row written in the same transaction.
-
-App side, from the app contract:
+Apps subscribe in `hooks.py`. The registry registers the subscribers; nothing uses signals.
 
 ```python
 # backend/apps/<slug>/hooks.py
-HOOKS = {"on_record_changed": [...], "on_entity_deleted": [...], "on_entity_merged": [...]}
+HOOKS = {
+    "on_entity_deleted": [...],
+    "on_entity_merged": [...],
+    "on_record_changed": [...],
+    "after_record_changed": [...],
+}
 ```
 
-Open: the `HOOKS` keys (`on_record_changed`, `on_entity_deleted`, `on_entity_merged`) do not match the hook names in §4 (`on_*_in` sync, `after_record_changed` outbox), and the plan does not say how an app subscribes to the outbox hook through `HOOKS`. Open: subscriber signatures (arguments after `conn`) are not stated; §3 gives `merge_people_in(conn, target_id, source_id, actor)` for the merge itself and `record_changes_in(conn, type, id, before, after, user_id)` for changes.
+| `HOOKS` key | Kind | Subscriber | Runs | Use |
+|---|---|---|---|---|
+| `on_entity_deleted` | Sync | `fn(conn, entity_type, entity_id, **kw)` | Inside the deleting transaction. | Cascade owned rows (core uses it for timeline, files, fields, reminders, notifications, change log). |
+| `on_entity_merged` | Sync | `fn(conn, entity_type, entity_id, **kw)` | Inside the merge transaction. | Repoint or reconcile app rows (CRM keeps the higher `crm_person_scores` score). |
+| `on_record_changed` | Sync | `fn(conn, entity_type, entity_id, **kw)` | Inside the changing transaction. | Cheap bookkeeping (CRM sets `crm_deals.touch_dirty`). |
+| `after_record_changed` | Durable, via the outbox | `fn(payload: dict)` | After `COMMIT`, run by the single drainer outside any transaction. It may open its own. | Expensive or external work (`database-and-transactions.md` §4). |
+
+The payload of `on_record_changed` and `after_record_changed` is:
+
+```
+{entity_type, entity_id, changes: {field: [old, new]}, user_id, at}
+```
+
+An `on_record_changed` subscriber receives `entity_type` and `entity_id` as arguments and `changes`, `user_id` and `at` as keywords.
+
+Core's dispatchers carry `_in` and run on the caller's `conn`: `on_entity_deleted_in`, `on_entity_merged_in` and `on_record_changed_in` call the sync subscribers, and `after_record_changed_in` writes the outbox rows. `delete_record_in`, the merge functions and `record_changes_in` call them.
+
+Rules:
+
+1. Sync subscribers receive `conn` and run in the caller's transaction; a failing subscriber rolls the whole write back.
+2. Sync subscribers do cheap bookkeeping only: set a flag, write a row. No network, no `transaction()`.
+3. After-commit work is durable: a `core_outbox` row written in the same transaction as the change.
+
+Open: which keywords `on_entity_deleted` and `on_entity_merged` pass (for a merge, which id arrives as `entity_id` and how the other id and the actor arrive; `merge_people_in(conn, target_id, source_id, actor)` is the merge itself).
 
 ## 4. Manifest roles reach the API
 
