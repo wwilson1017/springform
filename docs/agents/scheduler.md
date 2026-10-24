@@ -82,7 +82,7 @@ Timezone: `core_settings.timezone` (IANA, default `UTC`). Nothing hardcoded.
 | `core.notifications_flush` | every 30 s | Send queued external deliveries (`records.md`). |
 | `core.outbox_drain` | every 30 s + nudge after `COMMIT` | The single outbox drainer (`database-and-transactions.md`). |
 | `core.files_sweep` | `at` 03:30 | Delete unreferenced, unpinned blobs (`records.md`). |
-| `core.job_runs_prune` | `at` 04:00 | Keep 30 days of `core_job_runs`. |
+| `core.job_runs_prune` | every 24 h | Delete finished runs older than 30 days. |
 | `core.login_attempts_prune` | hourly | Prune `core_login_attempts`. |
 | `core.agent_nightly` | `at` 02:00, gated by the setting `agent.nightly_enabled` | Observer + dreaming; exits early with zero keys (`agent.md`). |
 
