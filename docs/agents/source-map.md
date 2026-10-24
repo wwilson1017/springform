@@ -68,7 +68,7 @@ All lifted code is the author's sole authorship (Decisions, License); the proven
 | `backend/core/contacts/service.py` (`find_duplicates`) | CakeCRM | `backend/crm/analytics_service.py:234-330` | file 732 (head) | port | `find_duplicates` at line 317 at head. |
 | `backend/core/contacts/api.py`, `router.py` | — | — | — | new | |
 | `frontend/src/core/contacts/ContactPicker` | CakeCRM | `frontend/src/crm/components/RecordCombobox.tsx` + `frontend/src/crm/dealLinkPickers.ts` | 458 + 63 (head) | lift | Already generic. |
-| `frontend/src/core/contacts/` pages + forms | CakeCRM | `frontend/src/crm/ContactsPage.tsx`, `ContactDetailPage.tsx`, `CompaniesPage.tsx`, `CompanyDetailPage.tsx`, `components/ContactForm.tsx`, `components/CompanyForm.tsx` | ~1,350 (plan); 139 + 391 + 104 + 243 + 326 + 148 = 1,351 (head) | lift | Detail pages render apps' `recordPanels`. |
+| `frontend/src/core/contacts/` pages + forms (`ListPage.tsx`, `DetailPage.tsx`, `NewRecordDialog.tsx`, `FieldsForm.tsx`; each page serves both kinds) | CakeCRM | `frontend/src/crm/ContactsPage.tsx`, `ContactDetailPage.tsx`, `CompaniesPage.tsx`, `CompanyDetailPage.tsx`, `components/ContactForm.tsx`, `components/CompanyForm.tsx` | ~1,350 (plan); 139 + 391 + 104 + 243 + 326 + 148 = 1,351 (head); 650 built | port | Shape only for `DetailPage` and `NewRecordDialog` (`docs/PROVENANCE.md`); `ListPage` and `FieldsForm` have no row there. The detail page renders the record panels of the apps the user receives. |
 
 ## Record services (§4 table)
 
@@ -88,7 +88,7 @@ All lifted code is the author's sole authorship (Decisions, License); the proven
 
 | Springform path | Donor | Donor path | Lines (plan) | Action | Notes |
 |---|---|---|---|---|---|
-| `backend/core/agent/providers/` | CakeCRM | `backend/providers/` (Anthropic and OpenAI only; Google, Ollama, Together, model listing, tier inference and pricing not lifted) | about 590 built (head: 3,038 py) | lift | `credentials.py` rewritten for `core_agent_providers` only; `fake.py` and `windows.py` new. |
+| `backend/core/agent/providers/` | CakeCRM | `backend/providers/` (Anthropic and OpenAI only; Google, Ollama, Together, model listing, tier inference and pricing not lifted) | 672 built (head: 3,038 py) | lift | `windows.py` lifted with the providers; `credentials.py` rewritten for `core_agent_providers` only; `fake.py` new. |
 | `backend/core/agent/spec.py`, `registry.py` | CakeCRM | `backend/assistant/registry.py`, `backend/assistant/confirm_tier.py` (folded into `spec.py`) | 212 → 150 / 160 new | port | Sources = core + apps + MCP; atomic swap. |
 | `backend/core/agent/{engine,history,assembly,compaction,delimiters,write_budget}.py` | CakeCRM | `backend/assistant/` same names | ~2,500 (head: 840, 674, 318, 566, 370, 53) | lift | JSONB→TEXT; Gmail/page bindings cut; `turns.py` (564) skipped in v1; `uploads.py` not lifted. |
 | `backend/core/agent/deferred.py` | chatty | `backend/core/agents/deferred_tools.py` | 350 (head 410) | lift | Group key = app slug, threshold 100. |
@@ -105,9 +105,9 @@ All lifted code is the author's sole authorship (Decisions, License); the proven
 | `frontend/src/core/agent/AgentMessageBubble` | chatty | `frontend/src/agent/components/AgentMessageBubble.tsx` | 515 → ~350 | port | |
 | `ConversationSidebar`, `useConversations` | chatty | `frontend/src/agent/components/ConversationSidebar.tsx` (273), `frontend/src/agent/hooks/useConversations.ts` (197) | head | lift | |
 | `MarkdownContent` | chatty | `frontend/src/agent/components/MarkdownContent.tsx` | 94 (head) | lift | As is. |
-| `ContextFilesPage` | chatty | `frontend/src/agent/components/AgentContextEditor.tsx` | 453 (head) | port | |
-| `ProviderSetup` + keys card | CakeCRM | `frontend/src/setup/ProviderSetup.tsx` | 129 (head) | lift | |
-| MCP links / servers cards | — | — | ~300 | new | |
+| `frontend/src/core/agent/MemoryCard.tsx` (context files, Settings → AI) | chatty | `frontend/src/agent/components/AgentContextEditor.tsx` | 453 (head) | port | No separate page; the editor is a Settings card. |
+| `frontend/src/core/agent/ProvidersCard.tsx` | CakeCRM | `frontend/src/setup/ProviderSetup.tsx` | 129 (head) | lift | |
+| `frontend/src/core/mcp/McpLinksCard.tsx`, `frontend/src/core/mcp_servers/McpServersCard.tsx` | — | — | ~300 | new | |
 
 ## CRM app (§7)
 
@@ -127,7 +127,7 @@ All lifted code is the author's sole authorship (Decisions, License); the proven
 | `backend/apps/crm/tools.py` | CakeCRM | `backend/crm/tools.py` | 2,471 (head) | port | Todo/reminder/GTD tools dropped. |
 | `backend/apps/crm/router.py` | CakeCRM | `backend/crm/router.py` | 1,887 (head); 72 → ~42 routes | port | |
 | `backend/apps/crm/reports.py` | CakeCRM | `backend/crm/report_service.py` | 477 (head) | port | |
-| `backend/apps/crm/activity.py` | CakeCRM | `activity_log` code | — | port | Open (pinned by the implementing workstream, which updates this doc): donor range not stated. |
+| `backend/apps/crm/activity.py` | CakeCRM | `backend/crm/service.py:2658-2740` (activity log) | — | port | |
 | `backend/apps/crm/entities.py`, `hooks.py`, `api.py`, `migrations/20261101000000_crm_init.sql` | — | — | — | new | |
 | `backend/apps/crm/docs/` | CakeCRM | `backend/help/content/` | 12 topics (of 44 files at head) | port | |
 | Dropped | CakeCRM | GTD cluster (`gtd_*`, `todo_*`; 2,912 backend + 6,195 frontend), `alerts`, gmail/gmail_scan/telegram, the built-in assistant (Baker), `MemoryPage`, `AssistantLauncher`, `setup_status_service.py` | — | — | |
@@ -166,7 +166,7 @@ All lifted code is the author's sole authorship (Decisions, License); the proven
 | `bootSplit.test.ts` | CakeCRM | `frontend/src/bootSplit.test.ts` | 838 (head) | port | Every app lazy. |
 | Settings registry | CakeCRM | `frontend/src/crm/settingsSections.ts` | 147 (head) | port | Core cards + one section per app. |
 | `backend/core/guide/library.py` (Guide) | CakeCRM | `backend/help/library.py`, `backend/help/search.py` | 262 (head) | port | Front matter, 8k cap, lazy warm, deterministic search. |
-| Launcher, Layout/Nav, Settings, Requests, ChangeLog, Backups, Jobs, Sheets pages; `backend/core/requests/github.py` | — | — | ~1,900 + tests | new | |
+| Launcher, Layout/Nav, Settings, Requests, ChangeLog, Backups and Jobs pages, the Integrations cards (GitHub, Google Sheets); `backend/core/requests/github.py` | — | — | ~1,900 + tests | new | There is no Sheets page. |
 
 ## Deploy, CI, maintainability (§13, §14)
 
@@ -190,7 +190,7 @@ All lifted code is the author's sole authorship (Decisions, License); the proven
 4. **Anything not the author's is rewritten or dropped.** (All checked so far is the author's.)
 5. Record the sha you actually copied from; for a private donor the row names the repo and sha only.
 
-Open (pinned by the implementing workstream, which updates this doc): the `docs/PROVENANCE.md` row format (columns, one row per file vs per range) is not stated.
+The `docs/PROVENANCE.md` row format is pinned there: one row per Springform file or group of files, with the columns `Springform path | Source repo | Commit | Source path | Notes`. The source path carries the donor line range when only part of a file was lifted, and rows are kept when branches merge.
 
 ## Tests that pin this
 
