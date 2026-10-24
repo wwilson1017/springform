@@ -163,7 +163,7 @@ sudo docker compose up -d app        # entrypoint.sh gives the restored files to
 
 If the restore refuses, `data/` is still empty: `sudo rmdir data && sudo mv data.before-restore data` puts the old one back. Restoring from the off-site copy works the same way: `rclone copy <remote:path> <dir>` gives `<dir>/backups/` and `<dir>/files/`, so mount `<dir>` as `/restore-from`. On a new server, first put the old `.env`'s `ENCRYPTION_KEY` and `SECRET_KEY` into the new `.env`: `setup.sh` generated fresh ones, and the restore refuses the new key.
 
-Only the restore checks the key. A data directory copied by hand boots with a wrong `ENCRYPTION_KEY` and serves: every stored credential then reads as unset (the Whisk provider shows a key but "not configured"), with a "Could not decrypt" warning in the log. So restore through the module, never by copying files.
+Only the restore refuses a wrong key. A data directory copied by hand boots with a wrong `ENCRYPTION_KEY` and serves: every stored credential then reads as unset (the Whisk provider shows a key but "not configured"). The boot does notice: `backup/startup.py` compares the key's fingerprint with the newest manifest under `/data/backups`, and on a mismatch logs an ERROR with the remedy and stores the manifest's filename in the internal `core_settings` row `backups.key_mismatch` (cleared on the next boot that matches, or when there is no backup). It never refuses to boot, so an install whose key is lost can still be recovered. So restore through the module, never by copying files.
 
 ### Restore test (CI)
 
