@@ -1,4 +1,4 @@
-// Blur/field-commit auto-save (#2032) — the platform's Odoo/Google-Docs save model, so no
+// Blur/field-commit auto-save (todo-gtd #2032) — the platform's Odoo/Google-Docs save model, so no
 // surface has to hand-roll a fifth copy of "commit this field when it loses focus".
 //
 // THE CONTRACT. A field commits when it loses focus or a discrete value is picked; never on

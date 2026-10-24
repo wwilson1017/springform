@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 //
-// Inline edit of a Todo GTD project's name and notes (#3198).
+// Inline edit of a Todo GTD project's name and notes (todo-gtd #3198).
 //
 // WHY THIS FILE EXISTS. The click-to-edit INTERACTION belongs to `shared/inline-edit` and is
 // already pinned by `RequestTitleEditor.test.tsx`; what is specific to this surface — and
@@ -122,7 +122,7 @@ async function settle() {
   await act(async () => { await Promise.resolve(); });
 }
 
-describe('ProjectDetailPage — inline name edit (#3198)', () => {
+describe('ProjectDetailPage — inline name edit (todo-gtd #3198)', () => {
   it('writes ONLY the name, adopts the response and revalidates the shared meta', async () => {
     updateProjectMock.mockResolvedValue(project({ name: 'Q4 launch' }));
     await render();
@@ -279,7 +279,7 @@ describe('ProjectDetailPage — inline name edit (#3198)', () => {
   });
 });
 
-describe('ProjectDetailPage — inline notes edit (#3198)', () => {
+describe('ProjectDetailPage — inline notes edit (todo-gtd #3198)', () => {
   it('offers a clickable placeholder when the project has no notes', async () => {
     // Before this the notes element was not rendered AT ALL when blank, so a project with no
     // notes had nothing to click and notes could never be added after creation.

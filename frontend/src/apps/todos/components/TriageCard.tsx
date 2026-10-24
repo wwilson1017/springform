@@ -44,7 +44,7 @@ const NEW_CONTEXT = 'new';
 // cannot collide with a real one however the project is named.
 const NEW_PROJECT = 'new';
 
-// The step heading's own type — #2508 settled its size and contrast. The bottom margin moved
+// The step heading's own type — todo-gtd #2508 settled its size and contrast. The bottom margin moved
 // to `StepBar` below, which is now what the headings are wrapped in.
 const stepCls = 'text-sm font-display font-bold uppercase tracking-wide text-sf-ink';
 const destCls =
@@ -55,7 +55,7 @@ const linkCls = 'text-sm underline disabled:opacity-50';
 // The visible name over each step-2 field, so nothing there is a guess.
 const fieldCls = 'mb-1 block text-xs font-semibold text-sf-ink';
 
-/** One clarify step's heading bar (issue #2613): a solid red number chip in a shaded row,
+/** One clarify step's heading bar (issue todo-gtd #2613): a solid red number chip in a shaded row,
  * then the heading text — and, on step 3 only, the red star that REPLACED the word
  * "(required)" the heading used to spell out.
  *
@@ -95,7 +95,7 @@ function StepBar({ n, required = false, children }: {
 
 /** GTD triage — one inbox item at a time, as three deliberate clarify steps:
  * what kind of action it is, optional detail, then the context that files it.
- * Setting a context is the ONLY way out of the inbox (issue #1548). */
+ * Setting a context is the ONLY way out of the inbox (issue todo-gtd #1548). */
 export function TriageCard({ todo, projects, contexts, onProcessed, onChanged, onEdit }: Props) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -113,7 +113,7 @@ export function TriageCard({ todo, projects, contexts, onProcessed, onChanged, o
   // The new project's area / purpose / outcome, sent with its name on Create.
   const [newProjectFields, setNewProjectFields] = useState(EMPTY_PROJECT_FIELDS);
   // A native date input ignores `placeholder`, so step 2's empty-state cue is an
-  // overlay that has to know when the field has focus (issue #2351).
+  // overlay that has to know when the field has focus (issue todo-gtd #2351).
   const [dueFocused, setDueFocused] = useState(false);
   // Opening the sheet waits on the notes flush, which is a round trip on a slow link.
   const [editPending, setEditPending] = useState(false);
@@ -242,7 +242,7 @@ export function TriageCard({ todo, projects, contexts, onProcessed, onChanged, o
     // would never be sent. `flush()` resolves on chain settle, trailing run included.
     // Cheap when there is nothing pending: it returns an already-resolved `true`.
     //
-    // Deliberately NOT gated on the result. Filing is this card's one exit (#1548), and a
+    // Deliberately NOT gated on the result. Filing is this card's one exit (todo-gtd #1548), and a
     // note the server keeps rejecting — 20k characters, say — would otherwise trap the item
     // in the inbox forever. The failure is already said twice, inline and as a toast.
     const notesOk = resolves ? await notesSave.flush() : true;
@@ -266,12 +266,12 @@ export function TriageCard({ todo, projects, contexts, onProcessed, onChanged, o
       // and also carries any field someone else changed in the meantime, which taking only
       // the version would silently discard.
       adoptAnswer(await updateTodo(todo.id, fields));
-      // #2879 — the 7s undo row, guarded HERE rather than on the Done button so
+      // todo-gtd #2879 — the 7s undo row, guarded HERE rather than on the Done button so
       // any future completing write from this card is covered by construction.
       // `before` still holds the status the row had before this write, which is
       // exactly what undo restores.
       if (fields.status === 'done' && todo.status !== 'done') queueUndo(before);
-      // #2925 — the same 7s row for the OTHER write that ends an item's time in
+      // todo-gtd #2925 — the same 7s row for the OTHER write that ends an item's time in
       // the inbox. `fileUnder` is the only caller that sends a context, and it
       // sends the destination status with it, so this one condition is the
       // filing write and nothing else. Queued from `before`, which still holds
@@ -439,12 +439,12 @@ export function TriageCard({ todo, projects, contexts, onProcessed, onChanged, o
   /** Tags save exactly as people do. */
   const saveTags = (text: string) => saveList('tags', text, savedTags);
 
-  /** Notes commit on blur through the platform's blur-commit primitive (#2032) rather than
+  /** Notes commit on blur through the platform's blur-commit primitive (todo-gtd #2032) rather than
    * a sixth hand-rolled copy of it: its single-flight-with-one-trailing-run is what stops a
    * second blur from racing the first write to the same column, and it deliberately does NOT
    * take the card-wide `busy` — clicking a button is what blurs the textarea, and a shared
    * flag would swallow that very click. Non-resolving by construction: `onChanged`, never
-   * `onProcessed` (#2402).
+   * `onProcessed` (todo-gtd #2402).
    *
    * No `SaveStatus` line: this card announces every other write through its own `error` line,
    * and mounting the primitive's `aria-live` beside that would give the same failure two
@@ -688,7 +688,7 @@ export function TriageCard({ todo, projects, contexts, onProcessed, onChanged, o
               over the whole control, exactly as a real placeholder would fill the field.
               It goes away as soon as there is a value or the field takes focus, so the
               native editor (and its calendar button) is never hidden while it is being
-              used (issue #2351).
+              used (issue todo-gtd #2351).
 
               Two measurements, not guesses — a Playwright pass over the built CSS in
               both engines: WebKit's empty date input is only ~96px wide and renders
@@ -776,7 +776,7 @@ export function TriageCard({ todo, projects, contexts, onProcessed, onChanged, o
                             onSaved={onChanged} />
           </div>
         )}
-        {/* Notes belong to clarifying, not only to the full editor (#2402) — jot the
+        {/* Notes belong to clarifying, not only to the full editor (todo-gtd #2402) — jot the
             link or phone number without leaving triage. Saved on blur, non-resolving,
             so the item stays in the inbox. This replaces the read-only preview that
             used to sit under the title. */}

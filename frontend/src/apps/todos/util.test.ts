@@ -19,7 +19,7 @@ describe('matchesFilter', () => {
     }
     expect(matchesFilter(TODO, 'freezer')).toBe(false);
   });
-  // The context filter left this function in #1564 — it is `contextFacet.ts`'s `matchesContexts`
+  // The context filter left this function in todo-gtd #1564 — it is `contextFacet.ts`'s `matchesContexts`
   // now (multi-select, still exact and case-insensitive), pinned in `collectionConfig.test.ts`.
 });
 
@@ -55,7 +55,7 @@ describe('formatAge', () => {
   // `updated_at` is a Postgres TIMESTAMPTZ: `.isoformat()` emits SIX fraction digits and an
   // explicit offset, and ECMAScript guarantees parsing for exactly THREE. Bare `new Date()` read
   // this shape only because V8 is lenient; Safari — which `vite.config.ts` targets — need not be,
-  // and an Invalid Date here rendered the age chip as "NaNmo" (#1462).
+  // and an Invalid Date here rendered the age chip as "NaNmo" (todo-gtd #1462).
   it('reads the six-fraction-digit shape Postgres actually emits', () => {
     // An hour clear of the 3d boundary — the fractional seconds must not decide the bucket.
     expect(formatAge('2026-07-29T11:00:00.123456+00:00', now)).toBe('3d');
@@ -83,7 +83,7 @@ describe('daysSince', () => {
 
   // The stale filter is `daysSince(...) >= STALE_DAYS`, and `NaN >= 14` is FALSE — so a timestamp
   // this cannot parse does not merely sort oddly, it DROPS the todo from the Review page entirely.
-  // Parsing through `parseUTC` is what makes the six-digit Postgres shape safe on Safari (#1462).
+  // Parsing through `parseUTC` is what makes the six-digit Postgres shape safe on Safari (todo-gtd #1462).
   it('reads the six-fraction-digit shape Postgres actually emits', () => {
     expect(daysSince('2026-08-01T12:00:00.123456+00:00', now)).toBe(13); // 13.99d floors to 13
     expect(daysSince('2026-08-01T11:00:00.123456+00:00', now)).toBe(14);

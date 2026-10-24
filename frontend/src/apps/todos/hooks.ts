@@ -25,12 +25,12 @@ const REOPENED_REPEAT_MANY =
 // Every list page owns a page-local reload(). That is enough for a mutation made
 // ON that page, but not for an undo: the pill outlives the shell (module state,
 // see undoQueue.ts), so a revert can land while the user is standing on a
-// DIFFERENT list than the one they completed from — and #2879 asks for the todo
+// DIFFERENT list than the one they completed from — and todo-gtd #2879 asks for the todo
 // to reappear in its original list, not merely on the server. Fired only by the
 // undo path, so no other mutation's refetch behavior changes.
 const listListeners = new Set<() => void>();
 
-// #2925 — where the Inbox's triage card should land next, set by an undo that put an
+// todo-gtd #2925 — where the Inbox's triage card should land next, set by an undo that put an
 // item back in the inbox. Module state for the same reason the queue itself is: TodoShell
 // unmounts on every tab switch, so an undo clicked from Today has no InboxPage
 // listening, and the request has to wait until the Inbox is actually looking.
@@ -200,7 +200,7 @@ export async function undoAll(): Promise<void> {
 }
 
 /** An undo that puts an item back in the INBOX has somewhere to be looked at:
- *  #2925 asks for the item to come back as the CURRENT triage card, not to be
+ *  todo-gtd #2925 asks for the item to come back as the CURRENT triage card, not to be
  *  corrected silently behind the list the user is standing on. Keyed on where the
  *  revert lands rather than on the kind: every filing lands there, and so does a
  *  completion made from triage ("Took 2 minutes — Done ✓", or the edit sheet opened
@@ -251,7 +251,7 @@ export function useRowActions(reload: () => void) {
       status: markingDone ? 'done' : uncheckStatus,
     });
     if (ok && markingDone) {
-      // #2879 — the 7s undo row. Queued with the todo AS IT WAS, so undo restores
+      // todo-gtd #2879 — the 7s undo row. Queued with the todo AS IT WAS, so undo restores
       // the status it actually held (not always 'next_action': the Done page's
       // Dropped tab completes a 'dropped' row).
       queueUndo(todo);
@@ -278,7 +278,7 @@ export function useRowActions(reload: () => void) {
     const ok = await patch(todo.id, { status });
     // Same invariant as `toggleDone`'s un-done branch: an explicit status write
     // invalidates any undo row still pending for this todo, which would otherwise
-    // revert the decision the user just made (#2879).
+    // revert the decision the user just made (todo-gtd #2879).
     if (ok && status !== 'done') dropUndo(todo.id);
     after();
   }, [after, patch]);

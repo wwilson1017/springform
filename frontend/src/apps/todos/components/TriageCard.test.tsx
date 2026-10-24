@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 //
-// Issue #1548 rebuilt the inbox triage card as Chatty's 3-step clarify flow, and every
+// Issue todo-gtd #1548 rebuilt the inbox triage card as Chatty's 3-step clarify flow, and every
 // property that change is ABOUT is invisible to tsc and eslint: that a destination button
 // no longer writes anything, that setting a context is the only exit from the inbox, that
 // "Done ✓" and "Drop" are the two deliberate exceptions, and that a filed card cannot be
@@ -734,7 +734,7 @@ describe('inline title editing', () => {
   it('stops masking the title once the row moves on', async () => {
     // `pendingTitle` used to be cleared only on failure, so after ONE in-card rename it
     // masked every later rename from the Edit sheet or another client — and the sheet, handed
-    // `current`, wrote the old title back on its next save. Pre-existing (#1548-era); the
+    // `current`, wrote the old title back on its next save. Pre-existing (todo-gtd #1548-era); the
     // due-date override added here states the rule it was breaking.
     render();
     const editor = openEditor();
@@ -788,7 +788,7 @@ describe('inline title editing', () => {
   });
 });
 
-describe('step 2 — the due-date cue (#2351)', () => {
+describe('step 2 — the due-date cue (todo-gtd #2351)', () => {
   // A native <input type="date"> ignores `placeholder` and renders the browser's own
   // mm/dd/yyyy instead, so "Add due date" is an overlay. Nothing in tsc or eslint can
   // see whether that overlay is present, absent once a date exists, or — the one that
@@ -1174,7 +1174,7 @@ describe('step 2 — the due-date cue (#2351)', () => {
   });
 });
 
-describe('step 2 — notes without leaving triage (#2402)', () => {
+describe('step 2 — notes without leaving triage (todo-gtd #2402)', () => {
   const notesBox = () =>
     container.querySelector<HTMLTextAreaElement>('textarea[aria-label="Notes"]')!;
   const unfocus = (el: Element) => {
@@ -1584,7 +1584,7 @@ describe('step 2 — notes without leaving triage (#2402)', () => {
   });
 });
 
-describe('the step bar — numbered chip and the required star (#2613)', () => {
+describe('the step bar — numbered chip and the required star (todo-gtd #2613)', () => {
   const bars = () => [...container.querySelectorAll('h3')];
   /** The chip is the heading's sibling inside the bar, not part of the heading text.
    * Selected STRUCTURALLY, never by `[aria-hidden]` — the test below asserts that

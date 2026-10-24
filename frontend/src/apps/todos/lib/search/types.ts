@@ -7,7 +7,7 @@ export interface FacetOption {
   /** Optional swatch color. */
   color?: string | null;
   /**
-   * Offered but not currently choosable (#1560: a Maintenance stage the board is not
+   * Offered but not currently choosable (todo-gtd #1560: a Maintenance stage the board is not
    * rendering because it is hidden or closed). A SELECTED value is never actually disabled —
    * the bar keeps it clickable so a stale filter can always be undone (see `FacetRow`).
    */

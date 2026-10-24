@@ -9,7 +9,7 @@
 // prompted the call. Joining it installs that stale snapshot and reports
 // success. TriageCard's inline project creation is where that surfaces: its
 // recovery toast tells the user to pick the new project "from the list", so
-// the list has to actually contain it (issue #1587, Codex review of PR #1633).
+// the list has to actually contain it (issue todo-gtd #1587, Codex review of PR todo-gtd #1633).
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { getFiltersMock, listProjectsMock } = vi.hoisted(() => ({

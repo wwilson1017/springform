@@ -4,7 +4,7 @@ import SearchInput from './SearchInput';
 import type { FacetGroup, FacetOption } from './types';
 
 /**
- * The shared search / filter bar (ported from cake-os `shared/search`; its sort control, which
+ * The shared search / filter bar (from an earlier app's `shared/search`; its sort control, which
  * no Todos page uses, is left out).
  *
  * ## What it is
@@ -61,7 +61,7 @@ interface Props {
   /** What the counts are counting, e.g. "cards" — "2258 of 2258" alone is hard to read. */
   countNoun?: string;
   /** Trailing note on the count line, e.g. the collection layer's "· column moves only" while a
-   *  filtered board allows stage changes but not reordering (#3078). */
+   *  filtered board allows stage changes but not reordering (todo-gtd #3078). */
   countNote?: string;
 
   /** Whether anything is filtering right now (drives the Clear affordance). */
@@ -74,7 +74,7 @@ interface Props {
    * Bumped by the owner when it sets `query` PROGRAMMATICALLY, so the box re-adopts the value
    * even when the settled query did not change — see `SearchInput.resetNonce`. Clear already
    * does this internally; this is the same signal for a caller-driven set, which a value
-   * comparison cannot see (#2845's saved views: applying a view whose query equals the
+   * comparison cannot see (todo-gtd #2845's saved views: applying a view whose query equals the
    * current one leaves half-typed text in the box, and its pending debounce then lands on
    * top of the view that was just applied).
    */
@@ -285,7 +285,7 @@ function FacetRow({ group }: { group: FacetGroup }) {
           const isSelected = group.selected.includes(o.value);
           // A SELECTED chip is never disabled — it must stay clickable so a filter that became
           // un-choosable (a Maintenance stage that was hidden/closed AFTER it was selected) can
-          // always be undone. Only an unselected, disabled option is blocked. (#1560 P1-1)
+          // always be undone. Only an unselected, disabled option is blocked. (todo-gtd #1560 P1-1)
           return (
             <ChipButton
               key={o.value}

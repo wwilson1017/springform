@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 //
-// Issue #1615's client-side half: `auto_star_on_due` is only meaningful for a
+// Issue todo-gtd #1615's client-side half: `auto_star_on_due` is only meaningful for a
 // REPEATING todo, so both capture surfaces hide the toggle until a repeat rule
 // exists and force the field to false when it does not.
 //

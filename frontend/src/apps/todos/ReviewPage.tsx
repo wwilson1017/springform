@@ -73,7 +73,7 @@ export function ReviewPage() {
   };
   useEffect(load, []);
   // Review owns its own fetch, so the undo broadcast has to be taken explicitly
-  // (#2879). Without it, undoing a project's next action from here leaves that
+  // (todo-gtd #2879). Without it, undoing a project's next action from here leaves that
   // project listed under "no next action" until the page is remounted.
   useTodosChanged(load);
 

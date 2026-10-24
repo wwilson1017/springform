@@ -13,7 +13,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 // Neither alias below is exported: no consumer annotates with one (both reach a caller as an
 // inferred literal), and an export nobody imports reads as proven API — `shared/autosave`'s
-// #1059 rule.
+// todo-gtd #1059 rule.
 
 /**
  * Which kind of field this is. It decides the three things a title and a body disagree about
@@ -45,7 +45,7 @@ interface Props {
   /**
    * What the trigger shows while the value is empty, so an empty field is still something to
    * click. Without it an empty value renders a zero-width button nobody can hit — which is
-   * why Todo GTD's project notes did not render AT ALL when blank before #3198.
+   * why Todo GTD's project notes did not render AT ALL when blank before todo-gtd #3198.
    */
   placeholder?: string;
   /** Persist the edit; resolves false if the write failed. An unchanged value never reaches
@@ -57,9 +57,9 @@ interface Props {
    * Exists so a caller holding a failure banner can clear it: a refused save leaves this
    * control open with the typed text, and pressing Escape from there used to close the
    * editor while the caller's "could not save" line stayed on screen under the restored
-   * title, with no gesture left that would dismiss it (#1908 review).
+   * title, with no gesture left that would dismiss it (todo-gtd #1908 review).
    *
-   * The reason was added by #3198, whose gate requires that a blank name be REFUSED VISIBLY
+   * The reason was added by todo-gtd #3198, whose gate requires that a blank name be REFUSED VISIBLY
    * rather than reverting in silence. The caller cannot work that out for itself — it never
    * sees the draft — and the argument is optional to receive, so the zero-parameter handlers
    * that predate it still type-check and still behave identically.
@@ -105,7 +105,7 @@ export function InlineTitle({
   }, [editing]);
 
   /*
-   * Put focus BACK in the editor after a refused save (#1908 final review).
+   * Put focus BACK in the editor after a refused save (todo-gtd #1908 final review).
    *
    * `saving` disables the textarea, and the browser answers that by blurring it to `<body>`.
    * Staying open with the typed text is then only half the promise: the editor is open but
@@ -144,7 +144,7 @@ export function InlineTitle({
     // field is the opposite: clearing notes is a real edit, so it commits.
     const blank = !next && !allowEmpty;
     //
-    // A title's baseline is `title.trim()`, NOT `title` (#1908 review). A STORED title carrying
+    // A title's baseline is `title.trim()`, NOT `title` (todo-gtd #1908 review). A STORED title carrying
     // incidental whitespace is otherwise "changed" the instant the editor closes, so merely
     // opening and blurring one would issue a real write — and on Maintenance that write is a
     // correction on a Tier-1 audit chain, attributed to whoever happened to tap the title.
@@ -188,7 +188,7 @@ export function InlineTitle({
         onChange={e => setDraft(e.target.value)}
         onBlur={() => void finish(true)}
         onKeyDown={e => {
-          // Both keys carry the IME guard, not just Enter (#1908 review): Escape is how a
+          // Both keys carry the IME guard, not just Enter (todo-gtd #1908 review): Escape is how a
           // Japanese / Chinese / Korean writer dismisses an active conversion CANDIDATE, so
           // without it the first Escape throws away the whole title edit instead of the
           // suggestion the writer was rejecting.
@@ -199,7 +199,7 @@ export function InlineTitle({
           // panel. Stopping the synthetic event there means Shift+Tab off the open textarea
           // (the first focusable in the dialog on desktop) walks out of the modal entirely,
           // breaking the compensating control it relies on for not setting `aria-modal`
-          // (#1908 final review).
+          // (todo-gtd #1908 final review).
           // A `body` field claims Escape only: its Enter is an ordinary newline, so the
           // keystroke must reach the textarea's own default AND keep bubbling exactly as
           // every other key in it does.
@@ -228,7 +228,7 @@ export function InlineTitle({
       type="button"
       disabled={disabled}
       // No tooltip while disabled — "Click to rename" on a control that cannot rename is a
-      // lie the user only discovers by trying it (#1908 review).
+      // lie the user only discovers by trying it (todo-gtd #1908 review).
       title={disabled ? undefined : commitsOnEnter ? 'Click to rename' : 'Click to edit'}
       // The visible text names this control, as it always has. The fallback is for the one
       // case that leaves nothing to read — an empty value with no placeholder — where the

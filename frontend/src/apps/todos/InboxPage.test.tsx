@@ -1,11 +1,11 @@
 // @vitest-environment jsdom
 //
-// The half of issue #1548 that does NOT live in TriageCard: which callback the inbox page
+// The half of issue todo-gtd #1548 that does NOT live in TriageCard: which callback the inbox page
 // hands the card, and the `key` that scopes the card's local state to one item.
 //
 // Both are silent failures. The page used to pass ONE callback that cleared the manual
 // selection on every change, so an in-place edit bounced a hand-picked item back to the
-// head of the list — harmless-looking before #1548, but now Step 1 and the title edit are
+// head of the list — harmless-looking before todo-gtd #1548, but now Step 1 and the title edit are
 // both in-place, so triage would jump to a different todo mid-clarify. And because the
 // chosen destination is local state, a missing `key` would carry "Waiting" from the item
 // you just filed onto the next one, silently mis-filing it.
@@ -209,7 +209,7 @@ describe('InboxPage capture box', () => {
   });
 });
 
-// ── #2925 — where an undone filing lands ────────────────────────────────────
+// ── todo-gtd #2925 — where an undone filing lands ────────────────────────────────────
 //
 // The build-time decision on that issue: undoing a context selection must
 // re-surface the item AS THE CURRENT TRIAGE CARD, not correct it silently in the
@@ -238,7 +238,7 @@ async function clickUndoFiling(title: string) {
   await act(async () => { el.click(); });
 }
 
-describe('InboxPage — undoing a filing (#2925)', () => {
+describe('InboxPage — undoing a filing (todo-gtd #2925)', () => {
   it('promotes the restored item to the card instead of leaving it down the queue', async () => {
     await render();
     click(restRows()[0]); // triage "second captured", which is NOT the head

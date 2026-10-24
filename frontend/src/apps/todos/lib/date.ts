@@ -1,4 +1,4 @@
-// Server-timestamp helpers (the subset of cake-os core/utils/date.ts this app uses).
+// Server-timestamp helpers (the subset of an earlier app's core/utils/date.ts this app uses).
 
 const HAS_TZ = /(?:Z|[+-]\d{2}:?\d{2})$/i;
 const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;

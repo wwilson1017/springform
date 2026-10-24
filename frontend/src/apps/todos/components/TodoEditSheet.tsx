@@ -141,7 +141,7 @@ export function TodoEditSheet({ todo, defaults, projects, contexts, onClose, onS
         : (projectSel ? Number(projectSel) : null);
       if (todo) {
         await updateTodo(todo.id, fields);
-        // #2879 — edits only. Creating a todo that is already done has no prior
+        // todo-gtd #2879 — edits only. Creating a todo that is already done has no prior
         // status to restore, so there is nothing to undo.
         // `effectiveRepeat`, not `todo.repeat`: the backend spawns the successor
         // from the POST-update row, so a save that sets done AND edits the repeat
@@ -150,7 +150,7 @@ export function TodoEditSheet({ todo, defaults, projects, contexts, onClose, onS
         if (status === 'done' && todo.status !== 'done') {
           queueUndo({ ...todo, repeat: effectiveRepeat });
         }
-        // #2925 — this sheet FILES an inbox item too. `TriageCard`'s Edit button
+        // todo-gtd #2925 — this sheet FILES an inbox item too. `TriageCard`'s Edit button
         // opens it on the very item being triaged, so picking a context and a
         // destination here sends the same write step 3 sends, with the same
         // mis-click behind it; withholding the row on one of the two routes out of
@@ -167,7 +167,7 @@ export function TodoEditSheet({ todo, defaults, projects, contexts, onClose, onS
         // WHICH field moved it depends on what is pending, which is why this is not
         // simply `status !== 'done'` and not simply `status !== todo.status`. The
         // first was an accurate proxy only while `done` was the one queued kind: an
-        // unchanged save of a done todo matched neither branch, but a #2925 filing
+        // unchanged save of a done todo matched neither branch, but a todo-gtd #2925 filing
         // row sits at a NON-done status, so that proxy matched every unrelated save
         // and adding a due date inside the window silently cancelled an undo still
         // on screen. The second misses the other half — a filing restores the
@@ -277,7 +277,7 @@ export function TodoEditSheet({ todo, defaults, projects, contexts, onClose, onS
               <label className={labelCls} htmlFor="tgtd-context">Context</label>
               {/* A <select>, not an <input list>/<datalist>: mobile browsers do not
                   reliably render a datalist on a populated text input, so the picker
-                  was invisible until the field was cleared (#2352). This is the same
+                  was invisible until the field was cleared (todo-gtd #2352). This is the same
                   select-plus-escape-hatch shape the Inbox triage card already uses,
                   and the shape Status/Project/Repeat use in this very form. */}
               <select id="tgtd-context" className={inputCls} value={contextSel}

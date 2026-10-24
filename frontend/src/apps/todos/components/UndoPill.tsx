@@ -1,4 +1,4 @@
-// Todo GTD — the undo block (#2879 mark-done, #2925 inbox triage; design locked
+// Todo GTD — the undo block (todo-gtd #2879 mark-done, todo-gtd #2925 inbox triage; design locked
 // to prototype C2).
 //
 // ONE framed object, not a pile of toasts. A persistent header that never moves
@@ -16,7 +16,7 @@ import { useUndoQueue, type UndoKind } from '../undoQueue';
 import { useTodoOwner } from '../useTodoMeta';
 
 // The one place the two undoable actions are named. `row` labels the row, which
-// #2925 asks for in as many words; `header` is the same fact in the plural, for
+// todo-gtd #2925 asks for in as many words; `header` is the same fact in the plural, for
 // the count line. Copy, so it lives in the component and not in the store.
 const KIND: Record<UndoKind, { row: string; header: string; verb: (title: string) => string }> = {
   done: {
@@ -53,7 +53,7 @@ export function UndoPill({ inline = false }: { inline?: boolean }) {
   if (entries.length === 0) return null;
 
   // The header names the action while every row is the same one, which keeps
-  // #2879's wording exactly where it was; a queue holding both kinds has no one
+  // todo-gtd #2879's wording exactly where it was; a queue holding both kinds has no one
   // action to name, and the per-row labels are what disambiguate it there.
   const onlyKind = entries.every(e => e.kind === entries[0].kind) ? entries[0].kind : null;
   const heading = onlyKind

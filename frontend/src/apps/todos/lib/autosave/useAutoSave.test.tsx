@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 //
-// The auto-save lifecycle (#2032). Every property pinned here is invisible to `tsc` and to
+// The auto-save lifecycle (todo-gtd #2032). Every property pinned here is invisible to `tsc` and to
 // eslint, and each one has a user-visible failure mode: a lost trailing save drops the last
 // thing typed, a `flush()` that resolves early lets the close guard tear the panel down
 // mid-write, a leaked queue flag fires a phantom second save, and a chain that survives

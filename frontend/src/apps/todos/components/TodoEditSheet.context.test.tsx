@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 //
-// #2352: the sheet's Context field was an <input list>/<datalist>. Mobile browsers do
+// todo-gtd #2352: the sheet's Context field was an <input list>/<datalist>. Mobile browsers do
 // not reliably render a datalist on a POPULATED text input, so there was no picker at
 // all until the field was cleared — and what surfaced then was the OS autofill bar,
 // not app UI. It is now the <select>-plus-escape-hatch shape TriageCard already uses
@@ -102,7 +102,7 @@ async function save() {
   return updateTodoMock.mock.calls.at(-1)?.[1] as Record<string, unknown>;
 }
 
-describe('the context field is a real picker, not a datalist (#2352)', () => {
+describe('the context field is a real picker, not a datalist (todo-gtd #2352)', () => {
   it('is a <select> and leaves no datalist behind', () => {
     render();
     expect(picker().tagName).toBe('SELECT');

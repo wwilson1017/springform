@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 //
-// #2879 — the mark-done undo pill.
+// todo-gtd #2879 — the mark-done undo pill.
 //
 // Three things here are easy to get wrong and silent when they break, which is
 // why each has its own case:
@@ -481,10 +481,10 @@ describe('undo side effects', () => {
   });
 });
 
-// ── #2925 — the same block, for the OTHER way an item leaves a list ──────────
+// ── todo-gtd #2925 — the same block, for the OTHER way an item leaves a list ──────────
 //
 // Setting a context on a triage card is the one write that files an inbox item
-// (#1548), and it writes TWO fields at once. Three things here are silent when
+// (todo-gtd #1548), and it writes TWO fields at once. Three things here are silent when
 // they break:
 //
 //  1. Undo has to put the CONTEXT back as well as the status. Restoring the
@@ -521,7 +521,7 @@ function TriageHarness({ item, contexts }: { item: Todo; contexts: string[] }) {
   );
 }
 
-describe('#2925 — filing an inbox item under a context', () => {
+describe('todo-gtd #2925 — filing an inbox item under a context', () => {
   const renderTriage = async (item: Todo, contexts: string[]) => {
     await act(async () => { root.render(<TriageHarness item={item} contexts={contexts} />); });
   };
@@ -532,7 +532,7 @@ describe('#2925 — filing an inbox item under a context', () => {
 
     await pickContext(0);
 
-    // The filing itself: context and destination in ONE write (#1548).
+    // The filing itself: context and destination in ONE write (todo-gtd #1548).
     expect(updateTodoMock).toHaveBeenCalledWith(91, { context: '@calls', status: 'next_action' });
     expect(rows()).toHaveLength(1);
     expect(headerCount()).toBe('1 filed from inbox');
@@ -601,14 +601,14 @@ describe('#2925 — filing an inbox item under a context', () => {
   });
 });
 
-describe('#2925 — one block, two kinds of undo', () => {
+describe('todo-gtd #2925 — one block, two kinds of undo', () => {
   const done = todo({ id: 96, title: 'shred the box', status: 'someday_maybe' });
   const filed = todo({ id: 97, title: 'book the van', status: 'inbox', context: '@errands' });
 
   it('names the action while the queue is one kind, and stops naming it when it is two', () => {
     renderPill();
     act(() => { queueUndo(done); });
-    // #2879's wording, unchanged, for the case it was locked for.
+    // todo-gtd #2879's wording, unchanged, for the case it was locked for.
     expect(headerCount()).toBe('1 marked done');
 
     act(() => { queueUndo(filed, 'filed'); });
@@ -630,7 +630,7 @@ describe('#2925 — one block, two kinds of undo', () => {
   });
 });
 
-// ── Stage-1 review findings (#2925) ─────────────────────────────────────────
+// ── Stage-1 review findings (todo-gtd #2925) ─────────────────────────────────────────
 
 /** The edit sheet + the block + a record of every triage focus the undo asks for. */
 function SheetHarness({ item, contexts = [] }: { item: Todo; contexts?: string[] }) {
@@ -654,7 +654,7 @@ const statusSelect = () => {
 describe('the edit sheet and a pending filing undo', () => {
   // Correctness found this: the drop guard read `status !== 'done'`, which was an
   // accurate stand-in for "the status moved" only while every queued row sat AT
-  // done. A #2925 row sits at a non-done status, so an unrelated save inside the
+  // done. A todo-gtd #2925 row sits at a non-done status, so an unrelated save inside the
   // window matched it and silently cancelled an undo still on screen.
   it('survives an unrelated edit that resubmits the same status', async () => {
     const item = todo({ id: 101, title: 'sweep the dock', status: 'next_action', context: '@work' });
@@ -770,7 +770,7 @@ describe('Undo all when only some reverts land', () => {
   });
 });
 
-describe('a later context choice and a pending row (#2925, Codex stage 2)', () => {
+describe('a later context choice and a pending row (todo-gtd #2925, Codex stage 2)', () => {
   // Which field retires the offer depends on what is pending, and the two cases
   // pull in opposite directions — so both are pinned. A naive "also drop when the
   // context changed" would pass the first and break the second.

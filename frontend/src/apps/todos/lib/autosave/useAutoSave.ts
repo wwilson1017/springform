@@ -4,7 +4,7 @@ import { ApiError, apiErrorMessage } from '../../errors';
 import type { AutoSave, AutoSaveStatus, SaveOutcome } from './types';
 
 /**
- * The blur/field-commit auto-save lifecycle (#2032).
+ * The blur/field-commit auto-save lifecycle (todo-gtd #2032).
  *
  * The hook owns WHEN a save runs and what the user is told about it; the caller owns
  * WHAT is written. That split is the whole reason this is shareable: `performSave`

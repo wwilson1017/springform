@@ -31,7 +31,7 @@ export function SearchPage() {
   const [loadSeq, setLoadSeq] = useState(0);
   const reload = useCallback(() => { setLoadSeq(s => s + 1); }, []);
   // This page fetches its own list rather than going through `useTodos`, so it
-  // subscribes to the undo broadcast itself (#2879).
+  // subscribes to the undo broadcast itself (todo-gtd #2879).
   useTodosChanged(reload);
 
   useEffect(() => {

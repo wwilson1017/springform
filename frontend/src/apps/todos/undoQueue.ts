@@ -1,4 +1,4 @@
-// Todo GTD — the undo queue (#2879 mark-done, #2925 inbox triage).
+// Todo GTD — the undo queue (todo-gtd #2879 mark-done, todo-gtd #2925 inbox triage).
 //
 // TWO kinds of action are undoable and they share one queue, one block and one
 // 7s window: marking a todo done, and filing an inbox item under a context (the
@@ -19,7 +19,7 @@ import { useSyncExternalStore } from 'react';
 import type { Todo } from './types';
 
 /** How long a row stays offering its undo. Per-row and independent: a completion
- *  added later must NOT extend the row already counting down (#2879). */
+ *  added later must NOT extend the row already counting down (todo-gtd #2879). */
 export const UNDO_WINDOW_MS = 7000;
 
 /** What the row is offering to undo. Drives the block's copy, the accessible
@@ -78,7 +78,7 @@ function clearTimer(key: number) {
 /** Queue an undo row for a todo that was JUST written. `todo` must be the row as
  *  it was BEFORE the write — its `status` (and, for a filing, its `context`) is
  *  what undo restores. `kind` defaults to 'done' so every mark-done call site
- *  reads exactly as it did before #2925. */
+ *  reads exactly as it did before todo-gtd #2925. */
 export function queueUndo(
   todo: Pick<Todo, 'id' | 'title' | 'status' | 'repeat' | 'context'>,
   kind: UndoKind = 'done',

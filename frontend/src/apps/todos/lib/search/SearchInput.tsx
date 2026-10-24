@@ -25,7 +25,7 @@ interface Props {
 }
 
 /**
- * The shared search box (issue #1443), generalised from the kanban card database's
+ * The shared search box (issue todo-gtd #1443), generalised from the kanban card database's
  * `CardSearchInput`.
  *
  * The point of the component is that **typing state is local**. A controlled input wired

@@ -34,7 +34,7 @@ export function InboxPage() {
   // under the same id.
   const [focusSeq, setFocusSeq] = useState(0);
 
-  // #2925 — an undone filing puts the item back in the inbox, and the decision
+  // todo-gtd #2925 — an undone filing puts the item back in the inbox, and the decision
   // behind that issue is that it must come back as the CURRENT triage card
   // rather than be corrected silently somewhere down the queue. Without this the
   // item returns to the list but the card shows whatever `items[0]` happens to

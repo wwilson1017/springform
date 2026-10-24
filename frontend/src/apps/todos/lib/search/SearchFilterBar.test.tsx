@@ -95,7 +95,7 @@ describe('SearchFilterBar — active filters while the panel is collapsed', () =
   });
 });
 
-describe('SearchFilterBar — disabled facet options (#1560)', () => {
+describe('SearchFilterBar — disabled facet options (todo-gtd #1560)', () => {
   const disabledGroup = (selected: (string | number)[]): FacetGroup => ({
     key: 'stage',
     label: 'Stage',
