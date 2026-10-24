@@ -80,7 +80,8 @@ def test_tools_registered_and_scoped(login_as):
 
     names = ours(tools.for_user(member.principal))
     assert names == ["example_list_widgets", "example_create_widget"]
-    assert ours(tools.for_source("job")) == ["example_list_widgets"]
+    assert ours(tools.for_source("job")) == ["example_list_widgets", "example_count_widgets"]
+    assert "example_count_widgets" in ours(tools.for_user(login_as("admin").principal))  # admin-only: not in names
     create = tools.get("example_create_widget")
     assert create.app == "example" and create.revision == "0.1.0"
     with core_db.transaction() as conn:
