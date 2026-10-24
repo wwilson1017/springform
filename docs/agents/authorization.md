@@ -123,7 +123,7 @@ A copy of record data (an audit row, a notification, a reminder, an export) is c
 | Titles | `titles_for` drops titles the user may not read. |
 | Reports | `run(params, user)` receives the user and must apply `can_read`. |
 | Fields | Values are read and written only after `authorize`. |
-| Files | Download requires `authorize(read)` on the parent record. |
+| Files | Download requires `authorize(read)` on the parent record; upload and delete require `authorize(write)`. |
 | Timeline | Reads and writes go through `authorize`. |
 | Saved views | Store filters, not rows; no record authorization beyond ownership / `is_shared`. |
 | Todos `/for/{entity_type}/{entity_id}` | `authorize(read)` on the record first, then team todos plus the caller's private ones. |

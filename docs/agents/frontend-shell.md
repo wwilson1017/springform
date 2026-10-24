@@ -103,6 +103,7 @@ Pinned since the block was written (the block stays verbatim; these refine it):
 
 - **Errors:** 404 when a record is missing or not readable, for reads and writes alike; 403 only when the record is readable but not writable, or a role-guarded route refuses the caller (`authorization.md` §2).
 - **Timeline:** `GET` pages with `?before=<id>&limit=50`, newest first. `POST` also accepts `kind` (`note` by default, `comment` allowed). Mentions in `body` are `@[Name](user:ID)` (`records.md` §1).
+- **Files:** `POST` of the same bytes to the same record returns 200 with the existing row. `DELETE` requires write access to the parent record (`records.md` §2).
 
 ### Routes named elsewhere in the plan (shape to be pinned by the implementing workstream)
 

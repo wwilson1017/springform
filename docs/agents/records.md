@@ -68,7 +68,7 @@ core_files(
 )
 -- UNIQUE(entity_type, entity_id, sha256)
 
-core_file_blobs(sha256 PK, byte_size, created_at, unreferenced_since)
+core_file_blobs(sha256 PK, byte_size, created_at, unreferenced_since, missing_at)
 ```
 
 **Bytes live on the volume** at `/data/files/<sha[:2]>/<sha>`, never in the DB (`VACUUM INTO` and Litestream would copy every PDF nightly). Thumbnails live in the row.
@@ -77,13 +77,15 @@ core_file_blobs(sha256 PK, byte_size, created_at, unreferenced_since)
 
 **Publication and sweep share the write lock, so they cannot interleave.**
 
-1. Stream the upload to `/data/files/tmp/<uuid>`, enforcing the size cap (25 MB default, a setting).
+1. Stream the upload to `/data/files/tmp/<uuid>`, enforcing the size cap (setting `files.max_bytes`, default 25 MB).
 2. Hash (sha256) and `fsync`. This happens **outside** the lock.
 3. Inside **one** `transaction()`:
    1. upsert `core_file_blobs` (clearing `unreferenced_since`);
    2. insert the `core_files` row;
    3. `rename` the tmp file into `/data/files/<sha[:2]>/<sha>` (a local disk op, allowed under the lock);
    4. `COMMIT`.
+4. The same bytes uploaded to the same record (`UNIQUE(entity_type, entity_id, sha256)`) return **200** with the existing row.
+5. When a blob's last `core_files` row is deleted, the files service sets `core_file_blobs.unreferenced_since` in the same transaction.
 
 ### Sweep (`core.files.sweep`, nightly)
 
@@ -101,14 +103,15 @@ core_file_blobs(sha256 PK, byte_size, created_at, unreferenced_since)
 | Crash | Outcome |
 |---|---|
 | Rollback after `rename` | A file without a row. The sweep treats it as an orphan after 24 h. |
-| A row whose file is missing | The sweep marks it `missing` and reports it. Never silently served. |
+| A row whose file is missing | The sweep sets `core_file_blobs.missing_at` and reports it. Never silently served. |
 
 ### Safe serving
 
 1. Download requires `authorize(read)` on the parent record.
 2. Served with `Content-Disposition: attachment` and `X-Content-Type-Options: nosniff`.
-3. `mime_type` comes from an allow-list; HTML and SVG are served as `application/octet-stream`.
+3. `mime_type` comes from an allow-list, a module constant; HTML and SVG are served as `application/octet-stream`.
 4. Upload requires `authorize(write)` on the parent record.
+5. `DELETE` requires `authorize(write)` on the parent record.
 
 ### API
 
@@ -119,7 +122,7 @@ GET  /api/core/files/{id}/download   -> bytes, Content-Disposition: attachment
 DELETE /api/core/files/{id}          -> 204
 ```
 
-Open: who sets `core_file_blobs.unreferenced_since` (deleting the last `core_files` row for a sha256 is the implied trigger) is not stated. Open: what `POST` returns when the same bytes are uploaded to the same record (the `UNIQUE` dedupe): the existing `File`, or an error. Open: where `missing` is recorded (a `core_files` column is implied but not listed) and how it is reported. Open: the mime allow-list contents and the setting key for the size cap. Open: how the sweep enumerates "a file without a row" (a directory walk under `/data/files`). Open: whether `DELETE` requires write on the parent record or uploader identity.
+Open: how a missing blob is reported beyond `missing_at`, the mime allow-list's contents, and how the sweep enumerates "a file without a row" (a directory walk under `/data/files`).
 
 ## 3. Custom fields
 
