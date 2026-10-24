@@ -58,6 +58,8 @@ Conventions:
 - The settings API lists only keys an admin can change, so saving every listed value works.
 - Example widget links open the widget page.
 - Preview accounts no longer show as pending invites, and the last-admin guard counts them.
+- Organization names and duplicate checks fold case beyond ASCII: "café ñandú" now collides with
+  "Café Ñandú", and "ZOË DÉMO" is found as a duplicate of "Zoë Démo".
 
 ### Schema
 

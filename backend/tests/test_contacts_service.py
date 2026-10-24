@@ -115,6 +115,21 @@ def test_resolve_or_create_organizations(user):
     assert contacts.resolve_or_create_organizations(user, ["acme old name"]) == {"acme old name": acme}  # alias -> survivor
 
 
+def test_names_match_beyond_ascii(user):
+    """SQL lower() folds only ASCII, so "Café Ñandú" and "café ñandú" are compared in Python."""
+    cafe = contacts.create_organization(user, name="Café Ñandú")["id"]
+    with pytest.raises(Conflict):
+        contacts.create_organization(user, name="café ñandú")
+    with pytest.raises(Conflict):
+        contacts.update_organization(user, contacts.create_organization(user, name="Other")["id"], name="CAFÉ ÑANDÚ")
+    assert contacts.resolve_or_create_organizations(user, ["CAFÉ ñandú"]) == {"CAFÉ ñandú": cafe}
+    a = contacts.create_person(user, name="Zoë Démo")["id"]
+    b = contacts.create_person(user, name="ZOË DÉMO")["id"]
+    assert [(g["match_on"], g["value"], [r["id"] for r in g["records"]]) for g in contacts.find_duplicates(user, "person")] == [
+        ("name", "zoë démo", [a, b])
+    ]
+
+
 def test_validation_and_the_system_principal(user):
     with pytest.raises(Invalid, match="name is required"):
         contacts.create_person(user, name="  ")
