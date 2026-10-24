@@ -153,6 +153,7 @@ function PipelineFlow({ p }: { p: PipelineAnalytics }) {
     return <p className={muted}>Not enough stage history yet. Time in stage and conversion appear as deals move through the pipeline.</p>;
   }
   const days = (v: number | null) => (v == null ? '—' : `${Math.round(v * 10) / 10}d`);
+  const pct = (rate: number | null) => (rate == null ? '' : ` (${Math.round(rate * 100)}%)`);
   return (
     <div className="flex flex-col gap-4">
       {!p.history_covers_window && p.history_since && (
@@ -169,7 +170,8 @@ function PipelineFlow({ p }: { p: PipelineAnalytics }) {
               <th className="py-2 pr-3 text-right font-medium">Median time</th>
               <th className="py-2 pr-3 text-right font-medium">Average</th>
               <th className="py-2 pr-3 text-right font-medium">Entered</th>
-              <th className="py-2 text-right font-medium">Moved on</th>
+              <th className="py-2 pr-3 text-right font-medium" title="Moved to a later stage or won">Moved on</th>
+              <th className="py-2 text-right font-medium">Won</th>
             </tr>
           </thead>
           <tbody>
@@ -182,7 +184,8 @@ function PipelineFlow({ p }: { p: PipelineAnalytics }) {
                   <td className="py-2 pr-3 text-right">{days(t?.median_days ?? null)}</td>
                   <td className="py-2 pr-3 text-right text-sf-ink-mute">{days(t?.avg_days ?? null)}</td>
                   <td className="py-2 pr-3 text-right">{c?.entered ?? '—'}</td>
-                  <td className="py-2 text-right">{c ? `${c.advanced}${c.rate_pct == null ? '' : ` (${Math.round(c.rate_pct)}%)`}` : '—'}</td>
+                  <td className="py-2 pr-3 text-right">{c ? `${c.advanced + c.won}${pct(c.progression_rate)}` : '—'}</td>
+                  <td className="py-2 text-right">{c ? `${c.won}${pct(c.win_rate)}` : '—'}</td>
                 </tr>
               );
             })}
