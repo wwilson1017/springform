@@ -20,6 +20,7 @@ export default defineConfig({
   },
   test: {
     environment: 'jsdom',
+    setupFiles: ['./src/test-setup.ts'],
     include: ['src/**/*.test.{ts,tsx}', '*.test.ts'],
     // Fail closed: "0 tests, exit 0" and assertion-free tests must not read as green.
     passWithNoTests: false,
