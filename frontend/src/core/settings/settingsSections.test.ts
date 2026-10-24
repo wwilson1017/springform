@@ -3,7 +3,7 @@ import type { CoreApp } from '../api/types';
 import { settingsSections, visibleCards, visibleSections, type SettingsSection } from './settingsSections';
 
 const example = { slug: 'example', name: 'Example' } as CoreApp;
-// Other core areas add their own sections (auth's Account, Users, Sign-in; Integrations; Data); these tests are about the
+// Other core areas add their own sections (auth's Account, Users, Sign-in; MCP; Integrations; Data); these tests are about the
 // shell's two and an app's, so they look only at those.
 const ids = (sections: SettingsSection[]) => sections.map(s => s.id).filter(id => ['workspace', 'apps', 'example'].includes(id));
 

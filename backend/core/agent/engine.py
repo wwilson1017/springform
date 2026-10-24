@@ -20,25 +20,32 @@ every write confirms, routine ones included. Never a provider call inside `trans
 from __future__ import annotations
 
 import asyncio
-import concurrent.futures
 import json
 import logging
 import time
 from collections.abc import AsyncGenerator
 
-from backend.core import db, entities
-from backend.core.agent import agents, assembly, compaction, deferred, delimiters, history, registry as tool_registry
+from backend.core import db
+from backend.core.agent import (
+    agents,
+    assembly,
+    compaction,
+    deferred,
+    delimiters,
+    execute,
+    history,
+    registry as tool_registry,
+)
 from backend.core.agent.providers.base import AIProvider, sse
 from backend.core.agent.providers.windows import cache_inclusive_input_tokens, context_usage_event
 from backend.core.agent.spec import ROUTINE, ToolSpec, tool_def_sha256
 from backend.core.agent.write_budget import BudgetAction, BudgetState
 from backend.core.auth.deps import User
-from backend.core.errors import AppError, Forbidden, NotFound
+from backend.core.errors import Forbidden, NotFound
 
 logger = logging.getLogger(__name__)
 
 MAX_ITERATIONS = 20
-TOOL_TIMEOUT = 30  # seconds for a handler that runs outside a transaction
 CONTINUATION_ACK = "Please continue based on the results shown above."
 
 
@@ -64,56 +71,6 @@ def needs_confirmation(spec: ToolSpec, args: dict, tainted: bool) -> bool:
         return bool(spec.hides_when and spec.hides_when(args))
     except Exception:
         return True
-
-
-def _error_text(e: Exception) -> str:
-    if isinstance(e, AppError):
-        return e.detail
-    if isinstance(e, concurrent.futures.TimeoutError):
-        return f"Timed out after {TOOL_TIMEOUT}s."
-    return f"{type(e).__name__}: {e}"[:500]
-
-
-def _dump(spec: ToolSpec, result) -> tuple[str, bool]:
-    """(stored result JSON, tainted). An untrusted result is stored fenced, as a JSON string."""
-    text = json.dumps(result, default=str)
-    if spec.untrusted_source:
-        return json.dumps(delimiters.wrap_untrusted_external(spec.name, text)), True
-    return text, False
-
-
-def _local_write_in(conn: db.Conn, spec: ToolSpec, user: User, args: dict):
-    for entity_type, entity_id in spec.targets(args):
-        entities.authorize(user, conn, entity_type, int(entity_id), "write")
-    return spec.handler_in(conn, user, args)
-
-
-def _call_with_timeout(spec: ToolSpec, user: User, args: dict):
-    pool = concurrent.futures.ThreadPoolExecutor(max_workers=1)
-    try:
-        return pool.submit(spec.handler, user, args).result(timeout=TOOL_TIMEOUT)
-    finally:
-        pool.shutdown(wait=False)  # a timed-out handler keeps its thread; its result is dropped
-
-
-def _run_inline(spec: ToolSpec, user: User, args: dict, record: dict) -> dict:
-    """Run an ungated call and record it. Sync: called through asyncio.to_thread."""
-    record = {**record, "tool_def_sha256": tool_def_sha256(spec)}
-    try:
-        if spec.handler_in is not None:
-            with db.transaction() as conn:
-                result = _local_write_in(conn, spec, user, args)
-                stored, tainted = _dump(spec, result)
-                run_id = history.insert_tool_run_in(conn, **record, status="done", result=stored)
-        else:
-            result = _call_with_timeout(spec, user, args)
-            stored, tainted = _dump(spec, result)
-            run_id = history.insert_tool_run(**record, status="done", result=stored)
-        return {"id": run_id, "status": "done", "result": result, "stored": stored, "error": None, "tainted": tainted}
-    except Exception as e:
-        error = _error_text(e)
-        run_id = history.insert_tool_run(**record, status="error", error=error)
-        return {"id": run_id, "status": "error", "result": {"error": error}, "stored": None, "error": error, "tainted": False}
 
 
 def _last_user_text(messages: list[dict]) -> str | None:
@@ -291,7 +248,10 @@ async def _chat(provider, user, message, conversation_id, agent_slug) -> AsyncGe
                 continue
             else:
                 t0 = time.monotonic()
-                run = await asyncio.to_thread(_run_inline, spec, user, args, record)
+                run = await asyncio.to_thread(
+                    execute.run_tool, user, spec, args, source="chat",
+                    conversation_id=cid, message_id=message_id, tool_use_id=tool_use_id,
+                )
                 if run["tainted"] and not tainted:
                     tainted = True
                     await asyncio.to_thread(history.mark_tainted, cid)
@@ -367,11 +327,11 @@ def confirm(user: User, tool_run_id: int, decision: str) -> dict:
     {"status": "already_resolved", "current": <status>} and nothing runs twice.
 
     (a) the approver must own the conversation (Forbidden); (b) the tool must still be offered
-    to them; (c) its tool_def_sha256 must match the live registry, else `stale`; (d) a local
-    write claims the row, authorizes every target and runs handler_in with the args stored in
-    the database, all in one transaction. A handler-form tool (external effect, or a read that
-    always confirms) is claimed in one transaction, run outside it, resolved in another; an
-    external effect that fails or times out is `uncertain`, since it may have happened."""
+    to them; (c) its tool_def_sha256 must match the live registry, else `stale`; (d)
+    `execute.run_tool` claims the row and runs it with the args stored in the database: a local
+    write claims, authorizes every target and runs handler_in in one transaction; a handler-form
+    tool (external effect, or a read that always confirms) is claimed in one transaction, run
+    outside it, resolved in another; an external effect that fails or times out is `uncertain`."""
     run = history.get_tool_run(tool_run_id)
     if run is None or run["conversation_id"] is None or run["source"] != "chat":
         raise NotFound("tool run not found")
@@ -387,40 +347,11 @@ def confirm(user: User, tool_run_id: int, decision: str) -> dict:
         return _finish(run["id"], "error", user, "This tool is no longer available to you.")
     if tool_def_sha256(spec) != run["tool_def_sha256"]:
         return _finish(run["id"], "stale", user)
-    args = json.loads(run["args"])
-    tainted = False
-
-    if spec.handler_in is not None:
-        try:
-            with db.transaction() as conn:
-                claimed = history.claim_in(conn, run["id"])
-                if claimed:
-                    result = _local_write_in(conn, spec, user, args)
-                    stored, tainted = _dump(spec, result)
-                    history.resolve_in(conn, run["id"], "done", result=stored, resolved_by=user.id, expect="executing")
-        except Exception as e:  # rolled back: still pending, so record why it failed
-            return _finish(run["id"], "error", user, _error_text(e))
-        if not claimed:
-            return _already(run["id"])
-    else:
-        try:
-            with db.transaction() as conn:
-                claimed = history.claim_in(conn, run["id"])
-                if claimed:
-                    for entity_type, entity_id in (spec.targets(args) if spec.targets else []):
-                        entities.authorize(user, conn, entity_type, int(entity_id), "write")
-        except Exception as e:
-            return _finish(run["id"], "error", user, _error_text(e))
-        if not claimed:
-            return _already(run["id"])
-        try:
-            result = _call_with_timeout(spec, user, args)
-        except Exception as e:
-            status = "uncertain" if spec.external_effect else "error"
-            history.resolve(run["id"], status, error=_error_text(e), resolved_by=user.id, expect="executing")
-            return {"status": status, "error": _error_text(e)}
-        stored, tainted = _dump(spec, result)
-        history.resolve(run["id"], "done", result=stored, resolved_by=user.id, expect="executing")
-    if tainted:
+    out = execute.run_tool(user, spec, json.loads(run["args"]), source=run["source"], run_id=run["id"])
+    if out["status"] == "already_resolved":
+        return _already(run["id"])
+    if out["tainted"]:
         history.mark_tainted(run["conversation_id"])
-    return {"status": "done", "result": result}
+    if out["status"] == "done":
+        return {"status": "done", "result": out["result"]}
+    return {"status": out["status"], "error": out["error"]}
