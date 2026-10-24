@@ -1,0 +1,16 @@
+{
+  "slug": "crm",
+  "name": "CRM",
+  "description": "Deals on a pipeline board from lead to won or lost, over the shared people and organizations, with activity, a Today list, analytics and lead scores.",
+  "path": "/crm",
+  "icon": "target",
+  "roles": ["admin", "member"],
+  "order": 10,
+  "badge": "/api/crm/badge",
+  "docs": "docs/index.md",
+  "version": "0.1.0",
+  "requires_core": ">=0.1,<1",
+  "settings_cards": [{ "id": "crm", "title": "CRM", "admin_only": true }],
+  "sheets": [],
+  "publishes": ["get_deal", "deals_for_person", "deals_for_organization", "create_deal"]
+}
