@@ -82,6 +82,8 @@ Conventions:
   and columns in words ("Value", not "value_cents"), and a custom field save shows up in the
   timeline at once.
 - The header's app links follow the order set in Settings, like the launcher.
+- On a phone the Settings section links wrap instead of scrolling sideways, so every section and
+  the one you are on stay in view.
 - Person and organization pages show the Fields and Reminders headings once, without a "Services"
   heading over them.
 - The frontend lint config scopes the fast-refresh rule off for app entry, route and context modules,
