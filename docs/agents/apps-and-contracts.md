@@ -17,7 +17,7 @@ The app contract replaces the 25 core edits a previous CakeCRM fork needed. An a
 | `path` | string | Must equal `/<slug>`. |
 | `icon` | string | Icon name for the tile. |
 | `roles` | list | Subset of `admin`, `member`. Enforced on the router at mount and inherited by the app's entities, reports and tools (`authorization.md`). |
-| `order` | int | Launcher order. |
+| `order` | int | Default launcher order; `core_apps_state.position` overrides it when set. |
 | `badge` | string, optional | A route returning `{count, label?}` (the example uses `"/api/example/badge"`). |
 | `docs` | string | The app's Guide docs (the example uses `"docs/index.md"`). |
 | `version` | string | The app's version; part of `tool_def_sha256` for the app's tools. |
@@ -132,9 +132,8 @@ Badge routes return {count, label?}. Errors: `{detail}`; 401 not signed in, 403 
 
 1. An installed app is **hidden, not disabled**. `GET /api/core/apps` omits hidden apps for members; admins receive them with `hidden: true`, and the launcher shows them hidden tiles.
 2. Hiding removes the tile and nav for members. The app's routes, jobs, tools and record panels stay active, and admins can still open the app.
-3. Order and hide are the only per-install app switches the plan defines.
-
-Open: whether `order` in `GET /api/core/apps` reflects `core_apps_state.position` when an admin has reordered.
+3. `order` is the manifest default; `core_apps_state.position` overrides it when an admin has reordered.
+4. Order and hide are the only per-install app switches the plan defines.
 
 ## 5. Frontend contract
 
