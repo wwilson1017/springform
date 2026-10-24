@@ -1,0 +1,16 @@
+{
+  "slug": "example",
+  "name": "Example",
+  "description": "The integration fixture: a small app that uses every extension point. Hidden from clients by default.",
+  "path": "/example",
+  "icon": "flask",
+  "roles": ["admin", "member"],
+  "order": 900,
+  "badge": "/api/example/badge",
+  "docs": "docs/index.md",
+  "version": "0.1.0",
+  "requires_core": ">=0.1,<1",
+  "settings_cards": [{ "id": "example", "title": "Example", "admin_only": true }],
+  "sheets": [{ "name": "widgets", "mode": "read", "description": "A sample sheet of widgets" }],
+  "publishes": ["get_widget", "widgets_for_person"]
+}

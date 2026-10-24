@@ -1,0 +1,21 @@
+# python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+.ruff_cache/
+# node
+node_modules/
+frontend/dist/
+# runtime
+/data/
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+.env
+.env.*
+!.env.example
+# editors / os
+.DS_Store
+.idea/
+.vscode/
