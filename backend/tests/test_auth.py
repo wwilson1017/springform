@@ -1,5 +1,4 @@
 import io
-import statistics
 import time
 
 import pytest
@@ -59,15 +58,15 @@ def test_wrong_password_costs_about_what_an_unknown_email_costs(client, make_use
     make_user("member", email="real@example.com")  # hashed at 10 rounds
     service.spend_dummy_verify()  # build the equalizer hash outside the timing
 
-    def timed(email):
-        samples = []
-        for _ in range(3):
+    # Interleaved, so a load spike from other processes lands on both sides; the minimum is the
+    # least noisy estimate of what each path costs.
+    samples: dict[str, list[float]] = {"real@example.com": [], "nobody@example.com": []}
+    for _ in range(5):
+        for email, bucket in samples.items():
             start = time.perf_counter()
             assert _login(client, email, "wrong-password").status_code == 401
-            samples.append(time.perf_counter() - start)
-        return statistics.median(samples)
-
-    known, unknown = timed("real@example.com"), timed("nobody@example.com")
+            bucket.append(time.perf_counter() - start)
+    known, unknown = min(samples["real@example.com"]), min(samples["nobody@example.com"])
     assert 0.5 < known / unknown < 2.0, (known, unknown)
 
 
