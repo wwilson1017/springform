@@ -9,12 +9,10 @@ import { useAuth } from '../auth/AuthContext';
 import BootFallback from '../components/BootFallback';
 import ChunkErrorBoundary from '../components/ChunkErrorBoundary';
 import { NotificationBell } from '../records/NotificationBell';
+import { useWorkspace } from '../settings/useWorkspace';
 import { coreNavItems } from './coreNav';
 import { ThemeToggle } from './ThemeToggle';
 import { UserMenu } from './UserMenu';
-
-// simplification: a fixed name until the Workspace settings endpoint exists; read it from there.
-const INSTALL_NAME = 'Springform';
 
 /** The signed-in frame: header (nav, theme, notifications slot, user menu) over the routed page. */
 export function Layout() {
@@ -23,6 +21,7 @@ export function Layout() {
   const isMobile = useIsMobile();
   const location = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
+  const workspace = useWorkspace();
 
   // App nav for the apps this user receives. Hiding an app removes its nav for members only
   // (the server does not send them hidden apps; the filter holds if it ever does).
@@ -47,7 +46,7 @@ export function Layout() {
             <IconMenu aria-hidden />
           </button>
         )}
-        <Link to="/" className="font-display text-lg font-medium text-sf-ink no-underline">{INSTALL_NAME}</Link>
+        <Link to="/" className="font-display text-lg font-medium text-sf-ink no-underline">{workspace?.name}</Link>
         {!isMobile && (
           <nav className="ml-4 flex gap-1">
             {nav.map(item => (

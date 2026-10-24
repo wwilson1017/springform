@@ -3,7 +3,7 @@ import type { CoreApp } from '../api/types';
 import { settingsSections, visibleCards, visibleSections, type SettingsSection } from './settingsSections';
 
 const example = { slug: 'example', name: 'Example' } as CoreApp;
-// Other core areas add their own sections (auth's Account, Users, Sign-in); these tests are about the
+// Other core areas add their own sections (auth's Account, Users, Sign-in; Integrations; Data); these tests are about the
 // shell's two and an app's, so they look only at those.
 const ids = (sections: SettingsSection[]) => sections.map(s => s.id).filter(id => ['workspace', 'apps', 'example'].includes(id));
 
@@ -17,8 +17,11 @@ describe('settingsSections', () => {
 
   it('derives section visibility from card visibility, so members never see an empty section', () => {
     const sections = settingsSections([example]);
-    expect(ids(visibleSections(sections, false))).toEqual(['workspace']);
+    expect(ids(visibleSections(sections, false))).toEqual(['workspace', 'apps']);
     expect(ids(visibleSections(sections, true))).toEqual(['workspace', 'apps', 'example']);
-    expect(visibleCards(sections.find(s => s.id === 'apps')!, false)).toEqual([]);
+    // Integrations holds only admin cards, so a member gets no cards and no section.
+    const integrations = sections.find(s => s.id === 'integrations')!;
+    expect(visibleCards(integrations, false)).toEqual([]);
+    expect(visibleSections(sections, false)).not.toContain(integrations);
   });
 });

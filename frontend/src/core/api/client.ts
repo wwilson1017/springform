@@ -23,15 +23,15 @@ export class ApiError extends Error {
   }
 }
 
-/** On these pages a 401 is an answer ("wrong password"), not an expired session. */
-const AUTH_PAGES = ['/login', '/setup'];
+/** On these pages a 401 is an answer ("wrong password", "wrong 2FA code"), not an expired session. */
+const AUTH_PAGES = /^\/(login|setup)$|^\/(invite|reset-password)\//;
 
 /**
  * True when it navigated away. Outside the auth pages a 401 means the session is gone, so the
  * page goes to /login.
  */
 function redirectOn401(status: number): boolean {
-  if (status !== 401 || AUTH_PAGES.includes(window.location.pathname)) return false;
+  if (status !== 401 || AUTH_PAGES.test(window.location.pathname)) return false;
   window.location.assign('/login');
   return true;
 }
