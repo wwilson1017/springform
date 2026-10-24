@@ -21,9 +21,10 @@ from datetime import date, datetime, time, timedelta
 from typing import TYPE_CHECKING
 
 from backend.apps.crm import activity, deals, settings as crm_settings
+from backend.apps.crm.analytics import readable_in
 from backend.apps.crm.common import LIVE, OPEN
 from backend.core import clock, db, localtime
-from backend.core.errors import Invalid
+from backend.core.errors import Invalid, NotFound
 from backend.core.reminders import api as reminders
 
 if TYPE_CHECKING:
@@ -41,8 +42,7 @@ def _live_count(conn: db.Conn, table: str) -> int:
     return conn.execute(f"SELECT count(*) FROM {table} WHERE merged_into_id IS NULL AND archived_at IS NULL").fetchone()[0]
 
 
-def dashboard(user: User) -> dict:
-    conn = db.get_conn()
+def dashboard_in(conn: db.Conn, user: User) -> dict:
     deals._gate(conn, user)
     month_start = localtime.today_local().replace(day=1).isoformat()
     by_stage = deals.stage_summary_in(conn, open_only=False)
@@ -61,16 +61,19 @@ def dashboard(user: User) -> dict:
         "total_pipeline_value_cents": sum(s["total_value_cents"] for s in by_stage if s["stage"] not in ("won", "lost")),
         "won_this_month_cents": won,
         "recent_activity": activity.list_in(conn, user, limit=10),
-        "top_deals": [dict(r) for r in top],
+        "top_deals": [dict(r) for r in readable_in(conn, user, top)],
     }
+
+
+def dashboard(user: User) -> dict:
+    return dashboard_in(db.get_conn(), user)
 
 
 def _midnight(day: date) -> datetime:
     return datetime.combine(day, time.min, tzinfo=localtime.tz())
 
 
-def today(user: User) -> dict:
-    conn = db.get_conn()
+def today_in(conn: db.Conn, user: User) -> dict:
     deals._gate(conn, user)
     day = localtime.today_local()
     start, end = _midnight(day), _midnight(day + timedelta(days=1))
@@ -84,7 +87,7 @@ def today(user: User) -> dict:
         f"SELECT d.id, {deals.LAST_TOUCH} FROM crm_deals d WHERE d.deal_temperature = 'hot' AND {LIVE} AND {OPEN}"
     )}  # fmt: skip
     ranked, tail = [], []
-    for deal in sorted((dict(r) for r in hot), key=lambda d: (touches[d["id"]], d["id"])):  # most idle first
+    for deal in sorted((dict(r) for r in readable_in(conn, user, hot)), key=lambda d: (touches[d["id"]], d["id"])):  # most idle first
         idle = max(0, (now - clock.parse(touches[deal["id"]])).days)
         if touches[deal["id"]] < stale_cutoff:
             item = {"kind": "deal", "reason": f"Hot, quiet for {idle} days", "deal": deal}
@@ -94,10 +97,14 @@ def today(user: User) -> dict:
     due = [
         {"kind": "reminder", "rank": 2, "reason": "Reminder due today", "reminder": r}
         for r in reminders.list_mine_in(conn, user, from_=clock.to_iso(start), to=clock.to_iso(end))
-        if r["status"] != "voided"
+        if r["status"] in ("open", "snoozed")  # done and voided reminders need nobody today
     ]
     items = [{**i, "rank": 1} for i in ranked] + due + [{**i, "rank": None} for i in tail]
     return {"date": day.isoformat(), "next_refresh_at": clock.to_iso(end), "items": items}
+
+
+def today(user: User) -> dict:
+    return today_in(db.get_conn(), user)
 
 
 _DAY = re.compile(r"^\d{4}-\d{2}-\d{2}$")
@@ -117,20 +124,25 @@ def _window(start: str | None, end: str | None) -> dict:
         raise Invalid("start and end must be YYYY-MM-DD dates") from None
     if last < first:
         raise Invalid("end must be on or after start")
-    return {
-        "start": clock.to_iso(_midnight(first)), "end": clock.to_iso(_midnight(last + timedelta(days=1))),
-        "label": f"{start} – {end}", "custom": True,
-    }  # fmt: skip
+    try:
+        bounds = clock.to_iso(_midnight(first)), clock.to_iso(_midnight(last + timedelta(days=1)))
+    except OverflowError:  # 9999-12-31 has no next day
+        raise Invalid("That range is out of bounds") from None
+    return {"start": bounds[0], "end": bounds[1], "label": f"{start} – {end}", "custom": True}
 
 
-def _touch_rows(conn: db.Conn, window: dict) -> list[dict]:
-    """Live open deals and live won deals, each with its touch instant and whether it falls in
-    the window."""
+def _touch_rows(conn: db.Conn, user: User, window: dict) -> list[dict]:
+    """Live open deals and live won deals the user can read, each with its touch instant and
+    whether it falls in the window. Creation is not a touch, or a fresh import would read as a
+    week of work: a won deal counts only a real move into won (creation writes a stage event
+    with no old stage), and an open deal counts once it has an activity or note, or an edit
+    after creation. Timestamps are whole seconds, so the test is about events, not instants."""
     rows = conn.execute(
         f"""SELECT d.id, d.title, d.value_cents, d.stage, d.owner_user_id, d.ai_touch_count AS touch_count,
                    p.name AS person_name, o.name AS organization_name, u.name AS owner_name,
+                   d.created_at, {deals.LAST_ACTIVITY} AS last_activity_at,
                    CASE WHEN d.stage = 'won' THEN (SELECT max(e.changed_at) FROM crm_deal_stage_events e
-                                                    WHERE e.deal_id = d.id AND e.new_stage = 'won')
+                                                    WHERE e.deal_id = d.id AND e.new_stage = 'won' AND e.old_stage != '')
                         ELSE {deals.LAST_TOUCH} END AS touched_at
               FROM crm_deals d LEFT JOIN core_people p ON p.id = d.person_id
               LEFT JOIN core_organizations o ON o.id = d.organization_id
@@ -138,9 +150,10 @@ def _touch_rows(conn: db.Conn, window: dict) -> list[dict]:
              WHERE {LIVE} AND (d.stage = 'won' OR {OPEN})"""
     )
     out = []
-    for r in rows:
+    for r in readable_in(conn, user, rows):
         row = dict(r)
-        row["in_window"] = row["touched_at"] is not None and window["start"] <= row["touched_at"] < window["end"]
+        worked = row["stage"] == "won" or row["last_activity_at"] is not None or row["touched_at"] != row["created_at"]
+        row["in_window"] = worked and row["touched_at"] is not None and window["start"] <= row["touched_at"] < window["end"]
         out.append(row)
     return out
 
@@ -167,11 +180,10 @@ def _reps(rows: list[dict], cap: int) -> list[dict]:
     return sorted(reps.values(), key=lambda r: (r["user_id"] is None, -r["touches"], r["name"].lower()))
 
 
-def weekly_touches(user: User, start: str | None = None, end: str | None = None) -> dict:
-    conn = db.get_conn()
+def weekly_touches_in(conn: db.Conn, user: User, start: str | None = None, end: str | None = None) -> dict:
     deals._gate(conn, user)
     window = _window(start, end)
-    reps = _reps(_touch_rows(conn, window), WEEKLY_TOUCHES_LIMIT)
+    reps = _reps(_touch_rows(conn, user, window), WEEKLY_TOUCHES_LIMIT)
     for rep in reps:
         del rep["truncated"]
     return {
@@ -180,19 +192,28 @@ def weekly_touches(user: User, start: str | None = None, end: str | None = None)
     }  # fmt: skip
 
 
-def weekly_touch_detail(user: User, owner: str, start: str | None = None, end: str | None = None) -> dict:
+def weekly_touches(user: User, start: str | None = None, end: str | None = None) -> dict:
+    return weekly_touches_in(db.get_conn(), user, start, end)
+
+
+def weekly_touch_detail_in(conn: db.Conn, user: User, owner: str, start: str | None = None, end: str | None = None) -> dict:
     """One owner's touched deals, uncapped up to WEEKLY_TOUCHES_DETAIL_MAX. `owner` is a user id
-    or 'unassigned'."""
-    conn = db.get_conn()
+    or 'unassigned'; an unknown id (or the system principal) is NotFound."""
     deals._gate(conn, user)
     owner_id = None if owner == "unassigned" else int(owner)
     window = _window(start, end)
-    rows = [r for r in _touch_rows(conn, window) if r["owner_user_id"] == owner_id]
+    name = "Unassigned"
+    if owner_id is not None:
+        found = conn.execute("SELECT name FROM core_users WHERE id = ? AND role != 'system'", (owner_id,)).fetchone()
+        if found is None:
+            raise NotFound()
+        name = found[0]
+    rows = [r for r in _touch_rows(conn, user, window) if r["owner_user_id"] == owner_id]
     reps = _reps(rows, WEEKLY_TOUCHES_DETAIL_MAX)
-    if reps:
-        rep = reps[0]
-    else:
-        name = conn.execute("SELECT name FROM core_users WHERE id = ?", (owner_id,)).fetchone() if owner_id else None
-        rep = {"user_id": owner_id, "name": name[0] if name else "Unassigned", "open_deals": 0, "touches": 0, "deals": [], "truncated": False}
+    rep = reps[0] if reps else {"user_id": owner_id, "name": name, "open_deals": 0, "touches": 0, "deals": [], "truncated": False}
     truncated = rep.pop("truncated")
     return {"window": window, "rep": rep, "deals": rep["deals"], "truncated": truncated}
+
+
+def weekly_touch_detail(user: User, owner: str, start: str | None = None, end: str | None = None) -> dict:
+    return weekly_touch_detail_in(db.get_conn(), user, owner, start, end)

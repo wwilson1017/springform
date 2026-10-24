@@ -5,7 +5,8 @@ import pytest
 
 from backend.apps.crm import dashboard, deals
 from backend.core import db as core_db, settings
-from backend.core.errors import Invalid
+from backend.core.contacts import api as contacts
+from backend.core.errors import Invalid, NotFound
 from backend.core.reminders import api as reminders
 from backend.core.timeline import api as timeline
 
@@ -113,3 +114,79 @@ def test_the_detail_is_one_owner_uncapped(me, make_user, freeze):
     nobody = dashboard.weekly_touch_detail(me, str(make_user("member").id))
     assert (nobody["rep"]["touches"], nobody["deals"]) == (0, [])
     assert dashboard.weekly_touch_detail(me, "unassigned")["rep"]["name"] == "Unassigned"
+
+
+# ── Fixes on top of the port ──────────────────────────────────────────────────
+
+
+def test_creating_a_deal_is_not_a_touch(me, freeze):
+    """A fresh import or sample load must not read as a week of work. A note in the same second
+    as creation is still a touch: timestamps are whole seconds, so the rule is about events."""
+    imported = deals.create(me, {"title": "Imported", "owner_user_id": me.id})
+    deals.create(me, {"title": "Born won", "owner_user_id": me.id, "stage": "won"})
+    noted = deals.create(me, {"title": "Noted at once", "owner_user_id": me.id})
+    timeline.add_note(me, "crm.deal", noted["id"], "Called while creating it")
+    freeze("2026-10-02T15:00:00Z")
+    out = dashboard.weekly_touches(me)
+    assert (out["total_touches"], out["total_open_deals"]) == (1, 2)
+    assert [d["title"] for d in out["reps"][0]["deals"]] == ["Noted at once"]
+    deals.update(me, imported["id"], {"value_cents": 500})  # an edit after creation is a touch
+    freeze("2026-10-02T16:00:00Z")  # the rolling window ends now, exclusive
+    assert dashboard.weekly_touches(me)["total_touches"] == 2
+
+
+def test_the_detail_for_an_unknown_user_is_not_found(me):
+    for owner in ("424242", "0"):  # 0 is the system principal, never a rep
+        with pytest.raises(NotFound):
+            dashboard.weekly_touch_detail(me, owner)
+
+
+def test_a_window_past_the_last_representable_day_is_refused(me):
+    with pytest.raises(Invalid):
+        dashboard.weekly_touches(me, "9999-12-30", "9999-12-31")
+
+
+def test_a_done_reminder_is_not_due_today(me, freeze):
+    freeze("2026-10-20T15:00:00Z")
+    with core_db.transaction() as conn:
+        done = reminders.create_in(conn, me, title="Already called", due_at="2026-10-20T16:30:00")
+        reminders.create_in(conn, me, title="Still to do", due_at="2026-10-20T17:00:00")
+    reminders.complete(me, done["id"])
+    assert [i["reminder"]["title"] for i in dashboard.today(me)["items"]] == ["Still to do"]
+
+
+def test_a_deal_the_caller_cannot_read_stays_out_of_every_list(me, freeze, monkeypatch):
+    """Any member reads any deal today; the lists still go through can_read, so a restrictive
+    rule would hold."""
+    from dataclasses import replace
+
+    from backend.apps.crm import analytics
+    from backend.core import entities
+
+    with core_db.transaction() as conn:
+        person = contacts.create_person_in(conn, me, name="Ada Example")["id"]
+    seen = hot(me, "Seen", stage="proposal", value_cents=100, person_id=person)
+    hidden = hot(me, "Hidden", stage="proposal", value_cents=10**6, person_id=person)
+    hot(me, "seen", person_id=person)
+    hot(me, "hidden", person_id=person)
+    for deal_id in (seen["id"], hidden["id"]):
+        timeline.add_note(me, "crm.deal", deal_id, "Called")
+    entity = entities.get("crm.deal")
+    monkeypatch.setitem(entities._ENTITIES, "crm.deal", replace(entity, can_read=lambda user, conn, i: i != hidden["id"]))
+    freeze("2026-10-30T15:00:00Z")
+    titles = {
+        "today": [i["deal"]["title"] for i in dashboard.today(me)["items"]],
+        "top": [d["title"] for d in dashboard.dashboard(me)["top_deals"]],
+        "touches": [d["title"] for d in dashboard.weekly_touches(me, "2026-10-01", "2026-10-01")["reps"][0]["deals"]],
+        "stale": [d["title"] for d in analytics.stale_deals(me, days=14)["deals"]],
+        "duplicates": [r["label"] for g in analytics.duplicates(me) for r in g["records"]],
+    }
+    assert not any("Hidden" in t for ts in titles.values() for t in ts), titles
+    assert titles["duplicates"] == ["Seen (proposal)", "seen (lead)"], "one readable deal is not a duplicate group"
+
+
+def test_the_touch_routes_answer_404_and_422_not_500(login_as):
+    admin = login_as("admin")
+    assert admin.get("/api/crm/dashboard/weekly-touches/detail?owner=424242").status_code == 404
+    assert admin.get("/api/crm/dashboard/weekly-touches/detail?owner=0").status_code == 404
+    assert admin.get("/api/crm/dashboard/weekly-touches?start=9999-12-30&end=9999-12-31").status_code == 422

@@ -17,8 +17,8 @@ from datetime import date, datetime, time, timedelta
 from typing import TYPE_CHECKING
 
 from backend.apps.crm import deals, scoring, settings as crm_settings
-from backend.apps.crm.common import LIVE, OPEN, OPEN_STAGES
-from backend.core import clock, db, localtime
+from backend.apps.crm.common import ENTITY, LIVE, OPEN, OPEN_STAGES
+from backend.core import clock, db, entities, localtime
 
 if TYPE_CHECKING:
     from backend.core.auth.deps import User
@@ -27,6 +27,13 @@ AGE_BUCKETS = ((0, 7, "0-7"), (8, 30, "8-30"), (31, 90, "31-90"), (91, None, "91
 STUCK_IN_STAGE_DAYS = 30
 DAY = 86400
 NOTE_ENTITIES = ("crm.deal", "core.person", "core.organization")
+
+
+def readable_in(conn: db.Conn, user: User, rows, key: str = "id") -> list:
+    """The rows whose deal (`row[key]`) the user may read. Every returned deal list goes through
+    it: any member reads any deal today, but a restrictive can_read must hold here too."""
+    entity = entities.get(ENTITY)
+    return [r for r in rows if entity.can_read(user, conn, r[key])]
 
 
 def _midnight(day: date) -> str:
@@ -70,16 +77,16 @@ def _win_loss(conn: db.Conn) -> dict:
     }
 
 
-def _open_rows(conn: db.Conn) -> list[dict]:
-    """Live open deals with their whole-day age and days since the last touch."""
+def _open_rows(conn: db.Conn, user: User) -> list[dict]:
+    """Live open deals the user can read, with their whole-day age and days since the last touch."""
     now = clock.now()
-    rows = conn.execute(
+    rows = readable_in(conn, user, conn.execute(
         f"""SELECT d.id, d.title, d.value_cents, d.stage, d.owner_user_id, p.name AS person_name,
                    o.name AS organization_name, d.created_at, {deals.LAST_TOUCH} AS last_touch
               FROM crm_deals d LEFT JOIN core_people p ON p.id = d.person_id
               LEFT JOIN core_organizations o ON o.id = d.organization_id
              WHERE {LIVE} AND {OPEN}"""
-    )
+    ))
     out = []
     for r in rows:
         row = dict(r)
@@ -162,8 +169,7 @@ def _per_rep(conn: db.Conn, start: str, end: str) -> list[dict]:
     return sorted(reps.values(), key=lambda r: (r["user_id"] is None, -r["records_touched"], -r["open_value_cents"]))
 
 
-def analytics(user: User, days: int = 30, stale_days: int | None = None, stale_limit: int = 8) -> dict:
-    conn = db.get_conn()
+def analytics_in(conn: db.Conn, user: User, days: int = 30, stale_days: int | None = None, stale_limit: int = 8) -> dict:
     deals._gate(conn, user)
     days = max(7, min(365, int(days)))
     stale_days = max(1, min(365, int(stale_days or crm_settings.stale_days())))
@@ -172,39 +178,52 @@ def analytics(user: User, days: int = 30, stale_days: int | None = None, stale_l
         "window_days": days, "stale_days": stale_days, "timezone": localtime.tz().key,
         "win_loss": _win_loss(conn),
         "activity": activity,
-        "aging": _aging(_open_rows(conn), stale_days, stale_limit),
+        "aging": _aging(_open_rows(conn, user), stale_days, stale_limit),
         "per_rep": _per_rep(conn, start, end),
     }
 
 
-def stale_deals(user: User, days: int | None = None, limit: int = 25) -> dict:
+def analytics(user: User, days: int = 30, stale_days: int | None = None, stale_limit: int = 8) -> dict:
+    return analytics_in(db.get_conn(), user, days, stale_days, stale_limit)
+
+
+def stale_deals_in(conn: db.Conn, user: User, days: int | None = None, limit: int = 25) -> dict:
     """Live open deals untouched for `days` (default crm.stale_days), longest-quiet first."""
-    conn = db.get_conn()
     deals._gate(conn, user)
     days = days or crm_settings.stale_days()
-    aging = _aging(_open_rows(conn), days, limit)
+    aging = _aging(_open_rows(conn, user), days, limit)
     return {"stale_days": days, "total_stale": aging["stale_count"], "count": len(aging["stale_deals"]), "deals": aging["stale_deals"]}
+
+
+def stale_deals(user: User, days: int | None = None, limit: int = 25) -> dict:
+    return stale_deals_in(db.get_conn(), user, days, limit)
 
 
 # ── The funnel ────────────────────────────────────────────────────────────────
 
 
-def pipeline_analytics(user: User, days: int = 90) -> dict:
+def pipeline_analytics_in(conn: db.Conn, user: User, days: int = 90) -> dict:
     """Movement through the funnel, read from the stage history: time in stage (finished
     intervals only, so a deal still sitting in a stage is not counted as having left now),
-    conversion of each first entry into a stage, and velocity of the wins in the window. The
-    history starts when the CRM was installed; the response says how far back it goes."""
-    conn = db.get_conn()
+    conversion of each deal's first entry into a stage inside the window, and velocity of the
+    wins in the window. The history starts when the CRM was installed; the response says how
+    far back it goes."""
     deals._gate(conn, user)
     days = max(7, min(730, int(days)))
     cutoff = clock.ago(days * DAY)
-    events = [dict(r) for r in conn.execute(
+    events = [dict(r) for r in readable_in(conn, user, conn.execute(
         f"""SELECT e.deal_id, e.new_stage, e.changed_at, d.stage AS current_stage, d.closed_on,
-                   lead(e.changed_at) OVER (PARTITION BY e.deal_id ORDER BY e.changed_at, e.id) AS next_at,
-                   row_number() OVER (PARTITION BY e.deal_id, e.new_stage ORDER BY e.changed_at, e.id) AS nth
-              FROM crm_deal_stage_events e JOIN crm_deals d ON d.id = e.deal_id WHERE {LIVE}"""
-    )]  # fmt: skip
+                   lead(e.changed_at) OVER (PARTITION BY e.deal_id ORDER BY e.changed_at, e.id) AS next_at
+              FROM crm_deal_stage_events e JOIN crm_deals d ON d.id = e.deal_id WHERE {LIVE}
+             ORDER BY e.deal_id, e.changed_at, e.id"""
+    ), key="deal_id")]  # fmt: skip
     in_window = [e for e in events if e["changed_at"] >= cutoff]
+    # Numbered inside the window, not over the whole history: a deal that sat in a stage before
+    # the window and came back to it inside still entered it in the window.
+    seen: set[tuple[int, str]] = set()
+    for e in in_window:
+        e["nth"] = 2 if (e["deal_id"], e["new_stage"]) in seen else 1
+        seen.add((e["deal_id"], e["new_stage"]))
 
     durations: dict[str, list[float]] = {s: [] for s in OPEN_STAGES}
     for e in in_window:
@@ -255,25 +274,28 @@ def pipeline_analytics(user: User, days: int = 90) -> dict:
     }
 
 
+def pipeline_analytics(user: User, days: int = 90) -> dict:
+    return pipeline_analytics_in(db.get_conn(), user, days)
+
+
 # ── One deal ──────────────────────────────────────────────────────────────────
 
 
-def _todo_counts(user: User, deal_id: int) -> tuple[int, int] | None:
+def _todo_counts(conn: db.Conn, user: User, deal_id: int) -> tuple[int, int] | None:
     """(open, overdue) to-dos linked to the deal, through the Todos app's published API; None
     when that app is not installed."""
     try:
-        from backend.apps.todos.api import list_for_record
+        from backend.apps.todos.api import list_for_record_in
     except ModuleNotFoundError:
         return None
     today = localtime.today_local().isoformat()
-    todos = list_for_record(user, "crm.deal", deal_id)
+    todos = list_for_record_in(conn, user, "crm.deal", deal_id)
     return len(todos), sum(1 for t in todos if t.get("due_date") and t["due_date"] < today)
 
 
-def deal_health(user: User, deal_id: int) -> dict:
+def deal_health_in(conn: db.Conn, user: User, deal_id: int) -> dict:
     """The lead score with its factors, plus the flags a person acts on: stale, stuck in its
     stage, no next step, an overdue to-do, no person, no organization. Archived deals answer too."""
-    conn = db.get_conn()
     deal = deals.get_in(conn, user, deal_id)
     stale_days = crm_settings.stale_days()
     now = clock.now()
@@ -285,7 +307,7 @@ def deal_health(user: User, deal_id: int) -> dict:
             flags.append("stale")
         if (now - clock.parse(entered or deal["created_at"])).days >= STUCK_IN_STAGE_DAYS:
             flags.append("stuck_in_stage")
-        if (todos := _todo_counts(user, deal_id)) is not None:
+        if (todos := _todo_counts(conn, user, deal_id)) is not None:
             if not todos[0]:
                 flags.append("no_next_step")
             if todos[1]:
@@ -298,24 +320,32 @@ def deal_health(user: User, deal_id: int) -> dict:
     return {"deal": deal, "score": breakdown["score"], "factors": breakdown["factors"], "stale_days": stale_days, "flags": flags}
 
 
-def duplicates(user: User, limit: int = 25) -> list[dict]:
-    """Live deals sharing a title (ignoring case and spacing) and the same person: the real
-    double-entry shape. Title alone is not a duplicate ("Q1 renewal" across ten customers)."""
-    conn = db.get_conn()
+def deal_health(user: User, deal_id: int) -> dict:
+    return deal_health_in(db.get_conn(), user, deal_id)
+
+
+def duplicates_in(conn: db.Conn, user: User, limit: int = 25) -> list[dict]:
+    """Live deals sharing a title (ignoring case and surrounding spaces) and the same person: the
+    real double-entry shape. Title alone is not a duplicate ("Q1 renewal" across ten customers).
+    Only deals the user can read form a group."""
     deals._gate(conn, user)
-    groups = conn.execute(
-        f"""SELECT lower(trim(d.title)) AS value, d.person_id, count(*) AS count, json_group_array(d.id) AS ids
-              FROM (SELECT * FROM crm_deals d WHERE {LIVE} AND trim(d.title) != '' AND d.person_id IS NOT NULL ORDER BY d.id) d
-             GROUP BY lower(trim(d.title)), d.person_id HAVING count(*) > 1
-             ORDER BY count(*) DESC, value, d.person_id LIMIT ?""",
-        (limit,),
-    ).fetchall()
-    ids = [i for g in groups for i in json.loads(g["ids"])]
-    labels = {r[0]: f"{r[1]} ({r[2]})" for r in conn.execute(
-        "SELECT id, title, stage FROM crm_deals WHERE id IN (SELECT value FROM json_each(?))", (json.dumps(ids),)
-    )}  # fmt: skip
+    # simplification: titles fold in Python because SQLite's lower() is ASCII-only ("CAFÉ"
+    # stays "cafÉ"); fine to ~10^5 live deals with a person. Upgrade path: a stored folded-title
+    # column with an index.
+    rows = readable_in(conn, user, conn.execute(
+        f"SELECT d.id, d.title, d.stage, d.person_id FROM crm_deals d WHERE {LIVE} AND d.person_id IS NOT NULL ORDER BY d.id"
+    ))  # fmt: skip
+    groups: dict[tuple[str, int], list] = {}
+    for r in rows:
+        if value := r["title"].strip().casefold():
+            groups.setdefault((value, r["person_id"]), []).append(r)
+    found = sorted(((k, v) for k, v in groups.items() if len(v) > 1), key=lambda kv: (-len(kv[1]), kv[0]))
     return [
-        {"match_on": "title+person", "value": g["value"], "count": g["count"],
-         "records": [{"id": i, "label": labels[i]} for i in json.loads(g["ids"])]}
-        for g in groups
+        {"match_on": "title+person", "value": value, "count": len(members),
+         "records": [{"id": r["id"], "label": f"{r['title']} ({r['stage']})"} for r in members]}
+        for (value, _person), members in found[:limit]
     ]  # fmt: skip
+
+
+def duplicates(user: User, limit: int = 25) -> list[dict]:
+    return duplicates_in(db.get_conn(), user, limit)
