@@ -131,9 +131,10 @@ Badge routes return {count, label?}. Errors: `{detail}`; 401 not signed in, 403 
 `core_apps_state(slug PK, hidden, position)` holds the admin's per-install choices from Settings → Apps (order/hide).
 
 1. An installed app is **hidden, not disabled**. `GET /api/core/apps` omits hidden apps for members; admins receive them with `hidden: true`, and the launcher shows them hidden tiles.
-2. Order and hide are the only per-install app switches the plan defines.
+2. Hiding removes the tile and nav for members. The app's routes, jobs, tools and record panels stay active, and admins can still open the app.
+3. Order and hide are the only per-install app switches the plan defines.
 
-Open: whether a hidden app's routes, jobs, tools and record panels stay active for members is not stated. Open: whether `order` in `GET /api/core/apps` reflects `core_apps_state.position` when an admin has reordered.
+Open: whether `order` in `GET /api/core/apps` reflects `core_apps_state.position` when an admin has reordered.
 
 ## 5. Frontend contract
 
