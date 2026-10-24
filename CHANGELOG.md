@@ -20,6 +20,9 @@ Conventions:
 
 ### Added
 
+- Record services UI: custom fields on records with an admin field editor, saved views, a Reports
+  page with CSV download, the notification bell and Notifications page, browser push, Reminders
+  (page and record panel), @-mentions in notes, and file thumbnails.
 - Repository tooling: CI for upstream and forks, Docker image with SQLite 3.51.3, one-script VPS
   deploy, fork scripts and release workflow.
 - Outbound MCP: admins connect Whisk to other MCP servers (Settings, MCP servers); every remote

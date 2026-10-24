@@ -19,3 +19,11 @@ class FieldDefinition(Out):
     archived_at: str | None
     created_at: str
     updated_at: str
+
+
+class FieldEntityType(Out):
+    """A registered entity type, for the field-definition picker."""
+
+    type: str
+    label: str
+    label_plural: str

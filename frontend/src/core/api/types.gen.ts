@@ -1190,6 +1190,26 @@ export interface paths {
         patch: operations["core_update_field_definition"];
         trace?: never;
     };
+    "/api/core/fields/entity-types": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Field Entity Types
+         * @description Every registered entity type, for the admin's field-definition picker.
+         */
+        get: operations["core_list_field_entity_types"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/core/fields/values": {
         parameters: {
             query?: never;
@@ -4544,6 +4564,18 @@ export interface components {
             type: "text" | "number" | "boolean" | "date" | "select" | "multiselect" | "url" | "user";
             /** Updated At */
             updated_at: string;
+        };
+        /**
+         * FieldEntityType
+         * @description A registered entity type, for the field-definition picker.
+         */
+        FieldEntityType: {
+            /** Label */
+            label: string;
+            /** Label Plural */
+            label_plural: string;
+            /** Type */
+            type: string;
         };
         /** File */
         File: {
@@ -9458,6 +9490,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    core_list_field_entity_types: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FieldEntityType"][];
                 };
             };
         };

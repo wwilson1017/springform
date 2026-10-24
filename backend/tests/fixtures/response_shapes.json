@@ -51,6 +51,8 @@
  "GET /api/core/contacts/search member": ["[].email", "[].id", "[].kind", "[].name", "[].phone", "[].url"],
  "GET /api/core/fields/definitions admin": ["[].archived_at", "[].created_at", "[].entity_type", "[].id", "[].key", "[].label", "[].options", "[].position", "[].required", "[].type", "[].updated_at"],
  "GET /api/core/fields/definitions member": ["[].archived_at", "[].created_at", "[].entity_type", "[].id", "[].key", "[].label", "[].options", "[].position", "[].required", "[].type", "[].updated_at"],
+ "GET /api/core/fields/entity-types admin": ["[].label", "[].label_plural", "[].type"],
+ "GET /api/core/fields/entity-types member": ["[].label", "[].label_plural", "[].type"],
  "GET /api/core/guide admin": ["[].app", "[].slug", "[].summary", "[].title"],
  "GET /api/core/guide member": ["[].app", "[].slug", "[].summary", "[].title"],
  "GET /api/core/guide/search admin": ["[].app", "[].slug", "[].snippet", "[].title"],

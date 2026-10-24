@@ -190,6 +190,7 @@ def exercise(app, login_as, monkeypatch) -> dict[str, httpx.Response]:
     })  # fmt: skip
     hit(admin, "PATCH", "/api/core/fields/definitions/{definition_id}", definition_id=definition["id"], json={"label": "Size"})
     for c in both:
+        hit(c, "GET", "/api/core/fields/entity-types")
         hit(c, "GET", "/api/core/fields/definitions", params={"entity_type": "core.person"})
         view = hit(c, "POST", "/api/core/views", json={"surface": "core.people", "name": f"Mine {c.user['role']}", "payload": {"q": "pat", "sort": ["name"]}})
         hit(c, "PATCH", "/api/core/views/{view_id}", view_id=view["id"], json={"version": 1, "name": "Renamed"})

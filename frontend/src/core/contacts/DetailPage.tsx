@@ -13,6 +13,7 @@ import { useCoreApps } from '../apps/CoreAppsContext';
 import { appBySlug, recordPanelsFor } from '../apps/registry';
 import { useAuth } from '../auth/AuthContext';
 import { Attachments } from '../records/Attachments';
+import { RecordServices } from '../records/RecordServices';
 import { Timeline } from '../records/Timeline';
 import { confirmDialog } from '../../shared/confirm';
 import { formatDate } from '../../shared/formatDate';
@@ -49,6 +50,7 @@ const SECTIONS: Section[] = [
   { id: 'channels', title: 'Contact details', column: 'side', Component: ChannelsSection },
   { id: 'addresses', title: 'Addresses', column: 'side', Component: AddressesSection },
   { id: 'files', title: 'Files', column: 'side', Component: Attachments },
+  { id: 'services', title: 'Services', column: 'side', Component: RecordServices },
 ];
 
 const STATUS_SUGGEST = ['lead', 'active', 'inactive'];
