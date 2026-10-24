@@ -3,7 +3,7 @@
 **What this covers:** §3: the core people and organizations tables, the primary-channel sync rule, merge rules in full, the published `contacts.api`, routes, `can_read` / `can_write`, and the frontend components.
 **Who reads it:** W2 (contacts backend), W11 (contacts frontend), the CRM port (W10/W13), any app that points at people or organizations.
 
-Code: `backend/core/contacts/{service.py, api.py, router.py}`, `frontend/src/core/contacts/`.
+Code: `backend/core/contacts/{service.py, api.py, router.py, seed.py, startup.py}` (`seed.py` and `startup.py` add sample contacts once in `PREVIEW_MODE`), `frontend/src/core/contacts/`.
 
 The directory is core so every app points at the same people. People and organizations are many-to-many with a role.
 
@@ -21,7 +21,7 @@ core_people(
   tags,                 -- JSON
   notes, owner_user_id,
   archived_at, merged_into_id,
-  …
+  created_at, updated_at
 )
 
 core_organizations(
@@ -42,18 +42,18 @@ core_contact_channels(owner_type, owner_id,
                       kind CHECK (kind IN ('email','phone','url','other')),
                       value, label, is_primary)
 
-core_contacts_fts   -- FTS5, tokenize = unicode61, over both people and organizations, maintained by triggers
+core_contacts_fts(owner_type UNINDEXED, owner_id UNINDEXED, name, email, phone, body)
+  -- FTS5, tokenize = 'unicode61 remove_diacritics 2', maintained by triggers;
+  -- rowid 2*id for a person, 2*id+1 for an organization
 ```
 
-Open (pinned by the implementing workstream, which updates this doc): the `…` columns of `core_people` (timestamps), the enum values of `source` and `status`, and the FTS column list are not stated.
+`source` and `status` are free text.
 
 ## 2. Primary-channel sync
 
-1. `core_people.email` and `core_people.phone` mirror the primary channel in `core_contact_channels`.
+1. `email` and `phone` on a person or an organization mirror its primary email and phone channel in `core_contact_channels`.
 2. They are rewritten by the service **in the same transaction** whenever channels change.
-3. There is **one writer path**: `contacts.service._sync_primary(conn, owner)`. Nothing else writes those columns.
-
-Open (pinned by the implementing workstream, which updates this doc): whether `core_organizations.email` / `phone` are mirrored the same way (`_sync_primary` takes an `owner`, and channels have `owner_type`, but the plan states the mirror only for people).
+3. There is **one writer path**: `contacts.service._sync_primary(conn, owner_type, owner_id)`. Nothing else writes those columns.
 
 ## 3. Merge
 
@@ -94,24 +94,39 @@ Each function has an `_in(conn, …)` form.
 
 | Function | Purpose |
 |---|---|
-| `get` | One person or organization. |
+| `get_person`, `get_organization` | One record, or `{"merged_into": head}` for a merged id. |
 | `search` | Search via `core_contacts_fts`. |
-| `create` | Create a person or organization. |
-| `update` | Update fields (channels through `_sync_primary`). |
+| `create_person`, `create_organization` | Create a record. |
+| `update_person`, `update_organization` | Update fields (channels through `_sync_primary`). |
 | `link` / `unlink` | Person ↔ organization with a role. |
 | `organizations_for` | Organizations of a person. |
 | `people_for` | People of an organization. |
 | `resolve_or_create_organizations` | Match organizations by name, creating the missing ones. |
-| `merge` | `merge_people_in` / organization twin. |
+| `merge_people`, `merge_organizations` | §3; the `_in` forms take `(conn, user, target_id, source_id)`. |
 | `find_duplicates` | Lifted from CakeCRM `analytics_service.py:234-330`. |
+| `resolve` | Follows `merged_into_id` to the chain head. |
 
-`resolve(id)` (follows `merged_into_id` to the chain head) is a service function the merge uses; the plan does not list it among the published functions.
-
-Open (pinned by the implementing workstream, which updates this doc): full signatures (person vs organization variants, argument names) are not stated (to be pinned by W2).
+Open (pinned by the implementing workstream, which updates this doc): the full argument lists of the remaining functions (see `backend/core/contacts/api.py`).
 
 ## 5. Routes
 
-`/api/core/contacts/{people,organizations,links,addresses,channels}` (shape to be pinned by W2). Every route authorizes through `entities.authorize`.
+All under `/api/core/contacts`, behind `current_user`:
+
+```
+GET    /search?q=&kind=&limit=                      [{kind, id, name, email, phone, url}], best match first
+GET    /people, /organizations                      lists
+POST   /people, /organizations                      create
+GET    /people/{id}, /organizations/{id}            detail, or {"merged_into": head}
+PATCH  /people/{id}, /organizations/{id}            update
+DELETE /people/{id}, /organizations/{id}            archive
+POST   /people/{id}/restore, /organizations/{id}/restore
+GET    /people/duplicates, /organizations/duplicates
+POST   /people/merge, /organizations/merge
+POST   /channels, /addresses; PATCH / DELETE /channels/{part_id}, /addresses/{part_id}
+POST / PATCH / DELETE /links                        keyed by the body
+```
+
+Routes on one record call `entities.authorize`. Create, list, search and duplicates touch no single record, so they ask the entity's `can_read` / `can_write` rule directly.
 
 ## 6. Authorization
 
