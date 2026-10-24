@@ -8,7 +8,7 @@
  */
 
 import { useEffect, useState, type FormEvent } from 'react';
-import { Navigate, useNavigate } from 'react-router';
+import { Navigate, useNavigate, useSearchParams } from 'react-router';
 import { ApiError, fetchJson, postJson } from '../api/client';
 import type { AuthStatus, Role } from '../api/types';
 import { useAuth } from './AuthContext';
@@ -24,6 +24,8 @@ function signInError(err: unknown): string {
 export function LoginPage() {
   const { user, refresh } = useAuth();
   const navigate = useNavigate();
+  // The Google callback sends an email nobody invited back here with ?error=not_invited.
+  const notInvited = useSearchParams()[0].get('error') === 'not_invited';
   const [status, setStatus] = useState<AuthStatus | null>(null);
   const [statusFailed, setStatusFailed] = useState(false);
   const [email, setEmail] = useState('');
@@ -60,6 +62,11 @@ export function LoginPage() {
 
   return (
     <AuthLayout subtitle="Sign in to continue.">
+      {notInvited && (
+        <p role="alert" className="mb-6 mt-0 text-sm text-sf-red-text">
+          That Google account hasn't been invited. Ask an admin for an invite.
+        </p>
+      )}
       {status?.preview && (
         <div className="mb-8 rounded-md border border-sf-line-strong bg-sf-card p-4">
           <p className="m-0 mb-3 text-sm text-sf-ink-mute">Preview mode: explore the sample data as</p>

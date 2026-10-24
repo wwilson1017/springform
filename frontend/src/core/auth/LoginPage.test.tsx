@@ -8,10 +8,10 @@ import { LoginPage } from './LoginPage';
 
 const status = (s: Partial<AuthStatus>): Reply => ({ body: { setup_required: false, google: false, preview: false, ...s } });
 
-function renderLogin(routes: Record<string, Reply>) {
+function renderLogin(routes: Record<string, Reply>, entry = '/login') {
   const fetchMock = mockFetch({ 'GET /api/me': { status: 401 }, ...routes });
   render(
-    <MemoryRouter initialEntries={['/login']}>
+    <MemoryRouter initialEntries={[entry]}>
       <AuthProvider>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
@@ -38,7 +38,8 @@ describe('LoginPage', () => {
   });
 
   it('shows the Google button when enabled, as a form POST to the start route', async () => {
-    renderLogin({ 'GET /api/auth/status': status({ google: true }) });
+    renderLogin({ 'GET /api/auth/status': status({ google: true }) }, '/login?error=not_invited');
+    expect(screen.getByRole('alert').textContent).toContain("hasn't been invited");
     const google = await screen.findByRole('button', { name: 'Continue with Google' });
     const form = google.closest('form')!;
     expect([form.getAttribute('method'), form.getAttribute('action')]).toEqual(['post', '/api/auth/google/start']);
