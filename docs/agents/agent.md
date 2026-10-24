@@ -47,7 +47,7 @@ core_agent_context_files(agent_slug, filename COLLATE NOCASE, content, is_protec
   -- UNIQUE(agent_slug, filename); agent_slug matches core_agents.slug by value; + FTS
 core_agent_providers(provider PK, api_key_enc, model_default, model_light, enabled, updated_at)
 core_agent_mcp_links           -- mcp.md; not built yet
-core_agent_mcp_servers         -- mcp.md; not built yet
+core_agent_mcp_servers         -- mcp.md §2
 ```
 
 Memory search is FTS5 only; there is no vector table.
@@ -142,7 +142,7 @@ The hash is the sha256 hex of `json.dumps(fields, sort_keys=True)` over the fiel
 
 ### Registry sources and refresh
 
-Sources: core packages' `tools.py` (context files, memory; `apps-and-contracts.md` §9), discovered apps' `get_tools()`, and MCP servers (`mcp.md`). A refresh builds a new registry and **swaps it in atomically**. Old specs stay valid for already-pending approvals only until their `tool_def_sha256` check fails.
+Sources: core packages' `tools.py` (context files, memory; `apps-and-contracts.md` §9), discovered apps' `get_tools()`, and MCP servers (`mcp.md`). Outbound MCP servers are the one source that changes after boot: `registry.swap_server(server_id, specs)` replaces one server's specs, rebuilds and validates the whole registry, and **swaps it in atomically** (a refused build changes nothing). Old specs stay valid for already-pending approvals only until their `tool_def_sha256` check fails. `build_registry` also refuses a remote spec (`server_url` set) that is not `always_confirm`, `untrusted_source` and `external_effect`.
 
 Deferred tools (`deferred.py`): groups keyed by app slug, deferral threshold 100 tools.
 
@@ -231,7 +231,7 @@ conversation_id, compacted, text, tool_start, tool_args, tool_end, usage, confir
 | `GET /api/core/context-files[?agent=<slug>]`, `GET` / `PUT /api/core/context-files/{filename}[?agent=<slug>]` | Context files per agent (default `whisk`). Members list them and read the unprotected ones; admins read all and write through `PUT`. Protected files (`soul.md`, `MEMORY.md`) refuse the REST editor: they change only through the confirmed chat tool. |
 | `GET /api/core/memory/facts[?q=&limit=&offset=&history=]`, `POST /api/core/memory/facts {text, tags, valid_from?}`, `DELETE /api/core/memory/facts/{id}` (admin) | Install-shared facts, not per agent. Admins see provenance, and `history=true` (admins only) adds ended facts. `DELETE` ends the fact's validity (§3). |
 | MCP links | `GET` / `POST /api/core/mcp/links`, `DELETE /api/core/mcp/links/{id}` (`mcp.md` §1). |
-| MCP servers | Not built yet; shape to be pinned by W15 (`mcp.md`). |
+| MCP servers | `/api/core/mcp/servers` (admin; `mcp.md` §2), not under `/api/agent`. |
 
 The routes under `/api/agent` are in `backend/core/agent/router.py`; the memory routes are in `backend/core/memory/router.py`.
 

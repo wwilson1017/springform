@@ -85,12 +85,11 @@ Timezone: `core_settings.timezone` (IANA, default `UTC`). Nothing hardcoded.
 | `core.job_runs_prune` | every 24 h | Delete finished runs older than 30 days. |
 | `core.login_attempts_prune` | hourly | Prune `core_login_attempts`. |
 | `core.agent_nightly` | `at` 02:00, gated by the setting `agent.nightly_enabled` | Observer + dreaming; exits early with zero keys (`agent.md`). |
+| `core.mcp_discover` | every 1 h | Rediscover every outbound MCP server's tools (`mcp.md` §2); servers one after another, `timeout=900`. |
 
 App jobs named in the plan: `crm.touch_count` every 2 min (drains ≤20 deals, LLM call outside the transaction, skipped with zero keys).
 
 All `at` times are install-local.
-
-Open (pinned by the implementing workstream, which updates this doc): the hourly outbound-MCP discovery (`mcp.md`) has no job in this list.
 
 ## 9. Step 1
 
