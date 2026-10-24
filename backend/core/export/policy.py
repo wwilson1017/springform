@@ -1,7 +1,7 @@
 """What the admin business-data export may contain: an explicit allow-list, nothing else.
 
-Each entry is `table: {"entity", "columns", "id_column"?, "where"?}`, the same shape as an app's
-`seed.EXPORT` (apps name a fixed entity type and may add `id_column`).
+Each entry is `table: {"entity", "columns", "id_column"?, "where"?, "owner_column"?}`, the same
+shape as an app's `seed.EXPORT` (apps name a fixed entity type or None; `entity` is required).
 - `entity`: the entity type that authorizes each row, or None for no row check. It may name row
   columns in braces, filled from the row: "{entity_type}" (timeline, files), "core.{owner_type}".
 - `id_column`: the row column holding that record's id; default "id" (the row is the record).

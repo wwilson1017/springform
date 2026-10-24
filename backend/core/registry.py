@@ -338,7 +338,7 @@ def _holds_data(conn: db.Conn, caller: User | None) -> bool:
 
 
 def factory_reset(caller: User | None = None) -> None:
-    """factory_reset_in in its own transaction, then the core startup hooks (preview sample contacts)."""
+    """factory_reset_in in its own transaction, then the core startup hooks (Whisk, its context files)."""
     with db.transaction() as conn:
         factory_reset_in(conn, caller)
     run_startup_hooks()
