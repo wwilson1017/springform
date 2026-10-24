@@ -207,13 +207,15 @@ Revoked and deactivated MCP links return 404 (`mcp.md`).
 | Piece | Source | Contract |
 |---|---|---|
 | `AuthContext.tsx` | CakeCRM (227) | Drop sessionStorage and BroadcastChannel; `GET /api/me` with the cookie. |
-| `LoginPage.tsx` | CakeCRM (181) | Password form + Google button + preview role picker; shows `?error=not_invited`. |
+| `LoginPage.tsx` | CakeCRM (181) | Password form, "Continue with Google" (a plain link: `GET /api/auth/google/start`), preview role picker, "Forgot password?" mode, a message for every `?error=` code, and `#totp_challenge=` from the Google callback. |
+| `ChallengeStep.tsx` | CakeCRM | The 2FA step (code or backup code, "Trust this browser"), shared by the login, invite and reset pages. |
 | `SetupPage` | new | Token field + email, name, password. |
-| `InvitePage` | new | Accept an invite: set a password or sign in with Google. |
-| Security settings card | new | 2FA enrol; "Link Google". |
-| Users admin card | new | Invite, role, deactivate, transfer. |
+| `InvitePage`, `ResetPasswordPage` | new | Public routes `/invite/:token` and `/reset-password/:token` from `routes.tsx`. A 401 on these pages is an answer, not an expired session (`core/api/client.ts`). |
+| `settingsCards.ts` | new | Sections **Account** (order 5, everyone: Profile, Security), **Users** (30, admins) and **Sign-in** (40, admins: Google client, redirect URI, Test, `require_totp_for_google`). Security holds password change, 2FA enrol/disable, trusted browsers and Link/Unlink Google. |
 
-W1 contributes the Security and Users cards through the settings registry W6 defines; it does not edit `settings/`.
+The Link Google round-trip lands on `/settings?google=linked` or `?google_error=<code>`; Settings redirects to its first section and drops the query, so `settingsCards.ts` reads it once at page load and shows a toast.
+
+W1 contributes these cards through the settings registry W6 defines; it does not edit `settings/`.
 
 ## 13. API (auth rows of the API block)
 
