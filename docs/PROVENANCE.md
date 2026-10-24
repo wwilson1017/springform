@@ -1,0 +1,15 @@
+# Provenance
+
+Every file lifted substantially from another repository gets a row here. All donors are the maintainer's own MIT code. "Commit" is the donor commit the file was read at.
+
+| Springform path | Source repo | Commit | Source path | Notes |
+|---|---|---|---|---|
+| `backend/core/db.py` (connections, `transaction()`) | todo-gtd | f2f74d8 | `backend/db.py` (lines 499–540, 782–825) | Per-thread connection, pragmas, data-dir write probe, process write lock + `BEGIN IMMEDIATE`. Added: nesting guard, outbox nudge, `flock`, SQLite version/FTS5 assertion. `synchronous=NORMAL` (donor FULL), per the plan. |
+| `backend/core/db.py` (migration runner) | CakeCRM | 3a71a7d | `backend/core/postgres.py` (`run_migrations`, lines 181–248) | Shape only: tracking table, ordered files, one transaction per file. Rewritten for SQLite `executescript` with checksums, explicit `ROLLBACK`, the `requires_core` check and the core drop/rename lint. |
+| `backend/core/secrets.py` | CakeCRM | 3a71a7d | `backend/core/encryption.py`, `backend/core/secret_store.py` | `enc:v1:` Fernet values and the env → data-dir file → generated ladder. Keychain step, dict helpers and the ephemeral fallback dropped; an invalid env value raises. |
+| `backend/core/localtime.py` | CakeCRM | 3a71a7d | `backend/core/localtime.py` | Zone from the `timezone` setting instead of `TIMEZONE`; "now" from `core.clock`. |
+| `backend/core/auth/service.py` | CakeCRM | 3a71a7d | `backend/users/service.py`, `backend/core/auth.py` | Email normalization, bcrypt failing closed, the timing equalizer, the `'!'` sentinel, epoch bump. Login limits moved from memory to `core_login_attempts`. |
+| `backend/core/auth/jwt.py`, `backend/core/auth/deps.py`, `backend/core/auth/router.py` | CakeCRM | 3a71a7d | `backend/core/auth.py` | `sub` + `pwd_epoch` token, live-row `current_user`, `require_admin`. python-jose → PyJWT; the `sf_session` cookie is read before a bearer header; 2FA and password change are not lifted yet. |
+| `backend/core/auth/bootstrap.py` | CakeCRM | 3a71a7d | `backend/users/bootstrap.py` | Structure only (first admin in one locked transaction); env-password seeding and legacy claims replaced by the setup token. |
+| `backend/core/timeline/service.py` | CakeCRM | 3a71a7d | `backend/crm/chatter_service.py` | Body validation, bounded windows, author per row; generalised to any registered entity behind `entities.authorize`. Mentions and scoring calls not lifted. |
+| `backend/core/agent/registry.py`, `backend/core/agent/spec.py` | CakeCRM | 3a71a7d | `backend/assistant/registry.py`, `backend/assistant/confirm_tier.py` | Fail-loud validation (duplicates, boolean `writes`, `confirm_tier` only `"routine"` and only on writes); dict defs became `ToolSpec`. Sources, read-only mode and dispatch not lifted. |

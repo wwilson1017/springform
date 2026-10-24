@@ -1,0 +1,9 @@
+{
+  "slug": "adminonly",
+  "name": "Admin only",
+  "description": "Test fixture: an app only admins may use.",
+  "path": "/adminonly",
+  "roles": ["admin"],
+  "version": "0.1.0",
+  "requires_core": ">=0.1,<1"
+}

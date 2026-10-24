@@ -1,0 +1,1 @@
+DEFAULTS = {"color": "red"}
