@@ -19,8 +19,11 @@ if [ -n "$(git status --porcelain)" ]; then
   exit 2
 fi
 
+upstream_url=$(sed -n 's/^upstream-repo:[[:space:]]*//p' FORK.md)
+fork_repo=$(git remote get-url origin | sed -E 's#^(https://github\.com/|git@github\.com:)##; s#\.git$##')
 git fetch --quiet origin
-git fetch --quiet --no-tags upstream tag "$tag"
+# From the URL in FORK.md, so a fresh clone of the fork works without an `upstream` remote.
+git fetch --quiet --no-tags "$upstream_url" "refs/tags/$tag:refs/tags/$tag"
 branch=upstream-$tag
 git switch --quiet -c "$branch" origin/master
 if ! git merge --quiet --no-edit -m "Merge upstream $tag" "$tag"; then
@@ -31,17 +34,18 @@ fi
 sed -i.bak "s/^upstream:.*/upstream: $tag/" FORK.md && rm FORK.md.bak
 
 uv sync --frozen
+(cd frontend && npm ci)   # gen-types needs node_modules
 scripts/gen-types.sh
 uv run ruff check .
 uv run pytest -q
-(cd frontend && npm ci && npm run lint && npm run typecheck && npm test && npm run build)
+(cd frontend && npm run lint && npm run typecheck && npm test && npm run build)
 git add FORK.md frontend/src/core/api/types.gen.ts
 git commit --quiet -m "Update to upstream $tag"
 scripts/check-fork-scope.sh
 
-upstream_url=$(sed -n 's/^upstream-repo:[[:space:]]*//p' FORK.md)
 git push --quiet -u origin "$branch"
-gh pr create --base master --head "$branch" --title "Update to upstream Springform $tag" --body \
+# --repo: in a fork clone gh may otherwise resolve to the public upstream.
+gh pr create --repo "$fork_repo" --base master --head "$branch" --title "Update to upstream Springform $tag" --body \
 "**In plain English:** this brings the fork up to Springform $tag. Core files now match that
 release exactly; this fork's own apps are untouched.
 

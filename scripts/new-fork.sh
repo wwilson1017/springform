@@ -59,7 +59,9 @@ work lives in backend/apps/, frontend/src/apps/ and docs/apps/ (plus the globs i
 fork-allow.txt). CI's Fork scope job, scripts/check-fork-scope.sh, enforces it.
 
 - Take a new upstream release with \`scripts/update-from-upstream.sh vX.Y.Z\`.
-- Tag this fork's own releases \`vX.Y.Z-$name.N\` so they never collide with upstream tags.
+- Tag this fork's own releases \`v<springform-version>-$name.N\` (for example \`v0.1.1-$name.1\`):
+  the tag must start with \`v\` plus the pinned core's \`springform-version\`, and each such tag
+  moves this fork's image \`:latest\`.
 
 <!-- $note -->
 upstream: $pin
@@ -79,6 +81,12 @@ run git -C "$dir" add FORK.md
 run git -C "$dir" commit --quiet -m "Fork of Springform at $pin"
 run gh repo create "$repo" --private --source "$dir" --remote origin --push
 run "$dir/scripts/seed-labels.sh" --repo "$repo"
+# In the clone, gh would otherwise resolve to the public upstream (the `upstream` remote).
+if [ -n "$dry" ]; then
+  echo "+ (cd $dir && gh repo set-default $repo)"
+else
+  (cd "$dir" && gh repo set-default "$repo")
+fi
 
 protect=(api --silent -X PUT "repos/$repo/branches/master/protection"
   -F 'required_status_checks[strict]=false')
@@ -97,8 +105,9 @@ else
   sha=$(git -C "$dir" rev-parse HEAD)
   run_id=
   for _ in $(seq 30); do
-    run_id=$(gh run list --repo "$repo" --workflow ci.yml --commit "$sha" --json databaseId \
-      --jq '.[0].databaseId // empty')
+    # The workflow is registered a few seconds after the push; a 404 here is not an error yet.
+    run_id=$(gh run list --repo "$repo" --commit "$sha" --json databaseId,workflowName \
+      --jq '[.[] | select(.workflowName == "CI")][0].databaseId // empty' 2>/dev/null || true)
     [ -n "$run_id" ] && break
     sleep 5
   done

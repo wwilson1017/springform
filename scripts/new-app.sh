@@ -23,6 +23,8 @@ for other in core $(ls "$root/backend/apps"); do
 done
 [[ $name =~ ^[A-Za-z0-9][A-Za-z0-9\ -]{0,39}$ ]] || { echo "name: letters, digits, spaces and hyphens, up to 40" >&2; exit 1; }
 backend="$root/backend/apps/$slug"
+# Prefix for the scaffold's Pydantic models: FastAPI module-qualifies schemas whose class names collide.
+pascal=$(printf '%s' "$slug" | awk -F_ '{for (i = 1; i <= NF; i++) $i = toupper(substr($i, 1, 1)) substr($i, 2)} 1' OFS=)
 frontend="$root/frontend/src/apps/$slug"
 [ ! -e "$backend" ] && [ ! -e "$frontend" ] || { echo "app '$slug' already exists" >&2; exit 1; }
 
@@ -107,7 +109,7 @@ from backend.core.auth.deps import User, current_user
 router = APIRouter()
 
 
-class ItemIn(BaseModel):
+class ${pascal}ItemIn(BaseModel):
     name: str = Field(min_length=1, max_length=200)
 
 
@@ -117,7 +119,7 @@ def list_items(user: User = Depends(current_user)) -> list[dict]:
 
 
 @router.post("/items")
-def create_item(body: ItemIn, user: User = Depends(current_user)) -> dict:
+def create_item(body: ${pascal}ItemIn, user: User = Depends(current_user)) -> dict:
     return api.create_item(user, body.name)
 
 
@@ -158,8 +160,9 @@ DEFAULTS: dict = {}  # keys are named "$slug.<key>"
 EOF
 
 cat > "$backend/docs/index.md" <<EOF
-# $name
-
+---
+title: $name
+---
 What this app is for, written for the people who use it.
 EOF
 
@@ -194,4 +197,6 @@ created_frontend=" (no frontend/src here, so no screen placeholders)"
 fi
 
 echo "Created backend/apps/$slug${created_frontend}."
-echo "Check it: uv run pytest backend/tests/test_app_contract.py"
+echo "Then: uv run pytest backend/tests/test_app_contract.py"
+echo "      scripts/gen-types.sh   (commit frontend/src/core/api/types.gen.ts with the app)"
+echo "      scripts/seed-labels.sh (adds the app:$slug label)"

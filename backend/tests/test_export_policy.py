@@ -143,7 +143,7 @@ def test_export_pins_columns_omits_secrets_and_carries_a_manifest(app, login_as,
     assert [u["role"] for u in _csv(z, "core_users")] == ["system", "admin"]
 
     manifest = json.loads(z.read("manifest.json"))
-    assert (manifest["version"], manifest["created_at"], manifest["exported_by"]) == ("0.1.0", "2026-11-02T09:00:00Z", admin.user["id"])
+    assert (manifest["version"], manifest["created_at"], manifest["exported_by"]) == (core_db.VERSION, "2026-11-02T09:00:00Z", admin.user["id"])
     counts = {t["name"]: t["rows"] for t in manifest["tables"]}
     assert counts["core_people"] == 1 and counts["core_users"] == 2 and counts["example_widgets"] == 0
     assert set(counts) == {n.removesuffix(".csv") for n in names if n.endswith(".csv")}

@@ -15,7 +15,7 @@ The app contract replaces the 25 core edits a previous CakeCRM fork needed. An a
 | `name` | string | Display name (launcher tile, settings section). |
 | `description` | string | Launcher/tile description. |
 | `path` | string | Must equal `/<slug>`. |
-| `icon` | string | Icon name for the tile. |
+| `icon` | string | Icon name for the tile, from the vocabulary below; default `box`. |
 | `roles` | list | Subset of `admin`, `member`. Enforced on the router at mount and inherited by the app's entities, reports and tools (`authorization.md`). |
 | `order` | int | Default launcher order; `core_apps_state.position` overrides it when set. |
 | `hidden_by_default` | bool, optional | Default `false`. When `true`, the app starts hidden (§4) on an install that has not seen it before: it is read only when the app's `core_apps_state` row is first created, at boot or after a factory reset, so an admin's later show or hide always wins. The example sets it. |
@@ -49,7 +49,7 @@ The current fixture manifest (`backend/apps/example/app.json`):
 }
 ```
 
-Open (pinned by the implementing workstream, which updates this doc): the `icon` vocabulary is not stated.
+`icon` vocabulary (`APP_ICONS` in `frontend/src/shared/icons.tsx`): `flask`, `users`, `user`, `check-square`, `building`, `calendar`, `mail`, `chart`, `file`, `book`, `inbox`, `target`, `home`, `settings`, `bell`, `grid`. Any other name, including the manifest default `box`, renders the `grid` glyph. Adding a glyph means drawing it in `icons.tsx` (plain geometry, no icon set) and adding it to the map.
 
 ## 2. Backend modules
 

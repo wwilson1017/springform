@@ -87,7 +87,7 @@ Timezone: `core_settings.timezone` (IANA, default `UTC`). Nothing hardcoded.
 | `core.agent_nightly` | `at` 02:00, gated by the setting `agent.nightly_enabled` | Observer + dreaming; exits early with zero keys (`agent.md`). |
 | `core.mcp_discover` | every 1 h | Rediscover every outbound MCP server's tools (`mcp.md` §2); servers one after another, `timeout=900`. |
 
-App jobs named in the plan: `crm.touch_count` every 2 min (drains ≤20 deals, LLM call outside the transaction, skipped with zero keys).
+CRM jobs (`backend/apps/crm/jobs.py`): `crm.touch_count` every 120 s takes up to 20 deals, each committed on its own, with the LLM call outside the transaction; it returns `skipped: disabled` when the `crm.touch_count_enabled` setting is off and `skipped: no_provider` when no light-tier provider is configured (a keyless install writes no counts, not even zeros). `crm.scores_refresh` hourly rescores the stalest deals and people without an LLM.
 
 All `at` times are install-local.
 

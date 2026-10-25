@@ -17,7 +17,8 @@ while [ $# -gt 0 ]; do
     *) echo "unknown argument: $1" >&2; exit 2 ;;
   esac
 done
-[ -n "$repo" ] || repo=$(gh repo view --json nameWithOwner -q .nameWithOwner)
+# From origin, not gh's default: in a fork clone gh may resolve to the public upstream.
+[ -n "$repo" ] || repo=$(git remote get-url origin | sed -E 's#^(https://github\.com/|git@github\.com:)##; s#\.git$##')
 
 # name|colour|description (green = go, yellow = in flight, orange = parked, red = stop)
 labels=(
