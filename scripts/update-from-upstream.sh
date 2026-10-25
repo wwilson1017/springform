@@ -40,17 +40,24 @@ uv run ruff check .
 uv run pytest -q
 (cd frontend && npm run lint && npm run typecheck && npm test && npm run build)
 git add FORK.md frontend/src/core/api/types.gen.ts
+types_line=
+git diff --quiet --cached -- frontend/src/core/api/types.gen.ts || types_line="
+- Regenerates \`frontend/src/core/api/types.gen.ts\`"
 git commit --quiet -m "Update to upstream $tag"
 scripts/check-fork-scope.sh
 
 git push --quiet -u origin "$branch"
-# --repo: in a fork clone gh may otherwise resolve to the public upstream.
-gh pr create --repo "$fork_repo" --base master --head "$branch" --title "Update to upstream Springform $tag" --body \
+# --repo: in a fork clone gh may otherwise resolve to the public upstream. The label keeps an
+# automatic squash away: an update PR lands as a merge commit (docs/agents/forks.md §3).
+gh pr create --repo "$fork_repo" --base master --head "$branch" --label no-auto-merge \
+  --title "Update to upstream Springform $tag" --body \
 "**In plain English:** this brings the fork up to Springform $tag. Core files now match that
 release exactly; this fork's own apps are untouched.
 
-- Merges upstream tag \`$tag\` and moves the pin in \`FORK.md\`
-- Regenerates \`frontend/src/core/api/types.gen.ts\`
+**Merge this with a merge commit, not a squash.** A squash drops upstream's history, so the next
+update conflicts on every line upstream changes twice (\`springform-version\` first).
+
+- Merges upstream tag \`$tag\` and moves the pin in \`FORK.md\`$types_line
 - What changed upstream: $upstream_url/blob/$tag/CHANGELOG.md
 
 Test plan: backend and frontend suites and the fork scope check passed locally; CI reruns them."
