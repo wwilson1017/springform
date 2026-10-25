@@ -271,6 +271,8 @@ def _links_in(conn: db.Conn, kind: str, record_id: int) -> list[dict]:
 
 def _detail_in(conn: db.Conn, kind: str, record_id: int) -> dict:
     rec = _row_in(conn, kind, record_id)
+    owner = conn.execute("SELECT name FROM core_users WHERE id = ?", (rec["owner_user_id"],)).fetchone()
+    rec["owner_name"] = owner[0] if owner else None  # kept out of _row_in, whose dict the change log diffs
     rec["organizations" if kind == "person" else "people"] = _links_in(conn, kind, record_id)
     for part in PARTS.values():
         rec[part.plural] = [
@@ -314,7 +316,7 @@ def list_in(
     organization_id: int | None = None, tag: str | None = None, page: int = 1, page_size: int | None = None,
 ) -> dict:
     """One page of unmerged records, live or (archived=True) archived, ordered by name.
-    People rows carry their primary organization's id and name."""
+    Rows carry the owner's name; people rows also their primary organization's id and name."""
     _gate(user, conn, kind, "read")
     where, params = ["r.merged_into_id IS NULL", f"r.archived_at IS {'NOT ' if archived else ''}NULL"], []
     if match := _match(q):
@@ -332,10 +334,11 @@ def list_in(
     total = conn.execute(f"SELECT count(*) FROM {table} r WHERE {clause}", params).fetchone()[0]
     limit, _ = pagination.window(page_size)
     page = max(1, int(page or 1))
-    select, join = "r.*", ""
+    select, join = "r.*, u.name AS owner_name", "LEFT JOIN core_users u ON u.id = r.owner_user_id"
     if kind == "person":
         select += ", o.id AS primary_organization_id, o.name AS primary_organization_name"
-        join = f"""LEFT JOIN {LINKS} l ON l.person_id = r.id AND l.is_primary = 1
+        join += f"""
+                   LEFT JOIN {LINKS} l ON l.person_id = r.id AND l.is_primary = 1
                    LEFT JOIN core_organizations o ON o.id = l.organization_id"""
     rows = conn.execute(
         f"SELECT {select} FROM {table} r {join} WHERE {clause} ORDER BY r.name COLLATE NOCASE, r.id LIMIT ? OFFSET ?",

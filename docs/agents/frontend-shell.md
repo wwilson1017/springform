@@ -133,7 +133,7 @@ POST /api/auth/logout  -> 204, clears the cookie
 POST /api/auth/preview {role} -> 200 {user} + cookie (PREVIEW_MODE only, else 404)
 GET  /api/me           -> {id, email, name, role: "admin"|"member", tz}; 401 when not signed in
 GET  /api/core/apps    -> [{slug, name, description, path, icon, roles, order, badge, hidden, settings_cards, version}] for the caller's role; admins also receive hidden apps with hidden:true
-GET  /api/health       -> {version, sqlite_version, fts5, preview, apps:[slug], last_backup_at}   (no auth)
+GET  /api/health       -> {version, sqlite_version, fts5, preview, apps:[slug], last_backup_at, key_mismatch}   (no auth)
 GET  /up               -> 200 "ok"   (no auth)
 GET  /api/example/widgets[?person_id=]   -> [Widget]  Widget = {id, name, color, owner_user_id, person_id, is_private, created_at, updated_at}
 POST /api/example/widgets {name, color?, is_private?, person_id?} -> Widget

@@ -21,6 +21,7 @@ class PersonRecord(Out):
     tags: list[str]
     notes: str | None
     owner_user_id: int | None
+    owner_name: str | None  # the owner's name; None when no owner is set or the user row is gone
     archived_at: str | None
     merged_into_id: int | None
     created_at: str
@@ -47,6 +48,7 @@ class OrganizationRecord(Out):
     status: str | None
     tags: list[str]
     owner_user_id: int | None
+    owner_name: str | None  # the owner's name; None when no owner is set or the user row is gone
     archived_at: str | None
     merged_into_id: int | None
     created_at: str

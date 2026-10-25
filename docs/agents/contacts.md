@@ -139,6 +139,8 @@ POST   /channels, /addresses; PATCH / DELETE /channels/{part_id}, /addresses/{pa
 POST / PATCH / DELETE /links                        keyed by the body
 ```
 
+List rows and details carry every column of the record plus `owner_name`, the owner's name from `core_users` (null when `owner_user_id` is unset or names no user), read with one join per list page and one lookup per detail. People rows also carry `primary_organization_id` and `primary_organization_name`.
+
 Routes on one record call `entities.authorize`. Create, list, search and duplicates touch no single record, so they ask the entity's `can_read` / `can_write` rule directly.
 
 ## 6. Authorization

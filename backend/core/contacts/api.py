@@ -7,7 +7,8 @@ acting `User`, and every call authorizes through `entities.authorize`. Errors co
 `backend.core.errors`: NotFound (404), Forbidden (403), Invalid (422), Conflict (409; also any
 write to a merged id).
 
-Record shapes (all columns of the row; `tags` a list):
+Record shapes (all columns of the row; `tags` a list; a detail adds `owner_name`, the owner's
+name or None):
 - person: {id, name, given_name, family_name, email, phone, title, source, status, tags, notes,
   owner_user_id, archived_at, merged_into_id, created_at, updated_at}
   + detail: organizations [{organization_id, name, archived_at, role, is_primary, started_on, ended_on}]

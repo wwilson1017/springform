@@ -50,6 +50,7 @@ class BackupsOverview(Out):
     last_run: BackupRun | None
     key_source: KeySource
     key_shown: bool
+    key_mismatch: str | None  # the newest manifest taken under another encryption key, as the last boot found it
 
 
 class KeyReveal(Out):

@@ -16,6 +16,7 @@
 7. Providers: a **FakeProvider** stands in for LLM providers; nothing calls a real model.
 8. HTTP to external services is mocked (Google token endpoint) or served locally: inbound MCP runs through `httpx2.ASGITransport`, and the outbound client talks to `backend/tests/fixtures/mcp_stub.py`, a two-tool `MCPServer` on a loopback port (with `MCP_ALLOW_PRIVATE=1`).
 9. The contract test runs against every app in `backend/apps/` and against `backend/tests/fixtures/bad_app`, which it must fail.
+10. **Typed routes**: `test_routes_are_typed.py` fails when a `/api/core/*`, `/api/agent/*` or `/api/health` route answers without a response model, unless its `UNTYPED` allow-list names the route with a reason (streams, downloads and a few bodies not typed yet). `test_response_models.py` pins each typed route's keys in `fixtures/response_shapes.json`.
 
 ### Vitest (`frontend/vitest.config.ts`)
 

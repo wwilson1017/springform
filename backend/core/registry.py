@@ -100,6 +100,7 @@ class AppManifest(BaseModel):
     icon: str = "box"
     roles: list[Literal["admin", "member"]] = Field(min_length=1)
     order: int = 500
+    hidden_by_default: bool = False  # read once, when the app's core_apps_state row is first created
     badge: str | None = None
     docs: str = "docs/index.md"
     version: str
@@ -310,7 +311,16 @@ def seed_apps() -> None:
     """Each app's seed(conn) on boot, one transaction per app; seeds must be idempotent."""
     for app in _APPS:
         with db.transaction() as conn:
-            app.modules["seed"].seed(conn)
+            _seed_app_in(conn, app)
+
+
+def _seed_app_in(conn: db.Conn, app: App) -> None:
+    """The app's launcher state on first sight (hidden when its manifest says `hidden_by_default`;
+    an existing row is the admin's choice and stays), then its seed."""
+    conn.execute(
+        "INSERT OR IGNORE INTO core_apps_state (slug, hidden) VALUES (?, ?)", (app.slug, int(app.manifest.hidden_by_default))
+    )
+    app.modules["seed"].seed(conn)
 
 
 def reset_app_in(conn: db.Conn, slug: str) -> None:
@@ -365,7 +375,7 @@ def factory_reset_in(conn: db.Conn, caller: User | None = None) -> None:
            VALUES (0, 'system@springform.local', 'System', 'system', '!', 1, '2026-10-20T00:00:00Z', '2026-10-20T00:00:00Z')"""
     )
     for app in _APPS:
-        app.modules["seed"].seed(conn)
+        _seed_app_in(conn, app)
     if settings.preview_mode():
         from backend.core import preview
 

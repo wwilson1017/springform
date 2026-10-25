@@ -82,6 +82,21 @@ def test_keeps_the_newest_seven_sets_and_clears_abandoned_files(db, freeze):
     assert next(s for s in service.list_sets() if s["stamp"] == "20200101T000001Z")["manifest_ok"] is False
 
 
+def test_runs_in_the_same_second_each_get_a_complete_set(db, freeze):
+    freeze("2026-11-02T15:00:00Z")  # SPRINGFORM_FREEZE_CLOCK, or a double click on "Back up now"
+    first, second = service.run("manual"), service.run("manual")
+    assert (first["status"], first["snapshot"]) == ("ok", "20261102T150000Z.sqlite")
+    assert (second["status"], second["snapshot"], second["manifest"]) == ("ok", "20261102T150000Z-2.sqlite", "20261102T150000Z-2.manifest.json")
+    assert service.read_manifest("20261102T150000Z-2")["snapshot"]["filename"] == second["snapshot"]
+    assert service.snapshot_path("20261102T150000Z-2").name == second["snapshot"]
+    assert [(s["stamp"], s["manifest_ok"]) for s in service.list_sets()] == [("20261102T150000Z-2", True), ("20261102T150000Z", True)]
+    for _ in range(9):  # -3 … -11: retention counts -10 after -9, not after the plain stamp
+        assert service.run()["status"] == "ok"
+    kept = [f"20261102T150000Z-{n}" for n in range(11, 4, -1)]
+    assert [s["stamp"] for s in service.list_sets()] == kept
+    assert service.complete_stamps() == kept[::-1]
+
+
 def test_low_free_space_skips_the_backup_and_says_why(db, monkeypatch):
     monkeypatch.setattr(shutil, "disk_usage", lambda path: SimpleNamespace(free=50 * 2**20))
     row = service.run()
@@ -178,19 +193,25 @@ def test_an_environment_key_is_never_returned(login_as, monkeypatch):
     assert not (core_db.data_dir() / ".encryption-key").exists()
 
 
-def test_boot_flags_a_key_that_is_not_the_newest_backups(db, caplog):
+def test_boot_flags_a_key_that_is_not_the_newest_backups(client, login_as, caplog):
     from backend.core import settings
     from backend.core.backup import startup
 
+    admin = login_as("admin")
+
+    def shown() -> tuple[str | None, bool]:  # the Backups page names the manifest; public health says only whether
+        return admin.get("/api/core/backups").json()["key_mismatch"], client.get("/api/health").json()["key_mismatch"]
+
     startup.on_startup()  # no backups yet: nothing to compare
-    assert settings.get_setting(startup.KEY_MISMATCH) is None
+    assert settings.get_setting(startup.KEY_MISMATCH) is None and shown() == (None, False)
     _out().mkdir(parents=True, exist_ok=True)
     (_out() / "20261001T030000Z.manifest.json").write_text(json.dumps({"key_fingerprint": secrets.key_fingerprint()}))
     (_out() / "20261002T030000Z.manifest.json").write_text(json.dumps({"key_fingerprint": "wrong-key"}))
     startup.on_startup()  # a hand-copied /data under another key: boots, flags, logs the remedy
     assert settings.get_setting(startup.KEY_MISMATCH) == "20261002T030000Z.manifest.json"
+    assert shown() == ("20261002T030000Z.manifest.json", True)
     [error] = [r for r in caplog.records if r.levelname == "ERROR"]
     assert "20261002T030000Z.manifest.json" in error.getMessage() and "Restore the matching key" in error.getMessage()
     (_out() / "20261003T030000Z.manifest.json").write_text(json.dumps({"key_fingerprint": secrets.key_fingerprint()}))
     startup.on_startup()  # the newest set matches again
-    assert settings.get_setting(startup.KEY_MISMATCH) is None
+    assert settings.get_setting(startup.KEY_MISMATCH) is None and shown() == (None, False)

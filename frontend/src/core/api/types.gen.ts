@@ -3640,6 +3640,8 @@ export interface components {
         };
         /** BackupsOverview */
         BackupsOverview: {
+            /** Key Mismatch */
+            key_mismatch: string | null;
             /** Key Shown */
             key_shown: boolean;
             /**
@@ -4688,6 +4690,8 @@ export interface components {
             apps: string[];
             /** Fts5 */
             fts5: boolean;
+            /** Key Mismatch */
+            key_mismatch: boolean;
             /** Last Backup At */
             last_backup_at: string | null;
             /** Preview */
@@ -5314,6 +5318,8 @@ export interface components {
             name: string;
             /** Notes */
             notes: string | null;
+            /** Owner Name */
+            owner_name: string | null;
             /** Owner User Id */
             owner_user_id: number | null;
             /** People */
@@ -5407,6 +5413,8 @@ export interface components {
             name: string;
             /** Notes */
             notes: string | null;
+            /** Owner Name */
+            owner_name: string | null;
             /** Owner User Id */
             owner_user_id: number | null;
             /** Phone */
@@ -5488,6 +5496,8 @@ export interface components {
             notes: string | null;
             /** Organizations */
             organizations: components["schemas"]["OrganizationLink"][];
+            /** Owner Name */
+            owner_name: string | null;
             /** Owner User Id */
             owner_user_id: number | null;
             /** Phone */
@@ -5588,6 +5598,8 @@ export interface components {
             name: string;
             /** Notes */
             notes: string | null;
+            /** Owner Name */
+            owner_name: string | null;
             /** Owner User Id */
             owner_user_id: number | null;
             /** Phone */
