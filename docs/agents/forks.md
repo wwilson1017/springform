@@ -40,9 +40,11 @@ scripts/update-from-upstream.sh vX.Y.Z
 3. Bump the tag in `FORK.md`.
 4. Regenerate types (`scripts/gen-types.sh`).
 5. Run the suite.
-6. Open a PR.
+6. Open a PR labelled `no-auto-merge`, whose body asks for a merge commit.
 
 An upstream-update PR passes the scope check because it moves the tag in the same PR.
+
+**Merge an update PR with a merge commit, never a squash.** A squash drops upstream's commits from the fork's history, so the next `git merge <tag>` starts from the old merge base and conflicts on every line upstream changed twice, `springform-version` first (a squashed fork reproduced this on the next release; a merge-commit fork merged cleanly). The label keeps an automatic ship lane, which squashes, off the PR; a person merges it with "Create a merge commit".
 
 ## 4. `scripts/check-fork-scope.sh`
 

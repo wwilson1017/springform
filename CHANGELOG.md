@@ -18,6 +18,12 @@ Conventions:
 
 ## [Unreleased]
 
+### Fixed
+
+- `update-from-upstream.sh` labels its PR `no-auto-merge` and the PR body asks for a merge commit:
+  a squash drops upstream's history and makes the next update conflict. The body mentions the
+  regenerated types file only when it changed.
+
 ## [0.1.1] - 2026-10-25
 
 Fixes from the first run of the fork tooling against a throwaway fork.
