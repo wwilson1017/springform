@@ -1,7 +1,7 @@
 # Connected Sheets and export
 
 **What this covers:** §9 in full: the Google service account, the connected-sheets tables, the published sheets client, refresh and its throttle, CSV streaming, the admin export policy and its row rules, and the never-export list.
-**Who reads it:** W4 (Sheets + CSV + export policy + Sheets page), any app declaring `sheets` in `app.json` or `EXPORT` in `seed.py`, and anyone streaming a CSV.
+**Who reads it:** W4 (Sheets + CSV + export policy + Sheets card), any app declaring `sheets` in `app.json` or `EXPORT` in `seed.py`, and anyone streaming a CSV.
 
 Code: the `backend/core/sheets/` package (`api.py` the published client, `service.py`, `google.py`, `jobs.py`, `router.py`) and the `backend/core/export/` package (`csv_export.py`, `policy.py`, `service.py`, `router.py`).
 
@@ -11,7 +11,7 @@ Google access is `backend/core/sheets/google.py`: a new REST client, `GoogleShee
 
 1. The service-account JSON is stored encrypted in `core_settings['sheets.service_account_json']`, written by the admin-only `PUT /api/core/sheets/credentials {service_account_json}`.
 2. The admin-only `GET /api/core/sheets/credentials` returns `{configured, service_account_email}`. The UI shows the email as: "share with this address: Viewer for read, Editor for write".
-3. Settings has a Sheets key card; the Sheets admin page lists connected sheets (`frontend-shell.md`).
+3. Settings → Google Sheets (one admin-only card, `frontend/src/core/integrations/`) holds the service-account key and lists the connected sheets with Refresh and a preview drawer. There is no separate Sheets page.
 
 Lifted from cake_os `backend/core/agents/tools/sheets_tools.py`: the A1 helpers (171–270) and `forbidden_formula` / `check_values` (111–170).
 

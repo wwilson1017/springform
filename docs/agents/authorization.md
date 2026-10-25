@@ -172,7 +172,7 @@ Two members, one private todo. Every core surface refuses the other member:
 
 Plus: a member calling an admin-only app's API directly gets 403. Step 1b runs the same check on an `example` record across every surface built in Step 1.
 
-Open (pinned by the implementing workstream, which updates this doc): which search endpoint the "search" surface means (contacts FTS, timeline FTS, a global search) is not stated.
+The "search" surface is the two search endpoints that exist: `GET /api/core/contacts/search` (FTS5 over people and organizations, which every active member may read) and `GET /api/core/guide/search` (docs only). Timeline rows are read through their record's timeline after `authorize(read)`, so a private record's notes never surface through search; there is no global search endpoint.
 
 ## Tests that pin this
 

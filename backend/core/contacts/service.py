@@ -719,8 +719,8 @@ def merge_in(conn: db.Conn, kind: str, target_id: int, source_id: int, actor: Us
         raise Conflict(f"{kind} #{target} is archived; restore it before merging into it")
     _merge_links_in(conn, kind, target, source)
     _merge_parts_in(conn, kind, target, source)
-    # TODO fields: custom field values (target's non-empty value wins, else the source's) belong
-    # to the fields service, which subscribes to on_entity_merged like timeline and files do.
+    # Custom field values, timeline rows, files, reminders and app rows move in the subscribers
+    # below (fields: the target's non-empty value wins, else the source's).
     entities.on_entity_merged_in(conn, k.entity, target, source)
     now = clock.now_iso()
     conn.execute(

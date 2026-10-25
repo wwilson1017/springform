@@ -3,8 +3,10 @@ name: Release
 # A vX.Y.Z tag publishes ghcr.io/<this repo>:vX.Y.Z and :latest (linux/amd64), after the whole
 # CI workflow passes on the tagged commit and the tag equals "v" + springform-version (so the
 # image never reports a version other than its tag). A pre-release tag (with a hyphen,
-# v0.2.0-rc1) publishes only its own tag. In a fork the same file publishes the fork's own image,
-# with its apps, under the fork's org. Why there is no arm64 image yet: docs/agents/deploy.md §9.
+# v0.2.0-rc1, with springform-version 0.2.0-rc1) publishes only its own tag. In a fork (FORK.md
+# present) springform-version is upstream's, so a fork tag is v<springform-version>-<fork>.N and
+# every such tag moves the fork image's :latest. Why there is no arm64 image yet:
+# docs/agents/deploy.md §9.
 
 on:
   push:
@@ -31,11 +33,18 @@ jobs:
         run: |
           set -euo pipefail
           version="$(tr -d '[:space:]' < springform-version)"
-          if [ "$GITHUB_REF_NAME" != "v$version" ]; then
+          if [ -f FORK.md ]; then
+            # A fork cannot edit springform-version (core), so its tags extend upstream's version.
+            case "$GITHUB_REF_NAME" in
+              "v$version"-?*) echo "fork tag $GITHUB_REF_NAME extends springform-version $version" ;;
+              *) echo "::error::a fork tag must be v$version-<fork>.N (core is pinned at $version); got $GITHUB_REF_NAME"; exit 1 ;;
+            esac
+          elif [ "$GITHUB_REF_NAME" != "v$version" ]; then
             echo "::error::tag $GITHUB_REF_NAME does not match springform-version ($version); bump the file, then tag v$version"
             exit 1
+          else
+            echo "tag $GITHUB_REF_NAME matches springform-version"
           fi
-          echo "tag $GITHUB_REF_NAME matches springform-version"
 
   image:
     name: Publish image
@@ -50,7 +59,8 @@ jobs:
         with:
           persist-credentials: false
 
-      # :latest is what deploy/compose.yml runs by default, so only a release moves it.
+      # :latest is what deploy/compose.yml runs by default, so only a release moves it. Upstream: a
+      # tag without a hyphen. A fork: every tag (its tags always carry a hyphen, see the version job).
       - name: Build and push
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -58,10 +68,14 @@ jobs:
           set -euo pipefail
           image="ghcr.io/${GITHUB_REPOSITORY,,}"   # registry names must be lowercase
           tags=("$image:$GITHUB_REF_NAME")
-          case "$GITHUB_REF_NAME" in
-            *-*) echo "Pre-release tag: :latest stays where it is" ;;
-            *) tags+=("$image:latest") ;;
-          esac
+          if [ -f FORK.md ]; then
+            tags+=("$image:latest")
+          else
+            case "$GITHUB_REF_NAME" in
+              *-*) echo "Pre-release tag: :latest stays where it is" ;;
+              *) tags+=("$image:latest") ;;
+            esac
+          fi
           echo "$GITHUB_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
           docker build \
             --label "org.opencontainers.image.source=$GITHUB_SERVER_URL/$GITHUB_REPOSITORY" \

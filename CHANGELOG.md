@@ -18,6 +18,33 @@ Conventions:
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-10-25
+
+Fixes from the first run of the fork tooling against a throwaway fork.
+
+### Changed
+
+- Fork releases: a fork tags `v<springform-version>-<fork>.N` (core is pinned, so the version file
+  cannot move), the release workflow accepts those tags in a fork and every one of them moves the
+  fork image's `:latest`. Upstream tags still have to equal `v` + `springform-version`.
+- Agent docs state the app icon vocabulary, the two search endpoints, the CRM jobs' keyless
+  behaviour and where connected Google Sheets are managed, in place of four open questions.
+
+### Fixed
+
+- `new-fork.sh` no longer exits while waiting for the fork's first CI run (the workflow registers a
+  few seconds after the push), and sets `gh`'s default repo to the fork in the clone so `gh` never
+  resolves to the public upstream there. `seed-labels.sh` without `--repo` and
+  `update-from-upstream.sh` take the repo from `origin` for the same reason.
+- `update-from-upstream.sh` installs frontend dependencies before regenerating types, so it works
+  in a fresh clone, and fetches the upstream tag from the URL in `FORK.md`, so it does not need an
+  `upstream` remote.
+- `new-app.sh` scaffolds a model name prefixed with the app (`NotesItemIn`), so generated types do
+  not collide with Todos', and a `docs/index.md` with the front matter the Guide requires; it ends by
+  naming the type generation and label steps.
+- Browser smoke: the launcher and hidden-app specs check that the built-in apps are present or
+  absent instead of matching the whole list, so a fork's own apps do not turn the job red.
+
 ## [0.1.0] - 2026-10-25
 
 The first release: the platform core, the built-in CRM and Todos apps, Whisk, MCP in and out, the

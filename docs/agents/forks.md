@@ -23,9 +23,9 @@ scripts/new-fork.sh <name> --org O [--dry-run]
 3. Start `master` at the newest upstream `v*` tag, or at upstream master's commit when there is no tag yet.
 4. Write `FORK.md` with `upstream: <pin>` and `upstream-repo: <url>` lines. `fork-allow.txt` comes from upstream, where it already exists.
 5. `gh repo create O/<name> --private --source … --remote origin --push` creates the repo, adds `origin` and pushes in one step.
-6. `scripts/seed-labels.sh --repo …` (including one `app:<slug>` label per manifest).
+6. `scripts/seed-labels.sh --repo …` (including one `app:<slug>` label per manifest), then `gh repo set-default` to the fork in the clone, because `gh` would otherwise resolve to the public upstream (the `upstream` remote) for `gh pr create` and the no-argument `seed-labels.sh`.
 7. Branch protection on `master` requiring **Backend**, **Frontend**, **Secret scan**, **Fork scope**. A private repo needs a paid GitHub plan for it; the script says so and carries on.
-8. Wait for the first CI run on `master` to go **green**: a fresh fork must pass its own checks before it is handed over.
+8. Wait for the first CI run on `master` to go **green**: a fresh fork must pass its own checks before it is handed over. (The workflow registers a few seconds after the push, so the lookup retries for up to 150 s.)
 
 `--dry-run` prints each mutating command prefixed with `+`, including the `FORK.md` text and the CI wait, and runs only the read-only `git ls-remote` that finds the pin.
 
@@ -76,7 +76,7 @@ The script reads the first `upstream: <tag-or-sha>` line of `FORK.md`, fetching 
 
 ## 6. Releases and fork images
 
-1. Any `v*` tag triggers `release.yml`, a fork's tags included. After CI passes on the tag, it builds the amd64 image and pushes `ghcr.io/<repository, lowercased>:<tag>`, plus `:latest` for a tag without a hyphen (`deploy.md` §9).
+1. Any `v*` tag triggers `release.yml`, a fork's tags included. After CI passes on the tag and the tag matches `springform-version`, it builds the amd64 image and pushes `ghcr.io/<repository, lowercased>:<tag>`. Upstream tags are `v<springform-version>` and move `:latest` unless they carry a hyphen (a pre-release). **Fork tags are `v<springform-version>-<fork>.N`** (`v0.1.1-acme.3`: core is pinned, so the fork cannot bump the version file) and every fork tag moves the fork image's `:latest` (`deploy.md` §9).
 2. Upstream therefore publishes `ghcr.io/wwilson1017/springform`.
 3. **A fork publishes its own (private) image containing its apps**, under its own org, with no workflow change.
 4. `deploy/compose.yml` takes the image from `IMAGE=` in `.env`, default the upstream image, so a fork's install sets `IMAGE` (`setup.sh` accepts `IMAGE=`). `railway.json` builds the repo's own `Dockerfile` and never reads `IMAGE`.
