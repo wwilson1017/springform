@@ -1,9 +1,10 @@
 name: Release
 
 # A vX.Y.Z tag publishes ghcr.io/<this repo>:vX.Y.Z and :latest (linux/amd64), after the whole
-# CI workflow passes on the tagged commit. A pre-release tag (with a hyphen, v0.2.0-rc1)
-# publishes only its own tag. In a fork the same file publishes the fork's own image, with its
-# apps, under the fork's org. Why there is no arm64 image yet: docs/agents/deploy.md §9.
+# CI workflow passes on the tagged commit and the tag equals "v" + springform-version (so the
+# image never reports a version other than its tag). A pre-release tag (with a hyphen,
+# v0.2.0-rc1) publishes only its own tag. In a fork the same file publishes the fork's own image,
+# with its apps, under the fork's org. Why there is no arm64 image yet: docs/agents/deploy.md §9.
 
 on:
   push:
@@ -17,9 +18,28 @@ jobs:
     name: CI
     uses: ./.github/workflows/ci.yml
 
+  version:
+    name: Tag matches springform-version
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Compare
+        run: |
+          set -euo pipefail
+          version="$(tr -d '[:space:]' < springform-version)"
+          if [ "$GITHUB_REF_NAME" != "v$version" ]; then
+            echo "::error::tag $GITHUB_REF_NAME does not match springform-version ($version); bump the file, then tag v$version"
+            exit 1
+          fi
+          echo "tag $GITHUB_REF_NAME matches springform-version"
+
   image:
     name: Publish image
-    needs: checks
+    needs: [checks, version]
     runs-on: ubuntu-24.04
     permissions:
       contents: read
