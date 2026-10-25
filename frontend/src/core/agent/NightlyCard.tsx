@@ -4,17 +4,14 @@ import { useJson } from '../api/useJson';
 import BootFallback from '../components/BootFallback';
 import { LoadError } from '../../shared/LoadError';
 import { toast } from '../../shared/toast';
+import type { CoreSettings } from '../settings/types';
 import { HINT } from './ui';
 
 const KEY = 'agent.nightly_enabled';
 
-interface SettingsView {
-  values: Record<string, unknown>;
-}
-
 /** Settings, AI: the nightly memory run (`core.agent_nightly`), off by default because it spends credits. */
 export default function NightlyCard() {
-  const { data, error, reload, setData } = useJson<SettingsView>('/api/core/settings');
+  const { data, error, reload, setData } = useJson<CoreSettings>('/api/core/settings');
   const [busy, setBusy] = useState(false);
   if (error) return <LoadError label="Couldn't load the setting" onRetry={reload} />;
   if (!data) return <BootFallback variant="panel" />;
@@ -23,7 +20,7 @@ export default function NightlyCard() {
   async function toggle(next: boolean) {
     setBusy(true);
     try {
-      setData(await putJson<SettingsView>('/api/core/settings', { values: { [KEY]: next } }));
+      setData(await putJson<CoreSettings>('/api/core/settings', { values: { [KEY]: next } }));
       toast.success(next ? 'Nightly run on.' : 'Nightly run off.');
     } catch {
       toast.error("Couldn't save the setting.");

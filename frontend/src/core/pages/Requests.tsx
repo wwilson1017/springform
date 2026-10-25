@@ -9,7 +9,7 @@ import { useCoreApps } from '../apps/CoreAppsContext';
 import { useAuth } from '../auth/AuthContext';
 import { appName } from './format';
 import { buttonClass, Chip, inputClass, Page, quietButtonClass } from './Page';
-import type { RequestRow, RequestsConfig } from './types';
+import type { RequestRow, RequestsConfig, Updated } from './types';
 
 type Tab = 'open' | 'closed' | 'all';
 const TABS: Array<[Tab, string]> = [['open', 'Open'], ['closed', 'Closed'], ['all', 'All']];
@@ -30,7 +30,7 @@ export function RequestsPage() {
   async function refresh() {
     setRefreshing(true);
     try {
-      const { updated } = await postJson<{ updated: number }>('/api/core/requests/refresh');
+      const { updated } = await postJson<Updated>('/api/core/requests/refresh');
       toast.success(updated ? `Updated ${updated} request${updated === 1 ? '' : 's'} from GitHub.` : 'The board is up to date.');
       board.reload();
     } catch (e) {

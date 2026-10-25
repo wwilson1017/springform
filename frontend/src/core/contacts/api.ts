@@ -4,7 +4,7 @@
  * 409 conflict or a write to a merged id, 422 invalid.
  */
 import { ApiError, del, fetchJson, patchJson, postJson } from '../api/client';
-import type { ContactDetail, ContactKind, ContactRef, SearchHit } from './types';
+import type { ContactDetail, ContactKind, ContactRef, ContactSearchHit } from './types';
 
 const BASE = '/api/core/contacts';
 
@@ -109,8 +109,8 @@ export const deletePart = (part: Part, id: number) => del(`${BASE}/${part}/${id}
 
 export const PICKER_LIMIT = 20;
 
-export const searchContacts = (kind: ContactKind, q: string): Promise<SearchHit[]> =>
-  q ? fetchJson<SearchHit[]>(`${BASE}/search?${new URLSearchParams({ q, kind, limit: String(PICKER_LIMIT) })}`) : Promise.resolve([]);
+export const searchContacts = (kind: ContactKind, q: string): Promise<ContactSearchHit[]> =>
+  q ? fetchJson<ContactSearchHit[]>(`${BASE}/search?${new URLSearchParams({ q, kind, limit: String(PICKER_LIMIT) })}`) : Promise.resolve([]);
 
 /**
  * Quick-create from a typed name. An organization name is unique among live records, so a 409

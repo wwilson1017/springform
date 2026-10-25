@@ -11,6 +11,7 @@ import { ApiError } from '../../../core/api/client';
 import { useJson } from '../../../core/api/useJson';
 import { ContactPicker } from '../../../core/contacts/ContactPicker';
 import { Attachments } from '../../../core/records/Attachments';
+import { RecordServices } from '../../../core/records/RecordServices';
 import { Timeline } from '../../../core/records/Timeline';
 import { formatDate } from '../../../shared/formatDate';
 import { LoadError } from '../../../shared/LoadError';
@@ -149,6 +150,10 @@ export function DealDetailBody({ deal, onSaved, reload }: { deal: DealDetail; on
           <section className={`${card} p-4`}>
             <h2 className={sectionTitle}>Files</h2>
             <Attachments entityType={DEAL_ENTITY} entityId={deal.id} />
+          </section>
+          {/* Custom fields and reminders; each titles its own part. */}
+          <section className={`${card} p-4`}>
+            <RecordServices entityType={DEAL_ENTITY} entityId={deal.id} />
           </section>
         </aside>
       </div>

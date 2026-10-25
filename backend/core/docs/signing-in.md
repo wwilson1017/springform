@@ -9,6 +9,8 @@ Enter your email and password on the sign-in page. After several wrong attempts 
 
 Forgot your password? Ask an admin for a reset link, or use the reset option on the sign-in page if your install sends email.
 
+When your install does not send email, an admin can issue the link from **Settings → Users → Reset link** and pass it to you.
+
 You stay signed in for about 12 hours, then sign in again.
 
 ## Add an authenticator app

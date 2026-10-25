@@ -175,7 +175,7 @@ Pinned by the contacts frontend:
 - One list page and one detail page serve both kinds (`ListPage.tsx`, `DetailPage.tsx`, routed in `routes.tsx`). List filters live in the URL (`q`, `tag`, `archived`, `organization_id`, `page`).
 - The detail page is a header plus two columns built from `SECTIONS` in `DetailPage.tsx`; each section gets `SectionProps` (`types.ts`), a superset of `RecordPanelProps`, so a core record component joins with one line. Apps' record panels follow, only for apps the server lists for the user.
 - A merged id redirects to the survivor with "Person #n was merged into this record." (router state `mergedFrom`). Merges from the duplicates panel and from "Merge into…" land there the same way.
-- Owner choices: the shared `UserPicker` (`src/shared/UserPicker.tsx`) searches `GET /api/core/timeline/mentionable?q=`, which members may read, so anyone picks any active user. The owner's name comes from the shared name cache (`src/shared/users.ts`); past the directory's first 20 people an owner nobody has searched for still reads "User #n".
+- Owner choices: the shared `UserPicker` (`src/shared/UserPicker.tsx`) searches `GET /api/core/timeline/mentionable?q=`, which members may read, so anyone picks any active user. The owner's name comes from the record's `owner_name` (rows and details), shown in the header and passed to the picker as `valueName`, so no owner reads "User #n".
 
 ## Tests that pin this
 
@@ -183,7 +183,7 @@ Pinned by the contacts frontend:
 - Merge with every collision rule; merge repoints a deal and keeps score.
 - A core merge that invokes a failing CRM subscriber leaves no partial change.
 - Unicode search fixture.
-- Playwright: create org → person → link with role → deal → note with @mention → attachment; example record panel on a person.
+- Playwright: create org → person → link with role → deal → note with @mention → attachment; example record panel on a person (as admin).
 
 ## Source
 

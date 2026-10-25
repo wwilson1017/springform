@@ -118,6 +118,7 @@ Responses are fine as generated: a defaulted field is always present in what the
 | Contrast | Guards on shipped CSS. |
 | Components | `Timeline`, `CustomFields` by type, `SavedViewBar` stale-version refusal. |
 | CRM grep | `apps/crm` contains no `contact_id\|company_id`. |
+| Type twins | No core `types.ts` hand-writes a shape `types.gen.ts` has; it aliases the schema. |
 | TZ pin | Vitest runs with a non-UTC `TZ`. |
 | Types | `gen-types` diff clean. |
 
@@ -177,7 +178,7 @@ The Todos routes `/api/todos/badge` and `/api/todos/for/{entity_type}/{entity_id
 ## Tests that pin this
 
 - Vitest: apps contract (contributions + index), bootSplit (every app lazy; contributions eager but tiny), contrast guards on shipped CSS, `Timeline`, `CustomFields` by type, `SavedViewBar` stale-version refusal, grep guard that `apps/crm` contains no `contact_id|company_id`; `gen-types` diff clean.
-- Playwright (`PREVIEW_MODE=1`, seeded): pick role → launcher by role → … → Guide → Requests validation → Settings cards by role (example app's card present) → example record panel on a person → Back up now creates a file.
+- Playwright (`PREVIEW_MODE=1`, seeded): pick role → launcher by role → … → Guide → Requests validation → Settings cards by role (example app's card present) → example record panel on a person (as admin; Example is hidden from members by default) → Back up now creates a file.
 
 ## Source
 

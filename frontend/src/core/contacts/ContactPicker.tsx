@@ -11,7 +11,7 @@
  */
 import { useEffect, useId, useRef, useState, type KeyboardEvent, type MouseEvent } from 'react';
 import { createContact, searchContacts } from './api';
-import type { ContactKind, ContactRef, SearchHit } from './types';
+import type { ContactKind, ContactRef, ContactSearchHit } from './types';
 import { useDebounce } from './useDebounce';
 
 export interface ContactPickerProps {
@@ -32,7 +32,7 @@ export function ContactPicker({ kind, value, onChange, allowCreate, placeholder,
   const [query, setQuery] = useState('');
   // The last settled search, tagged with the query it answered, so rows are shown only for
   // the query on screen.
-  const [settled, setSettled] = useState<{ query: string; rows: SearchHit[]; failed: boolean } | null>(null);
+  const [settled, setSettled] = useState<{ query: string; rows: ContactSearchHit[]; failed: boolean } | null>(null);
   // The name the in-flight create was called with (the box stays editable meanwhile).
   const [creatingName, setCreatingName] = useState<string | null>(null);
   const creating = creatingName !== null;
@@ -67,7 +67,7 @@ export function ContactPicker({ kind, value, onChange, allowCreate, placeholder,
     const seq = ++reqRef.current;
     let cancelled = false;
     const q = debounced.trim();
-    const land = (rows: SearchHit[], failed: boolean) => {
+    const land = (rows: ContactSearchHit[], failed: boolean) => {
       if (cancelled || seq !== reqRef.current) return;
       setSettled({ query: q, rows, failed });
       setActiveIndex(0);

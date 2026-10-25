@@ -13,7 +13,7 @@ import { KINDS, listUrl, pageOf, recordUrl } from './api';
 import { ContactPicker } from './ContactPicker';
 import { DuplicatesPanel } from './DuplicatesPanel';
 import { NewRecordDialog } from './NewRecordDialog';
-import type { ContactKind, ContactPage, ContactRecord, Organization, PersonRow } from './types';
+import type { ContactKind, ContactRecord, Organization, OrganizationPage, PersonPage, PersonRow } from './types';
 import { useDebounce } from './useDebounce';
 import * as ui from './ui';
 
@@ -69,7 +69,7 @@ export default function ListPage({ kind }: { kind: ContactKind }) {
 
   // Keystrokes in the search and tag boxes settle before they fetch.
   const url = useDebounce(listUrl(kind, { q, tag, archived, organization_id: orgParam, page }), 250);
-  const { data, error, reload } = useJson<ContactPage<ContactRecord>>(url);
+  const { data, error, reload } = useJson<PersonPage | OrganizationPage>(url);
   const { data: org } = useJson<Organization>(orgParam ? recordUrl('organization', orgParam) : null);
   const filtered = Boolean(q || tag || orgParam);
   const pages = data ? Math.max(1, Math.ceil(data.total / data.page_size)) : 1;

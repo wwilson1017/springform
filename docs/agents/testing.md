@@ -136,6 +136,7 @@ Runs against a seeded `PREVIEW_MODE=1` build with the FakeProvider and the Googl
 - `CustomFields` by type.
 - `SavedViewBar` stale-version refusal.
 - A grep guard that `apps/crm` contains no `contact_id|company_id`.
+- Type twins (`src/core/typeTwins.test.ts`): no `src/core/**/types.ts` declares an interface or object type under a generated schema name; it aliases `components['schemas'][…]` instead.
 - `gen-types` diff clean (a CI step in the Frontend job, not a vitest).
 
 ## 4. Playwright smoke
@@ -150,7 +151,7 @@ One flow, `PREVIEW_MODE=1`, seeded:
 6. Guide.
 7. Requests validation.
 8. Settings cards by role (example app's card present).
-9. Example record panel on a person.
+9. Example record panel on a person (as admin; Example is hidden from members by default).
 10. Back up now creates a file.
 11. Password login → enable 2FA (pyotp) → Google login via the preview stub.
 12. Whisk answers with FakeProvider → a write tool shows Approve and runs on approve → zero-key card.
@@ -214,7 +215,7 @@ CI job (beside Frontend in `.github/workflows/ci.yml`):
 
 ## 6. CI (`.github/workflows/ci.yml`)
 
-Structure copied from CakeCRM: SHA-pinned actions, ruff, an import check, pytest, frontend build / lint / test + the types diff, gitleaks, the image test. Required checks for branch protection: **Backend**, **Frontend**, **Secret scan**, and **Fork scope** (which always runs and passes upstream, where there is no `FORK.md`; `forks.md`).
+Structure copied from CakeCRM: SHA-pinned actions, ruff, an import check, pytest, frontend build / lint / test + the types diff, the browser smoke (§4), gitleaks, the image test. Required checks for branch protection: **Backend**, **Frontend**, **Secret scan**, and **Fork scope** (which always runs and passes upstream, where there is no `FORK.md`; `forks.md`).
 
 ## Tests that pin this
 

@@ -83,12 +83,12 @@ test('a deal from a person page takes a note with an @mention, a file and a remi
   expect(await api.get(`/api/core/files?entity_type=crm.deal&entity_id=${dealId}`))
     .toEqual([expect.objectContaining({ filename: 'quote.txt', byte_size: quote.length })]);
 
-  // The deal page has no reminders (F2), so the reminder goes on the person.
+  // A reminder on the person (the deal page's own is the next test).
   await page.goto(`/people/${person.id}`);
   await remindAndFire(admin, unique('Call Dana back'));
 });
 
-test.fixme('F2: a reminder set on the deal page fires', async ({ admin }) => {
+test('F2: a reminder set on the deal page fires', async ({ admin }) => {
   const deal = await admin.api.post<{ id: number }>('/api/crm/deals', { title: unique('Reminder deal'), stage: 'lead', value_cents: 0 });
   await admin.page.goto(`/crm/deals/${deal.id}`);
   await remindAndFire(admin, unique('Chase the deposit'));

@@ -1,5 +1,5 @@
 import type { ComponentType } from 'react';
-import type { Role, SettingsCardManifest } from '../api/types';
+import type { Role, SettingsCard } from '../api/types';
 
 /** `backend/apps/<slug>/app.json`, as `virtual:springform-apps` serves it (see vite-plugin-apps.ts). */
 export interface AppManifest {
@@ -11,10 +11,12 @@ export interface AppManifest {
   roles: Role[];
   order: number;
   badge?: string | null;
+  /** Hidden from members until an admin shows it; read once, when the install first sees the app. */
+  hidden_by_default?: boolean;
   docs?: string;
   version: string;
   requires_core?: string;
-  settings_cards?: SettingsCardManifest[];
+  settings_cards?: SettingsCard[];
   sheets?: Array<{ name: string; mode: string; description: string }>;
   publishes?: string[];
 }

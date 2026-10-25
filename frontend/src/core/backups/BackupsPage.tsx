@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router';
 import { ApiError, postJson } from '../api/client';
 import { useJson } from '../api/useJson';
 import BootFallback from '../components/BootFallback';
@@ -7,7 +8,7 @@ import { formatDate } from '../../shared/formatDate';
 import { LoadError } from '../../shared/LoadError';
 import { toast } from '../../shared/toast';
 import { KeyPanel } from './KeyPanel';
-import type { BackupRun, BackupsOverview } from './types';
+import type { BackupRun, BackupRunResult, BackupsOverview } from './types';
 
 /** `20261024T033507Z` → the same instant as an ISO string, for formatDate. */
 const stampIso = (s: string) => `${s.slice(0, 4)}-${s.slice(4, 6)}-${s.slice(6, 8)}T${s.slice(9, 11)}:${s.slice(11, 13)}:${s.slice(13, 15)}Z`;
@@ -31,7 +32,7 @@ export default function BackupsPage() {
   async function backUpNow() {
     setRunning(true);
     try {
-      const run = await postJson<BackupRun>('/api/core/backups/run');
+      const run = await postJson<BackupRunResult>('/api/core/backups/run');
       if (run.status === 'ok') toast.success('Backup written');
       else toast.error(run.status === 'skipped' ? `Backup skipped: ${run.error}` : `Backup failed: ${run.error}`);
       reload();
@@ -52,6 +53,7 @@ export default function BackupsPage() {
       </div>
       {error ? <LoadError label="Couldn't load backups" onRetry={reload} /> : !data ? <BootFallback variant="panel" /> : (
         <>
+          {data.key_mismatch && <KeyMismatch manifest={data.key_mismatch} />}
           <p className="m-0 text-sm text-sf-ink-mute">
             Each set is a snapshot of the database plus a manifest of the attachments it needs. The newest 7 are kept,
             and one is taken every night at 03:00. {data.last_backup_at ? `Last complete set: ${formatDate(data.last_backup_at)}.` : 'No complete set yet.'}
@@ -104,6 +106,16 @@ export default function BackupsPage() {
         </>
       )}
     </div>
+  );
+}
+
+/** The boot check found that the newest backup was taken with another encryption key. */
+function KeyMismatch({ manifest }: { manifest: string }) {
+  return (
+    <p role="alert" className="m-0 rounded-lg border border-solid border-sf-red/30 bg-sf-red/8 px-4 py-3 text-sm text-sf-red-text">
+      The encryption key on this server does not match the newest backup ({manifest}). Stored credentials cannot be
+      read until the matching key is restored. <Link to="/guide/backups-and-restore" className="font-medium text-sf-red-text underline">How to restore the key</Link>
+    </p>
   );
 }
 

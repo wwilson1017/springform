@@ -236,7 +236,7 @@ Falsifiable against `backend/tests/fixtures/bad_app` (the test must fail it). It
 | Docs | `docs/index.md`. |
 | Table | `example_widgets`. |
 
-The contract test and the Playwright smoke both exercise it (Settings cards by role with the example card present; the example record panel on a person). Step 1b's vertical slice runs through it.
+The contract test and the Playwright smoke both exercise it (Settings cards by role with the example card present; the example record panel on a person, as admin). Step 1b's vertical slice runs through it.
 
 ## 8. `scripts/new-app.sh`
 
@@ -265,7 +265,7 @@ A workstream adds a package. Nobody edits `main.py` or `registry.py` to add one.
 - Contract guard passes for `example`/`crm`/`todos` and fails `bad_app`.
 - A member calling an admin-only app's API directly gets 403.
 - Vitest: apps contract (contributions + index); bootSplit (every app lazy; contributions eager but tiny); grep guard that `apps/crm` contains no `contact_id|company_id`.
-- Playwright: Settings cards by role (example app's card present) → example record panel on a person.
+- Playwright: Settings cards by role (example app's card present) → example record panel on a person (as admin).
 
 ## Source
 

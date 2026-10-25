@@ -1,77 +1,24 @@
 /**
- * Shapes of the /api/agent and memory routes. The routes return plain dicts, so the generated
- * OpenAPI types carry no response schema for them; these mirror backend/core/agent/router.py
- * and backend/core/memory/router.py.
+ * Shapes of the /api/agent and memory routes. Response shapes are the generated schemas; the chat
+ * stream's frames, context files and facts keep hand-written shapes (no response model).
  */
+import type { components } from '../api/types.gen';
 
-export interface ProviderInfo {
-  provider: string;
-  has_key: boolean;
-  enabled: boolean;
-  model_default: string;
-  model_light: string;
-  updated_at: string | null;
-}
+type S = components['schemas'];
 
+export type ProviderInfo = S['ProviderInfo'];
 /** GET /api/agent/status */
-export interface AgentStatus {
-  configured: boolean;
-  default_agent: string;
-  providers: ProviderInfo[];
-  models: { default: string | null; light: string | null };
-}
-
-export interface Conversation {
-  id: number;
-  user_id: number;
-  agent_id: number;
-  agent_slug: string;
-  title: string;
-  is_private: boolean;
-  created_at: string;
-  updated_at: string;
-  compacted_at: string | null;
-}
-
+export type AgentStatus = S['AgentStatus'];
+export type Conversation = S['Conversation'];
 /** A tool-run row's status (agent.md §7), plus `running` while the call streams. */
-export type ToolStatus =
-  | 'running' | 'pending' | 'executing' | 'done' | 'denied' | 'error' | 'stale' | 'uncertain' | 'interrupted';
-
-export interface ServerToolCall {
-  tool: string;
-  tool_use_id: string;
-  args: Record<string, unknown>;
-  tool_run_id: number | null;
-  status: ToolStatus | null;
-  result: unknown;
-  error: string | null;
-}
-
-export interface ServerMessage {
-  id: number;
-  role: string;
-  text: string;
-  model: string | null;
-  created_at: string;
-  tool_calls: ServerToolCall[];
-}
-
+export type ToolStatus = NonNullable<ServerToolCall['status']> | 'running';
+export type ServerToolCall = S['ServerToolCall'];
+export type ServerMessage = S['ServerMessage'];
 /** GET /api/agent/conversations/{id} */
-export interface ConversationDetail extends Conversation {
-  messages: ServerMessage[];
-}
-
-export interface AgentRow {
-  id: number;
-  slug: string;
-  name: string;
-  personality: string;
-  provider_override: string | null;
-  model_override: string | null;
-  model_tier: 'default' | 'light';
-  is_default: boolean;
-  created_at: string;
-}
+export type ConversationDetail = S['ConversationDetail'];
+export type AgentRow = S['AgentRow'];
+/** POST /api/agent/providers/{provider}/test */
+export type ProviderTest = S['ProviderTest'];
 
 /** One `data:` frame of POST /api/agent/chat. */
 export type ChatEvent =
@@ -87,15 +34,9 @@ export type ChatEvent =
   | { type: 'done'; model: string }
   | { type: 'error'; error: string };
 
-/** POST /api/agent/confirm */
-export type ConfirmOutcome = 'done' | 'error' | 'uncertain' | 'stale' | 'denied' | 'already_resolved';
-export interface ConfirmResponse {
-  status: ConfirmOutcome;
-  result?: unknown;
-  error?: string;
-  /** With `already_resolved`: the run's status now. */
-  current?: ToolStatus;
-}
+/** POST /api/agent/confirm. With `already_resolved`, `current` is the run's status now. */
+export type ConfirmResponse = S['ConfirmResponse'];
+export type ConfirmOutcome = ConfirmResponse['status'];
 
 /** GET /api/core/context-files */
 export interface ContextFileMeta {

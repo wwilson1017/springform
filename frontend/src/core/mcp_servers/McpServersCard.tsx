@@ -8,7 +8,7 @@ import { LoadError } from '../../shared/LoadError';
 import { toast } from '../../shared/toast';
 import { buttonClass, inputClass, labelClass, secondaryButtonClass } from '../settings/ui';
 import { suggestPrefix, validateDraft } from './form';
-import type { McpServer, ServerDraft } from './types';
+import type { McpServer, McpServerCheck, ServerDraft } from './types';
 
 const BASE = '/api/core/mcp/servers';
 const EMPTY: ServerDraft = { name: '', url: '', token: '', prefix: '' };
@@ -45,7 +45,7 @@ function ServerRow({ s, onChanged, onRemoved }: { s: McpServer; onChanged: (s: M
     else toast.success(`${next.name}: ${next.tools.length} tools.`);
   });
   const runTest = () => act("Couldn't test", async () => {
-    const r = await postJson<{ ok: boolean; tools: number; error?: string }>(`${BASE}/${s.id}/test`);
+    const r = await postJson<McpServerCheck>(`${BASE}/${s.id}/test`);
     setTest(r.ok ? { ok: true, text: `Connected: ${r.tools} tools offered.` } : { ok: false, text: r.error ?? 'Failed.' });
   });
   const remove = async () => {

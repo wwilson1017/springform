@@ -20,6 +20,8 @@ Conventions:
 
 ### Added
 
+- Backups page: a warning when the server's encryption key does not match the newest backup, naming
+  the manifest and linking the Guide's backups topic.
 - Settings, Users: admins make a one-time password reset link for another account, to copy, and see
   when it was emailed too.
 - Record services UI: custom fields on records with an admin field editor, saved views, a Reports
@@ -83,6 +85,7 @@ Conventions:
 
 ### Fixed
 
+- CRM deal page: shows the deal's custom fields and reminders beside its files, as the CRM Guide says.
 - Whisk names the business from the workspace name setting.
 - Report CSV downloads check and default their params like the report page (bad params are 422).
 - The settings API lists only keys an admin can change, so saving every listed value works.

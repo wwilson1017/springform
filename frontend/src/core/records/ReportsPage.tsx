@@ -10,7 +10,7 @@ import { LoadError } from '../../shared/LoadError';
 import { ReportParamsForm } from './ReportParamsForm';
 import { initialParams, missingParams, paramsQuery, type ParamValues } from './reportParams';
 import { ReportTable } from './ReportTable';
-import type { ReportInfo, ReportResult } from './types';
+import type { ReportInfo, ReportParamsSchema, ReportResult } from './types';
 import { BTN_PRIMARY, BTN_SECONDARY, H_PAGE, MUTED, PAGE, errorText } from './ui';
 
 export default function ReportsPage() {
@@ -45,11 +45,13 @@ export default function ReportsPage() {
 }
 
 function Report({ report }: { report: ReportInfo }) {
-  const [values, setValues] = useState<ParamValues>(() => initialParams(report.params));
+  // The server passes the report's JSON schema through as a free-form dict.
+  const schema = report.params as ReportParamsSchema | null;
+  const [values, setValues] = useState<ParamValues>(() => initialParams(schema));
   const [result, setResult] = useState<ReportResult | null>(null);
   const [runError, setRunError] = useState<string | null>(null);
   const [running, setRunning] = useState(false);
-  const missing = missingParams(report.params, values);
+  const missing = missingParams(schema, values);
   const query = paramsQuery(values);
   const path = `/api/core/reports/${encodeURIComponent(report.key)}`;
 
@@ -73,7 +75,7 @@ function Report({ report }: { report: ReportInfo }) {
         <p className="m-0 text-xs text-sf-ink-dim">{report.app}{report.admin_only ? ' · admins only' : ''}</p>
       </div>
       <form className="flex flex-col gap-4" onSubmit={e => { e.preventDefault(); void run(); }}>
-        <ReportParamsForm schema={report.params} values={values} onChange={setValues} />
+        <ReportParamsForm schema={schema} values={values} onChange={setValues} />
         <div className="flex flex-wrap items-center gap-2">
           <button type="submit" className={BTN_PRIMARY} disabled={running || missing.length > 0}>{running ? 'Running…' : 'Run'}</button>
           {missing.length > 0

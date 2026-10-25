@@ -14,7 +14,8 @@ const USERS = '/api/core/timeline/mentionable?q=';
 let nextId = 1;
 const def = (key: string, type: FieldType, extra: Partial<FieldDefinition> = {}): FieldDefinition => ({
   id: nextId++, entity_type: 'example.widget', key, label: key.replace(/_/g, ' '), type, options: null,
-  required: false, position: nextId * 10, archived_at: null, ...extra,
+  required: false, position: nextId * 10, archived_at: null,
+  created_at: '2026-10-20T15:00:00Z', updated_at: '2026-10-20T15:00:00Z', ...extra,
 });
 const ALL = [
   def('notes', 'text', { required: true }), def('size', 'number'), def('fragile', 'boolean'), def('ships_on', 'date'),

@@ -8,7 +8,7 @@ import { Timeline } from './Timeline';
 const BASE = '/api/core/timeline?entity_type=example.widget&entity_id=7';
 const LIST = `${BASE}&limit=50`;
 const entries: TimelineEntry[] = [
-  { id: 2, kind: 'field_change', body: null, changes: [{ field: 'color', old: 'red', new: 'blue' }, { field: 'is_private', old: false, new: true }], author: { id: 1, name: 'Ada' }, created_at: '2026-10-20T15:04:05Z' },
+  { id: 2, kind: 'field_change', body: '', changes: [{ field: 'color', old: 'red', new: 'blue' }, { field: 'is_private', old: false, new: true }], author: { id: 1, name: 'Ada' }, created_at: '2026-10-20T15:04:05Z' },
   { id: 1, kind: 'note', body: 'First note', changes: null, author: { id: 1, name: 'Ada' }, created_at: '2026-10-20T15:00:00Z' },
 ];
 

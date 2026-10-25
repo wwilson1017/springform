@@ -19,6 +19,9 @@ function setup(d: DealDetail, extra: Record<string, Reply> = {}) {
     'GET /api/core/timeline/mentionable?q=': { body: [] },
     'GET /api/core/timeline?entity_type=crm.deal&entity_id=7&limit=50': { body: [] },
     'GET /api/core/files?entity_type=crm.deal&entity_id=7': { body: [] },
+    'GET /api/core/fields/definitions?entity_type=crm.deal': { body: [] },
+    'GET /api/core/fields/values?entity_type=crm.deal&entity_id=7': { body: {} },
+    'GET /api/core/reminders/for?entity_type=crm.deal&entity_id=7': { body: [] },
     ...extra,
   });
   render(
@@ -125,5 +128,21 @@ describe('deal page stage controls', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
     await vi.waitFor(() => expect(callsTo(fetchMock, 'PATCH', URL)).toHaveLength(1));
     expect(body(fetchMock, 'PATCH', URL)).toEqual({ owner_user_id: 4 });
+  });
+});
+
+describe('deal page record services', () => {
+  it("shows the deal's custom fields and reminders", async () => {
+    setup(detail({ id: 7 }), {
+      'GET /api/core/fields/definitions?entity_type=crm.deal': { body: [{
+        id: 1, entity_type: 'crm.deal', key: 'po_number', label: 'PO number', type: 'text', options: null, required: false,
+        position: 10, archived_at: null, created_at: '2026-10-20T15:00:00Z', updated_at: '2026-10-20T15:00:00Z',
+      }] },
+      'GET /api/core/fields/values?entity_type=crm.deal&entity_id=7': { body: { po_number: 'PO-118' } },
+    });
+    const fields = await screen.findByRole('region', { name: 'Custom fields' });
+    expect(await within(fields).findByText('PO-118')).toBeTruthy();
+    const reminders = screen.getByRole('region', { name: 'Reminders' });
+    expect(within(reminders).getByRole('button', { name: 'Add reminder' })).toBeTruthy();
   });
 });

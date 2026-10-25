@@ -25,8 +25,7 @@ function groupTopics(topics: GuideTopic[], apps: CoreApp[] | null) {
   const rank = (key: string) => (order.indexOf(key) + 1 || order.length + 1);
   const groups = new Map<string, GuideTopic[]>();
   for (const t of topics) {
-    const key = t.app ?? 'core';
-    groups.set(key, [...(groups.get(key) ?? []), t]);
+    groups.set(t.app, [...(groups.get(t.app) ?? []), t]);
   }
   return [...groups].sort(([a], [b]) => rank(a) - rank(b) || a.localeCompare(b));
 }

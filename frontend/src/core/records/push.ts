@@ -7,6 +7,7 @@
  */
 import { del, fetchJson, postJson } from '../api/client';
 import { NOTIFICATIONS } from './notifications';
+import type { PushPublicKey } from './types';
 
 const SW = '/sw.js';
 
@@ -30,7 +31,7 @@ export async function enablePush(): Promise<boolean> {
   const registration = await navigator.serviceWorker.register(SW);
   await navigator.serviceWorker.ready;
   if (await Notification.requestPermission() !== 'granted') return false;
-  const { public_key } = await fetchJson<{ public_key: string }>(`${NOTIFICATIONS}/push/public-key`);
+  const { public_key } = await fetchJson<PushPublicKey>(`${NOTIFICATIONS}/push/public-key`);
   const subscription = await registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: keyBytes(public_key) });
   const { endpoint, keys } = subscription.toJSON();
   await postJson(`${NOTIFICATIONS}/push/subscribe`, { endpoint, keys: { p256dh: keys?.p256dh, auth: keys?.auth } });
