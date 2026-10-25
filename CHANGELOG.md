@@ -20,6 +20,8 @@ Conventions:
 
 ### Fixed
 
+- deploy.md no longer asks the owner to make the ghcr package public by hand: the image's source
+  label links it to the repository, which sets its visibility.
 - `update-from-upstream.sh` labels its PR `no-auto-merge` and the PR body asks for a merge commit:
   a squash drops upstream's history and makes the next update conflict. The body mentions the
   regenerated types file only when it changed.
