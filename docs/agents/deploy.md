@@ -1,6 +1,6 @@
 # Deploy, backups and restore
 
-**What this covers:** §13's Dockerfile and entrypoint, `/up` vs `/api/health`, the `deploy/` files, `setup.sh`, `deploy.sh`, Railway, stop-before-start, the `TRUST_PROXY` constraint, and (from §1) the encryption key, backups as recovery sets, off-site copies and `scripts/restore.sh`.
+**What this covers:** §13's Dockerfile and entrypoint, `/up` vs `/api/health`, the `deploy/` files, `setup.sh`, `deploy.sh`, Railway, stop-before-start, the `TRUST_PROXY` constraint, and (from §1) the encryption key, backups as recovery sets, off-site copies and `scripts/restore.sh`; releases (`release.yml`).
 **Who reads it:** W8 (Dockerfile, `deploy/`, scripts, release, image test), W3 (backup + restore test, Backups page), and anyone deploying an install.
 
 ## 1. Dockerfile
@@ -173,6 +173,17 @@ Only the restore refuses a wrong key. A data directory copied by hand boots with
 4. A second test restores with the **wrong key** and must fail before serving.
 
 Litestream is deferred ("later").
+
+## 9. Releases (`release.yml`)
+
+1. **Gate.** A `v*` tag runs `release.yml`, which first calls the whole of `ci.yml` (`on: workflow_call`): every job in it must pass on the tagged commit before anything is pushed. There is one definition of the checks; on pull requests and `master` the jobs keep their plain names, so the required checks are unchanged.
+2. **Tags.** Every tag publishes `ghcr.io/<repository, lowercased>:<tag>`. Only a tag without a hyphen (`v0.1.0`) also moves `:latest`, the image `deploy/compose.yml` runs by default. A pre-release (`v0.2.0-rc1`) publishes only its own tag.
+3. **Platform: `linux/amd64` only.** An arm64 build under QEMU (buildx on a 4-vCPU VM, like a GitHub runner) spent 40 minutes compiling the SQLite amalgamation alone, and its next emulated step was still running an hour later, far past a reasonable release job. Arm servers wait for a native arm64 runner job (`ubuntu-24.04-arm`) or a SQLite stage cross-compiled on the build platform, then a manifest that joins the two.
+4. **Pins.** Every action is pinned to a commit SHA. The build uses the runner's own `docker build`, no build action.
+5. **After the first tag**, the repository owner does three things by hand:
+   1. Make the package public: the `springform` package's settings, "Change visibility", Public. A package pushed with `GITHUB_TOKEN` starts private, and `compose.yml`'s default image must pull without a login. GitHub does not let a public package go private again.
+   2. From a machine that is logged out of ghcr.io, check the anonymous pull: `docker pull ghcr.io/wwilson1017/springform:v0.1.0`.
+   3. A fork's image stays private, so each of its servers runs `docker login ghcr.io` with a token that has `read:packages` before `setup.sh` (or `deploy.sh`) pulls it.
 
 ## Tests that pin this
 

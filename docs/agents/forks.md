@@ -76,7 +76,7 @@ The script reads the first `upstream: <tag-or-sha>` line of `FORK.md`, fetching 
 
 ## 6. Releases and fork images
 
-1. Any `v*` tag triggers `release.yml`, a fork's tags included. It builds and pushes `ghcr.io/<repository, lowercased>:<tag>` and `:latest`.
+1. Any `v*` tag triggers `release.yml`, a fork's tags included. After CI passes on the tag, it builds the amd64 image and pushes `ghcr.io/<repository, lowercased>:<tag>`, plus `:latest` for a tag without a hyphen (`deploy.md` §9).
 2. Upstream therefore publishes `ghcr.io/wwilson1017/springform`.
 3. **A fork publishes its own (private) image containing its apps**, under its own org, with no workflow change.
 4. `deploy/compose.yml` takes the image from `IMAGE=` in `.env`, default the upstream image, so a fork's install sets `IMAGE` (`setup.sh` accepts `IMAGE=`). `railway.json` builds the repo's own `Dockerfile` and never reads `IMAGE`.
