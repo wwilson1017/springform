@@ -18,6 +18,11 @@ Conventions:
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-10-25
+
+The first release: the platform core, the built-in CRM and Todos apps, Whisk, MCP in and out, the
+deploy kit and the fork tooling.
+
 ### Added
 
 - Backups page: a warning when the server's encryption key does not match the newest backup, naming
