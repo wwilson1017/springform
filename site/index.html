@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Springform</title>
+<meta name="description" content="An open-source foundation for small-business software. One SQLite file, one container, apps on a launcher, a private fork per client. MIT.">
+<meta property="og:title" content="Springform">
+<meta property="og:description" content="Small-business software, minus the plumbing. One SQLite file, one container, apps on a launcher, a private fork per client. Open source, MIT.">
+<meta property="og:url" content="https://myspringform.com/">
+<meta property="og:type" content="website">
+<meta name="theme-color" content="#f1f1e8" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#1c1b19" media="(prefers-color-scheme: dark)">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='30' cy='32' r='22' fill='none' stroke='%23b5542d' stroke-width='7'/%3E%3Crect x='52' y='27' width='8' height='10' rx='2.5' fill='%23b5542d'/%3E%3Crect x='56.5' y='32' width='4.5' height='18' rx='2.25' fill='%23b5542d'/%3E%3C/svg%3E">
+<style>
+  :root {
+    --bg: #f1f1e8; --card: #fffffa; --raised: #e8e8dd; --line: #dcdcd0;
+    --ink: #292929; --ink-soft: #4a4a4a; --ink-dim: #595959;
+    --copper: #b5542d; --copper-text: #9a4322; --copper-soft: rgba(181, 84, 45, 0.10); --on-copper: #ffffff;
+    --sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1c1b19; --card: #262523; --raised: #302f2b; --line: #3b3a36;
+      --ink: #ecebe4; --ink-soft: #cfcec6; --ink-dim: #b4b3aa;
+      --copper-text: #e4916a; --copper-soft: rgba(228, 145, 106, 0.14);
+    }
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--sans); line-height: 1.55; font-size: 17px; -webkit-font-smoothing: antialiased; }
+  a { color: var(--copper-text); text-decoration-thickness: 1px; text-underline-offset: 3px; }
+  a:hover { text-decoration-thickness: 2px; }
+  .wrap { max-width: 1040px; margin: 0 auto; padding: 0 16px; }
+  @media (min-width: 720px) { .wrap { padding: 0 24px; } }
+
+  /* Top bar */
+  .top { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 18px 0; }
+  .lockup { display: inline-flex; align-items: center; gap: 0.4em; color: var(--ink); text-decoration: none; font-weight: 700; font-size: 22px; letter-spacing: -0.02em; }
+  .lockup svg { width: 1.25em; height: 1.25em; display: block; }
+  .nav { display: flex; gap: 18px; flex-wrap: wrap; font-size: 15px; }
+  .nav a { color: var(--ink-soft); text-decoration: none; }
+  .nav a:hover { color: var(--copper-text); }
+  @media (max-width: 600px) { .nav a.hide-sm { display: none; } }
+
+  /* Hero */
+  .hero { display: grid; gap: 28px; padding: 36px 0 24px; align-items: center; }
+  @media (min-width: 860px) { .hero { grid-template-columns: 3fr 2fr; padding: 56px 0 40px; } }
+  .eyebrow { display: inline-flex; gap: 10px; align-items: center; font-size: 13px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--copper-text); font-weight: 600; }
+  .eyebrow::before { content: ""; width: 22px; height: 2px; background: var(--copper); }
+  h1 { font-size: clamp(34px, 5.6vw, 58px); line-height: 1.04; letter-spacing: -0.025em; margin: 14px 0 16px; font-weight: 800; }
+  .lead { font-size: clamp(17px, 2vw, 20px); color: var(--ink-soft); max-width: 36em; margin: 0 0 24px; }
+  .cta { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+  .btn { display: inline-block; padding: 11px 18px; border-radius: 10px; font-weight: 600; text-decoration: none; border: 1.5px solid var(--copper); font-size: 16px; }
+  .btn.primary { background: var(--copper); color: var(--on-copper); }
+  .btn.primary:hover { filter: brightness(0.94); }
+  .btn.ghost { color: var(--copper-text); background: transparent; }
+  .btn.ghost:hover { background: var(--copper-soft); }
+  .motto { margin: 26px 0 0; font-size: 15px; color: var(--ink-dim); }
+  .motto b { color: var(--ink); font-weight: 700; letter-spacing: 0.01em; }
+  .pan { display: flex; justify-content: center; }
+  .pan svg { width: min(300px, 70vw); height: auto; filter: drop-shadow(0 18px 30px rgba(0,0,0,0.12)); }
+
+  /* Stat row */
+  .stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin: 8px 0 0; }
+  @media (min-width: 720px) { .stats { grid-template-columns: repeat(4, 1fr); } }
+  .stat { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; }
+  .stat b { display: block; font-size: 26px; letter-spacing: -0.02em; line-height: 1.1; color: var(--copper-text); }
+  .stat span { font-size: 14px; color: var(--ink-dim); }
+
+  /* Sections */
+  section { padding: 44px 0 8px; }
+  h2 { font-size: clamp(26px, 3.4vw, 36px); letter-spacing: -0.02em; line-height: 1.12; margin: 0 0 8px; }
+  .take { color: var(--ink-soft); font-size: 18px; max-width: 42em; margin: 0 0 22px; }
+  .grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px 16px 14px; }
+  .card h3 { margin: 0 0 6px; font-size: 17px; letter-spacing: -0.01em; }
+  .card p { margin: 0; font-size: 15px; color: var(--ink-soft); }
+  .card .tag { display: inline-block; font-size: 12px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: var(--copper-text); margin-bottom: 8px; }
+
+  /* Diagram */
+  .stack { display: grid; gap: 10px; margin: 8px 0 20px; }
+  .layer { display: grid; grid-template-columns: 88px 1fr; gap: 12px; align-items: center; }
+  .layer .lab { font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-dim); font-weight: 600; text-align: right; }
+  .layer .box { border: 1px solid var(--line); border-radius: 12px; background: var(--card); padding: 12px 14px; }
+  .tiles { display: flex; gap: 8px; flex-wrap: wrap; }
+  .tile { padding: 8px 12px; border-radius: 9px; background: var(--raised); font-weight: 600; font-size: 14px; }
+  .tile.you { background: var(--copper); color: var(--on-copper); }
+  .tile.ghost { border: 1.5px dashed var(--line); background: transparent; color: var(--ink-dim); }
+  .box.core { background: var(--copper-soft); border-color: transparent; font-size: 15px; color: var(--ink-soft); }
+  .box.core b { color: var(--ink); }
+  .box.data { font-family: var(--mono); font-size: 13.5px; display: flex; gap: 14px; flex-wrap: wrap; color: var(--ink-soft); }
+  @media (max-width: 600px) { .layer { grid-template-columns: 1fr; } .layer .lab { text-align: left; } }
+
+  /* Steps */
+  .steps { display: grid; gap: 12px; counter-reset: step; }
+  @media (min-width: 860px) { .steps { grid-template-columns: repeat(3, 1fr); } }
+  .card, .stat, .step { min-width: 0; }
+  .step { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px; display: flex; flex-direction: column; }
+  .step.run h3::before { display: none; }
+  .step h3 { margin: 0 0 6px; font-size: 18px; display: flex; gap: 10px; align-items: baseline; }
+  .step h3::before { counter-increment: step; content: counter(step); display: inline-grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; background: var(--copper); color: var(--on-copper); font-size: 14px; }
+  .step p { margin: 0 0 10px; font-size: 15px; color: var(--ink-soft); }
+  pre { margin: auto 0 0; background: var(--raised); border-radius: 10px; padding: 12px 14px; white-space: pre-wrap; overflow-wrap: anywhere; font-family: var(--mono); font-size: 13.5px; line-height: 1.5; color: var(--ink); }
+  code { font-family: var(--mono); font-size: 0.92em; }
+  p code, li code { background: var(--raised); padding: 1px 5px; border-radius: 5px; }
+  .note { font-size: 15px; color: var(--ink-soft); margin: 14px 0 0; max-width: 46em; }
+
+  /* Run it */
+  .runs { display: grid; gap: 12px; }
+  @media (min-width: 860px) { .runs { grid-template-columns: repeat(3, 1fr); } }
+
+  /* Why */
+  .why { display: grid; gap: 24px; align-items: start; }
+  @media (min-width: 860px) { .why { grid-template-columns: 1fr 1fr; } }
+  .why p { margin: 0 0 12px; color: var(--ink-soft); }
+  .quiet { border-left: 3px solid var(--copper); padding: 4px 0 4px 16px; color: var(--ink-soft); font-size: 15px; }
+
+  footer { margin-top: 56px; border-top: 1px solid var(--line); padding: 24px 0 40px; font-size: 14px; color: var(--ink-dim); display: flex; flex-wrap: wrap; gap: 8px 20px; justify-content: space-between; }
+  footer a { color: var(--ink-soft); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <a class="lockup" href="#top" aria-label="Springform home">
+      <svg viewBox="0 0 64 64" aria-hidden="true"><circle cx="30" cy="32" r="22" fill="none" stroke="#b5542d" stroke-width="7"/><rect x="52" y="27" width="8" height="10" rx="2.5" fill="#b5542d"/><rect x="56.5" y="32" width="4.5" height="18" rx="2.25" fill="#b5542d"/></svg>
+      <span>springform</span>
+    </a>
+    <nav class="nav" aria-label="Sections">
+      <a href="#what">What you get</a>
+      <a href="#how" class="hide-sm">How it's built</a>
+      <a href="#forks">Forks</a>
+      <a href="#run">Run it</a>
+      <a href="https://github.com/wwilson1017/springform">GitHub</a>
+    </nav>
+  </header>
+
+  <main id="top">
+    <section class="hero" style="padding-top:28px">
+      <div>
+        <span class="eyebrow">Open source · MIT · Python and TypeScript</span>
+        <h1>Small-business software, minus the plumbing.</h1>
+        <p class="lead">Login, people, files, notes, todos, reminders, backups and an assistant are already built. You write the app that is actually about the business. A client gets a private fork that pulls platform updates and never edits core.</p>
+        <div class="cta">
+          <a class="btn primary" href="https://github.com/wwilson1017/springform">Read the code</a>
+          <a class="btn ghost" href="#run">Run it in a minute</a>
+        </div>
+        <p class="motto"><b>Fork it. Bake it. Release it.</b> &nbsp;A springform pan is the one a cheesecake comes out of whole. The pan is reused; the cake is the point.</p>
+      </div>
+      <div class="pan" aria-hidden="true">
+        <svg viewBox="0 0 64 64"><circle cx="30" cy="32" r="22" fill="none" stroke="#b5542d" stroke-width="7"/><rect x="52" y="27" width="8" height="10" rx="2.5" fill="#b5542d"/><rect x="56.5" y="32" width="4.5" height="18" rx="2.25" fill="#b5542d"/></svg>
+      </div>
+    </section>
+
+    <div class="stats" aria-label="At a glance">
+      <div class="stat"><b>1</b><span>SQLite file, on one volume</span></div>
+      <div class="stat"><b>1</b><span>container, one process</span></div>
+      <div class="stat"><b>2</b><span>roles: admin and member</span></div>
+      <div class="stat"><b>0</b><span>AI keys needed to run it</span></div>
+    </div>
+
+    <section id="what">
+      <h2>What you get out of the box</h2>
+      <p class="take">Every record in every app gets the same core: a timeline, attachments, custom fields, saved views, reminders and notifications. Apps add the parts that are about the business.</p>
+      <div class="grid">
+        <div class="card"><span class="tag">Core</span><h3>Login that is not a project</h3><p>Password plus an authenticator app, or sign in with Google. Invite-only. Admins and members, nothing more.</p></div>
+        <div class="card"><span class="tag">Core</span><h3>One directory of people</h3><p>People and organizations, linked with a role, shared by every app. Duplicate finding and merge built in.</p></div>
+        <div class="card"><span class="tag">Core</span><h3>Timelines and files on any record</h3><p>Notes, comments, @-mentions and field history on everything. Attachments live on the volume, deduplicated by hash.</p></div>
+        <div class="card"><span class="tag">Core</span><h3>Fields, views and reports</h3><p>Custom fields of eight types, saved views per screen, and CSV reports an app registers in one line.</p></div>
+        <div class="card"><span class="tag">Core</span><h3>Reminders and notifications</h3><p>In-app, with web push. A reminder re-checks that you may still see the record before it fires.</p></div>
+        <div class="card"><span class="tag">Core</span><h3>Backups you can restore</h3><p>A nightly snapshot plus the files and the encryption key, with a restore script and a restore test in CI.</p></div>
+        <div class="card"><span class="tag">Core</span><h3>Whisk, the assistant</h3><p>Knows the installed apps and their records. Proposes a write before making it. Runs with zero AI keys; chat waits for one.</p></div>
+        <div class="card"><span class="tag">Core</span><h3>MCP, both ways</h3><p>Each user can mint a link that gives Claude the same tools with the same permissions. Admins can connect Whisk to other MCP servers.</p></div>
+        <div class="card"><span class="tag">Core</span><h3>Jobs, Sheets, Guide, Requests</h3><p>A scheduler with a Jobs page, connected Google Sheets, an in-app guide built from the docs, and a request board that files GitHub issues.</p></div>
+        <div class="card"><span class="tag">Built-in app</span><h3>CRM</h3><p>Pipeline, deals, activities, scoring, dashboards. Ported from a CRM that runs a real company.</p></div>
+        <div class="card"><span class="tag">Built-in app</span><h3>Todos</h3><p>Private by default, team todos anyone can pick up, attached to any record. Today, review, recurring.</p></div>
+        <div class="card"><span class="tag">Yours</span><h3>The app about the business</h3><p>A folder with an <code>app.json</code>. Routes, screens, migrations, tools, jobs and docs are discovered at boot and land on the launcher.</p></div>
+      </div>
+    </section>
+
+    <section id="how">
+      <h2>How it's put together</h2>
+      <p class="take">Deliberately small. If you can run a Docker container, you can run this.</p>
+      <div class="stack">
+        <div class="layer"><span class="lab">Launcher</span><div class="box"><div class="tiles"><span class="tile">CRM</span><span class="tile">Todos</span><span class="tile you">Your app</span><span class="tile">Another</span><span class="tile ghost">+ a folder</span></div></div></div>
+        <div class="layer"><span class="lab">Core</span><div class="box core"><b>login</b> · <b>people &amp; organizations</b> · timelines · files · fields · views · reports · reminders · notifications · scheduler · backups · Sheets · <b>Whisk</b> · MCP</div></div>
+        <div class="layer"><span class="lab">One volume</span><div class="box data"><span>/data/springform.db</span><span>/data/files</span><span>/data/backups</span></div></div>
+      </div>
+      <div class="grid">
+        <div class="card"><h3>FastAPI and Pydantic behind</h3><p>Python 3.12. One process, one writer, SQLite with WAL and FTS5. No queue, no cache server, no Postgres.</p></div>
+        <div class="card"><h3>React and TypeScript in front</h3><p>Vite, Tailwind, React Router. Types are generated from the API, and CI fails when they drift.</p></div>
+        <div class="card"><h3>Apps are folders</h3><p>Tables are prefixed with the app's slug. Apps talk to each other only through published functions. A contract test enforces both.</p></div>
+        <div class="card"><h3>Tested like it matters</h3><p>Every pull request runs the backend, frontend, image and browser suites, plus a secret scan. Forks run the same workflow.</p></div>
+      </div>
+    </section>
+
+    <section id="forks">
+      <h2>Fork it. Bake it. Release it.</h2>
+      <p class="take">A client's software is a private repository that starts from a tagged release. Core stays byte-identical to that tag; the apps are theirs.</p>
+      <div class="steps">
+        <div class="step"><h3>Fork it</h3><p>One script makes the private repo, pins the release, seeds labels and waits for the first green CI run.</p><pre>scripts/new-fork.sh acme --org acme-co</pre></div>
+        <div class="step"><h3>Bake it</h3><p>Scaffold an app, then build. CI's Fork scope job fails any change outside the app folders, so core never drifts.</p><pre>scripts/new-app.sh invoices "Invoices"</pre></div>
+        <div class="step"><h3>Release it</h3><p>Pull the next platform release as a pull request. Tag the fork and it builds its own image, apps included.</p><pre>scripts/update-from-upstream.sh v0.2.0
+git tag v0.2.0-acme.1</pre></div>
+      </div>
+      <p class="note">Why not a GitHub button fork? A fork of a public repo cannot be private. This is a clone with a fetch-only upstream, which can.</p>
+    </section>
+
+    <section id="run">
+      <h2>Run it</h2>
+      <p class="take">On first boot the log prints a one-time setup token for creating the first admin. Nothing is created by whoever visits first.</p>
+      <div class="runs">
+        <div class="step run"><h3>On your laptop</h3><p>The published image, data in a named volume.</p><pre>docker run -p 8000:8000 \
+  -v springform-data:/data \
+  ghcr.io/wwilson1017/springform:latest</pre></div>
+        <div class="step run"><h3>On a server</h3><p>A fresh Ubuntu 24.04 machine whose DNS name already points at it. Docker, Caddy with automatic HTTPS, a firewall, security updates and an off-site backup cron.</p><pre>git clone \
+  https://github.com/wwilson1017/springform.git
+sudo DOMAIN=app.example.com \
+  springform/deploy/setup.sh</pre></div>
+        <div class="step run"><h3>On Railway</h3><p>The repo carries a <code>railway.json</code>: Dockerfile build, health check on <code>/up</code>, a volume at <code>/data</code>.</p><pre>Set SECRET_KEY, PUBLIC_URL,
+TRUST_PROXY=1, and attach a volume.</pre></div>
+      </div>
+      <p class="note">Deploys are stop-before-start. SQLite has one writer, and the app holds a lock on the volume so a second copy refuses to start. Expect a few seconds of downtime per deploy, and never more than one worker.</p>
+    </section>
+
+    <section id="why">
+      <h2>Why this exists</h2>
+      <div class="why">
+        <div>
+          <p>Every time a small business gets its own software, the same first month gets rebuilt: login, users, a contacts list, files, notes on records, to-dos, a scheduler, backups, a helper, and a way to file the next change. Springform is that month, done once, with the extension points a real client needed and did not have.</p>
+          <p>It is built in the open by <a href="https://github.com/wwilson1017">Will Wilson</a>, who runs a cheesecake bakery in Tennessee and writes the software that runs it. The CRM and the todo app are ports of tools that already run that business.</p>
+        </div>
+        <div>
+          <p class="quiet">What it is not: a no-code builder, a multi-tenant SaaS, or a framework that hides the database. It is a repository you read, a container you run, and a folder you add.</p>
+          <p class="quiet" style="margin-top:12px">Where it stands: first releases in October 2026, first production install in November. Sharp edges remain. <a href="https://github.com/wwilson1017/springform/issues">File what you hit.</a></p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <span>Springform · MIT licence · made in Tennessee</span>
+    <span><a href="https://github.com/wwilson1017/springform">Source</a> · <a href="https://github.com/wwilson1017/springform/releases">Releases</a> · <a href="https://github.com/wwilson1017/springform/blob/master/CHANGELOG.md">Changelog</a> · <a href="https://github.com/wwilson1017/springform/tree/master/docs/agents">Contract docs</a></span>
+  </footer>
+</div>
+</body>
+</html>
