@@ -1,11 +1,29 @@
-# Springform
+<p align="center">
+  <a href="https://myspringform.com">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="brand/springform-mark-dark.svg">
+      <img src="brand/springform-mark-light.svg" width="112" height="112" alt="Springform">
+    </picture>
+  </a>
+</p>
+
+<h1 align="center">springform</h1>
+
+<p align="center"><b>Small-business software, minus the plumbing.</b></p>
+
+<p align="center">
+  <a href="https://myspringform.com">myspringform.com</a> ·
+  <a href="https://github.com/wwilson1017/springform/releases">Releases</a> ·
+  <a href="CHANGELOG.md">Changelog</a> ·
+  <a href="docs/agents">Contract docs</a> ·
+  MIT
+</p>
 
 An open-source foundation for small-business software. One SQLite file, one process, one container.
 FastAPI + React. Apps live in their own folders and are discovered on a launcher; a client gets a
 private fork that pulls platform updates and never edits core.
 
-**Status: under construction.** The first release (v0.1.0) is being built in the open. Nothing here is
-ready to run yet.
+**Status: early.** v0.1 is released and runs; expect the contracts to keep moving until 1.0.
 
 - Core: login (password + authenticator app, Google sign-in), people and organizations, timelines,
   attachments, custom fields, saved views, reminders, notifications, a scheduler, nightly backups,
