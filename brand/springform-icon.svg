@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="Springform">
+  <!-- The mark on a copper badge, for browser tabs and app icons: it stays visible on any tab colour. -->
+  <rect width="64" height="64" rx="14" fill="#b5542d"/>
+  <g transform="translate(9 8) scale(0.72)">
+    <rect x="4" y="50" width="16" height="10" rx="2" fill="#f1f1e8"/>
+    <rect x="24" y="50" width="16" height="10" rx="2" fill="#f1f1e8"/>
+    <rect x="44" y="50" width="16" height="10" rx="2" fill="#f1f1e8"/>
+    <rect x="24" y="36" width="16" height="10" rx="2" fill="#f1f1e8"/>
+    <rect x="44" y="36" width="16" height="10" rx="2" fill="#d99b80"/>
+    <polyline points="45.5,34.5 58.5,30 45.5,25.5 56.5,21" fill="none" stroke="#f1f1e8" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="52" cy="13" r="7.4" fill="#f1f1e8"/>
+  </g>
+</svg>
