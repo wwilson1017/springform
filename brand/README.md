@@ -8,8 +8,8 @@ everything that moves is copper.
 Files, all the same drawing:
 
 - `springform-mark.svg` follows the viewer's light or dark setting.
-- `springform-icon.svg` is the mark in cream on a copper badge, for browser tabs and app icons,
-  where the bare mark disappears against the tab colour. The favicons (`frontend/public/favicon.svg`,
+- `springform-icon.svg` is the tab icon: the mark's spring in cream on a copper circle. The full
+  mark has too many parts for a 16-pixel tab and disappears against some tab colours. The favicons (`frontend/public/favicon.svg`,
   `site/favicon.svg`) are copies of it.
 - `springform-mark-light.svg` (ink foundation) and `springform-mark-dark.svg` (cream foundation) are
   for places that pick a version themselves, such as the README's `<picture>`.
@@ -50,5 +50,5 @@ most; the product is software, the pan is only the name.
 - Below 24 pixels the spring blurs into a short bar; that is expected, do not redraw it.
 - Write Springform in prose and springform in the lockup, never SpringForm or Spring Form.
 
-Where it is used: the two favicons (the badge), `site/index.html` (inline, so it follows the page's own
+Where it is used: the two favicons (the tab icon), `site/index.html` (inline, so it follows the page's own
 colours), and the README.
