@@ -24,6 +24,7 @@ Conventions:
 
 ### Fixed
 
+- Railway builds: the Dockerfile no longer declares `VOLUME /data`, which Railway refuses ("docker VOLUME is not supported, use Railway Volumes"). Every supported run mounts `/data` itself.
 - deploy.md no longer asks the owner to make the ghcr package public by hand: the image's source
   label links it to the repository, which sets its visibility.
 - `update-from-upstream.sh` labels its PR `no-auto-merge` and the PR body asks for a merge commit:

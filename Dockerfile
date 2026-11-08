@@ -50,7 +50,7 @@ COPY --from=frontend /src/frontend/dist/ frontend/dist/
 COPY entrypoint.sh /usr/local/bin/
 
 # No USER line: entrypoint.sh starts as root to chown /data, then drops to `app`.
-VOLUME /data
+# No VOLUME line: Railway refuses to build a Dockerfile that has one. Every run mounts /data itself.
 EXPOSE 8000
 STOPSIGNAL SIGTERM
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
