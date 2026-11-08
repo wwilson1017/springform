@@ -18,6 +18,10 @@ Conventions:
 
 ## [Unreleased]
 
+### Added
+
+- Brand mark (`brand/springform-mark.svg`: a foundation of app tiles with one lifting off on a spring) with a short brand note, a README header, the app favicon, and the myspringform.com site in `site/`, published by a GitHub Pages workflow that runs only in the upstream repository.
+
 ### Fixed
 
 - deploy.md no longer asks the owner to make the ghcr package public by hand: the image's source
