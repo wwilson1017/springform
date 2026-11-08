@@ -118,6 +118,24 @@
   .why p { margin: 0 0 12px; color: var(--ink-soft); }
   .quiet { border-left: 3px solid var(--copper); padding: 4px 0 4px 16px; color: var(--ink-soft); font-size: 15px; }
 
+  /* Example */
+  .story { display: grid; gap: 24px; align-items: start; }
+  @media (min-width: 860px) { .story { grid-template-columns: 3fr 2fr; } }
+  .story p { margin: 0 0 12px; color: var(--ink-soft); }
+  .story .stats { margin: 0; }
+  .story .stats { grid-template-columns: repeat(2, 1fr); }
+  .launcher { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); margin: 18px 0 0; }
+  .folder { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px; min-width: 0; }
+  .folder h3 { margin: 0 0 10px; font-size: 15px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink-dim); }
+  .folder .tiles { gap: 6px; }
+  .folder .tile { font-size: 13px; padding: 6px 10px; }
+  .tile.core { background: var(--copper-soft); color: var(--copper-text); box-shadow: inset 0 0 0 1px var(--copper); }
+  .legend { display: flex; gap: 18px; flex-wrap: wrap; align-items: center; font-size: 14px; color: var(--ink-dim); margin: 14px 0 0; }
+  .legend .tile { font-size: 12px; padding: 3px 8px; }
+  .flow { display: grid; gap: 8px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 170px), 1fr)); margin: 18px 0 0; counter-reset: flow; }
+  .flow div { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; font-size: 15px; color: var(--ink-soft); }
+  .flow div::before { counter-increment: flow; content: counter(flow); display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: var(--copper); color: var(--on-copper); font-size: 13px; font-weight: 700; margin-right: 8px; }
+  .flow b { color: var(--ink); }
   footer { margin-top: 56px; border-top: 1px solid var(--line); padding: 24px 0 40px; font-size: 14px; color: var(--ink-dim); display: flex; flex-wrap: wrap; gap: 8px 20px; justify-content: space-between; }
   footer a { color: var(--ink-soft); }
 </style>
@@ -132,7 +150,8 @@
     <nav class="nav" aria-label="Sections">
       <a href="#what">What you get</a>
       <a href="#how" class="hide-sm">How it's built</a>
-      <a href="#forks">Forks</a>
+      <a href="#example">Example</a>
+      <a href="#forks" class="hide-sm">Forks</a>
       <a href="#run">Run it</a>
       <a href="https://github.com/wwilson1017/springform">GitHub</a>
     </nav>
@@ -207,6 +226,40 @@
 git tag v0.2.0-acme.1</pre></div>
       </div>
       <p class="note">Why not a GitHub button fork? A fork of a public repo cannot be private. This is a clone with a fetch-only upstream, which can.</p>
+    </section>
+
+    <section id="example">
+      <h2>What a finished one looks like</h2>
+      <p class="take">Picture a bakery that forks Springform and builds the system that runs the whole place, from the sales pipeline to the oven log. That system already exists. It is called Cake OS.</p>
+      <div class="story">
+        <div>
+          <p>Cake OS runs Tennessee Cheesecake, a cheesecake bakery in Tennessee. It started in February 2026 as a few internal tools. It was written by the owner with AI coding agents, not by a development team.</p>
+          <p>Nine months later it has about seventy apps in six folders. Staff use it at their desks, on tablets on the bakery floor and at the loading dock. On 28 November 2026 it is scheduled to become the system of record for inventory, orders, purchasing, quality and manufacturing. On 1 January 2027 it starts keeping the books, and the off-the-shelf ERP the bakery ran on retires.</p>
+          <p>Every one of those apps needed the same plumbing first: logins, a list of customers and suppliers, notes and photos on records, reminders, nightly jobs, backups, an assistant and a way to ask for the next change. That plumbing is what Springform is.</p>
+        </div>
+        <div class="stats" aria-label="Cake OS at a glance">
+          <div class="stat"><b>Feb 2026</b><span>first commit</span></div>
+          <div class="stat"><b>~2,900</b><span>commits by November</span></div>
+          <div class="stat"><b>~70</b><span>apps on the home screen</span></div>
+          <div class="stat"><b>1</b><span>ERP being retired</span></div>
+        </div>
+      </div>
+
+      <h3 style="margin:30px 0 4px;font-size:20px;letter-spacing:-0.01em">The same system as a Springform fork</h3>
+      <p class="take" style="font-size:16px;margin-bottom:0">A sample of the launcher. Copper tiles come with Springform. Everything else is a folder the bakery's fork adds.</p>
+      <div class="launcher"><div class="folder"><h3>Operations</h3><div class="tiles"><span class="tile">Bakery Scheduler</span><span class="tile">Shift Planner</span><span class="tile">Oven &amp; Freezer Log</span><span class="tile">Recipes</span><span class="tile">Test Kitchen</span><span class="tile">SOPs</span><span class="tile">Maintenance</span><span class="tile">Downtime</span><span class="tile">Takt Time</span><span class="tile core">Todos</span><span class="tile core">Reminders</span></div></div><div class="folder"><h3>Warehouse</h3><div class="tiles"><span class="tile">Inventory</span><span class="tile">Kanban Scanner</span><span class="tile">Dock Pick</span><span class="tile">Shipping</span><span class="tile">Equipment Pre-Op</span></div></div><div class="folder"><h3>Safety &amp; Quality</h3><div class="tiles"><span class="tile">Food Safety Maps</span><span class="tile">Checklists</span><span class="tile">Quality Checks</span><span class="tile">Case Labels</span><span class="tile">Pest Control</span><span class="tile">Driver Sign-In</span><span class="tile">Safety Reports</span></div></div><div class="folder"><h3>Sales</h3><div class="tiles"><span class="tile core">CRM</span><span class="tile">Orders</span><span class="tile">EDI</span><span class="tile">Sales Dashboard</span><span class="tile core">People</span></div></div><div class="folder"><h3>Finance</h3><div class="tiles"><span class="tile">Books</span><span class="tile">Payables</span><span class="tile">Cash Flow</span><span class="tile">Time Clock</span><span class="tile">Payroll</span></div></div><div class="folder"><h3>Assistants</h3><div class="tiles"><span class="tile core">An agent per department</span><span class="tile core">Request board</span><span class="tile">Roadmap</span><span class="tile core">Guide</span><span class="tile core">Backups</span></div></div></div>
+      <div class="legend"><span><span class="tile core">Copper</span> comes with Springform</span><span><span class="tile">Plain</span> an app folder in the fork</span></div>
+
+      <h3 style="margin:30px 0 4px;font-size:20px;letter-spacing:-0.01em">How it keeps growing</h3>
+      <p class="take" style="font-size:16px;margin-bottom:0">Cake OS ships changes most days. Springform comes with the parts of that loop that live in the app: the request board, the labels it files issues under, and the CI check that keeps changes inside app folders.</p>
+      <div class="flow">
+        <div><b>Someone hits a snag</b> and files a request from inside the app.</div>
+        <div><b>It becomes a GitHub issue,</b> labelled with the app it is about.</div>
+        <div><b>An AI coding agent builds it</b> inside that app's folder.</div>
+        <div><b>Tests and a review gate</b> check it, and CI checks that core was not touched.</div>
+        <div><b>It ships,</b> and the request board shows it done.</div>
+      </div>
+      <p class="note">To be exact: Cake OS itself is not a Springform fork. It came first, on Postgres and Google Cloud. Springform is its plumbing pulled out and rebuilt small, so the next business starts at its first real app instead of its first login screen.</p>
     </section>
 
     <section id="run">
