@@ -21,16 +21,20 @@ Conventions:
 ### Added
 
 - Brand mark (`brand/springform-mark.svg`: a foundation of app tiles with one lifting off on a spring) with a short brand note, a README header, the app favicon, and the myspringform.com site in `site/`, published by a GitHub Pages workflow that runs only in the upstream repository.
+- myspringform.com: a link-preview card (`og:image`, `twitter:card`), a canonical URL and fuller title, a styled 404 page, `robots.txt` and `sitemap.xml`; the header stays on one row on phones with 44 px tap targets.
 - Preview installs restore sample data and remove uploaded files nightly at 09:00 install-local (UTC by default), with reset history on the Jobs page.
 
 ### Fixed
 
+- `/docs`, `/redoc` and `/openapi.json` need a signed-in user; signed out they return 401, so an install no longer publishes its API schema.
 - Railway builds: the Dockerfile no longer declares `VOLUME /data`, which Railway refuses ("docker VOLUME is not supported, use Railway Volumes"). Every supported run mounts `/data` itself.
 - deploy.md no longer asks the owner to make the ghcr package public by hand: the image's source
   label links it to the repository, which sets its visibility.
 - `update-from-upstream.sh` labels its PR `no-auto-merge` and the PR body asks for a merge commit:
   a squash drops upstream's history and makes the next update conflict. The body mentions the
   regenerated types file only when it changed.
+- Preview mode no longer accepts a secret setting (Google sign-in client, Sheets service-account key):
+  the save is refused with "Preview mode does not store secrets.", so a visitor can no longer stop the next boot.
 
 ## [0.1.1] - 2026-10-25
 
