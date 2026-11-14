@@ -9,6 +9,14 @@ from backend.core.auth.deps import User
 from backend.core.files import service as files, storage
 
 
+@pytest.fixture(autouse=True)
+def hooks(monkeypatch):
+    """The real startup hooks start a background MCP discovery thread that outlives the test's DB."""
+    ran = []
+    monkeypatch.setattr(registry, "run_startup_hooks", lambda: ran.append(db.in_transaction()))
+    return ran
+
+
 def _samples():
     tables = ["core_people", "core_organizations"]
     tables += [t for app in registry.installed() for t in app.modules["seed"].RESET_TABLES]
@@ -21,7 +29,7 @@ def _upload(user):
     return widget, file, storage.blob_path(file["sha256"])
 
 
-def test_reset_restores_samples_and_removes_recent_uploads(app, monkeypatch, freeze):
+def test_reset_restores_samples_and_removes_recent_uploads(app, monkeypatch, freeze, hooks):
     monkeypatch.setenv("PREVIEW_MODE", "1")
     freeze("2026-11-14T09:00:00Z")
     registry.seed_apps()
@@ -32,14 +40,6 @@ def test_reset_restores_samples_and_removes_recent_uploads(app, monkeypatch, fre
     with db.transaction() as conn:
         conn.execute("UPDATE example_widgets SET name = 'Edited' WHERE id = 1")
     assert path.is_file()
-    hooks = []
-    original_hooks = registry.run_startup_hooks
-
-    def startup():
-        hooks.append(db.in_transaction())
-        original_hooks()
-
-    monkeypatch.setattr(registry, "run_startup_hooks", startup)
     assert preview.reset() == {"files": 1}
     assert _samples() == before
     assert db.one("SELECT id FROM example_widgets WHERE id = ?", (widget["id"],)) is None
