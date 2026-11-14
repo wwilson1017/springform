@@ -11,7 +11,9 @@ Until 1.0, only the latest release gets security fixes. Upgrade to it before rep
 Use GitHub's private form: the **Security** tab of this repository, then **Report a
 vulnerability**. Only the maintainer sees the report.
 
-Do not open a public issue, discussion or pull request for anything exploitable.
+Do not open a public issue, discussion or pull request for anything exploitable. If the form is
+missing, open an issue titled "Security contact request" with no details, and the maintainer
+will reply with a private channel.
 
 Include what you found, how to reproduce it, the version or commit, and the impact you expect.
 
