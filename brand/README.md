@@ -53,4 +53,5 @@ most; the product is software, the pan is only the name.
 Where it is used: the two favicons (the tab icon), `site/index.html` and `site/404.html` (inline, so it
 follows the page's own colours), the README, and `site/social-card.png`, the 1200×630 link preview. That PNG
 is a screenshot of `social-card.html` in this folder (kept out of `site/` so it is not published);
-re-render it when the mark or the headline changes.
+re-render it when the mark or the headline changes. The app header and signed-out pages use copies in
+`frontend/public/branding/` (`mark-light.svg` and `mark-dark.svg`), which a fork may replace with its own logo.

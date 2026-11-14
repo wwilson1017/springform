@@ -18,6 +18,10 @@ Conventions:
 
 ## [Unreleased]
 
+### Changed
+
+- The app wears the brand: the accent is copper instead of red (status reds stay), and the mark sits beside the name in the header and on the sign-in page. A fork replaces the mark through `frontend/public/branding/`.
+
 ### Added
 
 - Security headers on every response, including errors: nosniff, same-origin frame protection, referrer policy and HTTPS-only HSTS.

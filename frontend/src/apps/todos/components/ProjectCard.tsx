@@ -60,7 +60,7 @@ export function ProjectCard({ project, stalled, onCloseOut }: Props) {
         </p>
       )}
       {stalled && (
-        <p className="pointer-events-none relative mt-2 text-xs font-semibold text-sf-accent-text">
+        <p className="pointer-events-none relative mt-2 text-xs font-semibold text-sf-red-text">
           No next action — stalled?
         </p>
       )}

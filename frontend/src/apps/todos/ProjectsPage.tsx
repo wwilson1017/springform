@@ -149,7 +149,7 @@ export function ProjectsPage() {
                            if (p.visibility) setVisibility(p.visibility);
                            if (p.assignee_user_id !== undefined) setAssignee(p.assignee_user_id);
                          }} />
-          {formError && <p role="alert" className="text-sm text-sf-accent-text">{formError}</p>}
+          {formError && <p role="alert" className="text-sm text-sf-red-text">{formError}</p>}
           <div className="flex gap-2">
             <button type="submit" disabled={!name.trim()}
                     className="rounded-lg bg-sf-accent px-4 py-2 text-sm font-display text-sf-accent-ink hover:bg-sf-accent-dark disabled:opacity-40">

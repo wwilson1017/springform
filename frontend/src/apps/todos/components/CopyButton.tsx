@@ -28,7 +28,7 @@ export function CopyButton({ text, label }: Props) {
         copied
           ? 'border-sf-green text-sf-green-text'
           : failed
-            ? 'border-sf-accent text-sf-accent-text'
+            ? 'border-sf-red text-sf-red-text'
             : 'border-sf-line-strong text-sf-ink-dim hover:bg-sf-hover'
       }`}
     >

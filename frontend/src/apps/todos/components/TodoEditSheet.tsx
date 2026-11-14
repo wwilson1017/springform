@@ -375,7 +375,7 @@ export function TodoEditSheet({ todo, defaults, projects, contexts, onClose, onS
             {todo.completed_at && ` · Completed ${new Date(todo.completed_at).toLocaleDateString()}`}
           </p>
         )}
-        {error && <p role="alert" className="mt-2 text-sm text-sf-accent-text">{error}</p>}
+        {error && <p role="alert" className="mt-2 text-sm text-sf-red-text">{error}</p>}
 
         <div className="mt-5 flex items-center gap-2">
           <button type="button" onClick={() => void save()} disabled={!title.trim() || busy}
