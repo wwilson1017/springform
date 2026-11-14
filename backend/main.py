@@ -13,7 +13,18 @@ from fastapi.openapi.docs import get_redoc_html, get_swagger_ui_html
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, PlainTextResponse
 from fastapi.routing import APIRoute
 
-from backend.core import REPO_ROOT, VERSION, db, errors, preview, registry, scheduler, secrets, settings
+from backend.core import (
+    REPO_ROOT,
+    VERSION,
+    db,
+    errors,
+    preview,
+    registry,
+    scheduler,
+    secrets,
+    security_headers,
+    settings,
+)
 from backend.core.auth import bootstrap, csrf
 from backend.core.auth.deps import User, current_user
 from backend.core.backup import service as backup
@@ -52,6 +63,7 @@ def create_app(apps_dir: Path = db.APPS_DIR) -> FastAPI:
     )
     errors.install(app)
     csrf.install(app)
+    security_headers.install(app)
     # Core routers (`backend/core/<pkg>/router.py`), hooks, jobs and tools are picked up by
     # registry.install(), like an app's; nobody edits this file to add one.
 

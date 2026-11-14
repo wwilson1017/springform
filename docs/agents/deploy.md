@@ -47,6 +47,28 @@ The **CI image test** runs the container and asserts `/api/health` reports `sqli
 
 With `TRUST_PROXY=1` the app port is bound only on the compose network, never published, so forwarded headers can only come from Caddy. `compose.yml` enforces it. Cookie `secure=` follows the real scheme; startup warns if `PUBLIC_URL` is https but requests are not (`auth.md` §8).
 
+### Security headers
+
+The app sets these defaults on every HTTP response, including errors and CSRF refusals,
+so Caddy, Railway and bare Docker installs all receive them without proxy header configuration.
+`backend/core/security_headers.py` wraps the whole built middleware stack, including the
+server error handler. A route's own header value wins.
+
+| Header | Value |
+|---|---|
+| `X-Content-Type-Options` | `nosniff` |
+| `X-Frame-Options` | `SAMEORIGIN` |
+| `Content-Security-Policy` | `frame-ancestors 'self'` |
+| `Referrer-Policy` | `strict-origin-when-cross-origin` |
+| `Strict-Transport-Security` | `max-age=31536000` (HTTPS only) |
+
+Same-origin framing stays allowed for in-app previews. HSTS is added only when the request
+scheme is HTTPS; behind Caddy or Railway's proxy this needs `TRUST_PROXY=1` so uvicorn trusts
+`X-Forwarded-Proto`. Plain HTTP gets no HSTS default. There is no `includeSubDomains` or
+`preload`: an install may sit on a subdomain without controlling the parent domain or other
+subdomains. A script/style CSP is deliberately deferred because `frontend/index.html` has an
+inline theme script that needs its own design.
+
 ### `setup.sh` (Ubuntu 24.04)
 
 1. Install Docker and the compose plugin from Docker's apt repository. The packages are unversioned; the repository's GPG key fingerprint is pinned.

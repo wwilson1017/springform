@@ -65,7 +65,7 @@ export function TodoRow({ todo, onToggleDone, onToggleStar, onEdit, showStatus }
             )}
             {due && (
               <span className={due.overdue && !finished
-                ? 'font-bold text-sf-accent-text'
+                ? 'font-bold text-sf-red-text'
                 : 'text-sf-ink-dim'}>
                 {due.text}
               </span>

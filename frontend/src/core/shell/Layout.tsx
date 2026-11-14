@@ -45,7 +45,11 @@ export function Layout() {
             <IconMenu aria-hidden />
           </button>
         )}
-        <Link to="/" className="font-display text-lg font-medium text-sf-ink no-underline">{workspace?.name}</Link>
+        <Link to="/" className="flex min-w-0 items-center gap-2 font-display text-lg font-medium text-sf-ink no-underline">
+          <img src="/branding/mark-light.svg" alt="" className="h-7 w-7 shrink-0 dark:hidden" />
+          <img src="/branding/mark-dark.svg" alt="" className="hidden h-7 w-7 shrink-0 dark:block" />
+          <span className="truncate">{workspace?.name}</span>
+        </Link>
         {!isMobile && (
           <nav className="ml-4 flex gap-1">
             {nav.map(item => (

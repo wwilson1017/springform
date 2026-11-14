@@ -42,7 +42,7 @@ springform/
     core/
       <pkg>/       optional router.py hooks.py jobs.py tools.py startup.py, discovered by registry.install()
       db.py outbox.py settings.py secrets.py registry.py entities.py scheduler.py changelog.py
-      clock.py localtime.py errors.py pagination.py preview.py
+      clock.py localtime.py errors.py security_headers.py pagination.py preview.py
       ratelimit.py                     (in-process rate limits; the inbound MCP endpoint uses them)
       auth/        service.py jwt.py deps.py router.py totp.py trusted.py google.py invites.py mail.py bootstrap.py users_router.py csrf.py
       contacts/    service.py api.py router.py seed.py

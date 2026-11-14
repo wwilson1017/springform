@@ -39,7 +39,7 @@ All lifted code is the author's sole authorship (Decisions, License); the proven
 | `backend/core/scheduler.py` | todo-gtd | `backend/main.py` `_tick` (line 75) | ~300 target (plan) | port | Loop shape only; jobs, guard, semaphore, statuses are new. |
 | `backend/core/ratelimit.py` | todo-gtd | `backend/ratelimit.py` | 58 | lift | `RateLimiter`, used by the inbound MCP endpoint (per link, and wrong tokens per address; `mcp.md` §1). Login rate limits are a sliding window over `core_login_attempts` in `backend/core/auth/service.py`. |
 | `backend/core/logscrub.py` | — | — | — | — | Not built as a module. The one token path in the access log, `/mcp/<token>`, is scrubbed by `backend/core/mcp/startup.py` (after todo-gtd `backend/logscrub.py`). |
-| `backend/core/registry.py`, `entities.py`, `outbox.py`, `settings.py`, `errors.py`, `pagination.py`, `changelog.py`, `preview.py`, `platform/` | — | — | `entities.py` ~260 (plan), about 195 built | new | No `kv.py`: install settings are `settings.py` and `platform/keys.py`. |
+| `backend/core/registry.py`, `entities.py`, `outbox.py`, `settings.py`, `errors.py`, `security_headers.py`, `pagination.py`, `changelog.py`, `preview.py`, `platform/` | — | — | `entities.py` ~260 (plan), about 195 built | new | No `kv.py`: install settings are `settings.py` and `platform/keys.py`. |
 | `backend/main.py` | — | — | — | new | |
 
 ## Login (§2)
