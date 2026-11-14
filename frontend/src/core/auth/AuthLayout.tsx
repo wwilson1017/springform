@@ -6,7 +6,11 @@ export function AuthLayout({ subtitle, children }: { subtitle: string; children:
     <div className="flex min-h-svh items-center justify-center bg-sf-bg px-7">
       <div className="w-full max-w-sm">
         <div className="mb-10 text-center">
-          <h1 className="m-0 font-display text-3xl font-medium text-sf-ink">Springform</h1>
+          <h1 className="m-0 flex items-center justify-center gap-3 font-display text-3xl font-medium text-sf-ink">
+            <img src="/branding/mark-light.svg" alt="" className="h-9 w-9 shrink-0 dark:hidden" />
+            <img src="/branding/mark-dark.svg" alt="" className="hidden h-9 w-9 shrink-0 dark:block" />
+            Springform
+          </h1>
           <p className="mt-2 text-sm text-sf-ink-mute">{subtitle}</p>
         </div>
         {children}

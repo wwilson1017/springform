@@ -18,6 +18,10 @@ Conventions:
 
 ## [Unreleased]
 
+### Changed
+
+- The app wears the brand: the accent is copper instead of red (status reds stay), and the mark sits beside the name in the header and on the sign-in page. A fork replaces the mark through `frontend/public/branding/`.
+
 ### Added
 
 - Brand mark (`brand/springform-mark.svg`: a foundation of app tiles with one lifting off on a spring) with a short brand note, a README header, the app favicon, and the myspringform.com site in `site/`, published by a GitHub Pages workflow that runs only in the upstream repository.

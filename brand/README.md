@@ -51,4 +51,6 @@ most; the product is software, the pan is only the name.
 - Write Springform in prose and springform in the lockup, never SpringForm or Spring Form.
 
 Where it is used: the two favicons (the tab icon), `site/index.html` (inline, so it follows the page's own
-colours), and the README.
+colours), the README, and the app header and signed-out pages via copies in
+`frontend/public/branding/` (`mark-light.svg` and `mark-dark.svg`), which a fork may replace
+with its own logo.

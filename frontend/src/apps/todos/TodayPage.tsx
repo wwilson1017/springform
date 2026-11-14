@@ -52,7 +52,7 @@ export function TodayPage() {
           />
         ) : (
           <div className="space-y-6">
-            {section('Overdue', overdue, 'text-sf-accent-text')}
+            {section('Overdue', overdue, 'text-sf-red-text')}
             {section('Due today', dueToday)}
             {section('Time to revisit', revisit)}
             {section('★ Starred', starred, 'text-sf-amber-text')}

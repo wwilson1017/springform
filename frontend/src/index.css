@@ -36,13 +36,13 @@
   --color-sf-ink-soft: #4a4a4a;
   --color-sf-ink-dim: #595959;
 
-  /* Brand accent, identical in both themes as a FILL. */
-  --color-sf-accent: #e31d3b;
-  --color-sf-accent-dark: #a8302c;
+  /* Brand accent: copper (brand/README.md), identical in both themes as a FILL. */
+  --color-sf-accent: #b5542d;
+  --color-sf-accent-dark: #9a4322;
   --color-sf-accent-ink: #ffffff;
   --color-sf-accent-soft: color-mix(in srgb, var(--color-sf-accent) 9%, transparent);
-  /* Accent as TEXT or an icon. The fill red fails AA as text in both themes. */
-  --color-sf-accent-text: #ba002a;
+  /* Accent as TEXT or an icon. The fill fails AA as text on cream. */
+  --color-sf-accent-text: #9a4322;
 
   /* FILL vs TEXT, the rule for every hue below: each hue is two tokens.
        fill  ->  --color-sf-<hue>         background, border, dot, bar
@@ -94,7 +94,7 @@
   --color-sf-ink-dim: #adaba5;
 
   --color-sf-accent-soft: color-mix(in srgb, var(--color-sf-accent) 20%, transparent);
-  --color-sf-accent-text: #f0727f;
+  --color-sf-accent-text: #e4916a;
 
   --color-sf-green: #5fb585;
   --color-sf-amber: #d9a441;

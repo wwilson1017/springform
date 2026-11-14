@@ -126,7 +126,7 @@ export function QuickAdd({ onAdded, link, placeholder }: Props) {
           ★ Star the next occurrence when it comes due today
         </label>
       )}
-      {error && <p role="alert" className="mt-1 text-xs text-sf-accent-text">{error}</p>}
+      {error && <p role="alert" className="mt-1 text-xs text-sf-red-text">{error}</p>}
     </div>
   );
 }

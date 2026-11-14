@@ -85,7 +85,7 @@ export function NotificationBell() {
         className="relative flex h-8 w-8 cursor-pointer items-center justify-center rounded-md border-0 bg-transparent text-sf-ink-mute hover:bg-sf-hover">
         <IconBell size={18} aria-hidden />
         {count > 0 && (
-          <span aria-hidden className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-sf-accent px-1 text-[10px] font-semibold text-sf-accent-ink">
+          <span aria-hidden className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-sf-red px-1 text-[10px] font-semibold text-sf-on-status">
             {count > 99 ? '99+' : count}
           </span>
         )}
