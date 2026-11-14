@@ -61,6 +61,7 @@
   h1 { font-size: clamp(34px, 5.6vw, 58px); line-height: 1.04; letter-spacing: -0.025em; margin: 14px 0 16px; font-weight: 800; }
   .lead { font-size: clamp(17px, 2vw, 20px); color: var(--ink-soft); max-width: 36em; margin: 0 0 24px; }
   .cta { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+  .cta-note { margin: 12px 0 0; font-size: 14px; color: var(--ink-dim); }
   .btn { display: inline-block; padding: 11px 18px; border-radius: 10px; font-weight: 600; text-decoration: none; border: 1.5px solid var(--copper); font-size: 16px; }
   .btn.primary { background: var(--copper); color: var(--on-copper); }
   .btn.primary:hover { filter: brightness(0.94); }
@@ -158,8 +159,9 @@
     <nav class="nav" aria-label="Sections">
       <a href="#what" class="hide-sm">What you get</a>
       <a href="#how" class="hide-sm">How it's built</a>
-      <a href="#example">Example</a>
+      <a href="#example" class="hide-sm">Example</a>
       <a href="#forks" class="hide-sm">Forks</a>
+      <a href="https://demo.myspringform.com">Demo</a>
       <a href="#run">Run it</a>
       <a href="https://github.com/wwilson1017/springform">GitHub</a>
     </nav>
@@ -174,7 +176,9 @@
         <div class="cta">
           <a class="btn primary" href="https://github.com/wwilson1017/springform">Read the code</a>
           <a class="btn ghost" href="#run">Run it in a minute</a>
+          <a class="btn ghost" href="https://demo.myspringform.com">Try the demo</a>
         </div>
+        <p class="cta-note">Sample data, no sign-up. Pick Admin or Member. It resets every night.</p>
         <p class="motto"><b>Fork it. Bake it. Release it.</b> &nbsp;A springform is the pan a cheesecake comes out of whole. The form stays on the foundation; what you made lifts off it.</p>
       </div>
       <div class="mark" aria-hidden="true">

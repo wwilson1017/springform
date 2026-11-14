@@ -29,6 +29,7 @@ Conventions:
 - myspringform.com: a link-preview card (`og:image`, `twitter:card`), a canonical URL and fuller title, a styled 404 page, `robots.txt` and `sitemap.xml`; the header stays on one row on phones with 44 px tap targets.
 - `SECURITY.md`: supported versions, how to report a vulnerability privately, what to expect, and scope; linked from the README.
 - Preview installs restore sample data and remove uploaded files nightly at 09:00 install-local (UTC by default), with reset history on the Jobs page.
+- myspringform.com and the README link the live demo at demo.myspringform.com: a Try the demo button with a one-line note in the hero, and a Demo link in the header (on phones it takes Example's place).
 
 ### Fixed
 

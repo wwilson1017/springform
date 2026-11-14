@@ -17,6 +17,7 @@
   <a href="CHANGELOG.md">Changelog</a> ·
   <a href="docs/agents">Contract docs</a> ·
   <a href="SECURITY.md">Security</a> ·
+  <a href="https://demo.myspringform.com">Live demo</a> ·
   MIT
 </p>
 
