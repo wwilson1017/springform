@@ -9,7 +9,8 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import Depends, FastAPI, HTTPException
-from fastapi.responses import FileResponse, PlainTextResponse
+from fastapi.openapi.docs import get_redoc_html, get_swagger_ui_html
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, PlainTextResponse
 from fastapi.routing import APIRoute
 
 from backend.core import REPO_ROOT, VERSION, db, errors, preview, registry, scheduler, secrets, settings
@@ -45,7 +46,10 @@ def create_app(apps_dir: Path = db.APPS_DIR) -> FastAPI:
             await app.state.scheduler.stop()
             db.close()
 
-    app = FastAPI(title="Springform", version=VERSION, lifespan=lifespan, generate_unique_id_function=_operation_id)
+    app = FastAPI(
+        title="Springform", version=VERSION, lifespan=lifespan, generate_unique_id_function=_operation_id,
+        docs_url=None, redoc_url=None, openapi_url=None,  # served signed-in only, by _serve_docs()
+    )
     errors.install(app)
     csrf.install(app)
     # Core routers (`backend/core/<pkg>/router.py`), hooks, jobs and tools are picked up by
@@ -73,10 +77,29 @@ def create_app(apps_dir: Path = db.APPS_DIR) -> FastAPI:
     def list_apps(user: User = Depends(current_user)) -> list[dict]:
         return registry.list_for_user(user)
 
+    _serve_docs(app)
     registry.install(app, apps_dir)
     if (FRONTEND_DIST / "index.html").is_file():
         _serve_frontend(app)
     return app
+
+
+def _serve_docs(app: FastAPI) -> None:
+    """FastAPI's /openapi.json, /docs and /redoc, for signed-in users only: a fork's schema describes
+    its own apps. Signed out they 401 like any API route. `app.openapi()` (gen-types, tests) is unaffected."""
+    signed_in = [Depends(current_user)]
+
+    @app.get("/openapi.json", include_in_schema=False, dependencies=signed_in)
+    def openapi() -> JSONResponse:
+        return JSONResponse(app.openapi())
+
+    @app.get("/docs", include_in_schema=False, dependencies=signed_in)
+    def swagger_ui() -> HTMLResponse:
+        return get_swagger_ui_html(openapi_url="/openapi.json", title=f"{app.title} - Swagger UI")
+
+    @app.get("/redoc", include_in_schema=False, dependencies=signed_in)
+    def redoc() -> HTMLResponse:
+        return get_redoc_html(openapi_url="/openapi.json", title=f"{app.title} - ReDoc")
 
 
 def _serve_frontend(app: FastAPI) -> None:
