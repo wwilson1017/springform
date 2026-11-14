@@ -50,5 +50,7 @@ most; the product is software, the pan is only the name.
 - Below 24 pixels the spring blurs into a short bar; that is expected, do not redraw it.
 - Write Springform in prose and springform in the lockup, never SpringForm or Spring Form.
 
-Where it is used: the two favicons (the tab icon), `site/index.html` (inline, so it follows the page's own
-colours), and the README.
+Where it is used: the two favicons (the tab icon), `site/index.html` and `site/404.html` (inline, so it
+follows the page's own colours), the README, and `site/social-card.png`, the 1200×630 link preview. That PNG
+is a screenshot of `social-card.html` in this folder (kept out of `site/` so it is not published);
+re-render it when the mark or the headline changes.
