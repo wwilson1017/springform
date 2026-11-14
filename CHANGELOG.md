@@ -21,6 +21,7 @@ Conventions:
 ### Added
 
 - Brand mark (`brand/springform-mark.svg`: a foundation of app tiles with one lifting off on a spring) with a short brand note, a README header, the app favicon, and the myspringform.com site in `site/`, published by a GitHub Pages workflow that runs only in the upstream repository.
+- myspringform.com: a link-preview card (`og:image`, `twitter:card`), a canonical URL and fuller title, a styled 404 page, `robots.txt` and `sitemap.xml`; the header stays on one row on phones with 44 px tap targets.
 - `SECURITY.md`: supported versions, how to report a vulnerability privately, what to expect, and scope; linked from the README.
 
 ### Fixed
@@ -32,6 +33,8 @@ Conventions:
 - `update-from-upstream.sh` labels its PR `no-auto-merge` and the PR body asks for a merge commit:
   a squash drops upstream's history and makes the next update conflict. The body mentions the
   regenerated types file only when it changed.
+- Preview mode no longer accepts a secret setting (Google sign-in client, Sheets service-account key):
+  the save is refused with "Preview mode does not store secrets.", so a visitor can no longer stop the next boot.
 
 ## [0.1.1] - 2026-10-25
 

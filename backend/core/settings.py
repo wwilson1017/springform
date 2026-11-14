@@ -19,6 +19,7 @@ from typing import Any
 
 from backend.core import db, secrets
 from backend.core.clock import now_iso
+from backend.core.errors import Forbidden
 
 _CORE_DEFAULTS: dict[str, Any] = {"timezone": "UTC"}
 DEFAULTS: dict[str, Any] = dict(_CORE_DEFAULTS)
@@ -73,6 +74,11 @@ def get_setting(key: str, default: Any = None) -> Any:
 
 
 def set_setting_in(conn: db.Conn, key: str, value: Any, user_id: int | None, is_secret: bool = False) -> None:
+    if is_secret and preview_mode():
+        from backend.core import preview  # preview imports settings
+
+        if key not in preview.GENERATED_SECRETS:  # preview.check_startup would refuse the next boot
+            raise Forbidden("Preview mode does not store secrets.")
     raw = json.dumps(value)
     conn.execute(
         """INSERT INTO core_settings (key, value, is_secret, updated_at, updated_by) VALUES (?, ?, ?, ?, ?)

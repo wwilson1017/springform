@@ -203,7 +203,7 @@ Revoked and deactivated MCP links return 404 (`mcp.md`).
 1. `PREVIEW_MODE=1` seeds `preview-admin@example.com` and `preview-member@example.com`, each with a random password nobody knows, so the Users card shows them as signed up (not invite pending) and the last-admin guard counts them.
 2. `LoginPage` shows a role picker → `POST /api/auth/preview {role}`.
 3. `google/start` redirects to a local stub, so Playwright covers the Google path.
-4. **Startup refuses preview mode if real secrets are present**: `ENCRYPTION_KEY` or `RESEND_API_KEY` set (non-empty) in the environment, or any `core_settings` row with `is_secret=1`. The check runs after migrations, because it reads `core_settings`.
+4. **Startup refuses preview mode if real secrets are present**: `ENCRYPTION_KEY` or `RESEND_API_KEY` set (non-empty) in the environment, or any `core_settings` row with `is_secret=1`. The check runs after migrations, because it reads `core_settings` (the generated VAPID key, `preview.GENERATED_SECRETS`, does not count). A running preview never stores what this check rejects: `settings.set_setting_in(..., is_secret=True)` raises 403 "Preview mode does not store secrets." for any other key, which the Google and Sheets settings cards show as is.
 5. The factory reset is allowed in preview mode (`database-and-transactions.md` §6).
 
 ## 12. Frontend (`frontend/src/core/auth/`)
