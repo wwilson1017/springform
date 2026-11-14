@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Page not found · Springform</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#f1f1e8" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#1c1b19" media="(prefers-color-scheme: dark)">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg?v=3">
+<style>
+  /* GitHub Pages serves this at any depth, so every link is absolute. Tokens match index.html. */
+  :root {
+    --bg: #f1f1e8; --ink: #292929; --ink-soft: #4a4a4a;
+    --copper: #b5542d; --copper-text: #9a4322; --copper-soft: rgba(181, 84, 45, 0.10); --on-copper: #ffffff;
+    --sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #1c1b19; --ink: #ecebe4; --ink-soft: #cfcec6; --copper-text: #e4916a; --copper-soft: rgba(228, 145, 106, 0.14); }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--sans); line-height: 1.55; font-size: 17px; -webkit-font-smoothing: antialiased; }
+  .wrap { max-width: 1040px; margin: 0 auto; padding: 0 16px; }
+  @media (min-width: 720px) { .wrap { padding: 0 24px; } }
+  .top { display: flex; align-items: center; min-height: 64px; }
+  .lockup { display: inline-flex; align-items: center; gap: 0.4em; color: var(--ink); text-decoration: none; font-weight: 700; font-size: 22px; letter-spacing: -0.02em; }
+  .lockup svg { width: 1.25em; height: 1.25em; display: block; }
+  .mf { fill: var(--ink); }
+  main { padding: 64px 0 96px; }
+  .eyebrow { display: inline-flex; gap: 10px; align-items: center; font-size: 13px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--copper-text); font-weight: 600; }
+  .eyebrow::before { content: ""; width: 22px; height: 2px; background: var(--copper); }
+  h1 { font-size: clamp(34px, 5.6vw, 58px); line-height: 1.04; letter-spacing: -0.025em; margin: 14px 0 16px; font-weight: 800; }
+  p { font-size: clamp(17px, 2vw, 20px); color: var(--ink-soft); max-width: 36em; margin: 0 0 24px; }
+  a { color: var(--copper-text); text-decoration-thickness: 1px; text-underline-offset: 3px; }
+  .btn { display: inline-block; padding: 11px 18px; border-radius: 10px; font-weight: 600; text-decoration: none; border: 1.5px solid var(--copper); font-size: 16px; background: var(--copper); color: var(--on-copper); }
+  .btn:hover { filter: brightness(0.94); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <a class="lockup" href="/" aria-label="Springform home">
+      <svg viewBox="0 0 64 64" aria-hidden="true"><rect class="mf" x="4" y="50" width="16" height="10" rx="2"/><rect class="mf" x="24" y="50" width="16" height="10" rx="2"/><rect class="mf" x="44" y="50" width="16" height="10" rx="2"/><rect class="mf" x="24" y="36" width="16" height="10" rx="2"/><rect x="44" y="36" width="16" height="10" rx="2" fill="#b5542d" fill-opacity="0.3"/><polyline points="45.5,34.5 58.5,30 45.5,25.5 56.5,21" fill="none" stroke="#b5542d" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><circle cx="52" cy="13" r="7.2" fill="#b5542d"/></svg>
+      <span>springform</span>
+    </a>
+  </header>
+  <main>
+    <span class="eyebrow">404</span>
+    <h1>There is no page here.</h1>
+    <p>The link may be old, or the address may have a typo. Everything about Springform is on the home page and in the <a href="https://github.com/wwilson1017/springform">repository</a>.</p>
+    <a class="btn" href="/">Go to the home page</a>
+  </main>
+</div>
+</body>
+</html>
