@@ -18,8 +18,13 @@ Conventions:
 
 ## [Unreleased]
 
+### Changed
+
+- The app wears the brand: the accent is copper instead of red (status reds stay), and the mark sits beside the name in the header and on the sign-in page. A fork replaces the mark through `frontend/public/branding/`.
+
 ### Added
 
+- Security headers on every response, including errors: nosniff, same-origin frame protection, referrer policy and HTTPS-only HSTS.
 - Brand mark (`brand/springform-mark.svg`: a foundation of app tiles with one lifting off on a spring) with a short brand note, a README header, the app favicon, and the myspringform.com site in `site/`, published by a GitHub Pages workflow that runs only in the upstream repository.
 - myspringform.com: a link-preview card (`og:image`, `twitter:card`), a canonical URL and fuller title, a styled 404 page, `robots.txt` and `sitemap.xml`; the header stays on one row on phones with 44 px tap targets.
 - `SECURITY.md`: supported versions, how to report a vulnerability privately, what to expect, and scope; linked from the README.

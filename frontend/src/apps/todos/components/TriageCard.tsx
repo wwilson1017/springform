@@ -762,7 +762,7 @@ export function TriageCard({ todo, projects, contexts, onProcessed, onChanged, o
             type="button"
             disabled={busy}
             onClick={() => void patch({ status: 'dropped' }, true)}
-            className={`${linkCls} text-sf-accent-text hover:text-sf-ink`}
+            className={`${linkCls} text-sf-red-text hover:text-sf-ink`}
           >
             Drop
           </button>
@@ -879,7 +879,7 @@ export function TriageCard({ todo, projects, contexts, onProcessed, onChanged, o
           </form>
         )}
       </div>
-      {error && <p className="mt-3 text-sm text-sf-accent-text">{error}</p>}
+      {error && <p className="mt-3 text-sm text-sf-red-text">{error}</p>}
     </div>
   );
 }
