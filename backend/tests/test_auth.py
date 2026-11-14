@@ -5,7 +5,7 @@ import pytest
 from fastapi import HTTPException
 
 from backend import cli
-from backend.core import db as core_db, preview, settings
+from backend.core import db as core_db, preview, scheduler, settings
 from backend.core.auth import bootstrap, jwt, service
 from backend.core.auth.deps import COOKIE, require_admin
 from backend.core.notifications import push
@@ -175,9 +175,35 @@ def test_preview_refuses_real_secrets(db, monkeypatch):
     settings.set_setting(push.PRIVATE_KEY, "generated", None, is_secret=True)
     assert preview.GENERATED_SECRETS == (push.PRIVATE_KEY,)
     preview.check_startup()
+    monkeypatch.delenv("PREVIEW_MODE")  # a running preview refuses to store it (next test); a volume may already hold one
     settings.set_setting("core.mail_key", "re_123", None, is_secret=True)
+    monkeypatch.setenv("PREVIEW_MODE", "1")
     with pytest.raises(RuntimeError, match="a secret in core_settings"):
         preview.check_startup()
+
+
+def test_running_preview_refuses_secrets_so_the_next_boot_starts(monkeypatch):
+    """#26: a visitor signed in as the preview admin must not be able to save what check_startup rejects."""
+    from backend.main import create_app
+
+    from .test_sheets_api import key_json
+
+    monkeypatch.setenv("PREVIEW_MODE", "1")
+    monkeypatch.setattr(scheduler, "jobs", lambda: {})
+    refused = {"detail": "Preview mode does not store secrets."}
+    with make_client(create_app()) as client:  # the real lifespan, as a deploy boots it
+        assert client.post("/api/auth/preview", json={"role": "admin"}).status_code == 200
+        for path, body in (("/api/auth/google/config", {"client_id": "x"}),
+                           ("/api/auth/google/config", {"client_secret": "y"}),
+                           ("/api/core/sheets/credentials", {"service_account_json": key_json()})):
+            r = client.put(path, json=body)
+            assert (r.status_code, r.json()) == (403, refused), path
+        r = client.put("/api/auth/google/config", json={"require_totp_for_google": True})  # not a secret: still saves
+        assert r.status_code == 200 and r.json()["require_totp_for_google"] is True
+        settings.set_setting(push.PRIVATE_KEY, "generated", None, is_secret=True)  # the install's own key is allowed
+        assert core_db.one("SELECT COUNT(*) AS n FROM core_settings WHERE is_secret = 1")["n"] == 1
+    with make_client(create_app()) as client:  # the next boot on the same data dir starts
+        assert client.get("/api/health").status_code == 200
 
 
 def test_cli_create_admin(db, client, monkeypatch, capsys):
