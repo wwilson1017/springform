@@ -3,12 +3,18 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Springform</title>
+<title>Springform: small-business software, minus the plumbing</title>
+<link rel="canonical" href="https://myspringform.com/">
 <meta name="description" content="An open-source foundation for small-business software. One SQLite file, one container, apps on a launcher, a private fork per client. MIT.">
 <meta property="og:title" content="Springform">
 <meta property="og:description" content="Small-business software, minus the plumbing. One SQLite file, one container, apps on a launcher, a private fork per client. Open source, MIT.">
 <meta property="og:url" content="https://myspringform.com/">
 <meta property="og:type" content="website">
+<meta property="og:image" content="https://myspringform.com/social-card.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="The Springform mark and wordmark on cream, with the line: Small-business software, minus the plumbing.">
+<meta name="twitter:card" content="summary_large_image">
 <meta name="theme-color" content="#f1f1e8" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#1c1b19" media="(prefers-color-scheme: dark)">
 <link rel="icon" type="image/svg+xml" href="favicon.svg?v=3">
@@ -36,14 +42,16 @@
   @media (min-width: 720px) { .wrap { padding: 0 24px; } }
 
   /* Top bar */
-  .top { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 18px 0; }
-  .lockup { display: inline-flex; align-items: center; gap: 0.4em; color: var(--ink); text-decoration: none; font-weight: 700; font-size: 22px; letter-spacing: -0.02em; }
+  .top { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 10px 0; }
+  .lockup { flex-shrink: 0; display: inline-flex; align-items: center; gap: 0.4em; color: var(--ink); text-decoration: none; font-weight: 700; font-size: 22px; letter-spacing: -0.02em; }
   .lockup svg { width: 1.25em; height: 1.25em; display: block; }
   .mf { fill: var(--ink); }
-  .nav { display: flex; gap: 18px; flex-wrap: wrap; font-size: 15px; }
-  .nav a { color: var(--ink-soft); text-decoration: none; }
+  /* One row at every width: links never wrap; if they do not fit they scroll sideways, scrollbar hidden. */
+  .nav { display: flex; gap: 18px; min-width: 0; overflow-x: auto; scrollbar-width: none; font-size: 15px; }
+  .nav::-webkit-scrollbar { display: none; }
+  .nav a { display: inline-flex; align-items: center; min-height: 44px; white-space: nowrap; color: var(--ink-soft); text-decoration: none; }
   .nav a:hover { color: var(--copper-text); }
-  @media (max-width: 600px) { .nav a.hide-sm { display: none; } }
+  @media (max-width: 760px) { .top { gap: 12px; } .nav { gap: 12px; font-size: 14px; } .nav a.hide-sm { display: none; } }
 
   /* Hero */
   .hero { display: grid; gap: 28px; padding: 36px 0 24px; align-items: center; }
@@ -148,7 +156,7 @@
       <span>springform</span>
     </a>
     <nav class="nav" aria-label="Sections">
-      <a href="#what">What you get</a>
+      <a href="#what" class="hide-sm">What you get</a>
       <a href="#how" class="hide-sm">How it's built</a>
       <a href="#example">Example</a>
       <a href="#forks" class="hide-sm">Forks</a>
