@@ -16,6 +16,7 @@
   <a href="https://github.com/wwilson1017/springform/releases">Releases</a> ·
   <a href="CHANGELOG.md">Changelog</a> ·
   <a href="docs/agents">Contract docs</a> ·
+  <a href="SECURITY.md">Security</a> ·
   MIT
 </p>
 
