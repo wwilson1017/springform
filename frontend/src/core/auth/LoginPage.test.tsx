@@ -46,6 +46,7 @@ describe('LoginPage', () => {
     await vi.waitFor(() => expect(callsTo(fetchMock, 'GET', '/api/auth/status')).toHaveLength(1));
     expect(screen.queryByRole('link', { name: 'Continue with Google' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Member' })).toBeNull();
+    expect(screen.queryByText('Sample data resets every night.')).toBeNull();
   });
 
   it('shows the Google button when enabled, as a plain link to the start route (a GET the server redirects)', async () => {
@@ -53,6 +54,7 @@ describe('LoginPage', () => {
     const google = await screen.findByRole('link', { name: 'Continue with Google' });
     expect(google.getAttribute('href')).toBe('/api/auth/google/start');
     expect(screen.queryByRole('button', { name: 'Member' })).toBeNull();
+    expect(screen.queryByText('Sample data resets every night.')).toBeNull();
   });
 
   it.each(['google_failed', 'not_invited', 'link_required', 'google_mismatch', 'google_not_configured'])(
@@ -67,6 +69,7 @@ describe('LoginPage', () => {
       'GET /api/auth/status': status({ preview: true }),
       'POST /api/auth/preview': { body: { user: {} } },
     });
+    expect(await screen.findByText('Sample data resets every night.')).toBeTruthy();
     fireEvent.click(await screen.findByRole('button', { name: 'Member' }));
     // After the cookie is set the page asks /api/me who that is; answer as the member now.
     mockFetch({ 'GET /api/me': { body: member } });

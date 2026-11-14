@@ -106,6 +106,7 @@ export function LoginPage() {
               </button>
             ))}
           </div>
+          <p className="m-0 mt-3 text-sm text-sf-ink-mute">Sample data resets every night.</p>
         </div>
       )}
 
