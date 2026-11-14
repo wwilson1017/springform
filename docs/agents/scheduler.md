@@ -81,6 +81,7 @@ Timezone: `core_settings.timezone` (IANA, default `UTC`). Nothing hardcoded.
 | `core.reminders_fire_due` | every 60 s | Fire due reminders (`records.md`). |
 | `core.notifications_flush` | every 30 s | Send queued external deliveries (`records.md`). |
 | `core.outbox_drain` | every 30 s + nudge after `COMMIT` | The single outbox drainer (`database-and-transactions.md`). |
+| `core.preview_reset` | `at` 09:00 | Preview mode only: factory reset keeping job history, then delete files with no blob row; staged uploads stay for the sweep. |
 | `core.files_sweep` | `at` 03:30 | Delete unreferenced, unpinned blobs (`records.md`). |
 | `core.job_runs_prune` | every 24 h | Delete finished runs older than 30 days. |
 | `core.login_attempts_prune` | hourly | Prune `core_login_attempts`. |

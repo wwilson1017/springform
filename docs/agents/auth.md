@@ -205,6 +205,7 @@ Revoked and deactivated MCP links return 404 (`mcp.md`).
 3. `google/start` redirects to a local stub, so Playwright covers the Google path.
 4. **Startup refuses preview mode if real secrets are present**: `ENCRYPTION_KEY` or `RESEND_API_KEY` set (non-empty) in the environment, or any `core_settings` row with `is_secret=1`. The check runs after migrations, because it reads `core_settings` (the generated VAPID key, `preview.GENERATED_SECRETS`, does not count). A running preview never stores what this check rejects: `settings.set_setting_in(..., is_secret=True)` raises 403 "Preview mode does not store secrets." for any other key, which the Google and Sheets settings cards show as is.
 5. The factory reset is allowed in preview mode (`database-and-transactions.md` §6).
+6. Sample data resets nightly at 09:00 install-local (UTC by default), clearing uploaded files and keeping job history (`core.preview_reset`).
 
 ## 12. Frontend (`frontend/src/core/auth/`)
 

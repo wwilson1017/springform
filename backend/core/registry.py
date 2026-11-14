@@ -24,7 +24,7 @@ from packaging.specifiers import InvalidSpecifier, SpecifierSet
 from packaging.version import InvalidVersion, Version
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from backend.core import REPO_ROOT, changelog, db, entities, outbox, scheduler, settings
+from backend.core import REPO_ROOT, changelog, db, entities, outbox, preview, scheduler, settings
 from backend.core.agent import registry as agent_registry
 from backend.core.agent.spec import ToolSpec
 from backend.core.auth import service as auth_service
@@ -193,6 +193,7 @@ def check_slug_prefixes(slugs: list[str]) -> None:
 
 
 CORE_JOBS = [
+    scheduler.Job("core.preview_reset", preview.reset, at="09:00"),
     scheduler.Job("core.outbox_drain", outbox.drain, every=30, timeout=outbox.CLAIM_TIMEOUT),
     scheduler.Job("core.job_runs_prune", scheduler.prune_job_runs, every=86400),
     scheduler.Job("core.login_attempts_prune", auth_service.prune_login_attempts, every=3600),
@@ -354,9 +355,10 @@ def factory_reset(caller: User | None = None) -> None:
     run_startup_hooks()
 
 
-def factory_reset_in(conn: db.Conn, caller: User | None = None) -> None:
+def factory_reset_in(conn: db.Conn, caller: User | None = None, *, keep_job_runs: bool = False) -> None:
     """Clear every table and every sequence, then re-seed. Allowed only in PREVIEW_MODE, or when no
     human account but the caller exists and every app table and the contacts directory are empty.
+    keep_job_runs preserves scheduler history and its sequence for a reset running as a job.
     Core startup hooks open their own transactions, so they run in factory_reset, after COMMIT."""
     if not settings.preview_mode() and _holds_data(conn, caller):
         raise Forbidden("Factory reset is only allowed in preview mode or on an install that holds no data.")
@@ -368,8 +370,13 @@ def factory_reset_in(conn: db.Conn, caller: User | None = None) -> None:
         if not r[0].startswith("sqlite_") and r[0] != "_migrations_applied" and r[0] not in virtual | shadow
     ]
     for table in tables:  # FTS tables follow through their triggers
+        if keep_job_runs and table == "core_job_runs":
+            continue
         conn.execute(f'DELETE FROM "{table}"')
-    conn.execute("DELETE FROM sqlite_sequence")
+    if keep_job_runs:
+        conn.execute("DELETE FROM sqlite_sequence WHERE name != 'core_job_runs'")
+    else:
+        conn.execute("DELETE FROM sqlite_sequence")
     conn.execute(
         """INSERT INTO core_users (id, email, name, role, password_hash, is_active, created_at, updated_at)
            VALUES (0, 'system@springform.local', 'System', 'system', '!', 1, '2026-10-20T00:00:00Z', '2026-10-20T00:00:00Z')"""
