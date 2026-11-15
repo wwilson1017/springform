@@ -10,13 +10,11 @@ from backend.apps.todos.models import (
     Area,
     AreaIn,
     AreaPatch,
-    Badge,
     BulkIn,
     BulkOut,
     Changes,
     ContextRenameIn,
     ContextRenameOut,
-    Deleted,
     Filters,
     Item,
     ItemIn,
@@ -32,6 +30,7 @@ from backend.apps.todos.models import (
     Visibility,
 )
 from backend.core.auth.deps import User, current_user, require_admin
+from backend.core.responses import Badge, Deleted
 
 router = APIRouter()
 
