@@ -31,11 +31,13 @@ describe('Timeline', () => {
     const fetchMock = mockFetch({
       'GET /api/core/timeline?entity_type=core.person&entity_id=1&limit=50': { body: [custom] },
       'GET /api/core/timeline?entity_type=core.person&entity_id=2&limit=50': { body: [custom] },
-      [`GET ${defs}`]: { body: [{ id: 1, entity_type: 'core.person', key: 'favourite_cake', label: 'Favourite cake', type: 'text',
+      // A label unlike the humanized key ("Favourite cake"), so the find below waits for the
+      // definitions fetch instead of matching the fallback on the first render.
+      [`GET ${defs}`]: { body: [{ id: 1, entity_type: 'core.person', key: 'favourite_cake', label: 'Cake of choice', type: 'text',
         options: null, required: false, position: 0, archived_at: null }] },
     });
     render(<><Timeline entityType="core.person" entityId={1} /><Timeline entityType="core.person" entityId={2} /></>);
-    expect(await screen.findAllByText('Favourite cake changed from empty to Lemon')).toHaveLength(2);
+    expect(await screen.findAllByText('Cake of choice changed from empty to Lemon')).toHaveLength(2);
     expect(callsTo(fetchMock, 'GET', defs)).toHaveLength(1);
   });
 
