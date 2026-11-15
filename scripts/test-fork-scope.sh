@@ -32,7 +32,7 @@ cd "$root" && git init -q -b master up && cd up
 for f in backend/core/db.py backend/apps/example/router.py frontend/src/core/api/types.gen.ts \
   frontend/src/apps/example/index.tsx frontend/package.json frontend/package-lock.json \
   frontend/public/branding/logo.svg docs/agents/platform.md pyproject.toml uv.lock README.md \
-  .github/workflows/ci.yml; do
+  .github/workflows/ci.yml .railway/railway.ts; do
   put "$f" original
 done
 cp "$here/../fork-allow.txt" .
@@ -45,6 +45,9 @@ cd "$root/fork"
 printf 'upstream: v0.0.1\nupstream-repo: %s\n' "$root/up" >FORK.md
 git add FORK.md && git commit -qm fork && git branch base
 expect "$root/fork" 0 "fresh fork passes"
+
+fresh; put .railway/railway.ts; commit
+expect "$root/fork" 1 "editing .railway/railway.ts fails" .railway/railway.ts
 
 fresh; put backend/core/db.py; commit
 expect "$root/fork" 1 "core edit fails" backend/core/db.py

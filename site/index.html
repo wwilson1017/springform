@@ -285,8 +285,8 @@ git tag v0.2.0-acme.1</pre></div>
   https://github.com/wwilson1017/springform.git
 sudo DOMAIN=app.example.com \
   springform/deploy/setup.sh</pre></div>
-        <div class="step run"><h3>On Railway</h3><p>The repo carries a <code>railway.json</code>: Dockerfile build, health check on <code>/up</code>, a volume at <code>/data</code>.</p><pre>Set SECRET_KEY, PUBLIC_URL,
-TRUST_PROXY=1, and attach a volume.</pre></div>
+        <div class="step run"><h3>On Railway</h3><p>Create a service and attach its <code>/data</code> volume. From a checkout linked with <code>railway link</code> to its project and environment (Node 22.6+), plan, review every changed field, then apply:</p><pre>SPRINGFORM_SERVICE=&lt;service&gt; railway config plan
+SPRINGFORM_SERVICE=&lt;service&gt; railway config apply</pre><p><code>.railway/railway.ts</code> stores the Dockerfile build, <code>/up</code> health check and mount requirement on the service. Apply once per service and environment, and again when an upstream update changes the file; Railway never reads it during deploy. <code>railway.json</code> is read only until 2026-12-01. Set <code>SECRET_KEY</code>, <code>PUBLIC_URL</code>, <code>TRUST_PROXY=1</code> and <code>RAILWAY_DEPLOYMENT_DRAINING_SECONDS=15</code>.</p></div>
       </div>
       <p class="note">Deploys are stop-before-start. SQLite has one writer, and the app holds a lock on the volume so a second copy refuses to start. Expect a few seconds of downtime per deploy, and never more than one worker.</p>
     </section>

@@ -41,7 +41,30 @@ The **CI image test** runs the container and asserts `/api/health` reports `sqli
 | `deploy.sh` | Update an install (below). |
 | `offsite.sh` | The off-site copy the cron runs (§7). |
 
-`railway.json` (repo root, optional): builds the repo's own `Dockerfile` (it never reads `IMAGE`), healthcheck `/up`, `requiredMountPath /data`; `RAILWAY_DEPLOYMENT_DRAINING_SECONDS=15` documented.
+### Railway
+
+`.railway/railway.ts` stores the Dockerfile build (`Dockerfile`, never `IMAGE`), `/up`
+health check (60 s), restart on failure (3 retries), and required `/data` mount on the
+service. Railway never reads it during a deploy. It starts from the live service to
+preserve its source, variables and attached volumes; `SPRINGFORM_SERVICE` selects the service.
+
+Create the service and attach its `/data` volume first. From a checkout linked with
+`railway link` to that project and environment, using Node 22.6+ (the CLI evaluates
+TypeScript with `--experimental-strip-types`; tested with Railway CLI 5.54.1):
+
+```bash
+SPRINGFORM_SERVICE=<service> railway config plan
+# Read every changed field: expect only the build/deploy settings above, nothing deleted.
+SPRINGFORM_SERVICE=<service> railway config apply
+```
+
+Apply once per service in each environment, and again whenever an upstream update changes
+this file. Set `RAILWAY_DEPLOYMENT_DRAINING_SECONDS=15` for graceful shutdown.
+
+`railway.json` is read only until 2026-12-01. It stays until the services carry the applied
+settings; removing it is a follow-up. With CLI 5.54.1, plan was not blocked on `demo` or
+`fork`: neither service has a Config File path set (`config: null`); the JSON is auto-detected
+at deploy. Applying first keeps the settings in place throughout the transition.
 
 ### `TRUST_PROXY` constraint
 
