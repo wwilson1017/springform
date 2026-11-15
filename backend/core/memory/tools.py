@@ -62,6 +62,7 @@ def get_tools() -> list[ToolSpec]:
             writes=True,
             handler_in=_remember,
             targets=_no_targets,
+            summary="Save this fact to the business memory.",
         ),
         ToolSpec(
             name="core_context_file_read",
@@ -84,5 +85,6 @@ def get_tools() -> list[ToolSpec]:
             always_confirm=True,
             mcp_exposed=False,
             enabled=lambda user: user.is_admin,
+            summary="Replace this context file with the content below.",
         ),
     ]

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Scaffold a new app that passes the app contract: scripts/new-app.sh <slug> "<Name>"
 #
-# Writes backend/apps/<slug>/ (manifest, router, api, entities, seed, settings, a migration, docs, tests)
+# Writes backend/apps/<slug>/ (manifest, router, models, service, entities, seed, a migration, docs, tests)
 # and frontend/src/apps/<slug>/{contributions.ts,index.tsx}. Then: uv run pytest
 set -euo pipefail
 
@@ -27,6 +27,10 @@ backend="$root/backend/apps/$slug"
 pascal=$(printf '%s' "$slug" | awk -F_ '{for (i = 1; i <= NF; i++) $i = toupper(substr($i, 1, 1)) substr($i, 2)} 1' OFS=)
 frontend="$root/frontend/src/apps/$slug"
 [ ! -e "$backend" ] && [ ! -e "$frontend" ] || { echo "app '$slug' already exists" >&2; exit 1; }
+# The contract test fails two apps' same-named models, so refuse a slug whose models an app already has.
+if clash=$(grep -rlE "^class ${pascal}Item(In)?\(" "$root/backend/apps" --include='*.py' --exclude-dir=tests); then
+  echo "slug '$slug' would define ${pascal}Item, which $(echo "$clash" | head -1 | sed "s|$root/||") already defines" >&2; exit 1
+fi
 
 # App migrations are stamped 20261101000000 or later.
 stamp=$(date -u +%Y%m%d%H%M%S)
@@ -41,7 +45,7 @@ cat > "$backend/app.json" <<EOF
   "name": "$name",
   "description": "",
   "path": "/$slug",
-  "icon": "box",
+  "icon": "grid",
   "roles": ["admin", "member"],
   "order": 500,
   "docs": "docs/index.md",
@@ -49,7 +53,7 @@ cat > "$backend/app.json" <<EOF
   "requires_core": ">=0.1,<1",
   "settings_cards": [],
   "sheets": [],
-  "publishes": ["get_item"]
+  "publishes": []
 }
 EOF
 
@@ -63,8 +67,11 @@ CREATE TABLE ${slug}_items (
 );
 EOF
 
-cat > "$backend/api.py" <<EOF
-"""Published functions: the only module other apps may import. Each has an \`_in(conn, …)\` form."""
+cat > "$backend/service.py" <<EOF
+"""App-internal: routes call this.
+
+Publish a function in api.py (and list it in app.json "publishes") only when another app needs it.
+"""
 
 from backend.core import clock, db, entities
 
@@ -99,33 +106,47 @@ def create_item(user, name: str) -> dict:
         return create_item_in(conn, user, name)
 EOF
 
-cat > "$backend/router.py" <<EOF
-from fastapi import APIRouter, Depends
+cat > "$backend/models.py" <<EOF
 from pydantic import BaseModel, Field
 
-from backend.apps.$slug import api
-from backend.core.auth.deps import User, current_user
-
-router = APIRouter()
+# OpenAPI names are global: prefix with the app; shared Badge/Deleted come from backend.core.responses.
 
 
 class ${pascal}ItemIn(BaseModel):
     name: str = Field(min_length=1, max_length=200)
 
 
-@router.get("/items")
+class ${pascal}Item(BaseModel):
+    id: int
+    name: str
+    owner_user_id: int
+    created_at: str
+    updated_at: str
+EOF
+
+cat > "$backend/router.py" <<EOF
+from fastapi import APIRouter, Depends
+
+from backend.apps.$slug import service
+from backend.apps.$slug.models import ${pascal}Item, ${pascal}ItemIn
+from backend.core.auth.deps import User, current_user
+
+router = APIRouter()
+
+
+@router.get("/items", response_model=list[${pascal}Item])
 def list_items(user: User = Depends(current_user)) -> list[dict]:
-    return api.list_items(user)
+    return service.list_items(user)
 
 
-@router.post("/items")
+@router.post("/items", response_model=${pascal}Item)
 def create_item(body: ${pascal}ItemIn, user: User = Depends(current_user)) -> dict:
-    return api.create_item(user, body.name)
+    return service.create_item(user, body.name)
 
 
-@router.get("/items/{item_id}")
+@router.get("/items/{item_id}", response_model=${pascal}Item)
 def get_item(item_id: int, user: User = Depends(current_user)) -> dict:
-    return api.get_item(user, item_id)
+    return service.get_item(user, item_id)
 EOF
 
 cat > "$backend/entities.py" <<EOF
@@ -153,10 +174,6 @@ def seed(conn) -> None:
 
 def sample(conn) -> None:
     """Demo data for PREVIEW_MODE; runs on every preview boot, so keep it idempotent."""
-EOF
-
-cat > "$backend/settings.py" <<EOF
-DEFAULTS: dict = {}  # keys are named "$slug.<key>"
 EOF
 
 cat > "$backend/docs/index.md" <<EOF

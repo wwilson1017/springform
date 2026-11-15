@@ -80,6 +80,7 @@ ToolSpec(
     app,                # owning app slug, or core
     revision,           # the owning app's version string; "" for core tools
     server_id, server_url,   # remote (outbound MCP) tools only; remote means server_url is set
+    summary: str = "",  # user-facing Approve card line; empty shows only name and args
 )
 ```
 
@@ -104,7 +105,7 @@ ToolSpec(
 2. Names carry the `<slug>_` prefix (app tools; the contract test checks it too). Core tools are prefixed `core_`.
 3. `writes` is a `bool`.
 4. `confirm_tier` is allowed only when `writes`.
-5. A write tool has `handler_in` **and** `targets`, or is marked `external_effect`.
+5. A write tool has `handler_in` **and** `targets`, or is marked `external_effect`. A tool that only creates a new record, and changes no existing one, returns an empty list (`targets=lambda args: []`). If the new record merely stores a reference to an existing one (a contact on a new deal), its `handler_in` checks read access on it, because the engine authorizes only what `targets` names. If the call also changes an existing record or its links (a new person linked to an organization), that record goes in `targets`, as `core_create_person` does.
 6. `always_confirm` is allowed on any spec.
 7. A name is 1 to 64 characters of `[a-zA-Z0-9_-]`.
 8. `input_schema` is a JSON schema of type `object`.
@@ -134,9 +135,12 @@ Hash of:
 5. `confirm_tier`;
 6. `always_confirm`;
 7. `revision`: the app's manifest `version`, or `""` for core tools;
-8. `server_id` and `server_url`: the remote server for remote tools, null for local ones.
+8. `server_id` and `server_url`: the remote server for remote tools, null for local ones;
+9. `summary`, when set.
 
 So a pending approval is bound to exactly what was shown, where it will run, and the implementation revision.
+
+Empty summaries are omitted so tools without a summary keep their existing fingerprint. Changing a summary makes a pending approval stale.
 
 The hash is the sha256 hex of `json.dumps(fields, sort_keys=True)` over the fields above.
 
@@ -222,7 +226,7 @@ conversation_id, compacted, text, tool_start, tool_args, tool_end, usage, confir
 | `tool_args` | `{tool, tool_use_id, args, description}` |
 | `tool_end` | `{tool, tool_use_id, tool_run_id, status, result, elapsed_ms}` |
 | `usage` | `{input_tokens, output_tokens, context_tokens, context_window}` |
-| `confirm` | `{tool_run_id, tool, tool_use_id, msg_id, args, description}` |
+| `confirm` | `{tool_run_id, tool, tool_use_id, msg_id, args, summary}` |
 | `done` | `{model}` |
 | `error` | `{error}` |
 
@@ -271,7 +275,7 @@ The Step 1 engine stub is gone; the full engine (`engine.py`, `chat()` and `conf
 | `AgentChatPanel` | Chatty `AgentChatPanel.tsx` | Messages, composer (Enter sends, Shift+Enter adds a line, Stop while streaming), context meter from `usage`. |
 | `useAgentChat`, `chatModel`, `sse` | Chatty `useAgentChat.ts` | POST /chat read as SSE over `fetch`; an assistant message is ordered text and tool parts, so a reloaded thread (consecutive assistant rows merged) looks like the streamed one. |
 | `AgentMessageBubble` | Chatty `AgentMessageBubble.tsx` | Markdown text, collapsible tool calls (args, result, status), compaction note, stream errors. |
-| `ToolConfirmCard`, `confirmState` | Chatty card, CakeCRM resolve rule | The Approve card: tool, description, full args. `pending → sending → resolved`; a failed request returns to pending. Each of `done`, `error`, `uncertain`, `stale`, `denied`, `already_resolved` has its own words. |
+| `ToolConfirmCard`, `confirmState` | Chatty card, CakeCRM resolve rule | The Approve card: tool, summary (or nothing), full args. Reloaded threads have no summary because conversation reads do not carry one; collapsed tool calls still use the model-facing description. `pending → sending → resolved`; a failed request returns to pending. Each of `done`, `error`, `uncertain`, `stale`, `denied`, `already_resolved` has its own words. |
 | `ConversationSidebar`, `useConversations` | Chatty | Search (`?q=` over message text), new, inline rename, private toggle, delete with confirm. |
 | `MarkdownContent` | shared with the Guide (`src/shared/`) | GFM, no highlighting; in-app links stay in the tab through `Link`, external ones open a new tab; images never load. |
 | `ZeroKeyCard` | new | `status.configured:false`: replaces the composer; admins get a link to Settings, AI, members are told to ask an admin. Old threads still open. |

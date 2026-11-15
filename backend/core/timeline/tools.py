@@ -58,5 +58,6 @@ def get_tools() -> list[ToolSpec]:
             handler_in=_add_note,
             targets=record,
             enabled=human,
+            summary="Add this note to the record's timeline.",
         ),
     ]

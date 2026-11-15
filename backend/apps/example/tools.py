@@ -44,5 +44,6 @@ def get_tools() -> list[ToolSpec]:
             writes=True,
             handler_in=_create,
             targets=_targets,
+            summary="Create this widget.",
         ),
     ]

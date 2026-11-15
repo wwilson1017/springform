@@ -103,6 +103,9 @@ jobs:
           git diff --exit-code -- frontend/src/core/api/types.gen.ts \
             || { echo "::error::types.gen.ts is stale: run scripts/gen-types.sh and commit it"; exit 1; }
 
+      - name: new-app.sh scaffold self-test
+        run: scripts/test-new-app.sh
+
   # scripts/e2e.sh builds the SPA, boots two PREVIEW_MODE backends (8160, 8161) on temp data dirs
   # with a frozen clock, runs Playwright at 1280 and 390 px and stops both (docs/agents/testing.md).
   browser-smoke:

@@ -42,7 +42,8 @@ describe('applyEvent', () => {
       { type: 'tool_args', tool: 'example_list_widgets', tool_use_id: 'r1', args: {}, description: 'List widgets.' },
       { type: 'tool_end', tool: 'example_list_widgets', tool_use_id: 'r1', tool_run_id: 1, status: 'done', result: [], elapsed_ms: 4 },
       { type: 'tool_start', tool: 'example_create_widget', tool_use_id: 'w1' },
-      { type: 'confirm', tool_run_id: 2, tool: 'example_create_widget', tool_use_id: 'w1', msg_id: 5, args: { name: 'B' }, description: 'Create.' },
+      { type: 'tool_args', tool: 'example_create_widget', tool_use_id: 'w1', args: { name: 'B' }, description: 'Model instructions.' },
+      { type: 'confirm', tool_run_id: 2, tool: 'example_create_widget', tool_use_id: 'w1', msg_id: 5, args: { name: 'B' }, summary: 'Create.' },
       { type: 'text', text: 'Approve it?' },
       { type: 'done', model: 'fake' },
     ];
@@ -53,7 +54,19 @@ describe('applyEvent', () => {
     expect(m.parts.map(p => (p.kind === 'text' ? p.text : `${p.tool}:${p.status}`))).toEqual([
       'On it.', 'example_list_widgets:done', 'example_create_widget:pending', 'Approve it?',
     ]);
-    expect(m.parts[2]).toMatchObject({ runId: 2, args: { name: 'B' }, description: 'Create.', confirm: { phase: 'pending' } });
+    expect(m.parts[2]).toMatchObject({ runId: 2, args: { name: 'B' }, summary: 'Create.', confirm: { phase: 'pending' } });
+  });
+
+  it('does not use a tool description as an empty summary', () => {
+    const events: ChatEvent[] = [
+      { type: 'tool_start', tool: 'remote_tool', tool_use_id: 'w1' },
+      { type: 'tool_args', tool: 'remote_tool', tool_use_id: 'w1', args: { value: 3 }, description: 'Model instructions.' },
+      { type: 'confirm', tool_run_id: 2, tool: 'remote_tool', tool_use_id: 'w1', msg_id: 5, args: { value: 3 }, summary: '' },
+    ];
+    const start: ChatMessage = { id: 'a', role: 'assistant', parts: [] };
+    expect(events.reduce(applyEvent, start).parts[0]).toMatchObject({
+      summary: undefined, description: 'Model instructions.', args: { value: 3 }, confirm: { phase: 'pending' },
+    });
   });
 
   it('records a stream error on the message', () => {
