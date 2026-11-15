@@ -211,7 +211,7 @@ Falsifiable against `backend/tests/fixtures/bad_app` (the test must fail it). It
 21. `HOOKS` names only known hooks.
 22. `DEFAULTS` keys are `<slug>.<key>`.
 23. Every `publishes` name exists in `api.py` as both `name` and `name_in` (the registry also checks this at boot).
-24. No two apps define Pydantic models with the same class name and different schemas (§3 rule 5); the failure names the model and both apps.
+24. No two apps define Pydantic models with the same class name and different schemas (§3 rule 5); the failure names the model and both apps. Core's models are not checked (the CRM's `MergeIn` and `ResetIn` already share names with core's), so don't reuse a core model's class name either.
 
 ### Vitest twin
 
