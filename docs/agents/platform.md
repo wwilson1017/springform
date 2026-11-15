@@ -64,9 +64,10 @@ springform/
       docs/        core Guide topics (*.md)
     apps/<slug>/
       app.json  router.py  api.py  service.py  models.py  entities.py  hooks.py  reports.py  tools.py  jobs.py  seed.py  settings.py
-      migrations/YYYYMMDDHHMMSS_<slug>_<name>.sql   docs/index.md
+      migrations/YYYYMMDDHHMMSS_<slug>_<name>.sql   docs/index.md   tests/test_<area>.py
     apps/crm/   apps/todos/   apps/example/   (example is the integration fixture: it contributes every seam)
-    tests/      conftest.py  test_app_contract.py  fixtures/{bad_app,apps_admin}/ fixtures/mcp_stub.py  test_<area>.py
+    testing/    fixtures.py   (the pytest plugin: shared fixtures and guards, loaded by the root conftest.py)
+    tests/      test_app_contract.py  fixtures/{bad_app,apps_admin}/ fixtures/mcp_stub.py  test_<area>.py
   frontend/
     vite.config.ts  vitest.config.ts  vite-plugin-apps.ts (virtual:springform-apps from backend/apps/*/app.json)
     src/core/   Root.tsx  api/{client.ts,types.gen.ts}  apps/registry.ts  shell/  components/  theme/  settings/

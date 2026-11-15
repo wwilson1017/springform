@@ -1,4 +1,6 @@
-"""Every test runs on a real temporary SQLite database; nothing in the data layer is mocked."""
+"""The shared pytest fixtures and guards, loaded for every test (core's and each app's) by the root conftest.py.
+
+Every test runs on a real temporary SQLite database; nothing in the data layer is mocked."""
 
 import contextlib
 import itertools

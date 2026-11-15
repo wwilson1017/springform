@@ -3,8 +3,7 @@ import pytest
 from backend.core import db as core_db
 from backend.core.auth import service
 from backend.core.auth.deps import COOKIE
-
-from .conftest import PASSWORD, make_client
+from backend.testing.fixtures import PASSWORD, make_client
 
 
 def test_list_excludes_the_system_principal_and_filters(login_as):
