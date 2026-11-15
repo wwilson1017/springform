@@ -32,9 +32,12 @@ export function holdsUser(field: string, fields: FieldInfo): boolean {
 // record's currency; upgrade path: the change carries it, or the app renders its own rows.
 const money = new Intl.NumberFormat(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
+/** 171720 → "1,717.20"; the Timeline and report tables show `*_cents` values this way. */
+export const centsText = (cents: number) => money.format(cents / 100);
+
 export function showValue(field: string, value: unknown, fields: FieldInfo, userName: (id: number) => string): string {
   if (value === null || value === undefined || value === '') return 'empty';
-  if (typeof value === 'number' && field.endsWith('_cents')) return money.format(value / 100);
+  if (typeof value === 'number' && field.endsWith('_cents')) return centsText(value);
   if (typeof value === 'number' && holdsUser(field, fields)) return userName(value);
   if (typeof value === 'boolean') return value ? 'yes' : 'no';
   if (Array.isArray(value)) return value.length ? value.join(', ') : 'empty';

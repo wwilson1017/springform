@@ -18,6 +18,10 @@ Conventions:
 
 ## [Unreleased]
 
+### Fixed
+
+- Report tables show `*_cents` columns as money (171720 reads 1,717.20, under a "revenue" header), the way the Timeline does. The CSV download keeps the cents.
+
 ### Changed
 
 - `backend/tests/conftest.py` is now the pytest plugin `backend/testing/fixtures.py`, loaded by a root `conftest.py`. A fork deletes any app-level conftest that re-imported core's fixtures (it would fail to import), and imports `PASSWORD` and `make_client` from `backend.testing.fixtures`.
