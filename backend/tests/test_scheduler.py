@@ -1,12 +1,14 @@
 import asyncio
+import re
 import threading
 import time
 from datetime import UTC, datetime
 from zoneinfo import ZoneInfo
 
 import pytest
+from fastapi.testclient import TestClient
 
-from backend.core import clock, db as core_db, outbox, scheduler
+from backend.core import REPO_ROOT, clock, db as core_db, outbox, registry, scheduler
 from backend.core.scheduler import Job, Scheduler
 
 
@@ -194,6 +196,68 @@ def test_every_jobs_are_due_after_their_interval(db, freeze):
     assert len(scheduler.due_jobs({job.name: job}, since)) == 1
 
 
+def test_an_on_boot_job_is_due_at_the_first_tick_of_every_start(db, freeze):
+    boot = Job("core.boot", lambda cancel: None, every=3600, on_boot=True)
+    plain = Job("core.plain", lambda cancel: None, every=3600)
+    jobs = {boot.name: boot, plain.name: plain}
+    freeze("2026-11-02T09:00:00Z")
+
+    async def first_start():
+        s = Scheduler(jobs)
+        await s.tick_once()  # never run: both are due
+        await s.wait_idle()
+        await s.tick_once()  # ran a moment ago: neither is due, on_boot only counts once per start
+        await s.wait_idle()
+
+    async def second_start():  # a restart in the same second: only the on_boot job runs again
+        s = Scheduler(jobs)
+        await s.tick_once()
+        await s.wait_idle()
+
+    asyncio.run(first_start())
+    assert [len(_runs(j)) for j in jobs] == [1, 1]
+    asyncio.run(second_start())
+    assert [len(_runs(j)) for j in jobs] == [2, 1]
+    assert _runs("core.boot")[-1]["trigger"] == "schedule"
+
+
+def test_mcp_discovery_at_boot_is_a_job_shutdown_waits_for_before_closing_the_database(app, monkeypatch):
+    """#52: boot discovery ran on a thread nothing stopped, still querying when db.close() freed its connection."""
+    assert scheduler.jobs()["core.mcp_discover"].on_boot
+    started, events, close = threading.Event(), [], core_db.close
+    monkeypatch.setattr(core_db, "close", lambda: (events.append("close"), close())[1])
+
+    def boot(cancel):
+        started.set()
+        cancel.wait(5)  # still running when the lifespan exits
+        events.append(core_db.one("SELECT 1 AS x"))
+
+    scheduler.register(Job("core.test_boot", boot, every=3600, on_boot=True))
+    with core_db.transaction() as conn:  # it ran a minute ago in an earlier process: only on_boot makes it due
+        conn.execute(
+            """INSERT INTO core_job_runs (job, app, trigger, status, started_at, finished_at)
+               VALUES ('core.test_boot', 'core', 'schedule', 'ok', ?, ?)""",
+            (clock.ago(60), clock.ago(60)),
+        )
+    with TestClient(app):
+        assert started.wait(5)
+    assert events[-2:] == [{"x": 1}, "close"]
+
+
+RAW_THREAD = re.compile(r"\b(Thread|Timer)\(")
+
+
+def test_core_and_apps_start_no_threads_of_their_own():
+    """Background work is a scheduler job, which shutdown cancels and waits for before db.close(); a raw
+    thread nobody stops can still be querying when its connection is closed under it (#52)."""
+    assert RAW_THREAD.search("threading.Thread(target=refresh_all, daemon=True).start()")
+    assert RAW_THREAD.search("Timer(5, tick).start()")
+    assert not RAW_THREAD.search("ThreadPoolExecutor(max_workers=1); asyncio.to_thread(fn); threading.Event()")
+    files = [p for root in (registry.CORE_DIR, core_db.APPS_DIR) for p in root.rglob("*.py") if "tests" not in p.relative_to(root).parts]
+    assert registry.CORE_DIR / "scheduler.py" in files  # it reached the real code
+    assert [str(p.relative_to(REPO_ROOT)) for p in files if RAW_THREAD.search(p.read_text())] == []
+
+
 def test_a_commit_with_outbox_rows_wakes_the_drainer(db):
     outbox.clear()
     done = threading.Event()
@@ -230,6 +294,8 @@ def test_job_validation():
         Job("core.x", print, at="3am")
     with pytest.raises(ValueError, match="whole number"):
         Job("core.x", print, every=0.5)
+    with pytest.raises(ValueError, match="on_boot"):
+        Job("core.x", print, at="03:00", on_boot=True)
     scheduler.clear()
     with pytest.raises(ValueError, match="core.<job>"):
         scheduler.register(Job("tidy", print, every=1))

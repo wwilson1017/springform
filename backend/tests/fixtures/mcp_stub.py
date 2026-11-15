@@ -1,6 +1,6 @@
 """A two-tool MCP server for the outbound client's tests and local demos.
 
-`serve()` runs it on a free loopback port in a daemon thread and returns (url, calls);
+`with serve() as (url, calls):` runs it on a free loopback port in a thread for the length of the block;
 `python -m backend.tests.fixtures.mcp_stub <port> [token]` runs it in the foreground. With a
 token it answers 401 to any request without that bearer. `list_items` answers with text that
 tries to give the model orders, so fencing has something to fence.
@@ -8,6 +8,7 @@ tries to give the model orders, so fencing has something to fence.
 
 from __future__ import annotations
 
+import contextlib
 import socket
 import sys
 import threading
@@ -51,19 +52,29 @@ def build(token: str | None = None):
     return app, calls
 
 
-def serve(token: str | None = None) -> tuple[str, list]:
-    """Start on a free loopback port in a daemon thread; returns (url, calls)."""
+@contextlib.contextmanager
+def serve(token: str | None = None):
+    """Run on a free loopback port in a thread for the length of the `with`; yields (url, calls)."""
     app, calls = build(token)
     with socket.socket() as s:
         s.bind(("127.0.0.1", 0))
         port = s.getsockname()[1]
     server = uvicorn.Server(uvicorn.Config(app, host="127.0.0.1", port=port, log_level="warning"))
-    threading.Thread(target=server.run, daemon=True).start()
-    for _ in range(200):
-        if server.started:
-            break
-        time.sleep(0.05)
-    return f"http://127.0.0.1:{port}/mcp", calls
+    thread = threading.Thread(target=server.run, name="mcp-stub", daemon=True)
+    thread.start()
+    try:
+        for _ in range(200):
+            if server.started:
+                break
+            time.sleep(0.05)
+        else:
+            raise RuntimeError("the MCP stub server did not start")
+        yield f"http://127.0.0.1:{port}/mcp", calls
+    finally:
+        server.should_exit = True
+        thread.join(5)
+        if thread.is_alive():
+            raise RuntimeError("the MCP stub server did not stop")
 
 
 if __name__ == "__main__":

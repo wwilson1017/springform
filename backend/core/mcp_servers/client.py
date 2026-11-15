@@ -3,7 +3,7 @@ registry as remote ToolSpecs, and call them.
 
 - Transport: the `mcp` SDK's streamable HTTP client and `ClientSession`, over `transport.http_client`
   (address policy at connection time, no redirects, 30 s, 1 MB). One short session per exchange.
-- Discovery runs at startup (startup.py, in a thread), on Refresh, and hourly (core.mcp_discover).
+- Discovery runs as the job core.mcp_discover (at every boot and hourly) and on Refresh.
   Each server's tools are swapped into the registry atomically; a failing server drops its tools
   and records last_error, never more.
 - A remote tool's wire name is `<prefix>__<tool>` (providers forbid `.`), shown as `<prefix>.<tool>`.
@@ -170,7 +170,7 @@ def refresh(server_id: int) -> None:
 
 
 def refresh_all(cancel: threading.Event | None = None) -> None:
-    """Job core.mcp_discover (hourly) and the startup pass."""
+    """Job core.mcp_discover: every boot and hourly."""
     for row in service.rows():
         if cancel is not None and cancel.is_set():
             return
