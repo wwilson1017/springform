@@ -1,3 +1,5 @@
+from importlib import import_module
+
 import pytest
 
 from backend.core.agent.registry import ToolSpecError, build_registry
@@ -74,9 +76,25 @@ def test_for_user_applies_enabled():
 def test_tool_def_sha256_binds_what_was_shown_and_where_it_runs():
     base = read()
     digest = tool_def_sha256(base)
-    assert digest == tool_def_sha256(read())
+    assert digest == "481988952a0d1e504cd236e2bc31966dd0eb8b84bb483566f99b3fa58bb26995"
+    assert digest == tool_def_sha256(read(summary=""))
+    assert len({digest, tool_def_sha256(read(summary="x")), tool_def_sha256(read(summary="y"))}) == 3
     for changed in (
         read(description="other"), read(input_schema={"type": "object", "properties": {"a": {}}}),
         read(revision="0.2.0"), read(always_confirm=True), read(server_url="https://elsewhere"),
     ):
         assert tool_def_sha256(changed) != digest
+
+
+@pytest.mark.parametrize("module", [
+    "backend.core.contacts.tools", "backend.core.memory.tools", "backend.core.timeline.tools",
+    "backend.core.reminders.tools", "backend.apps.crm.tools", "backend.apps.todos.tools",
+    "backend.apps.example.tools",
+])
+def test_shipped_write_tools_have_user_facing_summaries(module):
+    writes = [spec for spec in import_module(module).get_tools() if spec.writes]
+    assert writes
+    for spec in writes:
+        assert spec.summary and spec.summary != spec.description
+        assert len(spec.summary.split()) <= 12
+        assert "summary" not in spec.provider_def()

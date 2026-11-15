@@ -23,7 +23,7 @@ const TITLE: Record<string, string> = {
 
 /**
  * The approval card for a write Whisk proposed (`confirm` event, or a pending run in a saved
- * thread). Shows the full arguments; Approve and Deny go to POST /api/agent/confirm, and the
+ * thread). Shows the tool, summary and full args; Approve and Deny go to POST /api/agent/confirm, and the
  * server's answer is what the card shows.
  */
 export function ToolConfirmCard({ part, disabled, onDecide }: {
@@ -41,7 +41,7 @@ export function ToolConfirmCard({ part, disabled, onDecide }: {
         </span>
         <code className="break-all font-mono text-xs text-sf-ink-soft">{part.tool}</code>
       </div>
-      {part.description && <p className="mb-0 mt-1.5 text-sm text-sf-ink">{part.description}</p>}
+      {part.summary && <p className="mb-0 mt-1.5 text-sm text-sf-ink">{part.summary}</p>}
       <pre className="mb-0 mt-2 max-h-56 overflow-auto whitespace-pre-wrap break-all rounded bg-sf-card p-2 font-mono text-xs text-sf-ink-mute">
         {pretty(part.args ?? {})}
       </pre>

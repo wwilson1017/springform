@@ -10,6 +10,7 @@ Two handler forms:
 puts the card back for a call that would take a record out of view; `always_confirm` forces a
 card even for reads (every remote tool). `tool_def_sha256` binds a pending approval to exactly
 what was shown, where it runs, and the implementation revision.
+`summary` is the optional user-facing line on the Approve card.
 """
 
 from __future__ import annotations
@@ -39,6 +40,7 @@ class ToolSpec:
     writes: bool
     handler: Callable[[User, dict], Any] | None = None
     handler_in: Callable[[Conn, User, dict], Any] | None = None
+    summary: str = ""  # user-facing line on the Approve card; empty shows only name and args
     targets: Callable[[dict], list[tuple[str, int]]] | None = None
     confirm_tier: str | None = None
     always_confirm: bool = False
@@ -73,4 +75,6 @@ def tool_def_sha256(spec: ToolSpec) -> str:
         "server_id": spec.server_id,
         "server_url": spec.server_url,
     }
+    if spec.summary:
+        material["summary"] = spec.summary
     return hashlib.sha256(json.dumps(material, sort_keys=True).encode()).hexdigest()

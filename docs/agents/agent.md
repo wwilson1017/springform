@@ -72,6 +72,7 @@ ToolSpec(
     always_confirm,     # forces confirmation, even for reads (remote tools set it)
     hides_when,         # Callable[[dict], bool] | None, called with the args
     handler | handler_in,
+    summary: str = "",  # user-facing Approve card line; empty shows only name and args
     targets,            # targets(args) -> list[(entity_type, id)]
     enabled,            # enabled(user) -> bool
     untrusted_source,   # results fenced as untrusted (remote tools)
@@ -134,9 +135,12 @@ Hash of:
 5. `confirm_tier`;
 6. `always_confirm`;
 7. `revision`: the app's manifest `version`, or `""` for core tools;
-8. `server_id` and `server_url`: the remote server for remote tools, null for local ones.
+8. `server_id` and `server_url`: the remote server for remote tools, null for local ones;
+9. `summary`, when set.
 
 So a pending approval is bound to exactly what was shown, where it will run, and the implementation revision.
+
+Empty summaries are omitted so tools without a summary keep their existing fingerprint. Changing a summary makes a pending approval stale.
 
 The hash is the sha256 hex of `json.dumps(fields, sort_keys=True)` over the fields above.
 
@@ -222,7 +226,7 @@ conversation_id, compacted, text, tool_start, tool_args, tool_end, usage, confir
 | `tool_args` | `{tool, tool_use_id, args, description}` |
 | `tool_end` | `{tool, tool_use_id, tool_run_id, status, result, elapsed_ms}` |
 | `usage` | `{input_tokens, output_tokens, context_tokens, context_window}` |
-| `confirm` | `{tool_run_id, tool, tool_use_id, msg_id, args, description}` |
+| `confirm` | `{tool_run_id, tool, tool_use_id, msg_id, args, summary}` |
 | `done` | `{model}` |
 | `error` | `{error}` |
 
@@ -271,7 +275,7 @@ The Step 1 engine stub is gone; the full engine (`engine.py`, `chat()` and `conf
 | `AgentChatPanel` | Chatty `AgentChatPanel.tsx` | Messages, composer (Enter sends, Shift+Enter adds a line, Stop while streaming), context meter from `usage`. |
 | `useAgentChat`, `chatModel`, `sse` | Chatty `useAgentChat.ts` | POST /chat read as SSE over `fetch`; an assistant message is ordered text and tool parts, so a reloaded thread (consecutive assistant rows merged) looks like the streamed one. |
 | `AgentMessageBubble` | Chatty `AgentMessageBubble.tsx` | Markdown text, collapsible tool calls (args, result, status), compaction note, stream errors. |
-| `ToolConfirmCard`, `confirmState` | Chatty card, CakeCRM resolve rule | The Approve card: tool, description, full args. `pending → sending → resolved`; a failed request returns to pending. Each of `done`, `error`, `uncertain`, `stale`, `denied`, `already_resolved` has its own words. |
+| `ToolConfirmCard`, `confirmState` | Chatty card, CakeCRM resolve rule | The Approve card: tool, summary (or nothing), full args. Reloaded threads have no summary because conversation reads do not carry one; collapsed tool calls still use the model-facing description. `pending → sending → resolved`; a failed request returns to pending. Each of `done`, `error`, `uncertain`, `stale`, `denied`, `already_resolved` has its own words. |
 | `ConversationSidebar`, `useConversations` | Chatty | Search (`?q=` over message text), new, inline rename, private toggle, delete with confirm. |
 | `MarkdownContent` | shared with the Guide (`src/shared/`) | GFM, no highlighting; in-app links stay in the tab through `Link`, external ones open a new tab; images never load. |
 | `ZeroKeyCard` | new | `status.configured:false`: replaces the composer; admins get a link to Settings, AI, members are told to ask an admin. Old threads still open. |

@@ -17,6 +17,8 @@ test('Whisk answers, proposes a write, and runs it on Approve', async ({ admin }
   const card = page.getByTestId('tool-confirm-card');
   await expect(card).toContainText('Needs your approval');
   await expect(card).toContainText('example_create_widget');
+  await expect(card).toContainText('Create this widget.');
+  await expect(card).not.toContainText('optionally linked to a person');
   await expect(card).toContainText(name);
   expect((await api.get<Array<{ name: string }>>('/api/example/widgets')).map(w => w.name)).not.toContain(name);
 

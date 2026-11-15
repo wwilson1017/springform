@@ -106,7 +106,7 @@ core_agent_mcp_servers(id, name, url, token_enc, prefix UNIQUE, enabled, tools_j
 | Where | Form |
 |---|---|
 | Wire name (sent to providers) | `<prefix>__<tool>`, e.g. `todogtd__todo_create` (provider APIs forbid `.`). |
-| Display name | `<prefix>.<tool>`, e.g. `todogtd.todo_create`. The spec's description starts with it: `todogtd.todo_create, a remote tool on <server name>: …`, so the Approve card shows it. |
+| Display name | `<prefix>.<tool>`, e.g. `todogtd.todo_create`. The spec's description starts with it: `todogtd.todo_create, a remote tool on <server name>: …`, for the model. The Approve card shows the summary `Run <prefix>.<tool> on <server name>.` (never the server's own description) and the full args. |
 | Prefix | `^[a-z][a-z0-9_]{1,19}$`, unique, not a reserved slug or an installed app's slug. The spec's `app` is the prefix (deferred-tool grouping). |
 
 ### Every remote call confirms

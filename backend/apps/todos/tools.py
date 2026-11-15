@@ -89,6 +89,7 @@ def get_tools() -> list[ToolSpec]:
             confirm_tier=ROUTINE,
             handler_in=_create,
             targets=lambda args: [],  # touches no existing record; the link is checked for read access
+            summary="Create this todo.",
         ),
         ToolSpec(
             name="todos_update",
@@ -102,6 +103,7 @@ def get_tools() -> list[ToolSpec]:
             hides_when=lambda args: args.get("visibility") == "private" or "owner_user_id" in args,
             handler_in=_update,
             targets=_the_todo,
+            summary="Update this todo with the changes below.",
         ),
         ToolSpec(
             name="todos_complete",
@@ -111,5 +113,6 @@ def get_tools() -> list[ToolSpec]:
             confirm_tier=ROUTINE,
             handler_in=lambda conn, user, args: service.complete_in(conn, user, int(args["id"])),
             targets=_the_todo,
+            summary="Complete this todo and schedule its next occurrence if repeating.",
         ),
     ]
