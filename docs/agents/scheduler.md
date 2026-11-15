@@ -42,7 +42,7 @@ Apps declare `JOBS = [Job(name="<slug>.<job>", fn, every=…|at="HH:MM")]` in `j
 
 ## 4. Shutdown and startup
 
-1. Shutdown sets every `cancel_event`, waits up to **10 s** (matching uvicorn's `--timeout-graceful-shutdown 10`, `deploy.md`), then marks what is still running `interrupted`. When a job's thread is still running at that point (a timeout cannot stop a thread), the lifespan leaves the database open and lets the process exit close it, because closing a connection under a running statement crashes SQLite (#52).
+1. Shutdown sets every `cancel_event` (a run still queued for a slot then never starts), waits up to **10 s** (matching uvicorn's `--timeout-graceful-shutdown 10`, `deploy.md`), then marks what is still running `interrupted`. When a job's thread is still running at that point (a timeout cannot stop a thread), the lifespan leaves the database open and lets the process exit close it, because closing a connection under a running statement crashes SQLite (#52).
 2. On startup, stale `running` and `timed_out` rows become `interrupted`.
 
 ## 5. `core_job_runs`

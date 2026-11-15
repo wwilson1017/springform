@@ -244,6 +244,27 @@ def test_mcp_discovery_at_boot_is_a_job_shutdown_waits_for_before_closing_the_da
     assert events[-2:] == [{"x": 1}, "close"]
 
 
+def test_a_run_still_queued_at_shutdown_never_starts(db):
+    """stop() sets every cancel event; a run that only then got its slot used to clear it and run anyway."""
+    started, ran = threading.Event(), []
+
+    def first(cancel):
+        started.set()
+        cancel.wait(5)
+
+    jobs = {"core.first": Job("core.first", first, every=3600), "core.queued": Job("core.queued", lambda cancel: ran.append(1), every=3600)}
+
+    async def go():
+        s = Scheduler(jobs, concurrency=1)
+        assert await s.run_now("core.first") and await s.run_now("core.queued")
+        assert await asyncio.to_thread(started.wait, 5)
+        return await s.stop(grace=5)
+
+    assert asyncio.run(go()) is True
+    assert ran == []
+    assert [r["status"] for r in _runs("core.queued")] == ["interrupted"]
+
+
 def test_a_job_that_outlives_the_shutdown_grace_keeps_the_database_open(app, monkeypatch):
     """#52, the production half: a discovery pass inside a 30 s MCP exchange outlives stop()'s grace, and
     closing the database under its next statement would crash the exiting process."""

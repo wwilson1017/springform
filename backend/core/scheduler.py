@@ -162,6 +162,7 @@ class Scheduler:
         self._nudged = asyncio.Event()
         self._loop: asyncio.AbstractEventLoop | None = None
         self._loop_task: asyncio.Task | None = None
+        self._stopping = False
         self.since = clock.now()  # a never-run `at` job waits for a slot after this
         self._boot = {name for name, job in registered.items() if job.on_boot}  # due at the first tick
 
@@ -175,6 +176,7 @@ class Scheduler:
         """Cancel every job and wait up to `grace` s. False when a job's thread may still be running:
         the caller must then leave the database open, since closing a connection under a running
         statement crashes SQLite (#52)."""
+        self._stopping = True  # a run still queued for the semaphore never starts (see _run)
         db.set_commit_nudge(None)
         if self._loop_task:
             self._loop_task.cancel()
@@ -243,6 +245,8 @@ class Scheduler:
         try:
             async with self._sem:
                 run_id = await asyncio.to_thread(_insert_run, job, trigger, "running", scheduled_for)
+                if self._stopping:  # shutdown began while it queued: no thread starts, stop() marks it interrupted
+                    return
                 cancel = self._cancel.setdefault(job.name, threading.Event())
                 cancel.clear()
                 work = asyncio.ensure_future(asyncio.to_thread(job.fn, cancel))
