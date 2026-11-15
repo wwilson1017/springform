@@ -244,6 +244,31 @@ def test_mcp_discovery_at_boot_is_a_job_shutdown_waits_for_before_closing_the_da
     assert events[-2:] == [{"x": 1}, "close"]
 
 
+def test_a_job_that_outlives_the_shutdown_grace_keeps_the_database_open(app, monkeypatch):
+    """#52, the production half: a discovery pass inside a 30 s MCP exchange outlives stop()'s grace, and
+    closing the database under its next statement would crash the exiting process."""
+    stopped, started, events, close, stop = threading.Event(), threading.Event(), [], core_db.close, Scheduler.stop
+    monkeypatch.setattr(core_db, "close", lambda: (events.append("close"), close())[1])
+
+    async def quick_stop(self, grace=0.1):
+        idle = await stop(self, grace)
+        stopped.set()
+        return idle
+
+    monkeypatch.setattr(Scheduler, "stop", quick_stop)
+
+    def stubborn(cancel):
+        started.set()
+        stopped.wait(5)  # ignores cancel, like a pass still waiting on the network
+        events.append(core_db.one("SELECT 1 AS x"))
+
+    scheduler.register(Job("core.test_stubborn", stubborn, every=3600, on_boot=True))
+    with TestClient(app):
+        assert started.wait(5)
+    # The one close is db.init()'s at startup: the job's late query found the database open, and the lifespan left it.
+    assert events == ["close", {"x": 1}]
+
+
 RAW_THREAD = re.compile(r"\b(Thread|Timer)\(")
 
 

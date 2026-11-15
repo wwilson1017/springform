@@ -20,7 +20,7 @@ Conventions:
 
 ### Fixed
 
-- The backend test run no longer dies at random with a segmentation fault (CI exit 139). MCP discovery at boot is now the `core.mcp_discover` job (new `Job(on_boot=True)`), which shutdown cancels and waits for (up to 10 s), instead of an unmanaged thread that could still be reading the database as it closed. Core and apps start no threads of their own (a test scans for them), and a test that leaves a thread running stops the run by name.
+- The backend test run no longer dies at random with a segmentation fault (CI exit 139). MCP discovery at boot is now the `core.mcp_discover` job (new `Job(on_boot=True)`), which shutdown cancels and waits for (up to 10 s), instead of an unmanaged thread that could still be reading the database as it closed; when a job outlives that wait, shutdown now leaves the database open for the process exit to close. Core and apps start no threads of their own (a test scans for them), and a test that leaves a thread running stops the run by name.
 - New apps scaffold typed routes, app-prefixed models, an internal service and the supported `grid` icon, without unused API or settings modules; CI checks the generated scaffold.
 - `docs/agents/agent.md` (registry rule 5) says a write tool that only creates a record returns an empty `targets` list, and when an existing record it touches still belongs in `targets`.
 - Report tables show `*_cents` columns as money (171720 reads 1,717.20, under a "revenue" header), the way the Timeline does. The CSV download keeps the cents.

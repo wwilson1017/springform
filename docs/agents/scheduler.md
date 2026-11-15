@@ -42,7 +42,7 @@ Apps declare `JOBS = [Job(name="<slug>.<job>", fn, every=…|at="HH:MM")]` in `j
 
 ## 4. Shutdown and startup
 
-1. Shutdown sets every `cancel_event`, waits up to **10 s** (matching uvicorn's `--timeout-graceful-shutdown 10`, `deploy.md`), then marks what is still running `interrupted`.
+1. Shutdown sets every `cancel_event`, waits up to **10 s** (matching uvicorn's `--timeout-graceful-shutdown 10`, `deploy.md`), then marks what is still running `interrupted`. When a job's thread is still running at that point (a timeout cannot stop a thread), the lifespan leaves the database open and lets the process exit close it, because closing a connection under a running statement crashes SQLite (#52).
 2. On startup, stale `running` and `timed_out` rows become `interrupted`.
 
 ## 5. `core_job_runs`
@@ -104,7 +104,7 @@ Step 1 ships a minimal scheduler: `Job`, the loop, `run_now`. W3 completes it.
 - A never-run `at` job waits for its next slot; a manual run after the slot is not followed by a catch-up.
 - Overlapping job skipped.
 - A job that ignores its timeout: no second instance starts and the slot is released only when it ends.
-- An `on_boot` job runs at the first tick of every start, even a restart in the same second; shutdown waits for it before `db.close()`.
+- An `on_boot` job runs at the first tick of every start, even a restart in the same second; shutdown waits for it before `db.close()`, and leaves the database open when a job outlives the grace.
 - Core and apps start no threads of their own.
 - Two drainers started by hand claim disjoint rows.
 - Reminders fire under a frozen clock → notification row in the same transaction.

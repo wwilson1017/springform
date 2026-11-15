@@ -171,7 +171,10 @@ class Scheduler:
         db.set_commit_nudge(self.nudge)
         self._loop_task = asyncio.create_task(self._run_loop())
 
-    async def stop(self, grace: float = 10) -> None:
+    async def stop(self, grace: float = 10) -> bool:
+        """Cancel every job and wait up to `grace` s. False when a job's thread may still be running:
+        the caller must then leave the database open, since closing a connection under a running
+        statement crashes SQLite (#52)."""
         db.set_commit_nudge(None)
         if self._loop_task:
             self._loop_task.cancel()
@@ -179,13 +182,13 @@ class Scheduler:
                 await self._loop_task
         for event in self._cancel.values():
             event.set()
-        if self._tasks:
-            await asyncio.wait(self._tasks, timeout=grace)
+        pending = (await asyncio.wait(self._tasks, timeout=grace))[1] if self._tasks else set()
         # simplification: a job thread that ignores cancel_event keeps the process alive at exit (the
         # default executor joins its threads); core jobs bound their I/O. Upgrade path: a daemon-thread executor.
         for task in list(self._tasks):
             task.cancel()
         await asyncio.to_thread(mark_interrupted)
+        return not pending
 
     def nudge(self) -> None:
         """Thread-safe: wake the loop to drain the outbox now."""
