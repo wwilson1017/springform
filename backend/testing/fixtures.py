@@ -4,7 +4,6 @@ Every test runs on a real temporary SQLite database; nothing in the data layer i
 
 import contextlib
 import itertools
-import threading
 
 import httpx
 import pytest
@@ -13,6 +12,7 @@ from fastapi.testclient import TestClient
 from backend.core import clock, db as core_db
 from backend.core.auth import bootstrap, service as auth_service
 from backend.core.auth.deps import User
+from backend.core.mcp_servers import startup as mcp_startup
 
 PASSWORD = "correct-horse-battery"
 _ENV = (
@@ -50,10 +50,7 @@ def _isolate(tmp_path, monkeypatch):
     yield
     clock.freeze(None)
     core_db.set_commit_nudge(None)
-    # Each app boot starts a background MCP discovery pass; closing its connection mid-query segfaults sqlite.
-    for t in threading.enumerate():
-        if t.name == "mcp-discover":
-            t.join(5)
+    mcp_startup.join()
     core_db.close()
 
 
@@ -104,6 +101,7 @@ def db(tmp_path):
     core_db.init(tmp_path / "data")
     core_db.migrate()
     yield core_db
+    mcp_startup.join()
     core_db.close()
 
 
