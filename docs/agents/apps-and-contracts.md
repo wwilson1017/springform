@@ -247,7 +247,11 @@ The contract test and the Playwright smoke both exercise it (Settings cards by r
 scripts/new-app.sh <slug> "<Name>"
 ```
 
-Scaffolds an app that **passes** the contract test and the Vitest twin as generated. It writes `backend/apps/<slug>/` (manifest, router, api, entities, seed, settings, a migration, docs, and `tests/` with a starter test that `uv run pytest` collects; `testing.md` §1) from its own templates; it does not copy `apps/example`. The scaffold has a `<slug>.item` entity on `<slug>_items` and publishes `get_item`. When `frontend/src` exists it also writes `frontend/src/apps/<slug>/{contributions.ts,index.tsx}`. It refuses a reserved slug and any slug that extends, or is extended by, `core_` or an installed app's prefix.
+Scaffolds an app that **passes** the contract test and the Vitest twin as generated. It writes `backend/apps/<slug>/` (manifest, router, models, service, entities, seed, a migration, docs, and `tests/` with a starter test that `uv run pytest` collects; `testing.md` §1) from its own templates; it does not copy `apps/example`. The scaffold has a `<slug>.item` entity on `<slug>_items`, uses the `grid` icon and publishes nothing. Models have app-prefixed names because OpenAPI schema names are global, and every route declares a response model. Shared `Badge` and `Deleted` models come from `backend/core/responses.py`.
+
+Routes call the app-internal `service.py`. No `api.py` or `settings.py` is generated: add `api.py` and list functions in the manifest's `publishes` only when another app needs them, and add `settings.py` when the app has settings (§2).
+
+When `frontend/src` exists it also writes `frontend/src/apps/<slug>/{contributions.ts,index.tsx}`. It refuses a reserved slug, any slug that extends, or is extended by, `core_` or an installed app's prefix, and a slug whose `<Pascal>Item` model another app already defines (`today` against CRM's `TodayItem`). `scripts/test-new-app.sh` checks the generated scaffold's lint, backend contract and starter test, OpenAPI response schemas, type generation, frontend typecheck, app contract and lazy loading in CI, then removes the throwaway app and restores generated types.
 
 ## 9. Core packages contribute like apps
 
