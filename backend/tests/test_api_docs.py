@@ -3,7 +3,7 @@
 import pytest
 
 import backend.main as main
-from backend.tests.conftest import make_client
+from backend.testing.fixtures import make_client
 
 PATHS = ["/openapi.json", "/docs", "/redoc"]
 

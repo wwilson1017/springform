@@ -59,7 +59,7 @@ The current fixture manifest (`backend/apps/example/app.json`):
 |---|---|---|
 | `app.json` | manifest | §1 above. |
 | `router.py` | `router` | Mounted at `/api/<slug>`, tagged `<slug>` (stable `operationId`s for type generation). `registry.mount_app()`, run by `registry.install()`, adds `Depends(require_roles(manifest.roles))`. Every `/api` route, core or app, answers 401 without a session unless it is listed in `ALLOW_UNAUTHENTICATED` in the contract test (the sign-in routes and `/api/health`). |
-| `api.py` | published functions | **The only module another app may import** (`from backend.apps.<x>.api import …`). Every published function has an `_in(conn, …)` form. |
+| `api.py` | published functions | **The only module another app may import** (`from backend.apps.<x> import api` or `from backend.apps.<x>.api import …`; its tests may also import `seed`, below). Every published function has an `_in(conn, …)` form. |
 | `entities.py` | `ENTITIES = [Entity(...)]` | Table, labels, URL and title builders, `can_read(user, conn, id)` / `can_write(user, conn, id)` (`authorization.md`). |
 | `hooks.py` | `HOOKS = {"on_entity_deleted": [...], "on_entity_merged": [...], "on_record_changed": [...], "after_record_changed": [...]}` | The registry subscribes them. The three sync keys run in the caller's transaction; `after_record_changed` takes `fn(conn, payload)` after commit, via the outbox. Signatures are in `authorization.md` §3. |
 | `reports.py` | `REPORTS = [Report(...)]` | `records.md`. |
@@ -73,7 +73,7 @@ The current fixture manifest (`backend/apps/example/app.json`):
 
 ### `api.py` and the import rule
 
-1. Another app (or core) may import an app only through `backend.apps.<x>.api`. The contract test parses each app's Python with `ast` and flags any other `backend.apps.<other>` import, and any relative import that leaves the app package.
+1. Another app (or core) may import an app only through `backend.apps.<x>.api`, in any form: `from backend.apps.<x> import api` (with or without `as`), `import backend.apps.<x>.api`, or `from backend.apps.<x>.api import …`. One exception: files under an app's `tests/` may also import another app's `seed` to set up data (`seed.sample(conn)`); runtime code may not. The contract test parses each app's Python with `ast` and flags any other `backend.apps.<other>` import, and any relative import that leaves the app package (`from .. import api` in `tests/test_x.py` stays inside it).
 2. Every published function has `fn(...)` and `fn_in(conn, ...)` forms (`database-and-transactions.md` §3).
 
 Published APIs the plan fixes so far:
@@ -202,7 +202,7 @@ Falsifiable against `backend/tests/fixtures/bad_app` (the test must fail it). It
 
 14. `docs/index.md` is present.
 15. `JOBS` names are prefixed `<slug>.`.
-16. Cross-app imports happen only via `api` (an `ast` walk).
+16. Cross-app imports happen only via `api` (tests may also use another app's `seed`).
 17. Tool names carry the `<slug>_` prefix (`build_registry()` checks it at boot as well).
 18. Entity types are `<slug>.<name>` on a table the app owns.
 19. Migrations are stamped `20261101000000` or later.
@@ -244,7 +244,7 @@ The contract test and the Playwright smoke both exercise it (Settings cards by r
 scripts/new-app.sh <slug> "<Name>"
 ```
 
-Scaffolds an app that **passes** the contract test and the Vitest twin as generated. It writes `backend/apps/<slug>/` (manifest, router, api, entities, seed, settings, a migration, docs) from its own templates; it does not copy `apps/example`. The scaffold has a `<slug>.item` entity on `<slug>_items` and publishes `get_item`. When `frontend/src` exists it also writes `frontend/src/apps/<slug>/{contributions.ts,index.tsx}`. It refuses a reserved slug and any slug that extends, or is extended by, `core_` or an installed app's prefix.
+Scaffolds an app that **passes** the contract test and the Vitest twin as generated. It writes `backend/apps/<slug>/` (manifest, router, api, entities, seed, settings, a migration, docs, and `tests/` with a starter test that `uv run pytest` collects; `testing.md` §1) from its own templates; it does not copy `apps/example`. The scaffold has a `<slug>.item` entity on `<slug>_items` and publishes `get_item`. When `frontend/src` exists it also writes `frontend/src/apps/<slug>/{contributions.ts,index.tsx}`. It refuses a reserved slug and any slug that extends, or is extended by, `core_` or an installed app's prefix.
 
 ## 9. Core packages contribute like apps
 

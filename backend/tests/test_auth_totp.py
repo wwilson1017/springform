@@ -3,8 +3,7 @@ import pyotp
 from backend.core import clock, db as core_db
 from backend.core.auth import service, totp
 from backend.core.auth.deps import COOKIE
-
-from .conftest import PASSWORD, make_client
+from backend.testing.fixtures import PASSWORD, make_client
 
 T0 = "2026-11-02T09:00:10Z"
 
