@@ -106,8 +106,8 @@ describe('approving a write', () => {
           { type: 'conversation_id', id: 7 },
           { type: 'title_update', conversation_id: 7, title: 'make a widget' },
           { type: 'tool_start', tool: 'example_create_widget', tool_use_id: 'w1' },
-          { type: 'tool_args', tool: 'example_create_widget', tool_use_id: 'w1', args: { name: 'Demo' }, description: 'Create a widget.' },
-          { type: 'confirm', tool_run_id: 11, tool: 'example_create_widget', tool_use_id: 'w1', msg_id: 4, args: { name: 'Demo' }, description: 'Create a widget.' },
+          { type: 'tool_args', tool: 'example_create_widget', tool_use_id: 'w1', args: { name: 'Demo' }, description: 'Model instructions: ask the user to approve.' },
+          { type: 'confirm', tool_run_id: 11, tool: 'example_create_widget', tool_use_id: 'w1', msg_id: 4, args: { name: 'Demo' }, summary: 'Create this widget.' },
           { type: 'text', text: 'Waiting for your approval.' },
           { type: 'done', model: 'fake' },
         ),
@@ -120,6 +120,8 @@ describe('approving a write', () => {
 
     expect(await screen.findByText('Needs your approval')).toBeTruthy();
     expect(screen.getByText(/"name": "Demo"/)).toBeTruthy();
+    expect(screen.getByText('Create this widget.')).toBeTruthy();
+    expect(screen.queryByText('Model instructions: ask the user to approve.')).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Approve' }));
 
     expect(await screen.findByText('Approved and done.')).toBeTruthy();
@@ -137,14 +139,22 @@ describe('approving a write', () => {
     const fn = serve('admin', true, {
       'POST /api/agent/chat': () => sse(
         { type: 'conversation_id', id: 7 },
-        { type: 'confirm', tool_run_id: 11, tool: 'example_create_widget', tool_use_id: 'w1', msg_id: 4, args: {}, description: '' },
+        { type: 'tool_start', tool: 'example_create_widget', tool_use_id: 'w1' },
+        { type: 'tool_args', tool: 'example_create_widget', tool_use_id: 'w1', args: {}, description: 'Model instructions.' },
+        { type: 'confirm', tool_run_id: 11, tool: 'example_create_widget', tool_use_id: 'w1', msg_id: 4, args: {}, summary: '' },
         { type: 'done', model: 'fake' },
       ),
       'POST /api/agent/confirm': () => json({ detail: 'not_your_conversation' }, 403),
     });
     renderAt();
     await send('make a widget');
-    fireEvent.click(await screen.findByRole('button', { name: 'Deny' }));
+    const deny = await screen.findByRole('button', { name: 'Deny' });
+    const card = screen.getByTestId('tool-confirm-card');
+    expect(card.querySelector('p')).toBeNull();
+    expect(card.textContent).toContain('example_create_widget');
+    expect(card.querySelector('pre')?.textContent).toBe('{}');
+    expect(screen.queryByText('Model instructions.')).toBeNull();
+    fireEvent.click(deny);
     expect(await screen.findByText('Only the person who started this conversation can approve it.')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Approve' })).toBeTruthy();
     expect(bodiesOf(fn, 'POST', '/api/agent/chat')).toHaveLength(1);

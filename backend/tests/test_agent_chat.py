@@ -1,6 +1,7 @@
 """Whisk's turn loop, confirmation and privacy, end to end over HTTP with the FakeProvider."""
 
 import json
+from dataclasses import replace
 
 import pytest
 
@@ -81,7 +82,9 @@ def _propose(client, name="Gizmo", **extra):
 def test_write_tool_pends_and_approve_runs_once_with_db_args(login_as):
     a, b = login_as("member"), login_as("member")
     evs, confirm = _propose(a)
-    assert confirm["tool"] == "example_create_widget" and confirm["args"] == {"name": "Gizmo"} and confirm["description"]
+    assert confirm["tool"] == "example_create_widget" and confirm["args"] == {"name": "Gizmo"}
+    assert confirm["summary"] == "Create this widget."
+    assert "description" not in confirm
     assert of(evs, "text")[-1]["text"] == "I'd like to create that widget." and evs[-1]["type"] == "done"
     run_id = confirm["tool_run_id"]
     assert history.get_tool_run(run_id)["status"] == "pending" and widgets() == []
@@ -106,11 +109,19 @@ def test_write_tool_pends_and_approve_runs_once_with_db_args(login_as):
     assert "Gizmo" in flat and "pending_user_approval" not in flat
 
 
-def test_stale_definition_is_not_run(login_as):
+@pytest.mark.parametrize("change_summary", [False, True])
+def test_stale_definition_is_not_run(login_as, monkeypatch, change_summary):
     a = login_as("member")
     _, confirm = _propose(a)
-    with core_db.transaction() as conn:
-        conn.execute("UPDATE core_agent_tool_runs SET tool_def_sha256 = 'old' WHERE id = ?", (confirm["tool_run_id"],))
+    if change_summary:
+        specs = [
+            replace(spec, summary="Create the widget below.") if spec.name == confirm["tool"] else spec
+            for spec in tool_registry.current().all()
+        ]
+        monkeypatch.setattr(tool_registry, "_current", tool_registry.build_registry(specs))
+    else:
+        with core_db.transaction() as conn:
+            conn.execute("UPDATE core_agent_tool_runs SET tool_def_sha256 = 'old' WHERE id = ?", (confirm["tool_run_id"],))
     r = a.post("/api/agent/confirm", json={"tool_run_id": confirm["tool_run_id"], "decision": "approve"}).json()
     assert r == {"status": "stale"} and history.get_tool_run(confirm["tool_run_id"])["status"] == "stale" and widgets() == []
 
@@ -278,3 +289,18 @@ def test_system_prompt_names_the_workspace(login_as):
     settings.set_setting("workspace.name", "Acme Bakery", None)
     static, _ = agents.build_system_prompt(agents.get(), a.principal)
     assert "the assistant for Acme Bakery." in static
+
+
+def test_summaryless_tool_confirms_without_description(login_as, extra_tools):
+    client = login_as("member")
+    extra_tools(ToolSpec(
+        name="core_remote_test", description="Model-facing instructions.", input_schema=SCHEMA,
+        writes=False, handler=lambda user, args: {}, always_confirm=True,
+        untrusted_source=True, external_effect=True, server_id="test", server_url="https://example.test/mcp",
+    ))
+    fake.script({"tool": "core_remote_test", "args": {}}, "Waiting for approval.")
+    evs = chat(client, message="run the remote tool")
+    confirm = of(evs, "confirm")[0]
+    assert confirm["summary"] == ""
+    assert "description" not in confirm
+    assert of(evs, "tool_args")[0]["description"] == "Model-facing instructions."

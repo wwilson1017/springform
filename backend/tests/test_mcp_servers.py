@@ -144,7 +144,9 @@ def test_a_remote_read_still_confirms_and_its_result_is_fenced(admin, stub, allo
     fake.script({"tool": "stub__list_items", "args": {}}, "I need your approval to read the list.")
     evs = events(admin.post("/api/agent/chat", json={"message": "what is on my list?"}))
     confirm = [e for e in evs if e["type"] == "confirm"][0]
-    assert confirm["tool"] == "stub__list_items" and "remote tool" in confirm["description"]
+    assert confirm["tool"] == "stub__list_items" and confirm["summary"].startswith("Run stub.list_items on ")
+    assert "description" not in confirm
+    assert "remote tool" in next(e["description"] for e in evs if e["type"] == "tool_args")
     assert not [e for e in evs if e["type"] == "tool_end"] and len(calls) == seen  # nothing ran yet
     assert history.get_tool_run(confirm["tool_run_id"])["status"] == "pending"
 

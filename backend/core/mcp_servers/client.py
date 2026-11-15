@@ -134,6 +134,7 @@ def _specs(row: dict, tools: list[types.Tool]) -> tuple[list[ToolSpec], list[dic
         specs.append(ToolSpec(
             name=wire,
             description=f"{row['prefix']}.{tool.name}, a remote tool on {row['name']}: {description}",
+            summary=f"Run {row['prefix']}.{tool.name} on {row['name']}.",  # never the server's own text
             input_schema=tool.input_schema,
             writes=hint is not True,
             handler=_handler(row["id"], row["url"], tool.name),

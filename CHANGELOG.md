@@ -43,6 +43,7 @@ Conventions:
 
 ### Fixed
 
+- Whisk approval cards show a plain summary of the action, or only its name and arguments, instead of model-facing tool instructions.
 - Fork apps can declare settings and report parameters without changing core's response-shape fixture.
 - The app contract test fails when two apps define Pydantic models with the same class name, naming the model and both apps, instead of letting a new app silently rename another app's generated API types; the CRM and Todos share `Badge` and `Deleted` from `backend/core/responses.py` (#10).
 - The Browser smoke's Settings test checks that core's and the upstream apps' sections are present instead of the exact list, so a fork app's settings card no longer fails it.

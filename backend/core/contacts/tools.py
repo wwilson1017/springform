@@ -113,10 +113,10 @@ def _read(name: str, description: str, handler, properties: dict, required: tupl
     )  # fmt: skip
 
 
-def _write(name: str, description: str, handler_in, properties: dict, required: tuple, targets) -> ToolSpec:
+def _write(name: str, description: str, handler_in, properties: dict, required: tuple, targets, summary: str) -> ToolSpec:
     return ToolSpec(
         name=name, description=description + LINKED, input_schema={"type": "object", "properties": properties, "required": list(required)},
-        writes=True, handler_in=handler_in, targets=targets, enabled=human,
+        writes=True, handler_in=handler_in, targets=targets, enabled=human, summary=summary,
     )  # fmt: skip
 
 
@@ -148,6 +148,7 @@ def get_tools() -> list[ToolSpec]:
              "allow_duplicate": {"type": "boolean", "description": "Create it even though a person has this name"}},
             ("name",),
             lambda args: [(ORGANIZATION, int(args["organization_id"]))] if args.get("organization_id") else [],
+            summary="Add this person to your contacts.",
         ),  # fmt: skip
         _write(
             "core_create_organization",
@@ -156,6 +157,7 @@ def get_tools() -> list[ToolSpec]:
             {"name": {"type": "string"}, "domain": {"type": "string", "description": "e.g. example.com"},
              "website": {"type": "string"}, "industry": {"type": "string"}},
             ("name",), lambda args: [],
+            summary="Add this organization to your contacts.",
         ),  # fmt: skip
         _write(
             "core_link_person_organization",
@@ -166,5 +168,6 @@ def get_tools() -> list[ToolSpec]:
              "primary": {"type": "boolean"}},
             ("person_id", "organization_id"),
             lambda args: [(PERSON, int(args["person_id"])), (ORGANIZATION, int(args["organization_id"]))],
+            summary="Link this person to this organization.",
         ),  # fmt: skip
     ]
