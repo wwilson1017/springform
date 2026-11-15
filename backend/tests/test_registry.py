@@ -135,13 +135,13 @@ def test_samples_run_after_the_apps_they_require(app, monkeypatch):
 
     ran = []
 
-    def fake(slug: str, requires: list[str] = []) -> registry.App:  # noqa: B006
+    def fake(slug: str, *requires: str) -> registry.App:
         seed = SimpleNamespace(seed=lambda conn: None, sample=lambda conn: ran.append(slug), RESET_TABLES=[])
         manifest = registry.AppManifest(slug=slug, name=slug, path=f"/{slug}", roles=["member"], version="0.1.0",
-                                        requires_core=">=0.1,<1", requires_apps=requires)
+                                        requires_core=">=0.1,<1", requires_apps=list(requires))
         return registry.App(manifest, Path(slug), {"seed": seed})
 
-    ordered = registry.dependency_order([fake("aaa"), fake("orders", ["recipes"]), fake("recipes"), fake("zzz")])
+    ordered = registry.dependency_order([fake("aaa"), fake("orders", "recipes"), fake("recipes"), fake("zzz")])
     assert [a.slug for a in ordered] == ["aaa", "recipes", "orders", "zzz"]
     monkeypatch.setattr(registry, "_APPS", ordered)
     monkeypatch.setenv("PREVIEW_MODE", "1")
@@ -149,6 +149,6 @@ def test_samples_run_after_the_apps_they_require(app, monkeypatch):
     assert ran == ["aaa", "recipes", "orders", "zzz"]
 
     with pytest.raises(registry.AppContractError, match="'orders' requires_apps 'recipes', which is not installed"):
-        registry.dependency_order([fake("orders", ["recipes"])])
+        registry.dependency_order([fake("orders", "recipes")])
     with pytest.raises(registry.AppContractError, match="cycle: aaa -> bbb -> aaa"):
-        registry.dependency_order([fake("aaa", ["bbb"]), fake("bbb", ["aaa"])])
+        registry.dependency_order([fake("aaa", "bbb"), fake("bbb", "aaa")])
