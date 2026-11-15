@@ -59,6 +59,7 @@ def get_tools() -> list[ToolSpec]:
             handler_in=_set,
             targets=lambda args: [],  # changes no record; create_in checks the record is readable
             enabled=human,
+            summary="Set this reminder.",
         ),
         ToolSpec(
             name="core_list_my_reminders",

@@ -14,6 +14,7 @@ export interface ToolPart {
   toolUseId: string;
   args?: Record<string, unknown>;
   description?: string;
+  summary?: string;
   status: ToolStatus;
   result?: unknown;
   error?: string | null;
@@ -118,7 +119,7 @@ export function applyEvent(m: ChatMessage, e: ChatEvent): ChatMessage {
       const known = m.parts.some(p => p.kind === 'tool' && p.toolUseId === e.tool_use_id);
       const base = known ? m : applyEvent(m, { type: 'tool_start', tool: e.tool, tool_use_id: e.tool_use_id });
       return updateTool(base, e.tool_use_id, p => ({
-        ...p, status: 'pending', runId: e.tool_run_id, args: e.args, description: e.description || p.description,
+        ...p, status: 'pending', runId: e.tool_run_id, args: e.args, summary: e.summary || undefined,
         confirm: { phase: 'pending' },
       }));
     }

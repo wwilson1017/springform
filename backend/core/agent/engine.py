@@ -243,7 +243,7 @@ async def _chat(provider, user, message, conversation_id, agent_slug) -> AsyncGe
                 pending = True
                 yield sse({
                     "type": "confirm", "tool_run_id": run_id, "tool": name, "tool_use_id": tool_use_id,
-                    "msg_id": message_id, "args": args, "description": spec.description,
+                    "msg_id": message_id, "args": args, "summary": spec.summary,
                 })
                 continue
             else:

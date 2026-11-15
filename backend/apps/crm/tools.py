@@ -138,10 +138,10 @@ def _read(name: str, description: str, handler, properties: dict | None = None, 
     )  # fmt: skip
 
 
-def _write(name: str, description: str, handler_in, properties: dict, required: tuple, targets, *, routine: bool = True) -> ToolSpec:
+def _write(name: str, description: str, handler_in, properties: dict, required: tuple, targets, *, summary: str, routine: bool = True) -> ToolSpec:
     return ToolSpec(
         name=name, description=description, input_schema={"type": "object", "properties": properties, "required": list(required)},
-        writes=True, confirm_tier=ROUTINE if routine else None, handler_in=handler_in, targets=targets,
+        writes=True, confirm_tier=ROUTINE if routine else None, handler_in=handler_in, targets=targets, summary=summary,
     )  # fmt: skip
 
 
@@ -204,29 +204,35 @@ def get_tools() -> list[ToolSpec]:
             "Create a deal. value_cents is money in cents ($1,250.00 is 125000). Link it to a person and/or organization by id "
             "(find them with core_search_contacts first; add a missing one with core_create_person or core_create_organization)." + URL_GUIDANCE,
             _create, _schema(DealIn)["properties"], ("title",), lambda args: [],  # links are checked for read access
+            summary="Create this deal.",
         ),  # fmt: skip
         _write(
             "crm_update_deal",
             "Change a deal: only the fields given change, and null clears one. Moving it to won settles probability at 100 and records "
             "closed_on (default today); to lost, probability 0. Prefer crm_mark_deal_won and crm_mark_deal_lost for closing." + URL_GUIDANCE,
             _update, _schema(DealPatch, **_DEAL_ID)["properties"], ("deal_id",), _deal,
+            summary="Update this deal with the changes below.",
         ),  # fmt: skip
         _write(
             "crm_update_deal_stage", f"Move a deal between open stages ({', '.join(OPEN_STAGES)}). To close one use crm_mark_deal_won or crm_mark_deal_lost." + URL_GUIDANCE,
             _move, {**_DEAL_ID, "stage": {"type": "string", "enum": list(OPEN_STAGES)}}, ("deal_id", "stage"), _deal,
+            summary="Move this deal to the selected stage.",
         ),  # fmt: skip
         _write(
             "crm_bulk_move_deals", f"Move several deals to one open stage in one call (at most {BULK_MOVE_MAX}). A deal that cannot move is listed in errors; the rest move.",
             _bulk, {"deal_ids": {"type": "array", "items": {"type": "integer"}, "maxItems": BULK_MOVE_MAX}, "stage": {"type": "string", "enum": list(OPEN_STAGES)}},
             ("deal_ids", "stage"), lambda args: [(ENTITY, int(i)) for i in args.get("deal_ids") or []],
+            summary="Move these deals to the selected stage.",
         ),  # fmt: skip
         _write(
             "crm_mark_deal_won", "Close a deal as won: stage won, probability 100, and the day it closed. On a deal already won, a closed_on corrects its day." + URL_GUIDANCE,
             _won, {**_DEAL_ID, "closed_on": _CLOSED_ON}, ("deal_id",), _deal,
+            summary="Mark this deal as won.",
         ),  # fmt: skip
         _write(
             "crm_mark_deal_lost", "Close a deal as lost: stage lost, probability 0, and the reason. Always ask for the reason: it is what makes lost deals worth reviewing." + URL_GUIDANCE,
             _lost, {**_DEAL_ID, "lost_reason": {"type": "string", "description": "Why: price, timing, chose a competitor, no budget…"}}, ("deal_id",), _deal,
+            summary="Mark this deal as lost.",
         ),  # fmt: skip
         _write(
             "crm_archive_deal",
@@ -234,10 +240,12 @@ def get_tools() -> list[ToolSpec]:
             "a deal that really closed is won or lost instead. A reason is required: ask for it." + URL_GUIDANCE,
             lambda conn, user, args: _link(deals.archive_in(conn, user, int(args["deal_id"]), args.get("reason") or "")),
             {**_DEAL_ID, "reason": {"type": "string"}}, ("deal_id", "reason"), _deal, routine=False,
+            summary="Archive this deal, removing it from lists, boards and totals.",
         ),  # fmt: skip
         _write(
             "crm_restore_deal", "Bring an archived deal back to the board." + URL_GUIDANCE,
             lambda conn, user, args: _link(deals.restore_in(conn, user, int(args["deal_id"]))), _DEAL_ID, ("deal_id",), _deal,
+            summary="Restore this archived deal to the board.",
         ),  # fmt: skip
         _write(
             "crm_merge_deals",
@@ -246,10 +254,12 @@ def get_tools() -> list[ToolSpec]:
             lambda conn, user, args: _link(deals.merge_in(conn, user, int(args["target_id"]), int(args["source_id"]))),
             {"target_id": {"type": "integer"}, "source_id": {"type": "integer"}}, ("target_id", "source_id"),
             lambda args: [(ENTITY, int(args["target_id"])), (ENTITY, int(args["source_id"]))], routine=False,
+            summary="Merge the source deal into the target and archive the source.",
         ),  # fmt: skip
         _write(
             "crm_log_activity", "Log a call, email, meeting or other interaction that happened, on a deal and/or a person, credited to the user.",
             _log, {"activity": {"type": "string", "description": "call, email, meeting, …"}, "note": {"type": "string"}, **_DEAL_ID, "person_id": {"type": "integer"}},
             ("activity",), lambda args: [(ENTITY, int(args["deal_id"]))] if args.get("deal_id") else [],
+            summary="Log this activity on the selected deal or person.",
         ),  # fmt: skip
     ]
