@@ -251,7 +251,7 @@ Scaffolds an app that **passes** the contract test and the Vitest twin as genera
 
 Routes call the app-internal `service.py`. No `api.py` or `settings.py` is generated: add `api.py` and list functions in the manifest's `publishes` only when another app needs them, and add `settings.py` when the app has settings (§2).
 
-When `frontend/src` exists it also writes `frontend/src/apps/<slug>/{contributions.ts,index.tsx}`. It refuses a reserved slug and any slug that extends, or is extended by, `core_` or an installed app's prefix. `scripts/test-new-app.sh` checks the generated scaffold's lint, backend contract and starter test, OpenAPI response schemas, type generation, frontend typecheck, app contract and lazy loading in CI, then removes the throwaway app and restores generated types.
+When `frontend/src` exists it also writes `frontend/src/apps/<slug>/{contributions.ts,index.tsx}`. It refuses a reserved slug, any slug that extends, or is extended by, `core_` or an installed app's prefix, and a slug whose `<Pascal>Item` model another app already defines (`today` against CRM's `TodayItem`). `scripts/test-new-app.sh` checks the generated scaffold's lint, backend contract and starter test, OpenAPI response schemas, type generation, frontend typecheck, app contract and lazy loading in CI, then removes the throwaway app and restores generated types.
 
 ## 9. Core packages contribute like apps
 

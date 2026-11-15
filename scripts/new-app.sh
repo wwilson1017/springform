@@ -27,6 +27,10 @@ backend="$root/backend/apps/$slug"
 pascal=$(printf '%s' "$slug" | awk -F_ '{for (i = 1; i <= NF; i++) $i = toupper(substr($i, 1, 1)) substr($i, 2)} 1' OFS=)
 frontend="$root/frontend/src/apps/$slug"
 [ ! -e "$backend" ] && [ ! -e "$frontend" ] || { echo "app '$slug' already exists" >&2; exit 1; }
+# The contract test fails two apps' same-named models, so refuse a slug whose models an app already has.
+if clash=$(grep -rlE "^class ${pascal}Item(In)?\(" "$root/backend/apps" --include='*.py'); then
+  echo "slug '$slug' would define ${pascal}Item, which $(echo "$clash" | head -1 | sed "s|$root/||") already defines" >&2; exit 1
+fi
 
 # App migrations are stamped 20261101000000 or later.
 stamp=$(date -u +%Y%m%d%H%M%S)
