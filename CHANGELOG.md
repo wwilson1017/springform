@@ -18,6 +18,10 @@ Conventions:
 
 ## [Unreleased]
 
+### Fixed
+
+- Report tables show `*_cents` columns as money (171720 reads 1,717.20, under a "revenue" header), the way the Timeline does. The CSV download keeps the cents.
+
 ### Changed
 
 - `backend/tests/conftest.py` is now the pytest plugin `backend/testing/fixtures.py`, loaded by a root `conftest.py`. A fork deletes any app-level conftest that re-imported core's fixtures (it would fail to import), and imports `PASSWORD` and `make_client` from `backend.testing.fixtures`.
@@ -25,6 +29,7 @@ Conventions:
 
 ### Added
 
+- `.railway/railway.ts` (Railway Infrastructure as Code): applied once per service, it stores the Dockerfile build, `/up` health check, restart policy and required `/data` mount before Railway stops reading `railway.json` on 2026-12-01, and leaves the service's source, variables and volume as they are.
 - Security headers on every response, including errors: nosniff, same-origin frame protection, referrer policy and HTTPS-only HSTS.
 - Brand mark (`brand/springform-mark.svg`: a foundation of app tiles with one lifting off on a spring) with a short brand note, a README header, the app favicon, and the myspringform.com site in `site/`, published by a GitHub Pages workflow that runs only in the upstream repository.
 - myspringform.com: a link-preview card (`og:image`, `twitter:card`), a canonical URL and fuller title, a styled 404 page, `robots.txt` and `sitemap.xml`; the header stays on one row on phones with 44 px tap targets.
@@ -35,6 +40,7 @@ Conventions:
 ### Fixed
 
 - Whisk approval cards show a plain summary of the action, or only its name and arguments, instead of model-facing tool instructions.
+- The app contract test fails when two apps define Pydantic models with the same class name, naming the model and both apps, instead of letting a new app silently rename another app's generated API types; the CRM and Todos share `Badge` and `Deleted` from `backend/core/responses.py` (#10).
 - The Browser smoke's Settings test checks that core's and the upstream apps' sections are present instead of the exact list, so a fork app's settings card no longer fails it.
 - App tests in `backend/apps/<slug>/tests/` now run under `uv run pytest` and in CI, with the shared fixtures and the skip/xfail ban and no conftest of their own; `scripts/new-app.sh` scaffolds the folder (#8).
 - `/docs`, `/redoc` and `/openapi.json` need a signed-in user; signed out they return 401, so an install no longer publishes its API schema.
@@ -46,6 +52,7 @@ Conventions:
   regenerated types file only when it changed.
 - Preview mode no longer accepts a secret setting (Google sign-in client, Sheets service-account key):
   the save is refused with "Preview mode does not store secrets.", so a visitor can no longer stop the next boot.
+- The app contract accepts both cross-app `api` import forms, allows app tests to import another app's `seed`, and recognizes relative imports that stay within the app.
 
 ## [0.1.1] - 2026-10-25
 

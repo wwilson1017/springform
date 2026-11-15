@@ -11,7 +11,7 @@ from types import SimpleNamespace
 import pytest
 from fastapi import APIRouter, Depends, FastAPI
 from fastapi.testclient import TestClient
-from pydantic import ValidationError
+from pydantic import BaseModel, ValidationError, create_model
 
 from backend.core import db as core_db, entities, registry
 from backend.core.auth.deps import require_roles
@@ -39,16 +39,21 @@ def _schema(data_dir: Path, app_dirs: list[Path]) -> list[dict]:
 def _cross_app_imports(app_dir: Path, slug: str) -> list[str]:
     found = []
     for path in app_dir.rglob("*.py"):
+        rel = path.relative_to(app_dir)
+        allowed = {"api", "seed"} if rel.parts[0] == "tests" else {"api"}
         for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
             names = [a.name for a in node.names] if isinstance(node, ast.Import) else []
             if isinstance(node, ast.ImportFrom):
-                if node.level > 1:
-                    found.append(f"{path.name}: relative import leaves the app package")
-                names = [node.module or ""]
+                if node.level > 0:
+                    if node.level > len(rel.parts):
+                        found.append(f"{rel.as_posix()}: relative import leaves the app package")
+                    continue
+                module = node.module or ""
+                names = [module] if len(module.split(".")) >= 4 else [f"{module}.{a.name}" for a in node.names]
             for name in names:
                 parts = name.split(".")
-                if parts[:2] == ["backend", "apps"] and len(parts) > 2 and parts[2] != slug and parts[3:] != ["api"]:
-                    found.append(f"{path.name}: imports {name}; other apps are reachable only through <app>.api")
+                if parts[:2] == ["backend", "apps"] and len(parts) > 2 and parts[2] != slug and parts[3:] not in [[m] for m in allowed]:
+                    found.append(f"{rel.as_posix()}: imports {name}; other apps are reachable only through <app>.api")
     return found
 
 
@@ -208,6 +213,51 @@ def test_bad_app_breaks_every_rule(tmp_path):
     assert "sqlite_autoindex_bad_app_things" not in problems  # a UNIQUE column on an owned table is fine
 
 
+def test_cross_app_import_forms(tmp_path):
+    app_dir = tmp_path / "shop"
+    (app_dir / "tests").mkdir(parents=True)
+    runtime = app_dir / "service.py"
+    tests = app_dir / "tests" / "test_x.py"
+    runtime.write_text("\n".join([
+        "from backend.apps.crm import api",
+        "from backend.apps.crm import api as crm",
+        "import backend.apps.crm.api as crm",
+        "import backend.apps.crm.api",
+        "from backend.apps.crm.api import get_deal",
+    ]), encoding="utf-8")
+    tests.write_text("\n".join([
+        "from backend.apps.crm import seed",
+        "import backend.apps.crm.seed",
+        "from backend.apps.crm.seed import sample",
+        "from .. import api",
+        "from .backend.apps.crm import service",
+    ]), encoding="utf-8")
+    assert _cross_app_imports(app_dir, "shop") == []
+
+    runtime.write_text("", encoding="utf-8")
+    tests.write_text("", encoding="utf-8")
+    for path, source, name in [
+        (runtime, "from backend.apps.crm import seed", "backend.apps.crm.seed"),
+        (runtime, "import backend.apps.crm.seed", "backend.apps.crm.seed"),
+        (runtime, "from backend.apps.crm.seed import sample", "backend.apps.crm.seed"),
+        (runtime, "from backend.apps.crm import service", "backend.apps.crm.service"),
+        (runtime, "from backend.apps.crm import api, service", "backend.apps.crm.service"),
+        (runtime, "from backend.apps import crm", "backend.apps.crm"),
+        (runtime, "import backend.apps.crm", "backend.apps.crm"),
+        (runtime, "import backend.apps.crm.api.internal", "backend.apps.crm.api.internal"),
+        (runtime, "from backend.apps.crm.api.internal import fn", "backend.apps.crm.api.internal"),
+        (runtime, "from .. import x", None),
+        (tests, "from backend.apps.crm import service", "backend.apps.crm.service"),
+        (tests, "from backend.apps import crm", "backend.apps.crm"),
+        (tests, "from ... import x", None),
+    ]:
+        path.write_text(source, encoding="utf-8")
+        message = (f"imports {name}; other apps are reachable only through <app>.api"
+                   if name else "relative import leaves the app package")
+        assert _cross_app_imports(app_dir, "shop") == [f"{path.relative_to(app_dir).as_posix()}: {message}"], source
+        path.write_text("", encoding="utf-8")
+
+
 def _manifest(**overrides) -> dict:
     return {"slug": "widgets", "name": "Widgets", "path": "/widgets", "roles": ["member"],
             "version": "0.1.0", "requires_core": ">=0.1,<1", **overrides}
@@ -301,3 +351,63 @@ def test_publishes_is_checked_at_boot(tmp_path):
     api = SimpleNamespace(get_widget=lambda: None)  # no get_widget_in
     with pytest.raises(AppContractError, match="no get_widget_in"):
         registry.mount_app(FastAPI(), registry.App(manifest, tmp_path, {"router": SimpleNamespace(router=APIRouter()), "api": api}))
+
+
+def app_models(app_dir: Path) -> dict[str, type[BaseModel]]:
+    """The Pydantic models an app's modules (outside tests/) define, by class name."""
+    package, found = registry.package_for(app_dir), {}
+    for path in sorted(app_dir.rglob("*.py")):
+        parts = path.relative_to(app_dir).with_suffix("").parts
+        if parts[0] == "tests":
+            continue
+        module = importlib.import_module(".".join([package, *parts]).removesuffix(".__init__"))
+        for obj in vars(module).values():
+            if isinstance(obj, type) and issubclass(obj, BaseModel) and obj.__module__ == module.__name__:
+                found[obj.__name__] = obj
+    return found
+
+
+def model_name_collisions(models_by_app: dict[str, dict[str, type[BaseModel]]]) -> list[str]:
+    """OpenAPI schema names are global: two apps' same-named models with different schemas make
+    FastAPI rename both apps' generated types, so any class name two apps define fails."""
+    first: dict[str, str] = {}
+    problems = []
+    for slug, models in models_by_app.items():
+        for name in models:
+            if name in first:
+                problems.append(f"model {name!r} is defined by apps {first[name]} and {slug}; schema names are global, "
+                                f"so prefix one with its app (as scripts/new-app.sh does) or share a core model")
+            else:
+                first[name] = slug
+    return problems
+
+
+def test_no_two_apps_share_a_model_name():
+    models = {d.name: app_models(d) for d in INSTALLED}
+    assert any(models.values()), "found no app models; the walk is broken"
+    assert model_name_collisions(models) == []
+
+
+def test_model_name_check_catches_what_openapi_renames():
+    def models(slug: str, badge_field: str) -> dict[str, type[BaseModel]]:
+        module = f"backend.apps.{slug}.models"
+        return {"Badge": create_model("Badge", __module__=module, **{badge_field: (int, ...)}),
+                "Deleted": create_model("Deleted", __module__=module, deleted=(int, ...))}
+
+    by_app = {"alpha": models("alpha", "count"), "beta": models("beta", "total")}
+    hint = "schema names are global, so prefix one with its app (as scripts/new-app.sh does) or share a core model"
+    assert model_name_collisions(by_app) == [f"model 'Badge' is defined by apps alpha and beta; {hint}",
+                                             f"model 'Deleted' is defined by apps alpha and beta; {hint}"]
+    assert model_name_collisions({"alpha": {"AlphaBadge": by_app["alpha"]["Badge"]},
+                                  "beta": {"BetaBadge": by_app["beta"]["Badge"]}}) == []
+
+    # The harm the rule prevents: FastAPI renames both differing Badges.
+    router = APIRouter()
+    for slug, ms in by_app.items():
+        for name, model in ms.items():
+            router.add_api_route(f"/{slug}/{name}", lambda: None, response_model=model)
+    api = FastAPI()
+    api.include_router(router)
+    names = set(api.openapi()["components"]["schemas"])
+    assert {"backend__apps__alpha__models__Badge", "backend__apps__beta__models__Badge"} <= names
+    assert "Badge" not in names

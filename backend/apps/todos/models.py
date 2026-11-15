@@ -23,11 +23,11 @@ def Text():
     return Field(default=None, max_length=MAX_TEXT_CHARS)
 
 
-class _In(BaseModel):
+class _TodosIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
-class ItemIn(_In):
+class ItemIn(_TodosIn):
     title: str = Field(max_length=MAX_TEXT_CHARS)
     notes: str = Field(default="", max_length=MAX_TEXT_CHARS)
     project_id: int | None = None
@@ -48,7 +48,7 @@ class ItemIn(_In):
     entity_id: int | None = None
 
 
-class ItemPatch(_In):
+class ItemPatch(_TodosIn):
     title: str | None = Text()
     notes: str | None = Text()
     project_id: int | None = None
@@ -69,18 +69,18 @@ class ItemPatch(_In):
     entity_id: int | None = None
 
 
-class BulkIn(_In):
+class BulkIn(_TodosIn):
     ids: list[int] = Field(max_length=MAX_BULK)
     fields: dict = Field(description="Any ItemPatch fields")
 
 
-class ContextRenameIn(_In):
+class ContextRenameIn(_TodosIn):
     old: str = Field(max_length=MAX_SHORT_CHARS)
     new: str = Field(max_length=MAX_SHORT_CHARS)
     merge: bool = False
 
 
-class ProjectIn(_In):
+class ProjectIn(_TodosIn):
     name: str = Field(max_length=MAX_SHORT_CHARS)
     notes: str = Field(default="", max_length=MAX_TEXT_CHARS)
     status: ProjectStatus = "active"
@@ -91,7 +91,7 @@ class ProjectIn(_In):
     assignee_user_id: int | None = None
 
 
-class ProjectPatch(_In):
+class ProjectPatch(_TodosIn):
     name: str | None = Short()
     notes: str | None = Text()
     status: ProjectStatus | None = None
@@ -103,14 +103,14 @@ class ProjectPatch(_In):
     assignee_user_id: int | None = None
 
 
-class AreaIn(_In):
+class AreaIn(_TodosIn):
     name: str = Field(max_length=MAX_SHORT_CHARS)
     notes: str = Field(default="", max_length=MAX_TEXT_CHARS)
     visibility: Visibility | None = None
     assignee_user_id: int | None = None
 
 
-class AreaPatch(_In):
+class AreaPatch(_TodosIn):
     name: str | None = Short()
     notes: str | None = Text()
     status: AreaStatus | None = None
@@ -119,7 +119,7 @@ class AreaPatch(_In):
     assignee_user_id: int | None = None
 
 
-class TransferIn(_In):
+class TransferIn(_TodosIn):
     from_user_id: int
     to_user_id: int
 
@@ -200,15 +200,6 @@ class ContextRenameOut(BaseModel):
     new: str
     updated: int
     merged: bool
-
-
-class Deleted(BaseModel):
-    deleted: int
-
-
-class Badge(BaseModel):
-    count: int
-    label: str | None = None
 
 
 class Tombstone(BaseModel):

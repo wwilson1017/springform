@@ -59,7 +59,7 @@ The current fixture manifest (`backend/apps/example/app.json`):
 |---|---|---|
 | `app.json` | manifest | §1 above. |
 | `router.py` | `router` | Mounted at `/api/<slug>`, tagged `<slug>` (stable `operationId`s for type generation). `registry.mount_app()`, run by `registry.install()`, adds `Depends(require_roles(manifest.roles))`. Every `/api` route, core or app, answers 401 without a session unless it is listed in `ALLOW_UNAUTHENTICATED` in the contract test (the sign-in routes and `/api/health`). |
-| `api.py` | published functions | **The only module another app may import** (`from backend.apps.<x>.api import …`). Every published function has an `_in(conn, …)` form. |
+| `api.py` | published functions | **The only module another app may import** (`from backend.apps.<x> import api` or `from backend.apps.<x>.api import …`; its tests may also import `seed`, below). Every published function has an `_in(conn, …)` form. |
 | `entities.py` | `ENTITIES = [Entity(...)]` | Table, labels, URL and title builders, `can_read(user, conn, id)` / `can_write(user, conn, id)` (`authorization.md`). |
 | `hooks.py` | `HOOKS = {"on_entity_deleted": [...], "on_entity_merged": [...], "on_record_changed": [...], "after_record_changed": [...]}` | The registry subscribes them. The three sync keys run in the caller's transaction; `after_record_changed` takes `fn(conn, payload)` after commit, via the outbox. Signatures are in `authorization.md` §3. |
 | `reports.py` | `REPORTS = [Report(...)]` | `records.md`. |
@@ -73,7 +73,7 @@ The current fixture manifest (`backend/apps/example/app.json`):
 
 ### `api.py` and the import rule
 
-1. Another app (or core) may import an app only through `backend.apps.<x>.api`. The contract test parses each app's Python with `ast` and flags any other `backend.apps.<other>` import, and any relative import that leaves the app package.
+1. Another app (or core) may import an app only through `backend.apps.<x>.api`, in any form: `from backend.apps.<x> import api` (with or without `as`), `import backend.apps.<x>.api`, or `from backend.apps.<x>.api import …`. One exception: files under an app's `tests/` may also import another app's `seed` to set up data (`seed.sample(conn)`); runtime code may not. The contract test parses each app's Python with `ast` and flags any other `backend.apps.<other>` import, and any relative import that leaves the app package (`from .. import api` in `tests/test_x.py` stays inside it).
 2. Every published function has `fn(...)` and `fn_in(conn, ...)` forms (`database-and-transactions.md` §3).
 
 Published APIs the plan fixes so far:
@@ -115,6 +115,7 @@ App setting keys are `<slug>.<key>`. An admin sets them through `PUT /api/core/s
 2. Each router mounts at `/api/<slug>` with `Depends(require_roles(manifest.roles))`. A member calling an admin-only app's API directly gets **403**.
 3. Badge routes return `{count, label?}`. The launcher polls them every 60 s while visible.
 4. Errors are `{detail}`: 401 not signed in; 404 missing or not readable, for reads and writes alike, so existence never leaks; 403 when the record is readable but not writable, or a role-guarded route refuses the caller; 422 invalid (`authorization.md` §2).
+5. OpenAPI schema names are global, so no two apps define Pydantic models with the same class name: if their fields differ, Pydantic module-qualifies both (`backend__apps__crm__models__Badge`) or suffixes them (`Badge-Input`), silently renaming both apps' types in `types.gen.ts`. Prefix an app's models with its name (`CrmDeal`, as `scripts/new-app.sh` scaffolds them), or use a shared core model: `backend/core/responses.py` holds `Badge` and `Deleted` for every app. Rule 24 of the contract test (§6) enforces it.
 
 ```
 GET  /api/core/apps    -> [{slug, name, description, path, icon, roles, order, badge, hidden, settings_cards, version}] for the caller's role; admins also receive hidden apps with hidden:true
@@ -202,7 +203,7 @@ Falsifiable against `backend/tests/fixtures/bad_app` (the test must fail it). It
 
 14. `docs/index.md` is present.
 15. `JOBS` names are prefixed `<slug>.`.
-16. Cross-app imports happen only via `api` (an `ast` walk).
+16. Cross-app imports happen only via `api` (tests may also use another app's `seed`).
 17. Tool names carry the `<slug>_` prefix (`build_registry()` checks it at boot as well).
 18. Entity types are `<slug>.<name>` on a table the app owns.
 19. Migrations are stamped `20261101000000` or later.
@@ -210,6 +211,7 @@ Falsifiable against `backend/tests/fixtures/bad_app` (the test must fail it). It
 21. `HOOKS` names only known hooks.
 22. `DEFAULTS` keys are `<slug>.<key>`.
 23. Every `publishes` name exists in `api.py` as both `name` and `name_in` (the registry also checks this at boot).
+24. No two apps define Pydantic models with the same class name (§3 rule 5); the failure names the model and both apps. Core's models are not checked (the CRM's `MergeIn` and `ResetIn` already share names with core's), so don't reuse a core model's class name either.
 
 ### Vitest twin
 
