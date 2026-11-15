@@ -105,7 +105,7 @@ ToolSpec(
 2. Names carry the `<slug>_` prefix (app tools; the contract test checks it too). Core tools are prefixed `core_`.
 3. `writes` is a `bool`.
 4. `confirm_tier` is allowed only when `writes`.
-5. A write tool has `handler_in` **and** `targets`, or is marked `external_effect`.
+5. A write tool has `handler_in` **and** `targets`, or is marked `external_effect`. A tool that only creates a new record, and changes no existing one, returns an empty list (`targets=lambda args: []`). If the new record merely stores a reference to an existing one (a contact on a new deal), its `handler_in` checks read access on it, because the engine authorizes only what `targets` names. If the call also changes an existing record or its links (a new person linked to an organization), that record goes in `targets`, as `core_create_person` does.
 6. `always_confirm` is allowed on any spec.
 7. A name is 1 to 64 characters of `[a-zA-Z0-9_-]`.
 8. `input_schema` is a JSON schema of type `object`.
