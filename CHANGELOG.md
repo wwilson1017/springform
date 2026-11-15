@@ -33,6 +33,7 @@ Conventions:
 
 ### Fixed
 
+- Fork apps can declare settings and report parameters without changing core's response-shape fixture.
 - `/docs`, `/redoc` and `/openapi.json` need a signed-in user; signed out they return 401, so an install no longer publishes its API schema.
 - Railway builds: the Dockerfile no longer declares `VOLUME /data`, which Railway refuses ("docker VOLUME is not supported, use Railway Volumes"). Every supported run mounts `/data` itself.
 - deploy.md no longer asks the owner to make the ghcr package public by hand: the image's source
