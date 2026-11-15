@@ -36,6 +36,7 @@ The motivating failure: a previous fork of CakeCRM had to edit 25 CakeCRM files 
 springform/
   AGENTS.md  CLAUDE.md(@AGENTS.md)  README.md  LICENSE  CHANGELOG.md  springform-version  fork-allow.txt
   pyproject.toml  uv.lock  Dockerfile  entrypoint.sh  railway.json  run.py
+  .railway/railway.ts        apply Railway service settings (not read during deploy)
   backend/
     main.py                 create_app(): discover + mount at import; lifespan = db + key files → migrate → preview check → seed → setup token → startup hooks → scheduler
     cli.py                  operator commands: python -m backend.cli create-admin EMAIL [--name NAME]
@@ -129,6 +130,7 @@ The data directory is `DATA_DIR` (the donor's env var, kept; default `./data` fo
 | `DOMAIN` | Caddy site address in `deploy/`. | `deploy.md` |
 | `IMAGE` | The image `compose.yml` runs, default the upstream image; written by `setup.sh`. Railway builds from the `Dockerfile` instead. | `deploy.md`, `forks.md` |
 | `NO_PULL` | `1` → `setup.sh` and `deploy.sh` run an `IMAGE` already loaded with `docker load` instead of pulling it. | `deploy.md` |
+| `SPRINGFORM_SERVICE` | Railway service to configure; read only by `.railway/railway.ts`. | `deploy.md` |
 | `RAILWAY_DEPLOYMENT_DRAINING_SECONDS` | `15`, documented for Railway. | `deploy.md` |
 
 ### Install settings (`core_settings`)
