@@ -21,6 +21,7 @@ Conventions:
 ### Fixed
 
 - New apps scaffold typed routes, app-prefixed models, an internal service and the supported `grid` icon, without unused API or settings modules; CI checks the generated scaffold.
+- `docs/agents/agent.md` (registry rule 5) says a write tool that only creates a record returns an empty `targets` list, and when an existing record it touches still belongs in `targets`.
 - Report tables show `*_cents` columns as money (171720 reads 1,717.20, under a "revenue" header), the way the Timeline does. The CSV download keeps the cents.
 - The Timeline custom-field label test no longer fails at random in CI: it now waits for the field's real label instead of matching the humanized key it falls back to.
 
