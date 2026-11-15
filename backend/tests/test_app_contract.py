@@ -317,22 +317,18 @@ def app_models(app_dir: Path) -> dict[str, type[BaseModel]]:
     return found
 
 
-def _schemas(model: type[BaseModel]) -> tuple[dict, dict]:
-    return model.model_json_schema(mode="validation"), model.model_json_schema(mode="serialization")
-
-
 def model_name_collisions(models_by_app: dict[str, dict[str, type[BaseModel]]]) -> list[str]:
     """OpenAPI schema names are global: two apps' same-named models with different schemas make
-    Pydantic rename both apps' generated types. Same-named models with identical schemas share one."""
-    first: dict[str, tuple[str, type[BaseModel]]] = {}
+    FastAPI rename both apps' generated types, so any class name two apps define fails."""
+    first: dict[str, str] = {}
     problems = []
     for slug, models in models_by_app.items():
-        for name, model in models.items():
-            if name not in first:
-                first[name] = (slug, model)
-            elif _schemas(model) != _schemas(first[name][1]):
-                problems.append(f"model {name!r} is defined by apps {first[name][0]} and {slug} with different schemas, "
-                                f"which renames both apps' generated types; prefix one with its app (as scripts/new-app.sh does)")
+        for name in models:
+            if name in first:
+                problems.append(f"model {name!r} is defined by apps {first[name]} and {slug}; schema names are global, "
+                                f"so prefix one with its app (as scripts/new-app.sh does) or share a core model")
+            else:
+                first[name] = slug
     return problems
 
 
@@ -349,11 +345,11 @@ def test_model_name_check_catches_what_openapi_renames():
                 "Deleted": create_model("Deleted", __module__=module, deleted=(int, ...))}
 
     by_app = {"alpha": models("alpha", "count"), "beta": models("beta", "total")}
-    assert model_name_collisions(by_app) == [
-        "model 'Badge' is defined by apps alpha and beta with different schemas, which renames both apps' "
-        "generated types; prefix one with its app (as scripts/new-app.sh does)"]
+    hint = "schema names are global, so prefix one with its app (as scripts/new-app.sh does) or share a core model"
+    assert model_name_collisions(by_app) == [f"model 'Badge' is defined by apps alpha and beta; {hint}",
+                                             f"model 'Deleted' is defined by apps alpha and beta; {hint}"]
 
-    # The check matches FastAPI: the differing Badges are renamed, the identical Deleteds share one name.
+    # The harm the rule prevents: FastAPI renames both differing Badges.
     router = APIRouter()
     for slug, ms in by_app.items():
         for name, model in ms.items():
@@ -361,5 +357,5 @@ def test_model_name_check_catches_what_openapi_renames():
     api = FastAPI()
     api.include_router(router)
     names = set(api.openapi()["components"]["schemas"])
-    assert {"Deleted", "backend__apps__alpha__models__Badge", "backend__apps__beta__models__Badge"} <= names
+    assert {"backend__apps__alpha__models__Badge", "backend__apps__beta__models__Badge"} <= names
     assert "Badge" not in names
