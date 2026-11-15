@@ -218,13 +218,13 @@ core_push_subscriptions
 ### `deliver_in`
 
 ```python
-deliver_in(conn, title, message, *, user_id=None, entity: tuple[str, int] | None = None, link=None) -> list[int]
+deliver_in(conn, title, message, *, user_id=None, entity: tuple[str, int] | None = None, link=None, role=None) -> list[int]
 ```
 
 Everything after `message` is keyword-only.
 
 1. Inserts one `core_notifications` row per recipient **in the caller's transaction**, so the in-app notification is **exactly-once**. Returns the new ids.
-2. `user_id=None` expands to every **active human** user who may read `entity` (never the system principal). A broadcast is therefore one row per user, and read state is per user. A given `user_id` gets a row only if that user is an active human who may read `entity`; otherwise nothing is written. An unknown entity type or a missing record raises 404. `link` defaults to the record's URL from the entity's `url_fn`.
+2. `user_id=None` expands to every **active human** user who may read `entity` (never the system principal). A broadcast is therefore one row per user, and read state is per user. A given `user_id` gets a row only if that user is an active human who may read `entity`; otherwise nothing is written. An unknown entity type or a missing record raises 404. `link` defaults to the record's URL from the entity's `url_fn`. `role="admin"` (or any role in `auth.service.ROLES`) narrows the recipients to active users with that role, so `deliver_in(conn, title, message, role="admin")` notifies every admin; with `user_id` too, that user gets a row only if they have the role; an unknown role raises `ValueError`.
 3. Inserts a `queued` row in `core_notification_deliveries` for each registered channel enabled for that recipient. A channel is `register_channel(name, send, *, enabled_in=None)`; web push registers itself as one.
 
 ### The notification remembers its record
