@@ -39,16 +39,21 @@ def _schema(data_dir: Path, app_dirs: list[Path]) -> list[dict]:
 def _cross_app_imports(app_dir: Path, slug: str) -> list[str]:
     found = []
     for path in app_dir.rglob("*.py"):
+        rel = path.relative_to(app_dir)
+        allowed = {"api", "seed"} if rel.parts[0] == "tests" else {"api"}
         for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
             names = [a.name for a in node.names] if isinstance(node, ast.Import) else []
             if isinstance(node, ast.ImportFrom):
-                if node.level > 1:
-                    found.append(f"{path.name}: relative import leaves the app package")
-                names = [node.module or ""]
+                if node.level > 0:
+                    if node.level > len(rel.parts):
+                        found.append(f"{rel.as_posix()}: relative import leaves the app package")
+                    continue
+                module = node.module or ""
+                names = [module] if len(module.split(".")) >= 4 else [f"{module}.{a.name}" for a in node.names]
             for name in names:
                 parts = name.split(".")
-                if parts[:2] == ["backend", "apps"] and len(parts) > 2 and parts[2] != slug and parts[3:] != ["api"]:
-                    found.append(f"{path.name}: imports {name}; other apps are reachable only through <app>.api")
+                if parts[:2] == ["backend", "apps"] and len(parts) > 2 and parts[2] != slug and parts[3:] not in [[m] for m in allowed]:
+                    found.append(f"{rel.as_posix()}: imports {name}; other apps are reachable only through <app>.api")
     return found
 
 
@@ -206,6 +211,51 @@ def test_bad_app_breaks_every_rule(tmp_path):
     for pattern in expected:
         assert re.search(pattern, problems), f"rule not caught: {pattern}\n---\n{problems}"
     assert "sqlite_autoindex_bad_app_things" not in problems  # a UNIQUE column on an owned table is fine
+
+
+def test_cross_app_import_forms(tmp_path):
+    app_dir = tmp_path / "shop"
+    (app_dir / "tests").mkdir(parents=True)
+    runtime = app_dir / "service.py"
+    tests = app_dir / "tests" / "test_x.py"
+    runtime.write_text("\n".join([
+        "from backend.apps.crm import api",
+        "from backend.apps.crm import api as crm",
+        "import backend.apps.crm.api as crm",
+        "import backend.apps.crm.api",
+        "from backend.apps.crm.api import get_deal",
+    ]), encoding="utf-8")
+    tests.write_text("\n".join([
+        "from backend.apps.crm import seed",
+        "import backend.apps.crm.seed",
+        "from backend.apps.crm.seed import sample",
+        "from .. import api",
+        "from .backend.apps.crm import service",
+    ]), encoding="utf-8")
+    assert _cross_app_imports(app_dir, "shop") == []
+
+    runtime.write_text("", encoding="utf-8")
+    tests.write_text("", encoding="utf-8")
+    for path, source, name in [
+        (runtime, "from backend.apps.crm import seed", "backend.apps.crm.seed"),
+        (runtime, "import backend.apps.crm.seed", "backend.apps.crm.seed"),
+        (runtime, "from backend.apps.crm.seed import sample", "backend.apps.crm.seed"),
+        (runtime, "from backend.apps.crm import service", "backend.apps.crm.service"),
+        (runtime, "from backend.apps.crm import api, service", "backend.apps.crm.service"),
+        (runtime, "from backend.apps import crm", "backend.apps.crm"),
+        (runtime, "import backend.apps.crm", "backend.apps.crm"),
+        (runtime, "import backend.apps.crm.api.internal", "backend.apps.crm.api.internal"),
+        (runtime, "from backend.apps.crm.api.internal import fn", "backend.apps.crm.api.internal"),
+        (runtime, "from .. import x", None),
+        (tests, "from backend.apps.crm import service", "backend.apps.crm.service"),
+        (tests, "from backend.apps import crm", "backend.apps.crm"),
+        (tests, "from ... import x", None),
+    ]:
+        path.write_text(source, encoding="utf-8")
+        message = (f"imports {name}; other apps are reachable only through <app>.api"
+                   if name else "relative import leaves the app package")
+        assert _cross_app_imports(app_dir, "shop") == [f"{path.relative_to(app_dir).as_posix()}: {message}"], source
+        path.write_text("", encoding="utf-8")
 
 
 def _manifest(**overrides) -> dict:
