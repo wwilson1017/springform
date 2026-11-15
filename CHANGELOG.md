@@ -18,17 +18,9 @@ Conventions:
 
 ## [Unreleased]
 
-### Fixed
+## [0.1.2] - 2026-11-15
 
-- New apps scaffold typed routes, app-prefixed models, an internal service and the supported `grid` icon, without unused API or settings modules; CI checks the generated scaffold.
-- `docs/agents/agent.md` (registry rule 5) says a write tool that only creates a record returns an empty `targets` list, and when an existing record it touches still belongs in `targets`.
-- Report tables show `*_cents` columns as money (171720 reads 1,717.20, under a "revenue" header), the way the Timeline does. The CSV download keeps the cents.
-- The Timeline custom-field label test no longer fails at random in CI: it now waits for the field's real label instead of matching the humanized key it falls back to.
-
-### Changed
-
-- `backend/tests/conftest.py` is now the pytest plugin `backend/testing/fixtures.py`, loaded by a root `conftest.py`. A fork deletes any app-level conftest that re-imported core's fixtures (it would fail to import), and imports `PASSWORD` and `make_client` from `backend.testing.fixtures`.
-- The app wears the brand: the accent is copper instead of red (status reds stay), and the mark sits beside the name in the header and on the sign-in page. A fork replaces the mark through `frontend/public/branding/`.
+Fixes from building the first apps in a fork, a hardened public demo, and the brand.
 
 ### Added
 
@@ -42,8 +34,17 @@ Conventions:
 - Preview installs restore sample data and remove uploaded files nightly at 09:00 install-local (UTC by default), with reset history on the Jobs page.
 - myspringform.com and the README link the live demo at demo.myspringform.com: a Try the demo button with a one-line note in the hero, and a Demo link in the header (on phones it takes Example's place).
 
+### Changed
+
+- `backend/tests/conftest.py` is now the pytest plugin `backend/testing/fixtures.py`, loaded by a root `conftest.py`. A fork deletes any app-level conftest that re-imported core's fixtures (it would fail to import), and imports `PASSWORD` and `make_client` from `backend.testing.fixtures`.
+- The app wears the brand: the accent is copper instead of red (status reds stay), and the mark sits beside the name in the header and on the sign-in page. A fork replaces the mark through `frontend/public/branding/`.
+
 ### Fixed
 
+- New apps scaffold typed routes, app-prefixed models, an internal service and the supported `grid` icon, without unused API or settings modules; CI checks the generated scaffold.
+- `docs/agents/agent.md` (registry rule 5) says a write tool that only creates a record returns an empty `targets` list, and when an existing record it touches still belongs in `targets`.
+- Report tables show `*_cents` columns as money (171720 reads 1,717.20, under a "revenue" header), the way the Timeline does. The CSV download keeps the cents.
+- The Timeline custom-field label test no longer fails at random in CI: it now waits for the field's real label instead of matching the humanized key it falls back to.
 - Whisk approval cards show a plain summary of the action, or only its name and arguments, instead of model-facing tool instructions.
 - Fork apps can declare settings and report parameters without changing core's response-shape fixture.
 - The app contract test fails when two apps define Pydantic models with the same class name, naming the model and both apps, instead of letting a new app silently rename another app's generated API types; the CRM and Todos share `Badge` and `Deleted` from `backend/core/responses.py` (#10).
