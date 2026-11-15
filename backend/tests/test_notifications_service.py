@@ -5,7 +5,7 @@ import types
 import pytest
 
 from backend.core import db as core_db, entities
-from backend.core.notifications import push, service as notifications
+from backend.core.notifications import api as notifications_api, push, service as notifications
 from backend.core.notifications.service import Channel
 
 W = "example.widget"
@@ -71,6 +71,44 @@ def test_broadcast_expands_to_active_humans_and_read_state_is_per_user(login_as,
     assert b.get("/api/core/notifications", params={"unread": 1}).json()[0]["title"] == "Heads up"
     assert b.post("/api/core/notifications/read-all").json() == {"updated": 1}
     assert b.get("/api/core/notifications", params={"unread": 1}).json() == []
+
+
+def test_role_delivery_filters_active_humans_and_intersects_user_id(login_as, make_user):
+    admin = login_as("admin")
+    other = make_user("admin")
+    inactive = make_user("admin")
+    member = make_user("member")
+    with core_db.transaction() as conn:
+        conn.execute("UPDATE core_users SET is_active = 0 WHERE id = ?", (inactive.id,))
+        ids = notifications_api.deliver_in(conn, "Oven", "too hot", role="admin")
+        rows = [dict(r) for r in conn.execute("SELECT id, user_id FROM core_notifications ORDER BY id")]
+        assert rows == [
+            {"id": ids[0], "user_id": admin.user["id"]},
+            {"id": ids[1], "user_id": other.id},
+        ]
+        assert len(ids) == 2
+
+    [nid] = notifications_api.deliver("Oven", "too hot", role="admin", user_id=other.id)
+    assert core_db.one("SELECT user_id FROM core_notifications WHERE id = ?", (nid,))["user_id"] == other.id
+    assert notifications_api.deliver("Oven", "too hot", role="admin", user_id=member.id) == []
+    [member_nid] = notifications_api.deliver("Oven", "too hot", role="member")
+    assert core_db.one("SELECT user_id FROM core_notifications WHERE id = ?", (member_nid,))["user_id"] == member.id
+    before = core_db.rows("SELECT * FROM core_notifications ORDER BY id")
+    with core_db.transaction() as conn:
+        with pytest.raises(ValueError, match="Unknown role 'admins'"):
+            notifications_api.deliver_in(conn, "Oven", "too hot", role="admins")
+    assert core_db.rows("SELECT * FROM core_notifications ORDER BY id") == before
+
+
+def test_role_delivery_respects_private_widget_read_access(login_as):
+    admin, other, member = login_as("admin"), login_as("admin"), login_as("member")
+    member_widget = _widget(member, is_private=True)
+    admin_widget = _widget(admin, is_private=True)
+    assert notifications_api.deliver("Oven", "too hot", role="admin", entity=(W, member_widget["id"])) == []
+    assert core_db.rows("SELECT id FROM core_notifications") == []
+    [nid] = notifications_api.deliver("Oven", "too hot", role="admin", entity=(W, admin_widget["id"]))
+    assert core_db.rows("SELECT id, user_id FROM core_notifications") == [{"id": nid, "user_id": admin.user["id"]}]
+    assert other.get("/api/core/notifications").json() == []
 
 
 def test_record_gone_private_after_queueing_drops_the_delivery_and_hides_the_row(login_as, fake_channel):

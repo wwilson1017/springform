@@ -28,6 +28,7 @@ from backend.core import (
 from backend.core.auth import bootstrap, csrf
 from backend.core.auth.deps import User, current_user
 from backend.core.backup import service as backup
+from backend.core.mcp_servers import startup as mcp_startup
 from backend.core.platform.models import CoreApp, Health
 
 FRONTEND_DIST = REPO_ROOT / "frontend" / "dist"
@@ -55,6 +56,7 @@ def create_app(apps_dir: Path = db.APPS_DIR) -> FastAPI:
             yield
         finally:
             await app.state.scheduler.stop()
+            mcp_startup.join()
             db.close()
 
     app = FastAPI(

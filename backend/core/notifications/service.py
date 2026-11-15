@@ -25,6 +25,7 @@ from typing import TYPE_CHECKING
 
 from backend.core import clock, db, entities, pagination
 from backend.core.auth.deps import User
+from backend.core.auth.service import ROLES
 from backend.core.errors import NotFound
 
 if TYPE_CHECKING:
@@ -91,11 +92,16 @@ def can_read_in(conn: db.Conn, user: User, entity_type: str | None, entity_id: i
     return True
 
 
-def _recipients_in(conn: db.Conn, user_id: int | None, entity: tuple[str, int] | None) -> list[int]:
+def _recipients_in(
+    conn: db.Conn, user_id: int | None, entity: tuple[str, int] | None, role: str | None = None,
+) -> list[int]:
     """Active human users who may read `entity`: one user, or everyone when user_id is None."""
     where, params = "role != 'system' AND is_active = 1", []
     if user_id is not None:
         where, params = f"{where} AND id = ?", [user_id]
+    if role is not None:
+        where = f"{where} AND role = ?"
+        params.append(role)
     users = [User.from_row(dict(r)) for r in conn.execute(f"SELECT {_USER_COLS} FROM core_users WHERE {where} ORDER BY id", params)]
     if entity is None:
         return [u.id for u in users]
@@ -119,13 +125,16 @@ def clean_link(link: str | None) -> str | None:
 
 def deliver_in(
     conn: db.Conn, title: str, message: str, *, user_id: int | None = None,
-    entity: tuple[str, int] | None = None, link: str | None = None,
+    entity: tuple[str, int] | None = None, link: str | None = None, role: str | None = None,
 ) -> list[int]:
     """Notify one user (`user_id`) or every active human user (`user_id=None`) who may read
     `entity` = (entity_type, entity_id). Returns the new notification ids, one per recipient;
     empty when nobody qualifies (an inactive user, the system principal, or a user who cannot
     read the record). `link` defaults to the record's URL. Raises NotFound for an unknown entity
-    type or a missing record."""
+    type or a missing record. `role` narrows recipients (including a given `user_id`) to that
+    role; an unknown role raises ValueError."""
+    if role is not None and role not in ROLES:
+        raise ValueError(f"Unknown role {role!r}")
     if entity is not None:
         entity = (entity[0], int(entity[1]))
         entities.assert_exists(conn, *entity)
@@ -136,7 +145,7 @@ def deliver_in(
     link = clean_link(link)
     now = clock.now_iso()
     ids = []
-    for uid in _recipients_in(conn, user_id, entity):
+    for uid in _recipients_in(conn, user_id, entity, role):
         nid = conn.execute(
             """INSERT INTO core_notifications (user_id, title, message, entity_type, entity_id, link, created_at)
                VALUES (?, ?, ?, ?, ?, ?, ?)""",
@@ -151,10 +160,10 @@ def deliver_in(
 
 def deliver(
     title: str, message: str, *, user_id: int | None = None,
-    entity: tuple[str, int] | None = None, link: str | None = None,
+    entity: tuple[str, int] | None = None, link: str | None = None, role: str | None = None,
 ) -> list[int]:
     with db.transaction() as conn:
-        return deliver_in(conn, title, message, user_id=user_id, entity=entity, link=link)
+        return deliver_in(conn, title, message, user_id=user_id, entity=entity, link=link, role=role)
 
 
 # ── Reading (re-authorized) ──────────────────────────────────────────────────
