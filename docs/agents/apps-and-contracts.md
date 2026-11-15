@@ -244,7 +244,7 @@ The contract test and the Playwright smoke both exercise it (Settings cards by r
 scripts/new-app.sh <slug> "<Name>"
 ```
 
-Scaffolds an app that **passes** the contract test and the Vitest twin as generated. It writes `backend/apps/<slug>/` (manifest, router, api, entities, seed, settings, a migration, docs) from its own templates; it does not copy `apps/example`. The scaffold has a `<slug>.item` entity on `<slug>_items` and publishes `get_item`. When `frontend/src` exists it also writes `frontend/src/apps/<slug>/{contributions.ts,index.tsx}`. It refuses a reserved slug and any slug that extends, or is extended by, `core_` or an installed app's prefix.
+Scaffolds an app that **passes** the contract test and the Vitest twin as generated. It writes `backend/apps/<slug>/` (manifest, router, api, entities, seed, settings, a migration, docs, and `tests/` with a starter test that `uv run pytest` collects; `testing.md` §1) from its own templates; it does not copy `apps/example`. The scaffold has a `<slug>.item` entity on `<slug>_items` and publishes `get_item`. When `frontend/src` exists it also writes `frontend/src/apps/<slug>/{contributions.ts,index.tsx}`. It refuses a reserved slug and any slug that extends, or is extended by, `core_` or an installed app's prefix.
 
 ## 9. Core packages contribute like apps
 

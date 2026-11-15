@@ -8,7 +8,7 @@ from fastapi.testclient import TestClient
 
 from backend.core import security_headers
 from backend.core.auth.deps import COOKIE
-from backend.tests.conftest import make_client
+from backend.testing.fixtures import make_client
 
 EXPECTED = {
     "x-content-type-options": "nosniff",
