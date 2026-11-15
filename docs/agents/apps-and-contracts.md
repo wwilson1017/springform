@@ -116,6 +116,7 @@ App setting keys are `<slug>.<key>`. An admin sets them through `PUT /api/core/s
 2. Each router mounts at `/api/<slug>` with `Depends(require_roles(manifest.roles))`. A member calling an admin-only app's API directly gets **403**.
 3. Badge routes return `{count, label?}`. The launcher polls them every 60 s while visible.
 4. Errors are `{detail}`: 401 not signed in; 404 missing or not readable, for reads and writes alike, so existence never leaks; 403 when the record is readable but not writable, or a role-guarded route refuses the caller; 422 invalid (`authorization.md` §2).
+5. OpenAPI schema names are global, so no two apps define Pydantic models with the same class name: if their fields differ, Pydantic module-qualifies both (`backend__apps__crm__models__Badge`) or suffixes them (`Badge-Input`), silently renaming both apps' types in `types.gen.ts`. Prefix an app's models with its name (`CrmDeal`, as `scripts/new-app.sh` scaffolds them), or use a shared core model: `backend/core/responses.py` holds `Badge` and `Deleted` for every app. Rule 24 of the contract test (§6) enforces it.
 
 ```
 GET  /api/core/apps    -> [{slug, name, description, path, icon, roles, order, badge, hidden, settings_cards, version}] for the caller's role; admins also receive hidden apps with hidden:true
@@ -211,6 +212,7 @@ Falsifiable against `backend/tests/fixtures/bad_app` (the test must fail it). It
 21. `HOOKS` names only known hooks.
 22. `DEFAULTS` keys are `<slug>.<key>`.
 23. Every `publishes` name exists in `api.py` as both `name` and `name_in` (the registry also checks this at boot).
+24. No two apps define Pydantic models with the same class name (§3 rule 5); the failure names the model and both apps. Core's models are not checked (the CRM's `MergeIn` and `ResetIn` already share names with core's), so don't reuse a core model's class name either.
 
 ### Vitest twin
 

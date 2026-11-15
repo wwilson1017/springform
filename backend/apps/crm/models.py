@@ -15,14 +15,14 @@ Day = Field(default=None, max_length=10, description="YYYY-MM-DD")
 MAX_CENTS = 10**15  # a quadrillion cents: past any real deal, well inside SQLite's 64-bit integer
 
 
-class _In(BaseModel):
+class _CrmIn(BaseModel):
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
 
 
 # ── Deals ─────────────────────────────────────────────────────────────────────
 
 
-class DealIn(_In):
+class DealIn(_CrmIn):
     title: str = Field(min_length=1, max_length=MAX_TITLE)
     stage: Stage = "lead"
     value_cents: int = Field(default=0, ge=-MAX_CENTS, le=MAX_CENTS)
@@ -37,7 +37,7 @@ class DealIn(_In):
     deal_temperature: Temperature | None = None
 
 
-class DealPatch(_In):
+class DealPatch(_CrmIn):
     title: str | None = Field(default=None, min_length=1, max_length=MAX_TITLE)
     stage: Stage | None = None
     value_cents: int | None = Field(default=None, ge=-MAX_CENTS, le=MAX_CENTS)
@@ -126,7 +126,7 @@ class DealDetail(Deal):
     stage_events: list[StageEvent]
 
 
-class BulkMoveIn(_In):
+class BulkMoveIn(_CrmIn):
     ids: list[int] = Field(min_length=1, max_length=BULK_MOVE_MAX)
     stage: Stage
     closed_on: str | None = Field(default=None, max_length=10, description="For a move into won; default today")
@@ -139,42 +139,33 @@ class BulkMoveOut(BaseModel):
     errors: list[str]
 
 
-class WonIn(_In):
+class WonIn(_CrmIn):
     closed_on: str | None = Field(default=None, max_length=10, description="Default today; on an already-won deal, edits the day")
 
 
-class LostIn(_In):
+class LostIn(_CrmIn):
     reason: str = Field(default="", max_length=MAX_REASON)
 
 
-class ArchiveIn(_In):
+class ArchiveIn(_CrmIn):
     reason: str = Field(min_length=1, max_length=MAX_REASON)
 
 
-class MergeIn(_In):
+class MergeIn(_CrmIn):
     source_id: int = Field(description="The deal folded into this one and archived")
-
-
-class Deleted(BaseModel):
-    deleted: int
-
-
-class Badge(BaseModel):
-    count: int
-    label: str | None = None
 
 
 # ── Activity ──────────────────────────────────────────────────────────────────
 
 
-class ActivityIn(_In):
+class ActivityIn(_CrmIn):
     activity: str = Field(min_length=1, max_length=100, description="call, email, meeting, …")
     note: str = Field(default="", max_length=MAX_TEXT)
     deal_id: int | None = None
     person_id: int | None = None
 
 
-class ActivityPatch(_In):
+class ActivityPatch(_CrmIn):
     activity: str | None = Field(default=None, min_length=1, max_length=100)
     note: str | None = Field(default=None, max_length=MAX_TEXT)
 
@@ -441,7 +432,7 @@ class Provenance(BaseModel):
     fields: dict[str, ProvenanceField] = Field(description="Only live, unconfirmed AI-written fields")
 
 
-class ProvenanceConfirmIn(_In):
+class ProvenanceConfirmIn(_CrmIn):
     fields: list[str] | None = Field(default=None, description="Default: every badged field")
 
 
@@ -456,7 +447,7 @@ class StageCriteria(BaseModel):
     updated_at: str | None
 
 
-class StageCriteriaIn(_In):
+class StageCriteriaIn(_CrmIn):
     summary: str = Field(min_length=1, max_length=2000)
     checklist: list[str] = Field(max_length=30)
 
@@ -482,7 +473,7 @@ class ImportParsed(BaseModel):
     warnings: list[str]
 
 
-class ImportConfirmIn(_In):
+class ImportConfirmIn(_CrmIn):
     people: list[ImportPerson] = Field(min_length=1, max_length=2000)
 
 
@@ -517,7 +508,7 @@ class CrmSettings(BaseModel):
     default_currency: str
 
 
-class CrmSettingsPatch(_In):
+class CrmSettingsPatch(_CrmIn):
     stale_days: int | None = Field(default=None, ge=1, le=365)
     touch_count_enabled: bool | None = None
     default_currency: str | None = Field(default=None, min_length=3, max_length=3)
@@ -529,7 +520,7 @@ class Meta(BaseModel):
     onboarding_dismissed: bool
 
 
-class ResetIn(_In):
+class ResetIn(_CrmIn):
     confirm: Literal["RESET"]
 
 
