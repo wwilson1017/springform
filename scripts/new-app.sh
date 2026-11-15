@@ -28,7 +28,7 @@ pascal=$(printf '%s' "$slug" | awk -F_ '{for (i = 1; i <= NF; i++) $i = toupper(
 frontend="$root/frontend/src/apps/$slug"
 [ ! -e "$backend" ] && [ ! -e "$frontend" ] || { echo "app '$slug' already exists" >&2; exit 1; }
 # The contract test fails two apps' same-named models, so refuse a slug whose models an app already has.
-if clash=$(grep -rlE "^class ${pascal}Item(In)?\(" "$root/backend/apps" --include='*.py'); then
+if clash=$(grep -rlE "^class ${pascal}Item(In)?\(" "$root/backend/apps" --include='*.py' --exclude-dir=tests); then
   echo "slug '$slug' would define ${pascal}Item, which $(echo "$clash" | head -1 | sed "s|$root/||") already defines" >&2; exit 1
 fi
 
