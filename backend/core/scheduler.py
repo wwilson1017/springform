@@ -10,6 +10,9 @@
 - `at` jobs run once per install-local day (timezone from the `timezone` setting), with a single
   catch-up when the slot since the job's last run was missed. A job that has never run waits for
   its next slot, so a fresh install does not run every `at` job at boot. `every` jobs are not caught up.
+- `on_boot=True` makes an `every` job due at the first tick after every start as well, whatever its
+  last run: for work whose result lives in process memory (discovered MCP tools). Background work at
+  boot is such a job, never a thread of its own: stop() cancels jobs and waits for them.
 - Startup marks stale `running`/`timed_out` rows `interrupted`. Runs only in the process that
   holds the data-dir lock (main.py starts it after db.init).
 - A committed transaction that queued outbox rows nudges `core.outbox_drain` immediately.
@@ -45,6 +48,7 @@ class Job:
     at: str | None = None
     app: str = "core"
     timeout: float = 300
+    on_boot: bool = False  # an `every` job also due at the first tick after every start
 
     def __post_init__(self) -> None:
         if (self.every is None) == (self.at is None):
@@ -53,6 +57,8 @@ class Job:
             raise ValueError(f"Job {self.name!r}: at must be 'HH:MM'")
         if self.every is not None and (not isinstance(self.every, int) or self.every <= 0):
             raise ValueError(f"Job {self.name!r}: every must be a positive whole number of seconds")
+        if self.on_boot and self.every is None:
+            raise ValueError(f"Job {self.name!r}: on_boot needs every=")
 
 
 _JOBS: dict[str, Job] = {}
@@ -156,7 +162,9 @@ class Scheduler:
         self._nudged = asyncio.Event()
         self._loop: asyncio.AbstractEventLoop | None = None
         self._loop_task: asyncio.Task | None = None
+        self._stopping = False
         self.since = clock.now()  # a never-run `at` job waits for a slot after this
+        self._boot = {name for name, job in registered.items() if job.on_boot}  # due at the first tick
 
     async def start(self) -> None:
         await asyncio.to_thread(mark_interrupted)
@@ -164,7 +172,11 @@ class Scheduler:
         db.set_commit_nudge(self.nudge)
         self._loop_task = asyncio.create_task(self._run_loop())
 
-    async def stop(self, grace: float = 10) -> None:
+    async def stop(self, grace: float = 10) -> bool:
+        """Cancel every job and wait up to `grace` s. False when a job's thread may still be running:
+        the caller must then leave the database open, since closing a connection under a running
+        statement crashes SQLite (#52)."""
+        self._stopping = True  # a run still queued for the semaphore never starts (see _run)
         db.set_commit_nudge(None)
         if self._loop_task:
             self._loop_task.cancel()
@@ -172,13 +184,13 @@ class Scheduler:
                 await self._loop_task
         for event in self._cancel.values():
             event.set()
-        if self._tasks:
-            await asyncio.wait(self._tasks, timeout=grace)
+        pending = (await asyncio.wait(self._tasks, timeout=grace))[1] if self._tasks else set()
         # simplification: a job thread that ignores cancel_event keeps the process alive at exit (the
         # default executor joins its threads); core jobs bound their I/O. Upgrade path: a daemon-thread executor.
         for task in list(self._tasks):
             task.cancel()
         await asyncio.to_thread(mark_interrupted)
+        return not pending
 
     def nudge(self) -> None:
         """Thread-safe: wake the loop to drain the outbox now."""
@@ -190,7 +202,10 @@ class Scheduler:
         return self._spawn(self.jobs[name], "manual", None)
 
     async def tick_once(self) -> None:
-        for job, day in await asyncio.to_thread(due_jobs, self.jobs, self.since):
+        due = await asyncio.to_thread(due_jobs, self.jobs, self.since)
+        due += [(self.jobs[name], None) for name in sorted(self._boot - {job.name for job, _ in due})]
+        self._boot.clear()
+        for job, day in due:
             if not self._spawn(job, "schedule", day):
                 await asyncio.to_thread(_insert_run, job, "schedule", "skipped", day)
 
@@ -230,6 +245,8 @@ class Scheduler:
         try:
             async with self._sem:
                 run_id = await asyncio.to_thread(_insert_run, job, trigger, "running", scheduled_for)
+                if self._stopping:  # shutdown began while it queued: no thread starts, stop() marks it interrupted
+                    return
                 cancel = self._cancel.setdefault(job.name, threading.Event())
                 cancel.clear()
                 work = asyncio.ensure_future(asyncio.to_thread(job.fn, cancel))

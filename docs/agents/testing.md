@@ -19,9 +19,10 @@ The fixtures and guards live in a pytest plugin, `backend/testing/fixtures.py`, 
 5. **Skip/xfail ban**: the plugin fails collection when a test carries a `skip`, `skipif` or `xfail` marker (lifted from CakeCRM). `ALLOWED_SUPPRESSIONS` lists node ids allowed one, each with a reason; it is empty. `test_conftest_guards.py` self-tests it.
 6. Two-member tests create two real members and one restrictive record: every `login_as("member")` call makes a new, distinct member.
 7. Providers: a **FakeProvider** stands in for LLM providers; nothing calls a real model.
-8. HTTP to external services is mocked (Google token endpoint) or served locally: inbound MCP runs through `httpx2.ASGITransport`, and the outbound client talks to `backend/tests/fixtures/mcp_stub.py`, a two-tool `MCPServer` on a loopback port (with `MCP_ALLOW_PRIVATE=1`).
+8. HTTP to external services is mocked (Google token endpoint) or served locally: inbound MCP runs through `httpx2.ASGITransport`, and the outbound client talks to `backend/tests/fixtures/mcp_stub.py`, a two-tool `MCPServer` on a loopback port (with `MCP_ALLOW_PRIVATE=1`); `with mcp_stub.serve() as (url, calls):` stops it when the block ends.
 9. The contract test runs against every app in `backend/apps/` and against `backend/tests/fixtures/bad_app`, which it must fail.
 10. **Typed routes**: `test_routes_are_typed.py` fails when a `/api/core/*`, `/api/agent/*` or `/api/health` route answers without a response model, unless its `UNTYPED` allow-list names the route with a reason (streams, downloads and a few bodies not typed yet). `test_response_models.py` pins each typed route's keys in `fixtures/response_shapes.json`.
+11. **No thread left running**: the test database is closed in one place, `_isolate`'s teardown, after waiting up to 5 s (`THREAD_GRACE`) for the threads the test started; a thread still alive then stops the run with the test id and the thread names rather than close the database under it (a connection closed while another thread steps it crashes SQLite, #52). Best effort: it compares one snapshot from the test's start, and parked AnyIO worker threads are exempt. `test_conftest_guards.py` self-tests it.
 
 ### Vitest (`frontend/vitest.config.ts`)
 
@@ -91,6 +92,8 @@ Runs against a seeded `PREVIEW_MODE=1` build with the FakeProvider and the Googl
 - A never-run `at` job waits for its next slot; a manual run after the slot is not followed by a catch-up.
 - Overlapping job skipped.
 - A job that ignores its timeout: no second instance starts, and the slot is released only when it ends.
+- An `on_boot` job runs at the first tick of every start; shutdown waits for it before `db.close()`.
+- Core and apps start no threads of their own (a scan of `backend/core` and `backend/apps`).
 
 ### CRM
 

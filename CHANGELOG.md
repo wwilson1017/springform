@@ -18,6 +18,10 @@ Conventions:
 
 ## [Unreleased]
 
+### Fixed
+
+- The backend test run no longer dies at random with a segmentation fault (CI exit 139). MCP discovery at boot is now the `core.mcp_discover` job (new `Job(on_boot=True)`), which shutdown cancels and waits for (up to 10 s), instead of an unmanaged thread that could still be reading the database as it closed; when a job outlives that wait, shutdown now leaves the database open for the process exit to close. Core and apps start no threads of their own (a test scans for them), and a test that leaves a thread running stops the run by name.
+
 ## [0.1.2] - 2026-11-15
 
 Fixes from building the first apps in a fork, a hardened public demo, and the brand.

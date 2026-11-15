@@ -24,7 +24,8 @@ BASE = "/api/core/mcp/servers"
 
 @pytest.fixture(scope="module")
 def stub():
-    return mcp_stub.serve(TOKEN)  # (url, calls)
+    with mcp_stub.serve(TOKEN) as served:  # (url, calls)
+        yield served
 
 
 @pytest.fixture(autouse=True)

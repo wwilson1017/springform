@@ -1,4 +1,7 @@
-"""The shared fixtures' skip/skipif/xfail ban, on synthetic tests in an inner session and on this suite."""
+"""The shared fixtures' guards (the skip/skipif/xfail ban; no thread left running past its test's database),
+on synthetic tests in an inner session and on this suite."""
+
+import threading
 
 from pytest import ExitCode
 
@@ -51,3 +54,52 @@ def test_the_ban_scanned_this_suite(request):
 def test_app_tests_are_collected(request):
     """Apps keep their tests in backend/apps/<slug>/tests/; the example app's run here with no conftest of their own."""
     assert "backend/apps" in request.config.getini("testpaths")
+
+
+THREAD_CONFTEST = "from backend.testing.fixtures import _isolate\n"
+LEFT_RUNNING = """
+import threading
+
+def test_leaves_a_thread_running():
+    release = threading.Event()
+    t = threading.Thread(target=release.wait, name="left-running", daemon=True)
+    t.release = release
+    t.start()
+
+def test_never_runs(): pass
+"""
+ENDS_IN_TIME = """
+import threading, time
+
+def test_a_thread_that_ends_is_waited_for():
+    threading.Thread(target=time.sleep, args=(0.05,), name="short").start()
+
+def test_clean(): pass
+"""
+
+
+def test_a_thread_left_running_stops_the_run_and_names_the_test(pytester, monkeypatch):
+    """#52: a thread still querying when its test's database closed crashed the whole run with SIGSEGV."""
+    monkeypatch.setattr(fixtures, "THREAD_GRACE", 0.1)
+    pytester.makeconftest(THREAD_CONFTEST)
+    pytester.makepyfile(test_left=LEFT_RUNNING)
+    try:
+        result = pytester.runpytest()
+        assert result.ret == ExitCode.INTERRUPTED
+        result.stdout.fnmatch_lines(["*test_left.py::test_leaves_a_thread_running left thread(s) running: left-running*"])
+        result.assert_outcomes(passed=1)  # the second test never ran
+    finally:  # the inner run is in-process: release its thread so it does not outlive this test
+        for t in threading.enumerate():
+            if t.name == "left-running":
+                t.release.set()
+                t.join()
+
+
+def test_a_thread_that_ends_in_time_passes(pytester):
+    pytester.makeconftest(THREAD_CONFTEST)
+    pytester.makepyfile(test_ends=ENDS_IN_TIME)
+    pytester.runpytest().assert_outcomes(passed=2)
+
+
+def test_the_thread_guard_wraps_this_suite(request):
+    assert "_isolate" in request.fixturenames

@@ -92,6 +92,8 @@ only when a core rule changes.
 - Money is integer cents, never REAL. Search uses FTS5; `LIKE … COLLATE NOCASE` is ASCII-only.
   Local-day bucketing happens in Python with `zoneinfo` and the install timezone.
 - The whole install works with zero AI keys; only Whisk waits for one.
+- Background work is a scheduler job (`jobs.py`; `on_boot=True` when every start needs it), never a thread
+  of its own: shutdown cancels jobs, waits up to 10 s, and closes the database only once none is still running. A test enforces it.
 
 ## Frontend rules
 

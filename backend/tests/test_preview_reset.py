@@ -11,7 +11,7 @@ from backend.core.files import service as files, storage
 
 @pytest.fixture(autouse=True)
 def hooks(monkeypatch):
-    """The real startup hooks start a background MCP discovery thread that outlives the test's DB."""
+    """Records each run of the startup hooks: whether it ran inside a transaction."""
     ran = []
     monkeypatch.setattr(registry, "run_startup_hooks", lambda: ran.append(db.in_transaction()))
     return ran

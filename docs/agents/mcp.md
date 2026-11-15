@@ -83,7 +83,7 @@ The MCP bearer is the link token, not the session JWT. The cookie CSRF rules (`a
 
 ## 2. Outbound (`backend/core/mcp_servers/`)
 
-Code: `client.py` (discovery, remote specs, calls), `transport.py` (the address policy), `service.py` (the table), `router.py`, `jobs.py`, `startup.py`. Frontend: `frontend/src/core/mcp_servers/` (Settings → MCP servers).
+Code: `client.py` (discovery, remote specs, calls), `transport.py` (the address policy), `service.py` (the table), `router.py`, `jobs.py`. Frontend: `frontend/src/core/mcp_servers/` (Settings → MCP servers).
 
 ### Table
 
@@ -96,7 +96,7 @@ core_agent_mcp_servers(id, name, url, token_enc, prefix UNIQUE, enabled, tools_j
 ### Discovery and refresh
 
 1. Client: `mcp` SDK `streamable_http_client` + `ClientSession`, one short session per exchange, driven from sync code with `anyio.run` in a worker thread.
-2. Discovery runs at startup (`startup.py`, in a background thread, so boot never waits on the network), on create, update and "Refresh" (admin), and hourly through the job **`core.mcp_discover`** (scheduler, `every=3600`, servers one after another).
+2. Discovery runs at every boot and hourly through the job **`core.mcp_discover`** (scheduler, `every=3600, on_boot=True`, servers one after another; boot never waits on the network, and shutdown cancels the pass and waits up to 10 s for it), and on create, update and "Refresh" (admin).
 3. Each server's tools are swapped into the registry **atomically** with `agent.registry.swap_server(server_id, specs)`: the whole registry is rebuilt and validated, then replaced. Old specs stay valid for already-pending approvals only until their `tool_def_sha256` check fails.
 4. A failing server drops its tools (and records `last_error`), not the app. Disabling a server drops its tools; deleting it too.
 5. A tool whose wire name would not match `^[a-zA-Z0-9_-]{1,64}$` or whose schema is not `type: object` is skipped (logged). At most 200 tools per server; descriptions are cut at 1,000 characters.

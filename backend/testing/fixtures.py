@@ -4,6 +4,8 @@ Every test runs on a real temporary SQLite database; nothing in the data layer i
 
 import contextlib
 import itertools
+import threading
+import time
 
 import httpx
 import pytest
@@ -12,7 +14,6 @@ from fastapi.testclient import TestClient
 from backend.core import clock, db as core_db
 from backend.core.auth import bootstrap, service as auth_service
 from backend.core.auth.deps import User
-from backend.core.mcp_servers import startup as mcp_startup
 
 PASSWORD = "correct-horse-battery"
 _ENV = (
@@ -26,6 +27,10 @@ SUPPRESSIONS = ("skip", "skipif", "xfail")
 # Node ids allowed to carry one of SUPPRESSIONS, each with a one-line reason. Empty: fix the cause.
 ALLOWED_SUPPRESSIONS: frozenset[str] = frozenset()
 CHECKED = pytest.StashKey[int]()
+THREAD_GRACE = 5.0  # seconds a thread the test started gets to end once the test is over
+# anyio parks the workers that ran sync calls until the event loop that owns them ends (the module-scoped
+# MCP stub's loop outlives the test that first calls it); a parked worker waits for work and runs nothing.
+PARKED_THREADS = ("AnyIO worker thread",)
 
 
 def pytest_collection_modifyitems(config, items):
@@ -40,17 +45,31 @@ def pytest_collection_modifyitems(config, items):
         raise pytest.UsageError("Suppression markers are banned (fix the cause instead):\n" + "\n".join(offenders))
 
 
+def _left_running(before: set[threading.Thread]) -> list[str]:
+    """Names of the threads started since `before` that are still alive after THREAD_GRACE."""
+    started = [t for t in threading.enumerate() if t not in before and not t.name.startswith(PARKED_THREADS)]
+    deadline = time.monotonic() + THREAD_GRACE
+    for t in started:
+        t.join(max(0.0, deadline - time.monotonic()))
+    return [t.name for t in started if t.is_alive()]
+
+
 @pytest.fixture(autouse=True)
-def _isolate(tmp_path, monkeypatch):
+def _isolate(tmp_path, monkeypatch, request):
     for key in _ENV:
         monkeypatch.delenv(key, raising=False)
     monkeypatch.setenv("DATA_DIR", str(tmp_path / "data"))
     monkeypatch.setattr(auth_service, "BCRYPT_ROUNDS", 4)
     clock.freeze(None)
+    before = set(threading.enumerate())
     yield
     clock.freeze(None)
     core_db.set_commit_nudge(None)
-    mcp_startup.join()
+    # The test's database is closed here, after the threads the test started (#52): closing a connection
+    # another thread is stepping crashes SQLite. A thread still alive after THREAD_GRACE stops the run by
+    # name instead. Best effort: it checks one snapshot, and lifespan exits and db.init() close on their own.
+    if left := _left_running(before):
+        pytest.exit(f"{request.node.nodeid} left thread(s) running: {', '.join(left)}. Stop or join them in the test.")
     core_db.close()
 
 
@@ -100,9 +119,7 @@ def db(tmp_path):
     """A migrated database (core + installed apps) in this test's data dir."""
     core_db.init(tmp_path / "data")
     core_db.migrate()
-    yield core_db
-    mcp_startup.join()
-    core_db.close()
+    yield core_db  # _isolate closes it, after the threads this test started
 
 
 @pytest.fixture

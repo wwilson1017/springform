@@ -257,17 +257,17 @@ def exercise(app, login_as, monkeypatch) -> dict[str, httpx.Response]:
         hit(c, "POST", "/api/core/mcp/links", json={"label": f"Laptop {c.user['role']}"})
         hit(c, "GET", "/api/core/mcp/links")
     hit(admin, "GET", "/api/core/mcp/links", "all", params={"all": "true"})
-    url, _ = mcp_stub.serve("stub-token")
-    before = tool_registry.current()
-    try:
-        server_id = hit(admin, "POST", "/api/core/mcp/servers", json={"name": "Stub", "url": url, "token": "stub-token", "prefix": "stub"})["id"]
-        hit(admin, "GET", "/api/core/mcp/servers")
-        hit(admin, "PATCH", "/api/core/mcp/servers/{server_id}", server_id=server_id, json={"name": "Stub todos"})
-        hit(admin, "POST", "/api/core/mcp/servers/{server_id}/refresh", server_id=server_id)
-        hit(admin, "POST", "/api/core/mcp/servers/{server_id}/test", server_id=server_id)
-    finally:
-        tool_registry.set_current(before)
-        fake.reset()
+    with mcp_stub.serve("stub-token") as (url, _):
+        before = tool_registry.current()
+        try:
+            server_id = hit(admin, "POST", "/api/core/mcp/servers", json={"name": "Stub", "url": url, "token": "stub-token", "prefix": "stub"})["id"]
+            hit(admin, "GET", "/api/core/mcp/servers")
+            hit(admin, "PATCH", "/api/core/mcp/servers/{server_id}", server_id=server_id, json={"name": "Stub todos"})
+            hit(admin, "POST", "/api/core/mcp/servers/{server_id}/refresh", server_id=server_id)
+            hit(admin, "POST", "/api/core/mcp/servers/{server_id}/test", server_id=server_id)
+        finally:
+            tool_registry.set_current(before)
+            fake.reset()
 
     # Admin-only routers refuse members before any model is involved.
     for method, path in (

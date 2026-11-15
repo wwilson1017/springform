@@ -8,7 +8,7 @@ Code: `backend/core/scheduler.py` (~300). The loop shape is todo-gtd's `_tick` (
 ## 1. `Job`
 
 ```python
-Job(name, fn, every | at, app, timeout=300)
+Job(name, fn, every | at, app, timeout=300, on_boot=False)
 ```
 
 | Field | Contract |
@@ -19,6 +19,7 @@ Job(name, fn, every | at, app, timeout=300)
 | `at` | `"HH:MM"` install-local. Runs once per install-local day. |
 | `app` | Owning app slug (or core). |
 | `timeout` | Seconds, default **300**. |
+| `on_boot` | `every` jobs only. Also due at the first tick after every process start, whatever its last run: for work whose result lives in process memory (`core.mcp_discover`). Background work at boot is such a job, never a thread of its own: core and apps start no threads (a test scans for them), because shutdown cancels jobs and waits for them (up to 10 s, §4) before the database closes, and nothing stops a raw thread. |
 
 Apps declare `JOBS = [Job(name="<slug>.<job>", fn, every=…|at="HH:MM")]` in `jobs.py`.
 
@@ -41,7 +42,7 @@ Apps declare `JOBS = [Job(name="<slug>.<job>", fn, every=…|at="HH:MM")]` in `j
 
 ## 4. Shutdown and startup
 
-1. Shutdown sets every `cancel_event`, waits up to **10 s** (matching uvicorn's `--timeout-graceful-shutdown 10`, `deploy.md`), then marks what is still running `interrupted`.
+1. Shutdown sets every `cancel_event` (a run still queued for a slot then never starts), waits up to **10 s** (matching uvicorn's `--timeout-graceful-shutdown 10`, `deploy.md`), then marks what is still running `interrupted`. When a job's thread is still running at that point (a timeout cannot stop a thread), the lifespan leaves the database open and lets the process exit close it, because closing a connection under a running statement crashes SQLite (#52).
 2. On startup, stale `running` and `timed_out` rows become `interrupted`.
 
 ## 5. `core_job_runs`
@@ -63,7 +64,7 @@ running | ok | error | timed_out | interrupted | skipped
 | Kind | Rule |
 |---|---|
 | `at` | Once per install-local day, computed in the install timezone, **DST-safe**. A **single catch-up** if the slot since the job's last run was missed (restart or downtime). A job that has **never run waits for its next slot**: a fresh install does not run every `at` job (backup, files sweep, agent nightly) at first boot. |
-| `every` | Not caught up. |
+| `every` | Not caught up; `on_boot=True` also runs it once after each start. |
 
 Timezone: `core_settings.timezone` (IANA, default `UTC`). Nothing hardcoded.
 
@@ -86,7 +87,7 @@ Timezone: `core_settings.timezone` (IANA, default `UTC`). Nothing hardcoded.
 | `core.job_runs_prune` | every 24 h | Delete finished runs older than 30 days. |
 | `core.login_attempts_prune` | hourly | Prune `core_login_attempts`. |
 | `core.agent_nightly` | `at` 02:00, gated by the setting `agent.nightly_enabled` | Observer + dreaming; exits early with zero keys (`agent.md`). |
-| `core.mcp_discover` | every 1 h | Rediscover every outbound MCP server's tools (`mcp.md` §2); servers one after another, `timeout=900`. |
+| `core.mcp_discover` | every 1 h and at every boot (`on_boot`) | Rediscover every outbound MCP server's tools (`mcp.md` §2); servers one after another, `timeout=900`. |
 
 CRM jobs (`backend/apps/crm/jobs.py`): `crm.touch_count` every 120 s takes up to 20 deals, each committed on its own, with the LLM call outside the transaction; it returns `skipped: disabled` when the `crm.touch_count_enabled` setting is off and `skipped: no_provider` when no light-tier provider is configured (a keyless install writes no counts, not even zeros). `crm.scores_refresh` hourly rescores the stalest deals and people without an LLM.
 
@@ -103,6 +104,8 @@ Step 1 ships a minimal scheduler: `Job`, the loop, `run_now`. W3 completes it.
 - A never-run `at` job waits for its next slot; a manual run after the slot is not followed by a catch-up.
 - Overlapping job skipped.
 - A job that ignores its timeout: no second instance starts and the slot is released only when it ends.
+- An `on_boot` job runs at the first tick of every start, even a restart in the same second; shutdown waits for it before `db.close()`, and leaves the database open when a job outlives the grace.
+- Core and apps start no threads of their own.
 - Two drainers started by hand claim disjoint rows.
 - Reminders fire under a frozen clock → notification row in the same transaction.
 

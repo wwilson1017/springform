@@ -5,6 +5,7 @@ db checks and key files -> migrations -> preview checks -> seeds -> setup token 
 Run with one worker (`uvicorn backend.main:app --workers 1`): the data-dir lock refuses a second.
 """
 
+import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -28,10 +29,10 @@ from backend.core import (
 from backend.core.auth import bootstrap, csrf
 from backend.core.auth.deps import User, current_user
 from backend.core.backup import service as backup
-from backend.core.mcp_servers import startup as mcp_startup
 from backend.core.platform.models import CoreApp, Health
 
 FRONTEND_DIST = REPO_ROOT / "frontend" / "dist"
+logger = logging.getLogger(__name__)
 
 
 def _operation_id(route: APIRoute) -> str:
@@ -55,9 +56,10 @@ def create_app(apps_dir: Path = db.APPS_DIR) -> FastAPI:
         try:
             yield
         finally:
-            await app.state.scheduler.stop()
-            mcp_startup.join()
-            db.close()
+            if await app.state.scheduler.stop():
+                db.close()
+            else:  # a job outlived the grace: its thread may be mid-statement; the process exit closes the file
+                logger.warning("a job was still running at shutdown; leaving the database open")
 
     app = FastAPI(
         title="Springform", version=VERSION, lifespan=lifespan, generate_unique_id_function=_operation_id,
