@@ -24,6 +24,7 @@ Conventions:
 
 ### Added
 
+- `requires_apps` in `app.json`: an app lists the apps its sample data builds on, and their samples run first (on boot and in the nightly preview reset). Apps that list none keep folder-name order; an unknown app or a cycle stops startup.
 - Security headers on every response, including errors: nosniff, same-origin frame protection, referrer policy and HTTPS-only HSTS.
 - Brand mark (`brand/springform-mark.svg`: a foundation of app tiles with one lifting off on a spring) with a short brand note, a README header, the app favicon, and the myspringform.com site in `site/`, published by a GitHub Pages workflow that runs only in the upstream repository.
 - myspringform.com: a link-preview card (`og:image`, `twitter:card`), a canonical URL and fuller title, a styled 404 page, `robots.txt` and `sitemap.xml`; the header stays on one row on phones with 44 px tap targets.

@@ -19,6 +19,8 @@ export interface AppManifest {
   settings_cards?: SettingsCard[];
   sheets?: Array<{ name: string; mode: string; description: string }>;
   publishes?: string[];
+  /** Apps whose seed and sample data this app's build on; they run first. */
+  requires_apps?: string[];
 }
 
 /** A code-split component: `() => import('./SettingsCard')`. */

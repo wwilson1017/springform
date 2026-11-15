@@ -108,6 +108,7 @@ class AppManifest(BaseModel):
     settings_cards: list[SettingsCard] = []
     sheets: list[Sheet] = []
     publishes: list[str] = []
+    requires_apps: list[str] = []  # slugs this app's seed and sample build on; they run first (dependency_order)
 
     @field_validator("slug")
     @classmethod
@@ -144,6 +145,8 @@ class AppManifest(BaseModel):
             raise ValueError(f"badge must be a route under /api/{self.slug}/")
         if len(set(self.roles)) != len(self.roles):
             raise ValueError("roles must not repeat")
+        if len(set(self.requires_apps)) != len(self.requires_apps):
+            raise ValueError("requires_apps must not repeat")
         return self
 
 
@@ -182,7 +185,35 @@ def discover(apps_dir: Path = db.APPS_DIR) -> list[App]:
         modules = {m: importlib.import_module(f"{package}.{m}") for m in MODULES if (app_dir / f"{m}.py").is_file()}
         apps.append(App(manifest, app_dir, modules))
     check_slug_prefixes([a.slug for a in apps])
-    return apps
+    return dependency_order(apps)
+
+
+def dependency_order(apps: list[App]) -> list[App]:
+    """Folder-name order, except that each app comes after the apps its manifest `requires_apps`,
+    so its seed and sample can build on theirs. An unknown slug or a cycle stops startup."""
+    by_slug = {a.slug: a for a in apps}
+    ordered: list[App] = []
+    done: set[str] = set()
+    path: list[str] = []
+
+    def visit(app: App) -> None:
+        if app.slug in done:
+            return
+        if app.slug in path:
+            cycle = " -> ".join([*path[path.index(app.slug):], app.slug])
+            raise AppContractError(f"App requires_apps form a cycle: {cycle}")
+        path.append(app.slug)
+        for slug in app.manifest.requires_apps:
+            if slug not in by_slug:
+                raise AppContractError(f"App '{app.slug}' requires_apps {slug!r}, which is not installed")
+            visit(by_slug[slug])
+        path.pop()
+        done.add(app.slug)
+        ordered.append(app)
+
+    for app in apps:
+        visit(app)
+    return ordered
 
 
 def check_slug_prefixes(slugs: list[str]) -> None:

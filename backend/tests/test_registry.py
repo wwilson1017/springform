@@ -125,3 +125,30 @@ def test_every_app_sample_is_idempotent(app, make_user, monkeypatch):
     first = counts()
     preview.seed()
     assert counts() == first
+
+
+def test_samples_run_after_the_apps_they_require(app, monkeypatch):
+    """Folder-name order, except an app follows its requires_apps; the nightly preview reset re-runs samples that way."""
+    from types import SimpleNamespace
+
+    from backend.core import preview
+
+    ran = []
+
+    def fake(slug: str, requires: list[str] = []) -> registry.App:  # noqa: B006
+        seed = SimpleNamespace(seed=lambda conn: None, sample=lambda conn: ran.append(slug), RESET_TABLES=[])
+        manifest = registry.AppManifest(slug=slug, name=slug, path=f"/{slug}", roles=["member"], version="0.1.0",
+                                        requires_core=">=0.1,<1", requires_apps=requires)
+        return registry.App(manifest, Path(slug), {"seed": seed})
+
+    ordered = registry.dependency_order([fake("aaa"), fake("orders", ["recipes"]), fake("recipes"), fake("zzz")])
+    assert [a.slug for a in ordered] == ["aaa", "recipes", "orders", "zzz"]
+    monkeypatch.setattr(registry, "_APPS", ordered)
+    monkeypatch.setenv("PREVIEW_MODE", "1")
+    preview.reset()
+    assert ran == ["aaa", "recipes", "orders", "zzz"]
+
+    with pytest.raises(registry.AppContractError, match="'orders' requires_apps 'recipes', which is not installed"):
+        registry.dependency_order([fake("orders", ["recipes"])])
+    with pytest.raises(registry.AppContractError, match="cycle: aaa -> bbb -> aaa"):
+        registry.dependency_order([fake("aaa", ["bbb"]), fake("bbb", ["aaa"])])
