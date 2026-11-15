@@ -46,6 +46,7 @@ Conventions:
   regenerated types file only when it changed.
 - Preview mode no longer accepts a secret setting (Google sign-in client, Sheets service-account key):
   the save is refused with "Preview mode does not store secrets.", so a visitor can no longer stop the next boot.
+- The app contract accepts both cross-app `api` import forms, allows app tests to import another app's `seed`, and recognizes relative imports that stay within the app.
 
 ## [0.1.1] - 2026-10-25
 
