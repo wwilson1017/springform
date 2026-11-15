@@ -34,6 +34,7 @@ Conventions:
 ### Fixed
 
 - The Browser smoke's Settings test checks that core's and the upstream apps' sections are present instead of the exact list, so a fork app's settings card no longer fails it.
+- App tests in `backend/apps/<slug>/tests/` now run under `uv run pytest` and in CI, with the shared fixtures and the skip/xfail ban and no conftest of their own; `scripts/new-app.sh` scaffolds the folder (#8).
 - `/docs`, `/redoc` and `/openapi.json` need a signed-in user; signed out they return 401, so an install no longer publishes its API schema.
 - Railway builds: the Dockerfile no longer declares `VOLUME /data`, which Railway refuses ("docker VOLUME is not supported, use Railway Volumes"). Every supported run mounts `/data` itself.
 - deploy.md no longer asks the owner to make the ghcr package public by hand: the image's source
