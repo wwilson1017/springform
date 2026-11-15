@@ -108,6 +108,7 @@ class AppManifest(BaseModel):
     settings_cards: list[SettingsCard] = []
     sheets: list[Sheet] = []
     publishes: list[str] = []
+    requires_apps: list[str] = []  # slugs this app's seed and sample build on; they run first (dependency_order)
 
     @field_validator("slug")
     @classmethod
@@ -144,6 +145,8 @@ class AppManifest(BaseModel):
             raise ValueError(f"badge must be a route under /api/{self.slug}/")
         if len(set(self.roles)) != len(self.roles):
             raise ValueError("roles must not repeat")
+        if len(set(self.requires_apps)) != len(self.requires_apps):
+            raise ValueError("requires_apps must not repeat")
         return self
 
 
@@ -182,7 +185,33 @@ def discover(apps_dir: Path = db.APPS_DIR) -> list[App]:
         modules = {m: importlib.import_module(f"{package}.{m}") for m in MODULES if (app_dir / f"{m}.py").is_file()}
         apps.append(App(manifest, app_dir, modules))
     check_slug_prefixes([a.slug for a in apps])
-    return apps
+    return dependency_order(apps)
+
+
+def dependency_order(apps: list[App]) -> list[App]:
+    """Folder-name order, except that an app waits until the apps its manifest `requires_apps` are
+    placed, so its seed and sample can build on theirs: each step takes the first app in folder order
+    whose requirements are placed, so apps that declare nothing keep their folder-name order.
+    An unknown slug or a cycle stops startup."""
+    by_slug = {a.slug: a for a in apps}
+    for app in apps:
+        for slug in app.manifest.requires_apps:
+            if slug not in by_slug:
+                raise AppContractError(f"App '{app.slug}' requires_apps {slug!r}, which is not installed")
+    ordered: list[App] = []
+    placed: set[str] = set()
+    pending = list(apps)
+    while pending:
+        app = next((a for a in pending if placed.issuperset(a.manifest.requires_apps)), None)
+        if app is None:  # every pending app waits on another pending app: follow the waits to the loop
+            path = [pending[0].slug]
+            while (nxt := next(s for s in by_slug[path[-1]].manifest.requires_apps if s not in placed)) not in path:
+                path.append(nxt)
+            raise AppContractError(f"App requires_apps form a cycle: {' -> '.join([*path[path.index(nxt):], nxt])}")
+        pending.remove(app)
+        placed.add(app.slug)
+        ordered.append(app)
+    return ordered
 
 
 def check_slug_prefixes(slugs: list[str]) -> None:

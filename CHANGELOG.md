@@ -29,6 +29,7 @@ Conventions:
 
 ### Added
 
+- `requires_apps` in `app.json`: an app lists the apps its sample data builds on, and their samples run first (on boot and in the nightly preview reset). Apps that list none keep folder-name order; an unknown app or a cycle stops startup.
 - `.railway/railway.ts` (Railway Infrastructure as Code): applied once per service, it stores the Dockerfile build, `/up` health check, restart policy and required `/data` mount before Railway stops reading `railway.json` on 2026-12-01, and leaves the service's source, variables and volume as they are.
 - Security headers on every response, including errors: nosniff, same-origin frame protection, referrer policy and HTTPS-only HSTS.
 - Brand mark (`brand/springform-mark.svg`: a foundation of app tiles with one lifting off on a spring) with a short brand note, a README header, the app favicon, and the myspringform.com site in `site/`, published by a GitHub Pages workflow that runs only in the upstream repository.
@@ -40,6 +41,7 @@ Conventions:
 ### Fixed
 
 - Whisk approval cards show a plain summary of the action, or only its name and arguments, instead of model-facing tool instructions.
+- Fork apps can declare settings and report parameters without changing core's response-shape fixture.
 - The app contract test fails when two apps define Pydantic models with the same class name, naming the model and both apps, instead of letting a new app silently rename another app's generated API types; the CRM and Todos share `Badge` and `Deleted` from `backend/core/responses.py` (#10).
 - The Browser smoke's Settings test checks that core's and the upstream apps' sections are present instead of the exact list, so a fork app's settings card no longer fails it.
 - App tests in `backend/apps/<slug>/tests/` now run under `uv run pytest` and in CI, with the shared fixtures and the skip/xfail ban and no conftest of their own; `scripts/new-app.sh` scaffolds the folder (#8).
