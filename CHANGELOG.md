@@ -20,7 +20,7 @@ Conventions:
 
 ### Fixed
 
-- `docs/agents/agent.md` (registry rule 5) says a create-only write tool's `targets` returns an empty list, and that its handler checks any record it links to.
+- `docs/agents/agent.md` (registry rule 5) says a write tool that only creates a record returns an empty `targets` list, and when an existing record it touches still belongs in `targets`.
 - Report tables show `*_cents` columns as money (171720 reads 1,717.20, under a "revenue" header), the way the Timeline does. The CSV download keeps the cents.
 
 ### Changed
