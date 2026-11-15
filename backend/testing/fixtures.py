@@ -4,6 +4,7 @@ Every test runs on a real temporary SQLite database; nothing in the data layer i
 
 import contextlib
 import itertools
+import threading
 
 import httpx
 import pytest
@@ -49,6 +50,10 @@ def _isolate(tmp_path, monkeypatch):
     yield
     clock.freeze(None)
     core_db.set_commit_nudge(None)
+    # Each app boot starts a background MCP discovery pass; closing its connection mid-query segfaults sqlite.
+    for t in threading.enumerate():
+        if t.name == "mcp-discover":
+            t.join(5)
     core_db.close()
 
 
