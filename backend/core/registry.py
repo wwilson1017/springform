@@ -189,30 +189,28 @@ def discover(apps_dir: Path = db.APPS_DIR) -> list[App]:
 
 
 def dependency_order(apps: list[App]) -> list[App]:
-    """Folder-name order, except that each app comes after the apps its manifest `requires_apps`,
-    so its seed and sample can build on theirs. An unknown slug or a cycle stops startup."""
+    """Folder-name order, except that an app waits until the apps its manifest `requires_apps` are
+    placed, so its seed and sample can build on theirs: each step takes the first app in folder order
+    whose requirements are placed, so apps that declare nothing keep their folder-name order.
+    An unknown slug or a cycle stops startup."""
     by_slug = {a.slug: a for a in apps}
-    ordered: list[App] = []
-    done: set[str] = set()
-    path: list[str] = []
-
-    def visit(app: App) -> None:
-        if app.slug in done:
-            return
-        if app.slug in path:
-            cycle = " -> ".join([*path[path.index(app.slug):], app.slug])
-            raise AppContractError(f"App requires_apps form a cycle: {cycle}")
-        path.append(app.slug)
+    for app in apps:
         for slug in app.manifest.requires_apps:
             if slug not in by_slug:
                 raise AppContractError(f"App '{app.slug}' requires_apps {slug!r}, which is not installed")
-            visit(by_slug[slug])
-        path.pop()
-        done.add(app.slug)
+    ordered: list[App] = []
+    placed: set[str] = set()
+    pending = list(apps)
+    while pending:
+        app = next((a for a in pending if placed.issuperset(a.manifest.requires_apps)), None)
+        if app is None:  # every pending app waits on another pending app: follow the waits to the loop
+            path = [pending[0].slug]
+            while (nxt := next(s for s in by_slug[path[-1]].manifest.requires_apps if s not in placed)) not in path:
+                path.append(nxt)
+            raise AppContractError(f"App requires_apps form a cycle: {' -> '.join([*path[path.index(nxt):], nxt])}")
+        pending.remove(app)
+        placed.add(app.slug)
         ordered.append(app)
-
-    for app in apps:
-        visit(app)
     return ordered
 
 

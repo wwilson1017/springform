@@ -143,6 +143,8 @@ def test_samples_run_after_the_apps_they_require(app, monkeypatch):
 
     ordered = registry.dependency_order([fake("aaa"), fake("orders", "recipes"), fake("recipes"), fake("zzz")])
     assert [a.slug for a in ordered] == ["aaa", "recipes", "orders", "zzz"]
+    unrelated = registry.dependency_order([fake("aaa", "zzz"), fake("bbb"), fake("zzz")])
+    assert [a.slug for a in unrelated] == ["bbb", "zzz", "aaa"]  # bbb declares nothing: it stays ahead of zzz
     monkeypatch.setattr(registry, "_APPS", ordered)
     monkeypatch.setenv("PREVIEW_MODE", "1")
     preview.reset()
@@ -151,4 +153,4 @@ def test_samples_run_after_the_apps_they_require(app, monkeypatch):
     with pytest.raises(registry.AppContractError, match="'orders' requires_apps 'recipes', which is not installed"):
         registry.dependency_order([fake("orders", "recipes")])
     with pytest.raises(registry.AppContractError, match="cycle: aaa -> bbb -> aaa"):
-        registry.dependency_order([fake("aaa", "bbb"), fake("bbb", "aaa")])
+        registry.dependency_order([fake("top", "aaa"), fake("aaa", "bbb"), fake("bbb", "aaa")])
