@@ -34,6 +34,7 @@ Conventions:
 
 ### Fixed
 
+- The app contract test fails when two apps define Pydantic models with the same class name and different fields, naming the model and both apps, instead of letting a new app silently rename another app's generated API types (#10).
 - The Browser smoke's Settings test checks that core's and the upstream apps' sections are present instead of the exact list, so a fork app's settings card no longer fails it.
 - App tests in `backend/apps/<slug>/tests/` now run under `uv run pytest` and in CI, with the shared fixtures and the skip/xfail ban and no conftest of their own; `scripts/new-app.sh` scaffolds the folder (#8).
 - `/docs`, `/redoc` and `/openapi.json` need a signed-in user; signed out they return 401, so an install no longer publishes its API schema.

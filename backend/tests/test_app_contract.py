@@ -11,7 +11,7 @@ from types import SimpleNamespace
 import pytest
 from fastapi import APIRouter, Depends, FastAPI
 from fastapi.testclient import TestClient
-from pydantic import ValidationError
+from pydantic import BaseModel, ValidationError, create_model
 
 from backend.core import db as core_db, entities, registry
 from backend.core.auth.deps import require_roles
@@ -301,3 +301,65 @@ def test_publishes_is_checked_at_boot(tmp_path):
     api = SimpleNamespace(get_widget=lambda: None)  # no get_widget_in
     with pytest.raises(AppContractError, match="no get_widget_in"):
         registry.mount_app(FastAPI(), registry.App(manifest, tmp_path, {"router": SimpleNamespace(router=APIRouter()), "api": api}))
+
+
+def app_models(app_dir: Path) -> dict[str, type[BaseModel]]:
+    """The Pydantic models an app's modules (outside tests/) define, by class name."""
+    package, found = registry.package_for(app_dir), {}
+    for path in sorted(app_dir.rglob("*.py")):
+        parts = path.relative_to(app_dir).with_suffix("").parts
+        if parts[0] == "tests":
+            continue
+        module = importlib.import_module(".".join([package, *parts]).removesuffix(".__init__"))
+        for obj in vars(module).values():
+            if isinstance(obj, type) and issubclass(obj, BaseModel) and obj.__module__ == module.__name__:
+                found[obj.__name__] = obj
+    return found
+
+
+def _schemas(model: type[BaseModel]) -> tuple[dict, dict]:
+    return model.model_json_schema(mode="validation"), model.model_json_schema(mode="serialization")
+
+
+def model_name_collisions(models_by_app: dict[str, dict[str, type[BaseModel]]]) -> list[str]:
+    """OpenAPI schema names are global: two apps' same-named models with different schemas make
+    Pydantic rename both apps' generated types. Same-named models with identical schemas share one."""
+    first: dict[str, tuple[str, type[BaseModel]]] = {}
+    problems = []
+    for slug, models in models_by_app.items():
+        for name, model in models.items():
+            if name not in first:
+                first[name] = (slug, model)
+            elif _schemas(model) != _schemas(first[name][1]):
+                problems.append(f"model {name!r} is defined by apps {first[name][0]} and {slug} with different schemas, "
+                                f"which renames both apps' generated types; prefix one with its app (as scripts/new-app.sh does)")
+    return problems
+
+
+def test_no_two_apps_share_a_model_name():
+    models = {d.name: app_models(d) for d in INSTALLED}
+    assert any(models.values()), "found no app models; the walk is broken"
+    assert model_name_collisions(models) == []
+
+
+def test_model_name_check_catches_what_openapi_renames():
+    def models(slug: str, badge_field: str) -> dict[str, type[BaseModel]]:
+        module = f"backend.apps.{slug}.models"
+        return {"Badge": create_model("Badge", __module__=module, **{badge_field: (int, ...)}),
+                "Deleted": create_model("Deleted", __module__=module, deleted=(int, ...))}
+
+    by_app = {"alpha": models("alpha", "count"), "beta": models("beta", "total")}
+    assert model_name_collisions(by_app) == [
+        "model 'Badge' is defined by apps alpha and beta with different schemas, which renames both apps' "
+        "generated types; prefix one with its app (as scripts/new-app.sh does)"]
+
+    # The check matches FastAPI: the differing Badges are renamed, the identical Deleteds share one name.
+    router = APIRouter()
+    for slug, ms in by_app.items():
+        for name, model in ms.items():
+            router.add_api_route(f"/{slug}/{name}", lambda: None, response_model=model)
+    api = FastAPI()
+    api.include_router(router)
+    names = set(api.openapi()["components"]["schemas"])
+    assert {"Deleted", "backend__apps__alpha__models__Badge", "backend__apps__beta__models__Badge"} <= names
+    assert "Badge" not in names
