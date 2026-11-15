@@ -21,6 +21,7 @@ Conventions:
 ### Fixed
 
 - Report tables show `*_cents` columns as money (171720 reads 1,717.20, under a "revenue" header), the way the Timeline does. The CSV download keeps the cents.
+- The Timeline custom-field label test no longer fails at random in CI: it now waits for the field's real label instead of matching the humanized key it falls back to.
 
 ### Changed
 
