@@ -66,6 +66,11 @@ settings; removing it is a follow-up. With CLI 5.54.1, plan was not blocked on `
 `fork`: neither service has a Config File path set (`config: null`); the JSON is auto-detected
 at deploy. Applying first keeps the settings in place throughout the transition.
 
+If plan stops because the service is still managed by Config as Code (a service whose Settings
+name a Config File path), clear that path in the service's Settings, as Railway's migration
+guide says, and plan again. Do not use `railway config migrate --apply`: the file it writes
+drops `requiredMountPath`, and applying it deletes the service's variables and detaches its volume.
+
 ### `TRUST_PROXY` constraint
 
 With `TRUST_PROXY=1` the app port is bound only on the compose network, never published, so forwarded headers can only come from Caddy. `compose.yml` enforces it. Cookie `secure=` follows the real scheme; startup warns if `PUBLIC_URL` is https but requests are not (`auth.md` §8).
