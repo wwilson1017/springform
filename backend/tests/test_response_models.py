@@ -1,7 +1,8 @@
 """Every core route that answers with a response model, called through the real app as admin and as
 member. Each answers with exactly the key paths it answered with before it had a model:
 `fixtures/response_shapes.json` was recorded from the untyped routes, and a change that reshapes a
-route on purpose updates it. The models forbid extra keys, so a key a service adds without adding
+route on purpose updates it. App setting keys and report params are app data, checked against their
+declarations rather than pinned. The models forbid extra keys, so a key a service adds without adding
 it to the model answers 500 here instead of silently vanishing from the response."""
 
 import itertools
@@ -13,15 +14,31 @@ import httpx
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 
-from backend.core import clock, db as core_db
+from backend.core import clock, db as core_db, settings
 from backend.core.agent import providers, registry as tool_registry
 from backend.core.agent.providers import fake
+from backend.core.platform import keys
+from backend.core.reports import registry
+from backend.core.reports.registry import Report
 from backend.core.requests import github
 from backend.core.sheets import google, startup as sheets_startup
 from backend.tests.fixtures import mcp_stub
 
 SHAPES = Path(__file__).parent / "fixtures" / "response_shapes.json"
 OK = (200, 201, 202)
+SETTINGS_ROUTES = ("/api/core/settings", "/api/core/settings/{key}")  # bodies keyed by every setting, app keys included
+
+
+def core_only(label, body):
+    """Keep core's envelope, without pinning app-owned settings or report schemas."""
+    if label.split()[1] in SETTINGS_ROUTES:
+        return {**body, **{
+            field: {k: v for k, v in body[field].items() if k in keys.CORE_KEYS}
+            for field in ("defaults", "values")
+        }}
+    if label.startswith("GET /api/core/reports "):
+        return [{**report, "params": None} for report in body]
+    return body
 
 
 def shape(body, prefix: str = "") -> list[str]:
@@ -88,6 +105,12 @@ def exercise(app, login_as, monkeypatch) -> dict[str, httpx.Response]:
     fake.reset()
     sheets_startup.on_startup()
     admin, member = login_as("admin"), login_as("member")
+    monkeypatch.setitem(settings.DEFAULTS, "zz_fork.color", "teal")
+    monkeypatch.setitem(registry._REPORTS, "zz_fork.sales", Report(
+        key="zz_fork.sales", label="Fork sales", app="zz_fork",
+        params={"type": "object", "properties": {"region": {"type": "string"}}, "required": ["region"]},
+        run=lambda params, user: (["region"], [[params["region"]]]),
+    ))
     both, hit = (admin, member), Recorder()
 
     # ── Platform: health, apps, workspace, settings, jobs ──
@@ -196,8 +219,9 @@ def exercise(app, login_as, monkeypatch) -> dict[str, httpx.Response]:
         hit(c, "PATCH", "/api/core/views/{view_id}", view_id=view["id"], json={"version": 1, "name": "Renamed"})
         hit(c, "POST", "/api/core/views/{view_id}/share", view_id=view["id"], json={"is_shared": True})
         hit(c, "GET", "/api/core/views", params={"surface": "core.people"})
-        key = hit(c, "GET", "/api/core/reports")[0]["key"]
-        hit(c, "GET", "/api/core/reports/{key}", key=key)
+        listed = hit(c, "GET", "/api/core/reports")
+        assert {r["key"]: r["params"] for r in listed} == {r.key: r.params for r in registry.for_user(c.principal)}
+        hit(c, "GET", "/api/core/reports/{key}", key="zz_fork.sales", params={"region": "north"})
         hit(c, "GET", "/api/core/notifications/unread-count")
         hit(c, "POST", "/api/core/notifications/read-all")
         hit(c, "GET", "/api/core/notifications/push/public-key")
@@ -256,5 +280,11 @@ def exercise(app, login_as, monkeypatch) -> dict[str, httpx.Response]:
 
 def test_typed_routes_answer_with_their_recorded_keys(app, login_as, monkeypatch, freeze):
     freeze("2026-11-02T15:00:00Z")
-    seen = {label: shape(r.json()) for label, r in exercise(app, login_as, monkeypatch).items()}
+    responses = exercise(app, login_as, monkeypatch)
+    app_keys = {k for k in settings.DEFAULTS if k not in keys.CORE_KEYS}
+    for label, r in responses.items():
+        if label.split()[1] in SETTINGS_ROUTES:
+            for field in ("defaults", "values"):
+                assert set(r.json()[field]) - keys.CORE_KEYS.keys() == app_keys, (label, field)
+    seen = {label: shape(core_only(label, r.json())) for label, r in responses.items()}
     assert seen == json.loads(SHAPES.read_text())
