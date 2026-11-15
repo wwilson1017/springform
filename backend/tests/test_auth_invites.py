@@ -6,8 +6,8 @@ import pytest
 from backend.core import db as core_db
 from backend.core.auth import mail
 from backend.core.auth.deps import COOKIE
+from backend.testing.fixtures import PASSWORD, make_client
 
-from .conftest import PASSWORD, make_client
 from .test_auth_totp import T0, enrol
 
 NEW_PASSWORD = "a-brand-new-passphrase"

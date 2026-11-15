@@ -1,5 +1,5 @@
 from backend.core.memory import facts
-from backend.tests.conftest import make_client
+from backend.testing.fixtures import make_client
 
 MEMBER_KEYS = {"id", "text", "tags", "valid_from", "invalid_from"}
 

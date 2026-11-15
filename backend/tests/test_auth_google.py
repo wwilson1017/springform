@@ -19,8 +19,8 @@ from cryptography.x509.oid import NameOID
 from backend.core import db as core_db, preview, settings
 from backend.core.auth import google, service
 from backend.core.auth.deps import COOKIE
+from backend.testing.fixtures import PASSWORD, make_client
 
-from .conftest import PASSWORD, make_client
 from .test_auth_totp import T0, code, enrol
 
 CLIENT_ID = "1234567890-abc123.apps.googleusercontent.com"

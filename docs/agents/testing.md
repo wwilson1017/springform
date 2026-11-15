@@ -1,17 +1,22 @@
 # Testing
 
 **What this covers:** every item of the plan's Verification section, organised by suite (pytest, Vitest, Playwright, live), the tests the subsystem sections add, the conftest conventions, and the CI jobs that run them.
-**Who reads it:** every implementer (each workstream owns the tests for its area), and whoever maintains `backend/tests/conftest.py`, `frontend/vitest.config.ts` and `.github/workflows/ci.yml`.
+**Who reads it:** every implementer (each workstream owns the tests for its area), and whoever maintains `backend/testing/fixtures.py`, `frontend/vitest.config.ts` and `.github/workflows/ci.yml`.
 
 ## 1. Conventions
 
-### pytest (`backend/tests/conftest.py`)
+### pytest (`backend/testing/fixtures.py`)
+
+The fixtures and guards live in a pytest plugin, `backend/testing/fixtures.py`, which the root `conftest.py` loads for every test. `testpaths` collects `backend/tests` (core) and `backend/apps` (each app).
+
+**App tests** go in `backend/apps/<slug>/tests/` (with an `__init__.py`, so two apps can both have a `test_api.py`). `scripts/new-app.sh` scaffolds the folder with a starter test. They get every fixture below, the autouse isolation and the skip/xfail ban with no conftest of their own; a fork never edits `backend/tests/` or `backend/testing/`. Import the app absolutely (`from backend.apps.<slug> import api`): the contract test rejects relative imports that leave the app package. `backend/apps/example/tests/` is the worked example. `PASSWORD` and `make_client` import from `backend.testing.fixtures`.
+
 
 1. **Real temp SQLite.** `db(tmp_path)` runs all migrations (core, then every app) on a fresh file. No services.
 2. **No FakeConn.** Never fake the connection or the database.
 3. **`freeze(iso)`**: a fixture that freezes `core.clock` at an ISO instant (reminders, scheduler, sweep ages, `at` catch-up).
 4. **`login_as(role, email=None, on=app)`**: a fixture that creates a new user of that role and returns a new signed-in `TestClient` with `.user` (the `/api/me` shape) and `.principal` (the `User`). The first account goes through the real setup-token path as an admin; later ones sign in through `/api/auth/login`. **`make_user(role, email=None, password=…)`** creates a user directly, without HTTP.
-5. **Skip/xfail ban**: conftest fails collection when a test carries a `skip`, `skipif` or `xfail` marker (lifted from CakeCRM). `ALLOWED_SUPPRESSIONS` lists node ids allowed one, each with a reason; it is empty. `test_conftest_guards.py` self-tests it.
+5. **Skip/xfail ban**: the plugin fails collection when a test carries a `skip`, `skipif` or `xfail` marker (lifted from CakeCRM). `ALLOWED_SUPPRESSIONS` lists node ids allowed one, each with a reason; it is empty. `test_conftest_guards.py` self-tests it.
 6. Two-member tests create two real members and one restrictive record: every `login_as("member")` call makes a new, distinct member.
 7. Providers: a **FakeProvider** stands in for LLM providers; nothing calls a real model.
 8. HTTP to external services is mocked (Google token endpoint) or served locally: inbound MCP runs through `httpx2.ASGITransport`, and the outbound client talks to `backend/tests/fixtures/mcp_stub.py`, a two-tool `MCPServer` on a loopback port (with `MCP_ALLOW_PRIVATE=1`).

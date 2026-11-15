@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Scaffold a new app that passes the app contract: scripts/new-app.sh <slug> "<Name>"
 #
-# Writes backend/apps/<slug>/ (manifest, router, api, entities, seed, settings, a migration, docs)
-# and frontend/src/apps/<slug>/{contributions.ts,index.tsx}. Then: uv run pytest backend/tests/test_app_contract.py
+# Writes backend/apps/<slug>/ (manifest, router, api, entities, seed, settings, a migration, docs, tests)
+# and frontend/src/apps/<slug>/{contributions.ts,index.tsx}. Then: uv run pytest
 set -euo pipefail
 
 usage() { echo "usage: scripts/new-app.sh <slug> \"<Name>\"" >&2; exit 2; }
@@ -32,8 +32,8 @@ frontend="$root/frontend/src/apps/$slug"
 stamp=$(date -u +%Y%m%d%H%M%S)
 [ "$stamp" -ge 20261101000000 ] || stamp=20261101000000
 
-mkdir -p "$backend/migrations" "$backend/docs"
-touch "$backend/__init__.py"
+mkdir -p "$backend/migrations" "$backend/docs" "$backend/tests"
+touch "$backend/__init__.py" "$backend/tests/__init__.py"
 
 cat > "$backend/app.json" <<EOF
 {
@@ -166,6 +166,15 @@ title: $name
 What this app is for, written for the people who use it.
 EOF
 
+# pytest collects backend/apps/*/tests; the fixtures (db, login_as, freeze, client, make_user) come from
+# backend/testing/fixtures.py, so the app needs no conftest.
+cat > "$backend/tests/test_$slug.py" <<EOF
+def test_a_member_creates_and_reads_an_item(login_as):
+    member = login_as("member")
+    item = member.post("/api/$slug/items", json={"name": "First"}).json()
+    assert member.get(f"/api/$slug/items/{item['id']}").json()["name"] == "First"
+EOF
+
 if [ -d "$root/frontend/src" ]; then
 mkdir -p "$frontend"
 cat > "$frontend/contributions.ts" <<EOF
@@ -197,6 +206,6 @@ created_frontend=" (no frontend/src here, so no screen placeholders)"
 fi
 
 echo "Created backend/apps/$slug${created_frontend}."
-echo "Then: uv run pytest backend/tests/test_app_contract.py"
+echo "Then: uv run pytest   (the app contract, and backend/apps/$slug/tests)"
 echo "      scripts/gen-types.sh   (commit frontend/src/core/api/types.gen.ts with the app)"
 echo "      scripts/seed-labels.sh (adds the app:$slug label)"
