@@ -40,7 +40,6 @@ class ToolSpec:
     writes: bool
     handler: Callable[[User, dict], Any] | None = None
     handler_in: Callable[[Conn, User, dict], Any] | None = None
-    summary: str = ""  # user-facing line on the Approve card; empty shows only name and args
     targets: Callable[[dict], list[tuple[str, int]]] | None = None
     confirm_tier: str | None = None
     always_confirm: bool = False
@@ -53,6 +52,7 @@ class ToolSpec:
     revision: str = ""  # the app's (or core's) version; set by the registry
     server_id: str | None = None  # remote (outbound MCP) tools only
     server_url: str | None = None
+    summary: str = ""  # user-facing line on the Approve card; empty shows only name and args (last: positional order)
 
     @property
     def remote(self) -> bool:

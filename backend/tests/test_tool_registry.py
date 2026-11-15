@@ -1,3 +1,4 @@
+from dataclasses import fields
 from importlib import import_module
 
 import pytest
@@ -98,3 +99,12 @@ def test_shipped_write_tools_have_user_facing_summaries(module):
         assert spec.summary and spec.summary != spec.description
         assert len(spec.summary.split()) <= 12
         assert "summary" not in spec.provider_def()
+
+
+def test_toolspec_fields_only_grow_at_the_end():
+    # fork apps may build ToolSpec positionally, so a new field goes last
+    assert [f.name for f in fields(ToolSpec)] == [
+        "name", "description", "input_schema", "writes", "handler", "handler_in", "targets", "confirm_tier",
+        "always_confirm", "hides_when", "enabled", "untrusted_source", "external_effect", "mcp_exposed", "app",
+        "revision", "server_id", "server_url", "summary",
+    ]

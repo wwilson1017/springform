@@ -72,7 +72,6 @@ ToolSpec(
     always_confirm,     # forces confirmation, even for reads (remote tools set it)
     hides_when,         # Callable[[dict], bool] | None, called with the args
     handler | handler_in,
-    summary: str = "",  # user-facing Approve card line; empty shows only name and args
     targets,            # targets(args) -> list[(entity_type, id)]
     enabled,            # enabled(user) -> bool
     untrusted_source,   # results fenced as untrusted (remote tools)
@@ -81,6 +80,7 @@ ToolSpec(
     app,                # owning app slug, or core
     revision,           # the owning app's version string; "" for core tools
     server_id, server_url,   # remote (outbound MCP) tools only; remote means server_url is set
+    summary: str = "",  # user-facing Approve card line; empty shows only name and args
 )
 ```
 
