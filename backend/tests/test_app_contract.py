@@ -348,6 +348,8 @@ def test_model_name_check_catches_what_openapi_renames():
     hint = "schema names are global, so prefix one with its app (as scripts/new-app.sh does) or share a core model"
     assert model_name_collisions(by_app) == [f"model 'Badge' is defined by apps alpha and beta; {hint}",
                                              f"model 'Deleted' is defined by apps alpha and beta; {hint}"]
+    assert model_name_collisions({"alpha": {"AlphaBadge": by_app["alpha"]["Badge"]},
+                                  "beta": {"BetaBadge": by_app["beta"]["Badge"]}}) == []
 
     # The harm the rule prevents: FastAPI renames both differing Badges.
     router = APIRouter()
