@@ -1,10 +1,10 @@
-"""The conftest's skip/skipif/xfail ban, on synthetic tests in an inner session and on this suite."""
+"""The shared fixtures' skip/skipif/xfail ban, on synthetic tests in an inner session and on this suite."""
 
 from pytest import ExitCode
 
-from backend.tests import conftest
+from backend.testing import fixtures
 
-INNER_CONFTEST = "from backend.tests.conftest import pytest_collection_modifyitems\n"
+INNER_CONFTEST = "from backend.testing.fixtures import pytest_collection_modifyitems\n"
 SUPPRESSED = """
 import pytest
 
@@ -40,9 +40,14 @@ def test_clean_tests_and_allow_listed_ids_pass(pytester, monkeypatch):
     pytester.makepyfile(test_clean=CLEAN)
     assert pytester.runpytest().ret == ExitCode.OK
     pytester.makepyfile(test_suppressed="import pytest\n\n@pytest.mark.skip\ndef test_skipped(): pass\n")
-    monkeypatch.setattr(conftest, "ALLOWED_SUPPRESSIONS", frozenset({"test_suppressed.py::test_skipped"}))
+    monkeypatch.setattr(fixtures, "ALLOWED_SUPPRESSIONS", frozenset({"test_suppressed.py::test_skipped"}))
     assert pytester.runpytest().ret == ExitCode.OK
 
 
 def test_the_ban_scanned_this_suite(request):
-    assert request.config.stash[conftest.CHECKED] >= len(request.session.items) >= 1  # -k deselects after the hook
+    assert request.config.stash[fixtures.CHECKED] >= len(request.session.items) >= 1  # -k deselects after the hook
+
+
+def test_app_tests_are_collected(request):
+    """Apps keep their tests in backend/apps/<slug>/tests/; the example app's run here with no conftest of their own."""
+    assert "backend/apps" in request.config.getini("testpaths")

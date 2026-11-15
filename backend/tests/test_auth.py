@@ -9,8 +9,7 @@ from backend.core import db as core_db, preview, scheduler, settings
 from backend.core.auth import bootstrap, jwt, service
 from backend.core.auth.deps import COOKIE, require_admin
 from backend.core.notifications import push
-
-from .conftest import PASSWORD, make_client
+from backend.testing.fixtures import PASSWORD, make_client
 
 
 def _login(client, email, password=PASSWORD):

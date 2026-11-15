@@ -10,8 +10,7 @@ from backend.core.agent import registry as tools
 from backend.core.errors import Forbidden
 from backend.core.timeline import api as timeline
 from backend.main import create_app
-
-from .conftest import make_client
+from backend.testing.fixtures import make_client
 
 ADMIN_ONLY_APPS = Path(__file__).parent / "fixtures" / "apps_admin"
 

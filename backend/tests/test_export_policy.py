@@ -11,7 +11,7 @@ from backend.core import clock, db as core_db
 from backend.core.export import csv_export, policy
 from backend.core.reports import registry as reports
 from backend.core.reports.registry import Report
-from backend.tests.conftest import make_client
+from backend.testing.fixtures import make_client
 
 # ── The CSV writer ──────────────────────────────────────────────────────────────────
 

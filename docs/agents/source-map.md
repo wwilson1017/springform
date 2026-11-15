@@ -178,7 +178,7 @@ All lifted code is the author's sole authorship (Decisions, License); the proven
 | `.github/workflows/ci.yml` | CakeCRM | `.github/workflows/ci.yml` | 146 (head) | port | Structure: SHA-pinned actions, ruff, import check, pytest, frontend build/lint/test + types diff, gitleaks, image test; conditional Fork scope job new. |
 | `AGENTS.md` | CakeCRM | `AGENTS.md` | 174 (head) | port | Headings kept (Commands, Topic docs, Hard lines, Backend rules, Frontend rules, Tests and CI, Scope, Commits and PRs); Springform body. |
 | `docs/AUTO_ISSUES.md` | CakeCRM | `docs/AUTO_ISSUES.md` | 163 (head) | lift | Minus the cake_os mirror section. |
-| `backend/tests/conftest.py` (skip/xfail ban) | CakeCRM | `backend/tests/conftest.py` | 264 (head) | port | Ban on `skip`/`skipif`/`xfail` markers. |
+| `backend/testing/fixtures.py` (skip/xfail ban) | CakeCRM | `backend/tests/conftest.py` | 264 (head) | port | Ban on `skip`/`skipif`/`xfail` markers. |
 | `frontend/vitest.config.ts` (guards, TZ pin) | CakeCRM | `frontend/vitest.config.ts` | 92 (head) | port | Donor pins `TZ: 'America/Chicago'`. |
 | `docs/agents/*.md` | CakeCRM | `docs/agents/` | — | new | Topic docs written for Springform; CakeCRM's are the format reference. |
 

@@ -1,7 +1,6 @@
 from backend.core import db as core_db, memory, settings
 from backend.core.platform import keys
-
-from .conftest import make_client
+from backend.testing.fixtures import make_client
 
 
 def test_get_shows_values_and_defaults_and_masks_secrets(login_as):
