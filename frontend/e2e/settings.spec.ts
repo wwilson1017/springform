@@ -1,15 +1,15 @@
 import { expect, test, type Session } from './fixtures';
 
-// Core's and the upstream apps' sections. A fork's own apps may add more, so these are subset
-// checks, never the exact list (#18).
-const MEMBER = ['Account', 'Notifications', 'Workspace', 'Apps', 'MCP', 'Todos'];
-const ADMIN_ONLY = ['Users', 'Records', 'Sign-in', 'Integrations', 'Data', 'AI', 'MCP servers', 'CRM', 'Example'];
+// Section ids (`/settings/<id>`) of core and the upstream apps. A fork's own apps may add more,
+// and an app's label is just its name, so these are subset checks on ids, never the exact list (#18).
+const MEMBER = ['account', 'notifications', 'workspace', 'apps', 'mcp', 'todos'];
+const ADMIN_ONLY = ['users', 'records', 'signin', 'integrations', 'data', 'ai', 'mcp_servers', 'crm', 'example'];
 
 async function sections({ page }: Session) {
   await page.goto('/settings');
   await expect(page).toHaveURL(/\/settings\/account$/);
   const links = page.getByRole('navigation', { name: 'Settings sections' }).getByRole('link');
-  return () => links.allInnerTexts();
+  return () => links.evaluateAll(as => as.map(a => a.getAttribute('href')?.replace('/settings/', '')));
 }
 
 test("an admin sees every section, including the example app's card", async ({ admin }) => {
@@ -21,9 +21,9 @@ test("an admin sees every section, including the example app's card", async ({ a
 });
 
 test('a member sees only the sections with a card for members', async ({ member }) => {
-  const labels = await sections(member);
-  await expect.poll(labels).toEqual(expect.arrayContaining(MEMBER));
-  expect((await labels()).filter(label => ADMIN_ONLY.includes(label))).toEqual([]);
+  const ids = await sections(member);
+  await expect.poll(ids).toEqual(expect.arrayContaining(MEMBER));
+  expect((await ids()).filter(id => id && ADMIN_ONLY.includes(id))).toEqual([]);
   const { page } = member;
   await expect(page.getByRole('heading', { name: 'Security', level: 2 })).toBeVisible();
   // A deep link to an admin-only section lands back on the member's first section.
