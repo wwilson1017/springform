@@ -26,6 +26,7 @@ The app contract replaces the 25 core edits a previous CakeCRM fork needed. An a
 | `settings_cards` | list | `[{id, title, admin_only}]`. Each `id` must have a loader in `contributions.ts`. |
 | `sheets` | list | `[{name, mode, description}]`, `mode` is `read` or `write`. Seeds `core_connected_sheets` (`sheets-and-export.md`). |
 | `publishes` | list | Names of the app's published functions (the example lists `["get_widget", "widgets_for_person"]`). Validated against the names `api.py` exports. |
+| `requires_apps` | list, optional | Slugs of the apps whose seed and sample data this app's build on (an `orders` app listing `["recipes"]`). Apps seed, sample and are listed by `registry.installed()` in folder-name order, except that each app comes after the apps it requires. A slug that is not installed, or a cycle, stops startup with an `AppContractError` naming the apps. Default `[]`. |
 
 The current fixture manifest (`backend/apps/example/app.json`):
 
@@ -90,7 +91,7 @@ Published APIs the plan fixes so far:
 | Export | Contract |
 |---|---|
 | `seed(conn)` | The app's reference data. Runs at **every startup** and must be idempotent. Writes through published APIs (the CRM seed writes through `contacts.api`). |
-| `sample(conn)` | Sample data. Runs at startup only in `PREVIEW_MODE`, after the preview users and core's sample directory (so it may link to sample people and organizations), and must be idempotent. |
+| `sample(conn)` | Sample data. Runs at startup only in `PREVIEW_MODE`, after the preview users and core's sample directory (so it may link to sample people and organizations) and after the samples of the apps its manifest `requires_apps`, and must be idempotent. |
 | `RESET_TABLES` | The app's owned **real tables** (no indexes, views or FTS shadow tables). Must **equal** that set (contract test). Used by `registry.reset_app_in`. |
 | `EXPORT` | `{"<table>": {"entity": "<slug>.<name>", "columns": [...], "id_column"?, "where"?, "owner_column"?}}`: the column allow-list for the admin export, separate from reset ownership. `entity` is required: one of the app's own entity types, or `None` for no row check. `id_column` (default `"id"`) and `owner_column` must name real columns. Same shape as `CORE_EXPORT` (`sheets-and-export.md` §6). |
 
