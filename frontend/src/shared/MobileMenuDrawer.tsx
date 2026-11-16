@@ -20,14 +20,14 @@ interface Props {
 export function MobileMenuDrawer({ items, onClose, onSignOut, children }: Props) {
   return (
     <div role="dialog" aria-modal="true" aria-label="Menu" className="fixed inset-0 z-50 flex flex-col bg-sf-card">
-      <div className="flex items-center justify-between border-b border-sf-line px-4 py-3">
+      <div className="flex shrink-0 items-center justify-between border-b border-sf-line px-4 py-3">
         <span className="font-display text-xl text-sf-ink">Menu</span>
         <button type="button" onClick={onClose} aria-label="Close menu"
           className="cursor-pointer border-0 bg-transparent p-1 text-sf-ink-mute">
           <IconX aria-hidden />
         </button>
       </div>
-      <nav className="flex flex-col gap-0.5 px-4 py-3">
+      <nav className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto px-4 py-3">
         {items.map(item => (
           <Link key={item.to} to={item.to} onClick={onClose}
             className="flex items-center gap-2.5 rounded px-2 py-3 text-sm text-sf-ink no-underline hover:text-sf-accent-text">
