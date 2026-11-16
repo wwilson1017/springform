@@ -18,6 +18,10 @@ Conventions:
 
 ## [Unreleased]
 
+## [0.1.3] - 2026-11-16
+
+Two fixes: the phone menu on installs with many apps, and a random crash in the backend test run.
+
 ### Fixed
 
 - The phone menu now scrolls, so Settings and Sign out stay reachable when an install has more apps than fit on the screen.
