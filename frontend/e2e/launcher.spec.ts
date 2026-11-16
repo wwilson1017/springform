@@ -30,6 +30,30 @@ for (const [role, { button, apps: names, hidden, menu }] of Object.entries(ROLES
   });
 }
 
+test('an overflowing mobile menu keeps Settings, Sign out and the close button reachable', async ({ admin }) => {
+  const { page } = admin;
+  // Force overflow even on installs with only the built-in apps.
+  await page.setViewportSize({ width: 390, height: 400 });
+  await page.goto('/');
+  const { entry } = await openMenu(page);
+  const dialog = page.getByRole('dialog', { name: 'Menu' });
+  const close = dialog.getByRole('button', { name: 'Close menu' });
+  const settings = entry('Settings');
+  await settings.scrollIntoViewIfNeeded();
+  await expect(settings).toBeInViewport();
+  await expect(close).toBeInViewport();
+  await settings.click();
+  await expect(page).toHaveURL(/\/settings\/account$/);
+
+  await openMenu(page);
+  const signOut = dialog.getByRole('button', { name: 'Sign out' });
+  await signOut.scrollIntoViewIfNeeded();
+  await expect(signOut).toBeInViewport();
+  await expect(close).toBeInViewport();
+  await signOut.click();
+  await expect(page).toHaveURL(/\/login$/);
+});
+
 test('a member is kept out of the admin-only pages', async ({ member }) => {
   const { page } = member;
   for (const path of ['/jobs', '/backups']) {
