@@ -42,7 +42,9 @@ assert manifest["icon"] == "grid", manifest["icon"]  # in APP_ICONS (frontend/sr
 assert manifest["publishes"] == [], manifest["publishes"]
 PY
 
-uv run ruff check "$backend"
+uv run --locked ruff check "$backend"
+uv run --locked ruff format --check "$backend"
+uv run --locked pyright "$backend"
 uv run pytest -q backend/tests/test_app_contract.py "$backend"
 DATA_DIR="$tmp/data" uv run python - <<'PY'
 import os
@@ -63,5 +65,6 @@ PY
 scripts/gen-types.sh
 cd frontend
 npm run typecheck
+npx prettier --check "$frontend"
 npx vitest run src/core/apps/contract.test.ts src/bootSplit.test.ts
 echo "new-app.sh scaffold self-test passed"

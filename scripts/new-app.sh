@@ -222,6 +222,8 @@ else
 created_frontend=" (no frontend/src here, so no screen placeholders)"
 fi
 
+# The templates stay short; ruff wraps the lines a long slug makes, so CI's format check passes.
+uv run --locked ruff format -q "$backend"
 echo "Created backend/apps/$slug${created_frontend}."
 echo "Then: uv run pytest   (the app contract, and backend/apps/$slug/tests)"
 echo "      scripts/gen-types.sh   (commit frontend/src/core/api/types.gen.ts with the app)"

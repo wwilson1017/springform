@@ -27,6 +27,7 @@ import bcrypt as _bcrypt
 import pyotp
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel
+from pyotp.totp import TOTP
 
 from backend.core import clock, db, settings
 from backend.core.auth import jwt, service, trusted
@@ -63,7 +64,7 @@ def enrol(user: User) -> dict:
             (user.id, secret_enc, now, now),
         )
     issuer = urlparse(settings.public_url()).hostname or "Springform"
-    return {"secret": secret, "otpauth_uri": pyotp.TOTP(secret).provisioning_uri(name=user.email, issuer_name=issuer)}
+    return {"secret": secret, "otpauth_uri": TOTP(secret).provisioning_uri(name=user.email, issuer_name=issuer)}
 
 
 def _check_code_in(conn: db.Conn, user_id: int, code: str, is_enabled: bool) -> bool:
@@ -73,7 +74,7 @@ def _check_code_in(conn: db.Conn, user_id: int, code: str, is_enabled: bool) -> 
     secret = decrypt(row["secret_enc"]) if row else ""
     if not secret:
         return False
-    totp, now, code = pyotp.TOTP(secret), clock.now(), (code or "").replace(" ", "")
+    totp, now, code = TOTP(secret), clock.now(), (code or "").replace(" ", "")
     step = next(
         (totp.timecode(now) + i for i in (-1, 0, 1) if hmac.compare_digest(totp.at(now, counter_offset=i), code)), None
     )
