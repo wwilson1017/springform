@@ -22,7 +22,7 @@ dependencies = [
     "pyotp>=2.10.0",
     "python-multipart>=0.0.12",
     "pywebpush>=2.3",
-    "uvicorn[standard]>=0.32",
+    "uvicorn[standard]>=0.54.0",
 ]
 
 [dependency-groups]
