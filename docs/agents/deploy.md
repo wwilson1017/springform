@@ -44,11 +44,13 @@ The **CI image test** runs the container and asserts `/api/health` reports `sqli
 ### Railway
 
 `.railway/railway.ts` stores the Dockerfile build (`Dockerfile`, never `IMAGE`), `/up`
-health check (60 s), restart on failure (3 retries), and required `/data` mount on the
-service. Railway never reads it during a deploy. It starts from the live service to
+health check (60 s) and 3 restart retries on the service; restart on failure is Railway's
+default. Railway never reads it during a deploy. It starts from the live service to
 preserve its source, variables and attached volumes; `SPRINGFORM_SERVICE` selects the service.
 
-Create the service and attach its `/data` volume first. From a checkout linked with
+Create the service and attach its `/data` volume first. Nothing checks for it: Railway
+stores no required mount path, so a service without the volume deploys and loses its data on
+the next deploy. From a checkout linked with
 `railway link` to that project and environment, using Node 22.6+ (the CLI evaluates
 TypeScript with `--experimental-strip-types`; tested with Railway CLI 5.54.1):
 
@@ -59,17 +61,13 @@ SPRINGFORM_SERVICE=<service> railway config apply
 ```
 
 Apply once per service in each environment, and again whenever an upstream update changes
-this file. Set `RAILWAY_DEPLOYMENT_DRAINING_SECONDS=15` for graceful shutdown.
-
-`railway.json` is read only until 2026-12-01. It stays until the services carry the applied
-settings; removing it is a follow-up. With CLI 5.54.1, plan was not blocked on `demo` or
-`fork`: neither service has a Config File path set (`config: null`); the JSON is auto-detected
-at deploy. Applying first keeps the settings in place throughout the transition.
+this file. A plan after an apply shows no changes. Set `RAILWAY_DEPLOYMENT_DRAINING_SECONDS=15`
+for graceful shutdown.
 
 If plan stops because the service is still managed by Config as Code (a service whose Settings
 name a Config File path), clear that path in the service's Settings, as Railway's migration
-guide says, and plan again. Do not use `railway config migrate --apply`: the file it writes
-drops `requiredMountPath`, and applying it deletes the service's variables and detaches its volume.
+guide says, and plan again. Do not use `railway config migrate --apply`: applying the file it
+writes deletes the service's variables and detaches its volume.
 
 ### `TRUST_PROXY` constraint
 

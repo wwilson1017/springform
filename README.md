@@ -74,10 +74,10 @@ two copies against one `/data`, and never raise `--workers` above 1.
 **Railway.** Create the service and attach a volume at `/data`. From a checkout linked with
 `railway link` to its project and environment, run `SPRINGFORM_SERVICE=<service> railway config plan`,
 review every changed field, then `SPRINGFORM_SERVICE=<service> railway config apply` (Node 22.6+).
-`.railway/railway.ts` stores the Dockerfile build, `/up` health check and mount requirement on
-that service; it is never read during deploy. Apply once per service and environment, and again
-when an upstream update changes the file. `railway.json` is read only until 2026-12-01 and stays
-until the settings are applied ([details](docs/agents/deploy.md#railway)). Set `SECRET_KEY`,
+`.railway/railway.ts` stores the Dockerfile build and `/up` health check on that service; it is
+never read during deploy. Apply once per service and environment, and again when an upstream
+update changes the file ([details](docs/agents/deploy.md#railway)). Nothing refuses a deploy
+without the volume, so attach it first. Set `SECRET_KEY`,
 `PUBLIC_URL`, `TRUST_PROXY=1` and `RAILWAY_DEPLOYMENT_DRAINING_SECONDS=15` (time for a graceful
 shutdown). With a volume attached, Railway stops the old deployment before starting the new one,
 which the lock relies on.

@@ -18,6 +18,10 @@ Conventions:
 
 ## [Unreleased]
 
+### Removed
+
+- `railway.json`. Railway stops reading it on 2026-12-01, and `.railway/railway.ts` now holds the build, health check and restart settings. Railway has no place to store the required `/data` mount, so nothing refuses a deploy without the volume any more: attach it when you create the service.
+
 ## [0.1.3] - 2026-11-16
 
 Two fixes: the phone menu on installs with many apps, and a random crash in the backend test run.
