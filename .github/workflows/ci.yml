@@ -36,17 +36,21 @@ jobs:
           python-version: "3.12"
           enable-cache: true
 
-      - name: Install dependencies
-        run: uv sync --frozen
-
+      # --locked installs the dev group from uv.lock and fails if it no longer matches pyproject.toml.
       - name: Lint (ruff)
-        run: uv run ruff check .
+        run: uv run --locked ruff check .
+
+      - name: Format (ruff)
+        run: uv run --locked ruff format --check backend scripts run.py conftest.py
+
+      - name: Types (pyright)
+        run: uv run --locked pyright
 
       - name: Import check (no database)
-        run: DATA_DIR="$(mktemp -d)" uv run python -c "from backend.main import create_app; create_app()"
+        run: DATA_DIR="$(mktemp -d)" uv run --locked python -c "from backend.main import create_app; create_app()"
 
       - name: Tests (pytest)
-        run: uv run pytest -q
+        run: uv run --locked pytest -q
 
   frontend:
     name: Frontend
@@ -74,6 +78,10 @@ jobs:
       - name: Lint (eslint)
         working-directory: frontend
         run: npm run lint
+
+      - name: Format (prettier)
+        working-directory: frontend
+        run: npm run format:check
 
       - name: Typecheck
         working-directory: frontend

@@ -16,14 +16,9 @@ uv run uvicorn backend.main:app --reload       # http://localhost:8000, data in 
 cd frontend && npm ci && npm run dev           # hot-reload frontend
 ```
 
-Before pushing, run what CI runs:
-
-```bash
-uv run ruff check . && uv run pytest -q
-cd frontend && npm run lint && npm run typecheck && npm test && npm run build && cd ..
-scripts/gen-types.sh && git diff --exit-code frontend/src/core/api/types.gen.ts
-docker build -t springform .                   # the Image test boots this and reads /api/health
-```
+Before a PR, run `scripts/check.sh` (the Backend and Frontend CI checks: ruff, pyright, pytest,
+the types diff, ESLint, Prettier, typecheck, vitest, build). The Image test boots
+`docker build -t springform .` and reads `/api/health`.
 
 Scaffold an app with `scripts/new-app.sh <slug> "<Name>"`. Fork tooling: `scripts/new-fork.sh`,
 `scripts/update-from-upstream.sh`, `scripts/check-fork-scope.sh` (see `docs/agents/forks.md`).
@@ -134,3 +129,13 @@ only when a core rule changes.
 - Plain commit messages. No AI attribution, `Co-Authored-By` trailers or tool-generated footers.
 - A user-visible change adds a line under "Unreleased" in `CHANGELOG.md`.
 - Code lifted from another repo gets a row in `docs/PROVENANCE.md` in the same PR.
+
+## Review guidelines
+
+For the Codex reviewer on every PR, on top of the rules above.
+- P1: any change to `.github/`, CI config, `scripts/check.sh`, or the ruff, pyright, ESLint or
+  Prettier settings, unless the PR says why. These are what keep CI honest.
+- P1: a deleted, skipped or weakened test, or a new lint or type-check suppression comment
+  (ruff, pyright, ESLint or TypeScript).
+- P1: a break of any rule under "Hard lines".
+- Skip style and formatting: the formatters own them.
