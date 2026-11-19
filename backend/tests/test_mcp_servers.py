@@ -8,6 +8,7 @@ from dataclasses import replace
 
 import anyio
 import httpcore2
+import httpx2
 import pytest
 
 from backend.core import db as core_db, scheduler
@@ -96,8 +97,8 @@ def test_discovery_registers_prefixed_remote_tools(admin, stub, allow_private):
 def test_hash_covers_the_url_and_a_url_change_makes_a_pending_approval_stale(admin, stub, allow_private):
     url, calls = stub
     server = add(admin, url)
-    before = tool_def_sha256(registry.get("stub__add_item"))
-    assert tool_def_sha256(replace(registry.get("stub__add_item"), server_url=url + "?v=2")) != before
+    before = tool_def_sha256(core_db.must(registry.get("stub__add_item")))
+    assert tool_def_sha256(replace(core_db.must(registry.get("stub__add_item")), server_url=url + "?v=2")) != before
 
     fake.script({"tool": "stub__add_item", "args": {"title": "Sugar"}}, "Shall I add it?")
     confirm = [
@@ -106,7 +107,7 @@ def test_hash_covers_the_url_and_a_url_change_makes_a_pending_approval_stale(adm
 
     moved = admin.patch(f"{BASE}/{server['id']}", json={"url": url + "?v=2"}).json()
     assert moved["url"] == url + "?v=2" and moved["last_error"] is None
-    assert tool_def_sha256(registry.get("stub__add_item")) != before
+    assert tool_def_sha256(core_db.must(registry.get("stub__add_item"))) != before
     seen = len(calls)
     r = admin.post("/api/agent/confirm", json={"tool_run_id": confirm["tool_run_id"], "decision": "approve"}).json()
     assert r == {"status": "stale"} and len(calls) == seen
@@ -223,7 +224,7 @@ class _Inner(httpcore2.AsyncNetworkBackend):
 
     async def connect_tcp(self, host, port, timeout=None, local_address=None, socket_options=None):
         self.connected.append(host)
-        return object()
+        return httpcore2.AsyncNetworkStream()
 
 
 def test_dns_rebinding_is_refused_at_connection_time(monkeypatch):
@@ -250,7 +251,7 @@ def test_dns_rebinding_is_refused_at_connection_time(monkeypatch):
 
 
 def test_responses_are_capped_and_never_sent_inside_a_transaction(db, stub, monkeypatch):
-    class Big:
+    class Big(httpx2.AsyncByteStream):
         async def __aiter__(self):
             for _ in range(5):
                 yield b"x" * (transport.MAX_RESPONSE // 4)
@@ -273,7 +274,7 @@ def test_swap_server_replaces_one_servers_tools_atomically(admin, stub, allow_pr
     url, _ = stub
     server = add(admin, url)
     key, local = str(server["id"]), len([s for s in registry.current().all() if not s.remote])
-    listing = registry.get("stub__list_items")
+    listing = core_db.must(registry.get("stub__list_items"))
     with pytest.raises(ToolSpecError, match="always_confirm, untrusted_source and external_effect"):
         registry.swap_server(key, [replace(listing, always_confirm=False)])
     assert remote_names() == ["stub__add_item", "stub__list_items"]  # unchanged after a refused swap

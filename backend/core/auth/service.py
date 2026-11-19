@@ -13,6 +13,7 @@ from __future__ import annotations
 import hashlib
 import secrets
 from collections.abc import Callable
+from typing import TypeGuard
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import bcrypt as _bcrypt
@@ -62,7 +63,7 @@ def hash_password(plain: str) -> str:
     return _bcrypt.hashpw(plain.encode(), _bcrypt.gensalt(rounds=BCRYPT_ROUNDS)).decode()
 
 
-def has_password(stored: str | None) -> bool:
+def has_password(stored: str | None) -> TypeGuard[str]:
     return bool(stored) and stored.startswith(("$2a$", "$2b$", "$2y$"))
 
 

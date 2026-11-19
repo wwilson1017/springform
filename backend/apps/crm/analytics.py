@@ -349,7 +349,7 @@ def deal_health_in(conn: db.Conn, user: User, deal_id: int) -> dict:
         flags.append("missing_person")
     if not deal["organization_id"]:
         flags.append("missing_organization")
-    breakdown = scoring.deal_breakdown_in(conn, deal_id, now)
+    breakdown = db.must(scoring.deal_breakdown_in(conn, deal_id, now))
     return {
         "deal": deal,
         "score": breakdown["score"],

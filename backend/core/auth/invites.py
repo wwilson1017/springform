@@ -96,7 +96,7 @@ def _set_password_by_token(token: str, purpose: str, password: str) -> dict:
         if not row:
             raise NotFound()
         service.set_password_in(conn, row["id"], hashed)
-    return service.get_user(row["id"])
+    return db.must(service.get_user(row["id"]))
 
 
 def forgot(email: str, ip: str) -> tuple[str, str] | None:
@@ -123,7 +123,7 @@ def change_password(user_id: int, current: str, new: str) -> dict:
     with db.transaction() as conn:
         if service.over_limit_in(conn, f"pwchange:{user_id}", *CHANGE_LIMIT):
             raise service.RateLimited()
-    stored = service.get_user(user_id)["password_hash"]
+    stored = db.must(service.get_user(user_id))["password_hash"]
     if not service.verify_password(current, stored):
         raise Invalid("wrong_password")
     hashed = service.hash_password(new)
@@ -132,7 +132,7 @@ def change_password(user_id: int, current: str, new: str) -> dict:
         if now != stored:  # changed by a concurrent request since the check above
             raise Invalid("wrong_password")
         service.set_password_in(conn, user_id, hashed)
-    return service.get_user(user_id)
+    return db.must(service.get_user(user_id))
 
 
 # ── Routes ───────────────────────────────────────────────────────────────────

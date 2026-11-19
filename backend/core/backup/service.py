@@ -165,7 +165,7 @@ def _record(started: datetime, status: str, fields: dict) -> dict:
                     fields.get("error"),
                 ),
             ).lastrowid
-        return db.one("SELECT * FROM core_backups WHERE id = ?", (row_id,))
+        return db.must(db.one("SELECT * FROM core_backups WHERE id = ?", (row_id,)))
     except Exception:
         logger.exception("Could not record the backup run")
         return {"status": status, **fields}
@@ -213,7 +213,7 @@ def list_sets() -> list[dict]:
     statuses = {r["snapshot"]: r["status"] for r in db.rows("SELECT snapshot, status FROM core_backups ORDER BY id")}
     sets = []
     for stamp in sorted((s for s in stamps if STAMP.match(s)), key=stamp_order, reverse=True):
-        manifest, snap = read_manifest(stamp), out / f"{stamp}{SNAPSHOT}"
+        manifest, snap = read_manifest(stamp) or {}, out / f"{stamp}{SNAPSHOT}"
         size = snap.stat().st_size if snap.is_file() else None
         try:
             ok = manifest["version"] == MANIFEST_VERSION and manifest["snapshot"]["byte_size"] == size

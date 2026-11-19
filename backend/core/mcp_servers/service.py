@@ -57,11 +57,12 @@ def _unique_prefix():
 def create_in(conn: db.Conn, *, name: str, url: str, prefix: str, token: str = "") -> int:
     now = now_iso()
     with _unique_prefix():
-        return conn.execute(
+        return db.insert_in(
+            conn,
             """INSERT INTO core_agent_mcp_servers (name, url, token_enc, prefix, created_at, updated_at)
                VALUES (?, ?, ?, ?, ?, ?)""",
             (name, url, secrets.encrypt(token), prefix, now, now),
-        ).lastrowid
+        )
 
 
 def create(**fields) -> int:

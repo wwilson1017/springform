@@ -20,7 +20,7 @@ PARAMS = {
 
 
 def _echo(params, user):
-    return ["param", "value"], [(k, v) for k, v in sorted(params.items())]
+    return ["param", "value"], [[k, v] for k, v in sorted(params.items())]
 
 
 @pytest.fixture

@@ -382,7 +382,7 @@ async def _wrap_up(provider, cid: int, msgs: list[dict], tools: list[dict], syst
 
 
 def _already(run_id: int) -> dict:
-    return {"status": "already_resolved", "current": history.get_tool_run(run_id)["status"]}
+    return {"status": "already_resolved", "current": db.must(history.get_tool_run(run_id))["status"]}
 
 
 def _finish(run_id: int, status: str, user: User, error: str | None = None) -> dict:

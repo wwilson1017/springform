@@ -53,12 +53,13 @@ def clear() -> None:
 
 def enqueue_in(conn: db.Conn, hook: str, payload: dict) -> int:
     now = clock.now_iso()
-    cur = conn.execute(
+    outbox_id = db.insert_in(
+        conn,
         "INSERT INTO core_outbox (hook, payload, created_at, available_at) VALUES (?, ?, ?, ?)",
         (hook, json.dumps(payload), now, now),
     )
     db.mark_outbox_pending()
-    return cur.lastrowid
+    return outbox_id
 
 
 def claim() -> dict | None:

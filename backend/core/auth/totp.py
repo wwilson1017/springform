@@ -231,7 +231,7 @@ def login_totp(body: StepIn, request: Request, response: Response) -> dict:
         claims = jwt.decode_purpose(body.challenge, "totp")
         row = service.get_user(int(claims["sub"]))
     except (jwt.InvalidToken, KeyError, TypeError, ValueError):
-        row = None
+        raise HTTPException(401, detail="challenge_expired") from None
     if (
         not row
         or not row["is_active"]

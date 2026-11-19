@@ -3,6 +3,8 @@ stage, probability, closed_on and lost_reason rules, bulk moves, money in cents,
 the record hooks and the CRM's own reset. Behaviour ported from CakeCRM's deal lifecycle,
 closed_on and bulk-move suites (docs/PROVENANCE.md)."""
 
+from typing import Any
+
 import pytest
 
 from backend.apps.crm import activity, deals, meta, provenance, scoring
@@ -289,7 +291,8 @@ def test_board_modes(me):
 def test_links_must_exist(me):
     for field in ("person_id", "organization_id", "owner_user_id"):
         with pytest.raises(Invalid, match=field):
-            new(me, **{field: 9999})
+            link: dict[str, Any] = {field: 9999}
+            new(me, **link)
 
 
 def test_the_system_principal_reads_but_never_writes(me):

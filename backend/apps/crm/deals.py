@@ -373,8 +373,9 @@ def create_in(conn: db.Conn, user: User, fields: dict) -> dict:
     now = clock.now_iso()
     data.update(created_at=now, updated_at=now, touch_dirty=1)
     cols = ", ".join(data)  # DealIn's own fields plus the four set here
-    cur = conn.execute(f"INSERT INTO crm_deals ({cols}) VALUES ({', '.join('?' * len(data))})", tuple(data.values()))
-    deal_id = cur.lastrowid
+    deal_id = db.insert_in(
+        conn, f"INSERT INTO crm_deals ({cols}) VALUES ({', '.join('?' * len(data))})", tuple(data.values())
+    )
     conn.execute(
         "INSERT INTO crm_deal_stage_events (deal_id, old_stage, new_stage, user_id, changed_at) VALUES (?, '', ?, ?, ?)",
         (deal_id, data["stage"], user.id, now),

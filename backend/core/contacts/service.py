@@ -197,7 +197,7 @@ def _settle_in(
     _sync_primary(conn, owner_type, owner_id)
     if before is not None:
         after = _row_in(conn, owner_type, owner_id)
-        timeline.record_changes_in(conn, KINDS[owner_type].entity, owner_id, before, after, user.id)
+        timeline.record_changes_in(conn, KINDS[owner_type].entity, owner_id, before, after, user.id if user else None)
 
 
 def _set_primary_channel_in(conn: db.Conn, owner_type: str, owner_id: int, kind: str, value: Any) -> None:
@@ -449,10 +449,11 @@ def _insert_in(conn: db.Conn, user: User, kind: str, fields: dict) -> int:
         raise Conflict(f"organization #{other} already has that name")
     now = clock.now_iso()
     cols |= {"created_at": now, "updated_at": now}
-    record_id = conn.execute(
+    record_id = db.insert_in(
+        conn,
         f"INSERT INTO {KINDS[kind].table} ({', '.join(cols)}) VALUES ({', '.join('?' * len(cols))})",
         tuple(cols.values()),
-    ).lastrowid
+    )
     for channel_kind, value in mirrored.items():
         _set_primary_channel_in(conn, kind, record_id, channel_kind, value)
     _settle_in(conn, kind, record_id)
@@ -574,7 +575,7 @@ def update_link_in(conn: db.Conn, user: User, person_id: int, organization_id: i
     link = _link_row_in(conn, person_id, organization_id, (role or "").strip())
     if unknown := set(fields) - {"new_role", "is_primary", "started_on", "ended_on"}:
         raise Invalid(f"unknown field(s): {', '.join(sorted(unknown))}")
-    cols = {k: _day(v) for k, v in fields.items() if k in ("started_on", "ended_on")}
+    cols: dict[str, str | int | None] = {k: _day(v) for k, v in fields.items() if k in ("started_on", "ended_on")}
     if "new_role" in fields:
         cols["role"] = (fields["new_role"] or "").strip()
         if (
@@ -651,9 +652,9 @@ def add_part_in(conn: db.Conn, user: User, part: str, owner_type: str, owner_id:
     }
     if cols["is_primary"]:
         _demote_in(conn, p, cols, None)
-    part_id = conn.execute(
-        f"INSERT INTO {p.table} ({', '.join(cols)}) VALUES ({', '.join('?' * len(cols))})", tuple(cols.values())
-    ).lastrowid
+    part_id = db.insert_in(
+        conn, f"INSERT INTO {p.table} ({', '.join(cols)}) VALUES ({', '.join('?' * len(cols))})", tuple(cols.values())
+    )
     _settle_in(conn, owner_type, owner_id, user, before)
     return _part_row_in(conn, p, part_id)
 

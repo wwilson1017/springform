@@ -111,11 +111,12 @@ def remember_in(
         start = clock.normalize(valid_from) if valid_from else now
     except ValueError as e:
         raise Invalid(str(e)) from None
-    fact_id = conn.execute(
+    fact_id = db.insert_in(
+        conn,
         """INSERT INTO core_agent_facts (text, tags, valid_from, source_conversation_id, author_user_id, created_at)
            VALUES (?, ?, ?, ?, ?, ?)""",
         (_clean_text(text), json.dumps(_clean_tags(tags)), start, source_conversation_id, author_user_id, now),
-    ).lastrowid
+    )
     return get_in(conn, fact_id)
 
 

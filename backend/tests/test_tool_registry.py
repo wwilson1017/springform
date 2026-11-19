@@ -1,5 +1,7 @@
 from dataclasses import fields
 from importlib import import_module
+from types import SimpleNamespace
+from typing import Any
 
 import pytest
 
@@ -7,6 +9,7 @@ from backend.core.agent.registry import ToolSpecError, build_registry
 from backend.core.agent.spec import ToolSpec, tool_def_sha256
 
 SCHEMA = {"type": "object", "properties": {}}
+NOT_A_BOOL: Any = "yes"  # the wrong type on purpose
 
 
 def read(name="core_read", **kw) -> ToolSpec:
@@ -41,7 +44,7 @@ def write(name="core_write", **kw) -> ToolSpec:
             "a read runs through handler",
         ),
         ([read(input_schema={"type": "string"})], "input_schema"),
-        ([ToolSpec("core_x", "x", SCHEMA, writes="yes", handler=lambda u, a: None)], "writes must be a bool"),
+        ([ToolSpec("core_x", "x", SCHEMA, writes=NOT_A_BOOL, handler=lambda u, a: None)], "writes must be a bool"),
     ],
 )
 def test_invalid_specs_fail_the_build(specs, message):
@@ -83,17 +86,16 @@ def test_sources_apply_their_exclusions():
     assert names(reg.for_source("job")) == ["core_protected", "core_read"]
     assert names(reg.for_source("mcp")) == ["core_careful", "core_read", "core_web", "core_write"]
     assert len(reg.for_source("chat")) == 6
+    email: Any = "email"  # not a Source, on purpose
     with pytest.raises(ValueError):
-        reg.for_source("email")
+        reg.for_source(email)
 
 
 def test_for_user_applies_enabled():
     reg = build_registry([read(), read(name="core_admin", enabled=lambda u: u.role == "admin")])
 
-    class Member:
-        role = "member"
-
-    assert [s.name for s in reg.for_user(Member())] == ["core_read"]
+    member: Any = SimpleNamespace(role="member")  # enabled() reads only the role
+    assert [s.name for s in reg.for_user(member)] == ["core_read"]
 
 
 def test_tool_def_sha256_binds_what_was_shown_and_where_it_runs():

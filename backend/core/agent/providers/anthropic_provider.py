@@ -16,6 +16,7 @@ import hashlib
 import json
 import logging
 from collections.abc import AsyncGenerator
+from typing import Any
 
 from backend.core.agent.providers.base import DEFAULT_MAX_TOKENS, AIProvider
 from backend.core.agent.providers.windows import get_context_window
@@ -23,10 +24,11 @@ from backend.core.agent.providers.windows import get_context_window
 logger = logging.getLogger(__name__)
 
 _CACHE_CONTROL = {"type": "ephemeral"}
-_clients: dict[str, object] = {}  # one AsyncAnthropic per key, for connection reuse
+# One AsyncAnthropic per key, for connection reuse. Any: the SDK is imported lazily and fed plain dicts.
+_clients: dict[str, Any] = {}
 
 
-def _client(api_key: str):
+def _client(api_key: str) -> Any:
     import anthropic
 
     cache_key = hashlib.sha256(api_key.encode()).hexdigest()

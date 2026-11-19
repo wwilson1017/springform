@@ -145,9 +145,14 @@ def app(db):
     return create_app()
 
 
-def make_client(app, **headers) -> TestClient:
+class Client(TestClient):
+    user: dict  # set by login_as: the /api/me shape
+    principal: User  # set by login_as
+
+
+def make_client(app, **headers) -> Client:
     """A browser-like client: same-origin fetch metadata, cookies kept, lifespan not run."""
-    return TestClient(app, headers={"Sec-Fetch-Site": "same-origin", **headers})
+    return Client(app, headers={"Sec-Fetch-Site": "same-origin", **headers})
 
 
 @pytest.fixture
@@ -176,7 +181,7 @@ def login_as(app):
     /api/me shape and `.principal` the User. The first account goes through the real setup-token
     path (an admin, as on a fresh install); later ones are created and sign in via /api/auth/login."""
 
-    def _login(role: str = "member", email: str | None = None, on=None) -> TestClient:
+    def _login(role: str = "member", email: str | None = None, on=None) -> Client:
         n = next(_counter)
         email = email or f"{role}{n}@example.com"
         client = make_client(on or app)
@@ -194,7 +199,7 @@ def login_as(app):
             r = client.post("/api/auth/login", json={"email": email, "password": PASSWORD})
         assert r.status_code == 200, r.text
         client.user = r.json()["user"]
-        client.principal = User.from_row(auth_service.get_user(client.user["id"]))
+        client.principal = User.from_row(core_db.must(auth_service.get_user(client.user["id"])))
         return client
 
     return _login

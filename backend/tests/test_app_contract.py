@@ -7,6 +7,7 @@ import json
 import re
 from pathlib import Path
 from types import SimpleNamespace
+from typing import Any
 
 import pytest
 from fastapi import APIRouter, Depends, FastAPI
@@ -395,10 +396,9 @@ def test_no_slug_extends_another_slugs_prefix():
 def test_publishes_is_checked_at_boot(tmp_path):
     manifest = AppManifest.model_validate(_manifest(publishes=["get_widget"]))
     api = SimpleNamespace(get_widget=lambda: None)  # no get_widget_in
+    modules: dict[str, Any] = {"router": SimpleNamespace(router=APIRouter()), "api": api}  # stand-in modules
     with pytest.raises(AppContractError, match="no get_widget_in"):
-        registry.mount_app(
-            FastAPI(), registry.App(manifest, tmp_path, {"router": SimpleNamespace(router=APIRouter()), "api": api})
-        )
+        registry.mount_app(FastAPI(), registry.App(manifest, tmp_path, modules))
 
 
 def app_models(app_dir: Path) -> dict[str, type[BaseModel]]:
@@ -441,8 +441,9 @@ def test_no_two_apps_share_a_model_name():
 def test_model_name_check_catches_what_openapi_renames():
     def models(slug: str, badge_field: str) -> dict[str, type[BaseModel]]:
         module = f"backend.apps.{slug}.models"
+        badge: dict[str, Any] = {badge_field: (int, ...)}
         return {
-            "Badge": create_model("Badge", __module__=module, **{badge_field: (int, ...)}),
+            "Badge": create_model("Badge", __module__=module, **badge),
             "Deleted": create_model("Deleted", __module__=module, deleted=(int, ...)),
         }
 

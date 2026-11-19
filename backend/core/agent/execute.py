@@ -51,7 +51,7 @@ def _authorize_targets_in(conn: db.Conn, spec: ToolSpec, user: User, args: dict)
 def _call_with_timeout(spec: ToolSpec, user: User, args: dict):
     pool = concurrent.futures.ThreadPoolExecutor(max_workers=1)
     try:
-        return pool.submit(spec.handler, user, args).result(timeout=TOOL_TIMEOUT)
+        return pool.submit(db.must(spec.handler), user, args).result(timeout=TOOL_TIMEOUT)
     finally:
         pool.shutdown(wait=False)  # a timed-out handler keeps its thread; its result is dropped
 
@@ -116,12 +116,11 @@ def run_tool(user: User, spec: ToolSpec, args: dict, *, source: str, run_id: int
                     result = spec.handler_in(conn, user, args)
                     stored, tainted = dump(spec, result)
                     history.resolve_in(conn, rid, "done", result=stored, resolved_by=user.id, expect="executing")
+                    return _outcome(rid, "done", result, stored, tainted=tainted)
     except Exception as e:
         return refused(e)
-    if rid is None:
-        return _outcome(run_id, "already_resolved")
-    if spec.handler_in is not None:
-        return _outcome(rid, "done", result, stored, tainted=tainted)
+    if rid is None:  # start_in found run_id already claimed
+        return _outcome(db.must(run_id), "already_resolved")
 
     try:
         result = _call_with_timeout(spec, user, args)

@@ -25,6 +25,9 @@ import anyio
 import httpcore2
 import httpx2
 
+# The real class: httpcore2.AnyIOBackend is a stand-in when anyio is missing, which a checker cannot rule out.
+from httpcore2._backends.anyio import AnyIOBackend
+
 from backend.core import db
 
 TIMEOUT = 30.0
@@ -61,15 +64,13 @@ async def resolve(host: str, port: int) -> list[str]:
 class GuardedBackend(httpcore2.AsyncNetworkBackend):
     def __init__(self, *, plain: bool, allow: bool, inner: httpcore2.AsyncNetworkBackend | None = None):
         self._plain, self._allow = plain, allow
-        self._inner = inner or httpcore2.AnyIOBackend()
+        self._inner = inner or AnyIOBackend()
 
     async def connect_tcp(self, host, port, timeout=None, local_address=None, socket_options=None):
         addresses = await resolve(host, port)
-        if not addresses:
-            raise Refused(f"{host} did not resolve")
         for address in addresses:  # all of them, before any connection
             check(address, plain=self._plain, allow=self._allow)
-        error: Exception | None = None
+        error: Exception = Refused(f"{host} did not resolve")  # raised as is when there is no address
         for address in addresses:
             try:
                 return await self._inner.connect_tcp(
@@ -131,6 +132,8 @@ class GuardedTransport(httpx2.AsyncBaseTransport):
         if problem:
             await response.aclose()
             raise Refused(problem)
+        if not isinstance(response.stream, httpx2.AsyncByteStream):  # an async transport always returns one
+            raise TypeError("expected an async response stream")
         response.stream = _Capped(response.stream)
         return response
 

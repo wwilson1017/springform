@@ -24,7 +24,7 @@ SELECT = """SELECT a.*, d.title AS deal_title, p.name AS person_name, u.name AS 
               LEFT JOIN core_users u ON u.id = a.actor_user_id"""
 
 
-def _links_in(conn: db.Conn, user: User, deal_id: int | None, person_id: int | None, action: str) -> None:
+def _links_in(conn: db.Conn, user: User, deal_id: int | None, person_id: int | None, action: entities.Action) -> None:
     """The activity's deal and person must be readable (write: the deal writable)."""
     if deal_id is not None:
         entities.authorize(user, conn, ENTITY, deal_id, action)
@@ -32,7 +32,7 @@ def _links_in(conn: db.Conn, user: User, deal_id: int | None, person_id: int | N
         entities.authorize(user, conn, "core.person", person_id, "read")
 
 
-def _row_in(conn: db.Conn, user: User, activity_id: int, action: str) -> dict:
+def _row_in(conn: db.Conn, user: User, activity_id: int, action: entities.Action) -> dict:
     row = conn.execute(f"{SELECT} WHERE a.id = ?", (activity_id,)).fetchone()
     if row is None:
         raise NotFound()

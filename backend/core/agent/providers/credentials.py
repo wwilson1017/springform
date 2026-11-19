@@ -81,8 +81,8 @@ def update_in(
         "INSERT INTO core_agent_providers (provider, updated_at) VALUES (?, ?) ON CONFLICT (provider) DO NOTHING",
         (provider, now_iso()),
     )
-    fields = {"model_default": model_default, "model_light": model_light}
-    fields = {k: v.strip() for k, v in fields.items() if v is not None}
+    models = {"model_default": model_default, "model_light": model_light}
+    fields: dict[str, str | int] = {k: v.strip() for k, v in models.items() if v is not None}
     if api_key is not None:
         fields["api_key_enc"] = secrets.encrypt(api_key.strip())
     if enabled is not None:

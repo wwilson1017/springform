@@ -70,8 +70,9 @@ class GoogleSheets:
             token_uri,
             data={"grant_type": "urn:ietf:params:oauth:grant-type:jwt-bearer", "assertion": assertion},
         )
-        self._token, self._expires = body["access_token"], now + int(body.get("expires_in", 3600))
-        return self._token
+        token: str = body["access_token"]
+        self._token, self._expires = token, now + int(body.get("expires_in", 3600))
+        return token
 
     def _call(self, method: str, url: str, **kwargs) -> dict:
         try:

@@ -10,6 +10,8 @@ recorded as provenance, so the deal shows an AI badge until a person confirms or
 
 from __future__ import annotations
 
+from typing import Any
+
 from backend.apps.crm import activity, analytics, dashboard, deals, provenance, scoring
 from backend.apps.crm.common import BULK_MOVE_MAX, ENTITY, OPEN_STAGES, STAGES
 from backend.apps.crm.models import DealIn, DealPatch
@@ -39,7 +41,7 @@ _CLOSED_ON = {
 }
 
 
-def _link(value):
+def _link(value: Any) -> Any:
     """Add `url` to every deal (a dict with id, title and stage) in a result."""
     if isinstance(value, list):
         return [_link(v) for v in value]
@@ -144,7 +146,7 @@ def _analytics(user, args: dict) -> dict:
 def _score(user, args: dict) -> dict:
     if args.get("deal_id"):
         deal = deals.get(user, int(args["deal_id"]))
-        return {"deal_id": deal["id"], **scoring.deal_breakdown_in(db.get_conn(), deal["id"])}
+        return {"deal_id": deal["id"], **db.must(scoring.deal_breakdown_in(db.get_conn(), deal["id"]))}
     if args.get("person_id"):
         entities.authorize(user, db.get_conn(), "core.person", int(args["person_id"]), "read")
         stored = scoring.person_scores([int(args["person_id"])])
