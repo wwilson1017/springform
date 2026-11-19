@@ -56,10 +56,17 @@ def _call_with_timeout(spec: ToolSpec, user: User, args: dict):
         pool.shutdown(wait=False)  # a timed-out handler keeps its thread; its result is dropped
 
 
-def _outcome(run_id: int, status: str, result=None, stored: str | None = None, error: str | None = None,
-             tainted: bool = False) -> dict:
-    return {"id": run_id, "status": status, "result": {"error": error} if error else result,
-            "stored": stored, "error": error, "tainted": tainted}
+def _outcome(
+    run_id: int, status: str, result=None, stored: str | None = None, error: str | None = None, tainted: bool = False
+) -> dict:
+    return {
+        "id": run_id,
+        "status": status,
+        "result": {"error": error} if error else result,
+        "stored": stored,
+        "error": error,
+        "tainted": tainted,
+    }
 
 
 def run_tool(user: User, spec: ToolSpec, args: dict, *, source: str, run_id: int | None = None, **record) -> dict:
@@ -72,16 +79,28 @@ def run_tool(user: User, spec: ToolSpec, args: dict, *, source: str, run_id: int
         if run_id is not None:
             return run_id if history.claim_in(conn, run_id) else None
         return history.insert_tool_run_in(
-            conn, **record, tool=spec.name, args=args, user_id=user.id, source=source,
-            tool_def_sha256=tool_def_sha256(spec), status="executing",
+            conn,
+            **record,
+            tool=spec.name,
+            args=args,
+            user_id=user.id,
+            source=source,
+            tool_def_sha256=tool_def_sha256(spec),
+            status="executing",
         )
 
     def refused(e: Exception) -> dict:  # nothing ran, or it rolled back
         error = error_text(e)
         if run_id is None:
             rid = history.insert_tool_run(
-                **record, tool=spec.name, args=args, user_id=user.id, source=source,
-                tool_def_sha256=tool_def_sha256(spec), status="error", error=error,
+                **record,
+                tool=spec.name,
+                args=args,
+                user_id=user.id,
+                source=source,
+                tool_def_sha256=tool_def_sha256(spec),
+                status="error",
+                error=error,
             )
             return _outcome(rid, "error", error=error)
         if history.resolve(run_id, "error", error=error, resolved_by=user.id):

@@ -26,7 +26,7 @@ function emit() {
 export function subscribeToasts(onChange: () => void): () => void {
   listeners.push(onChange);
   return () => {
-    listeners = listeners.filter(l => l !== onChange);
+    listeners = listeners.filter((l) => l !== onChange);
   };
 }
 
@@ -35,8 +35,8 @@ export function getToasts(): ToastItem[] {
 }
 
 export function dismissToast(id: number) {
-  if (!toasts.some(t => t.id === id)) return;
-  toasts = toasts.filter(t => t.id !== id);
+  if (!toasts.some((t) => t.id === id)) return;
+  toasts = toasts.filter((t) => t.id !== id);
   emit();
 }
 

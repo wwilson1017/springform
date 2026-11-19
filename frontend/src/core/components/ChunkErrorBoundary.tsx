@@ -10,8 +10,9 @@ export const RELOAD_GUARD_KEY = 'springform_chunk_reload';
  * a render bug replays the crash and hides it.
  */
 function isChunkLoadError(error: unknown): boolean {
-  return /dynamically imported module|Importing a module script failed|error loading dynamically|Unable to preload CSS/i
-    .test(errorMessage(error));
+  return /dynamically imported module|Importing a module script failed|error loading dynamically|Unable to preload CSS/i.test(
+    errorMessage(error),
+  );
 }
 
 function errorMessage(error: unknown): string {
@@ -142,7 +143,8 @@ export default class ChunkErrorBoundary extends Component<Props, State> {
 
   private explain(chunk: boolean, offline: boolean, what: string): string {
     if (chunk && offline) return `You appear to be offline, so ${what} couldn’t load. Reconnect, then reload.`;
-    if (chunk) return 'This usually means the app was updated while your tab was open. Reloading gets the latest version.';
+    if (chunk)
+      return 'This usually means the app was updated while your tab was open. Reloading gets the latest version.';
     return 'Reloading may help. If it keeps happening, report it: this one is a bug, not an update.';
   }
 }

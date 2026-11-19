@@ -1,6 +1,11 @@
 import { expect, test, unique } from './fixtures';
 
-interface Todo { id: number; title: string; status: string; visibility: string }
+interface Todo {
+  id: number;
+  title: string;
+  status: string;
+  visibility: string;
+}
 
 test('a todo added and shared with the team is seen and completed by the other role', async ({ admin, member }) => {
   const title = unique('Smoke todo');
@@ -29,7 +34,10 @@ test('a todo added and shared with the team is seen and completed by the other r
 
   const m = member.page;
   await m.reload();
-  const row = m.locator('div', { has: m.getByText(title, { exact: true }) }).filter({ has: m.getByRole('checkbox') }).last();
+  const row = m
+    .locator('div', { has: m.getByText(title, { exact: true }) })
+    .filter({ has: m.getByRole('checkbox') })
+    .last();
   await expect(row.getByText(`Team · ${admin.user.name}`)).toBeVisible();
   await row.getByRole('checkbox', { name: 'Mark done' }).click();
   await expect.poll(find).toMatchObject({ status: 'done' });

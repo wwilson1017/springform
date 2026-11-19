@@ -28,7 +28,8 @@ export default defineConfig({
     // Install-wide state, so desktop only: a frozen clock gives every backup the same stamp, and
     // hiding an app would race the same test at the other width.
     {
-      name: 'mobile', testIgnore: /(backups|hidden-app)\.spec\.ts/,
+      name: 'mobile',
+      testIgnore: /(backups|hidden-app)\.spec\.ts/,
       use: { viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true },
     },
   ],

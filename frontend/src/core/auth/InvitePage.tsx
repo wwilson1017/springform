@@ -28,8 +28,11 @@ export default function InvitePage() {
 
   useEffect(() => {
     fetchJson<Invite>(`/api/auth/invite/${encodeURIComponent(token)}`).then(
-      i => { setInvite(i); setLookup('ok'); },
-      err => setLookup(err instanceof ApiError && err.status === 404 ? 'gone' : 'failed'),
+      (i) => {
+        setInvite(i);
+        setLookup('ok');
+      },
+      (err) => setLookup(err instanceof ApiError && err.status === 404 ? 'gone' : 'failed'),
     );
   }, [token]);
 
@@ -42,11 +45,21 @@ export default function InvitePage() {
             ? 'Invite links work once, for an hour. Ask an admin to send you a new one.'
             : 'Try again in a moment.'}
         </p>
-        <p className="mb-0 mt-6 text-center text-sm"><Link to="/login" className="text-sf-accent-text">Go to sign in</Link></p>
+        <p className="mb-0 mt-6 text-center text-sm">
+          <Link to="/login" className="text-sf-accent-text">
+            Go to sign in
+          </Link>
+        </p>
       </AuthLayout>
     );
   }
-  return <AcceptForm token={token} invite={invite} notice={errorCode ? GOOGLE_ERRORS[errorCode] ?? GOOGLE_ERRORS.google_failed : ''} />;
+  return (
+    <AcceptForm
+      token={token}
+      invite={invite}
+      notice={errorCode ? (GOOGLE_ERRORS[errorCode] ?? GOOGLE_ERRORS.google_failed) : ''}
+    />
+  );
 }
 
 function AcceptForm({ token, invite, notice }: { token: string; invite: Invite; notice: string }) {
@@ -63,9 +76,17 @@ function AcceptForm({ token, invite, notice }: { token: string; invite: Invite; 
     setError('');
     setBusy(true);
     try {
-      setError(await finish(await postJson<LoginResult>(`/api/auth/invite/${encodeURIComponent(token)}`, { password })));
+      setError(
+        await finish(await postJson<LoginResult>(`/api/auth/invite/${encodeURIComponent(token)}`, { password })),
+      );
     } catch (err) {
-      setError(errorText(err, { not_found: 'This invite link has expired. Ask an admin to send a new one.' }, "Couldn't set your password. Try again."));
+      setError(
+        errorText(
+          err,
+          { not_found: 'This invite link has expired. Ask an admin to send a new one.' },
+          "Couldn't set your password. Try again.",
+        ),
+      );
     } finally {
       setBusy(false);
     }
@@ -82,7 +103,11 @@ function AcceptForm({ token, invite, notice }: { token: string; invite: Invite; 
 
   return (
     <AuthLayout subtitle={`Welcome${invite.name ? `, ${invite.name}` : ''}. Set up your account.`}>
-      {notice && <p role="alert" className="mb-6 mt-0 text-sm text-sf-red-text">{notice}</p>}
+      {notice && (
+        <p role="alert" className="mb-6 mt-0 text-sm text-sf-red-text">
+          {notice}
+        </p>
+      )}
       {user && user.email !== invite.email && (
         <p className="mb-6 mt-0 text-sm text-sf-ink-mute">
           You're signed in as {user.email}. Accepting this invite signs you in as {invite.email} instead.
@@ -91,15 +116,42 @@ function AcceptForm({ token, invite, notice }: { token: string; invite: Invite; 
       <form onSubmit={onSubmit}>
         <p className={labelClass}>Email</p>
         <p className="m-0 mb-4 break-all text-base text-sf-ink">{invite.email}</p>
-        <label htmlFor="invite-password" className={labelClass}>Choose a password</label>
-        <input id="invite-password" type="password" autoComplete="new-password" value={password} autoFocus
-          onChange={e => setPassword(e.target.value)} placeholder="At least 8 characters" className={inputClass} />
-        <label htmlFor="invite-confirm" className={`${labelClass} mt-4`}>Confirm password</label>
-        <input id="invite-confirm" type="password" autoComplete="new-password" value={confirm} aria-invalid={mismatch}
-          onChange={e => setConfirm(e.target.value)} className={inputClass} />
+        <label htmlFor="invite-password" className={labelClass}>
+          Choose a password
+        </label>
+        <input
+          id="invite-password"
+          type="password"
+          autoComplete="new-password"
+          value={password}
+          autoFocus
+          onChange={(e) => setPassword(e.target.value)}
+          placeholder="At least 8 characters"
+          className={inputClass}
+        />
+        <label htmlFor="invite-confirm" className={`${labelClass} mt-4`}>
+          Confirm password
+        </label>
+        <input
+          id="invite-confirm"
+          type="password"
+          autoComplete="new-password"
+          value={confirm}
+          aria-invalid={mismatch}
+          onChange={(e) => setConfirm(e.target.value)}
+          className={inputClass}
+        />
         {mismatch && <p className="mb-0 mt-2 text-xs text-sf-red-text">Passwords don't match.</p>}
-        {error && <p role="alert" className="mb-0 mt-3 text-sm text-sf-red-text">{error}</p>}
-        <button type="submit" disabled={busy || password.length < 8 || password !== confirm} className={`${buttonClass} mt-5`}>
+        {error && (
+          <p role="alert" className="mb-0 mt-3 text-sm text-sf-red-text">
+            {error}
+          </p>
+        )}
+        <button
+          type="submit"
+          disabled={busy || password.length < 8 || password !== confirm}
+          className={`${buttonClass} mt-5`}
+        >
           {busy ? 'Setting up…' : 'Set password and sign in'}
         </button>
       </form>

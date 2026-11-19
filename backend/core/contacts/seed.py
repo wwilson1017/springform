@@ -33,11 +33,21 @@ def sample(conn) -> None:
     admin = User.from_row(row)
     orgs = {o["name"]: service.create_in(conn, admin, "organization", o)["id"] for o in ORGANIZATIONS}
     service.add_part_in(
-        conn, admin, "address", "organization", orgs["Example Bakery Supply"],
-        kind="work", line1="1 Sample Street", city="Exampleville", postal_code="00001", country="US",
+        conn,
+        admin,
+        "address",
+        "organization",
+        orgs["Example Bakery Supply"],
+        kind="work",
+        line1="1 Sample Street",
+        city="Exampleville",
+        postal_code="00001",
+        country="US",
     )
     for name, email, phone, title, org, role in PEOPLE:
-        person = service.create_in(conn, admin, "person", {"name": name, "email": email, "phone": phone, "title": title})
+        person = service.create_in(
+            conn, admin, "person", {"name": name, "email": email, "phone": phone, "title": title}
+        )
         if org:
             service.link_in(conn, admin, person["id"], orgs[org], role)
     ada = conn.execute("SELECT id FROM core_people WHERE name = 'Ada Example' ORDER BY id LIMIT 1").fetchone()[0]

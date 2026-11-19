@@ -43,8 +43,12 @@ def test_today_ranks_quiet_hot_deals_then_reminders_then_the_rest(me, make_user,
     assert (out["date"], out["next_refresh_at"]) == ("2026-10-20", "2026-10-21T05:00:00Z")
     shown = [(i["rank"], (i.get("deal") or i.get("reminder"))["title"]) for i in out["items"]]
     assert shown == [
-        (1, "Oldest"), (1, "Old"), (2, "Call the caterer"),
-        (None, "Unowned and hot"), (None, "Older"), (None, "Fresh"),
+        (1, "Oldest"),
+        (1, "Old"),
+        (2, "Call the caterer"),
+        (None, "Unowned and hot"),
+        (None, "Older"),
+        (None, "Fresh"),
     ]
     assert out["items"][0]["reason"] == "Hot, quiet for 19 days"
     assert out["items"][-1]["reason"] == "Hot" and fresh["id"] == out["items"][-1]["deal"]["id"]
@@ -72,7 +76,11 @@ def test_the_rolling_window_counts_touches_per_owner(me, make_user, freeze):
     deals.mark_won(other, theirs["id"])
     freeze("2026-10-14T15:00:00Z")
     out = dashboard.weekly_touches(me)
-    assert (out["window"]["label"], out["window"]["custom"], out["window"]["end"]) == ("Last 7 days", False, "2026-10-14T15:00:00Z")
+    assert (out["window"]["label"], out["window"]["custom"], out["window"]["end"]) == (
+        "Last 7 days",
+        False,
+        "2026-10-14T15:00:00Z",
+    )
     assert (out["window"]["start_day"], out["window"]["end_day"]) == ("2026-10-07", "2026-10-14")  # Chicago days
     reps = {r["name"]: (r["open_deals"], r["touches"], [d["title"] for d in r["deals"]]) for r in out["reps"]}
     assert reps == {other.name: (0, 1, ["Theirs"]), me.name: (2, 1, ["Mine"]), "Unassigned": (1, 0, [])}
@@ -100,14 +108,21 @@ def test_custom_windows_are_whole_local_days(me, freeze):
     assert (window["start_day"], window["end_day"]) == ("2026-10-07", "2026-10-07")  # echoes back as the same range
     assert dashboard.weekly_touches(me, "2026-10-07", "2026-10-07")["total_touches"] == 1
     assert dashboard.weekly_touches(me, "2026-10-08", "2026-10-08")["total_touches"] == 0
-    for start, end in (("2026-10-07", None), ("2026-10-08", "2026-10-07"), ("2026-10-7", "2026-10-08"), ("2026-02-30", "2026-03-01")):
+    for start, end in (
+        ("2026-10-07", None),
+        ("2026-10-08", "2026-10-07"),
+        ("2026-10-7", "2026-10-08"),
+        ("2026-02-30", "2026-03-01"),
+    ):
         with pytest.raises(Invalid):
             dashboard.weekly_touches(me, start, end)
 
 
 def test_the_detail_is_one_owner_uncapped(me, make_user, freeze):
     for i in range(12):
-        timeline.add_note(me, "crm.deal", deals.create(me, {"title": f"Deal {i}", "owner_user_id": me.id})["id"], "Called")
+        timeline.add_note(
+            me, "crm.deal", deals.create(me, {"title": f"Deal {i}", "owner_user_id": me.id})["id"], "Called"
+        )
     freeze("2026-10-01T16:00:00Z")  # the rolling window ends now, exclusive
     card = {r["user_id"]: r for r in dashboard.weekly_touches(me)["reps"]}[me.id]
     assert (card["touches"], len(card["deals"])) == (12, 10)
@@ -174,7 +189,9 @@ def test_a_deal_the_caller_cannot_read_stays_out_of_every_list(me, freeze, monke
     for deal_id in (seen["id"], hidden["id"]):
         timeline.add_note(me, "crm.deal", deal_id, "Called")
     entity = entities.get("crm.deal")
-    monkeypatch.setitem(entities._ENTITIES, "crm.deal", replace(entity, can_read=lambda user, conn, i: i != hidden["id"]))
+    monkeypatch.setitem(
+        entities._ENTITIES, "crm.deal", replace(entity, can_read=lambda user, conn, i: i != hidden["id"])
+    )
     freeze("2026-10-30T15:00:00Z")
     titles = {
         "today": [i["deal"]["title"] for i in dashboard.today(me)["items"]],
@@ -198,5 +215,7 @@ def test_the_window_days_echo_back_over_http(login_as):
     admin = login_as("admin")
     rolling = admin.get("/api/crm/dashboard/weekly-touches").json()["window"]
     days = {"start": rolling["start_day"], "end": rolling["end_day"]}
-    echoed = admin.get("/api/crm/dashboard/weekly-touches/detail", params={"owner": "unassigned", **days}).json()["window"]
+    echoed = admin.get("/api/crm/dashboard/weekly-touches/detail", params={"owner": "unassigned", **days}).json()[
+        "window"
+    ]
     assert (echoed["start_day"], echoed["end_day"], echoed["custom"]) == (days["start"], days["end"], True)

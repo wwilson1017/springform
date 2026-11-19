@@ -22,20 +22,19 @@ export function SomedayPage() {
   const [editTodo, setEditTodo] = useState<Todo | null>(null);
 
   const visible = useMemo(
-    () => (todos ?? []).filter(
-      t => matchesContexts(t.context, contexts) && matchesFilter(t, search)),
-    [todos, search, contexts]);
+    () => (todos ?? []).filter((t) => matchesContexts(t.context, contexts) && matchesFilter(t, search)),
+    [todos, search, contexts],
+  );
   const today = todayStr(new Date(), filters?.tz);
   const isBack = (t: Todo) => !!t.revisit_on && t.revisit_on <= today;
   const back = visible.filter(isBack);
 
   const rows = (items: Todo[]) => (
     <div className="space-y-2">
-      {items.map(t => (
+      {items.map((t) => (
         <div key={t.id} className="flex items-start gap-2">
           <div className="min-w-0 flex-1">
-            <TodoRow todo={t} onToggleDone={toggleDone}
-                     onToggleStar={toggleStar} onEdit={setEditTodo} />
+            <TodoRow todo={t} onToggleDone={toggleDone} onToggleStar={toggleStar} onEdit={setEditTodo} />
           </div>
           <button
             type="button"
@@ -56,17 +55,16 @@ export function SomedayPage() {
         query={search}
         onQueryChange={setSearch}
         placeholder="Filter…"
-        groups={[contextGroup(
-          filters?.contexts ?? [],
-          contexts,
-          v => setContexts(prev => toggleValue(prev, v)),
-        )]}
+        groups={[contextGroup(filters?.contexts ?? [], contexts, (v) => setContexts((prev) => toggleValue(prev, v)))]}
         visibleCount={visible.length}
         totalCount={todos?.length ?? 0}
         countNoun="item"
         active={search.trim() !== '' || contexts.length > 0}
         activeFacetCount={contexts.length}
-        onClear={() => { setSearch(''); setContexts([]); }}
+        onClear={() => {
+          setSearch('');
+          setContexts([]);
+        }}
       />
       {failed && <LoadFailed retry={reload} />}
       {!failed && todos === null && <LoadingRows />}
@@ -82,7 +80,7 @@ export function SomedayPage() {
           {rows(back)}
         </section>
       )}
-      {rows(visible.filter(t => !isBack(t)))}
+      {rows(visible.filter((t) => !isBack(t)))}
       {editTodo && (
         <TodoEditSheet
           todo={editTodo}

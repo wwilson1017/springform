@@ -16,17 +16,23 @@ export function WorkspaceCard() {
   if (!workspace) return <BootFallback variant="panel" />;
   return (
     <div className="flex flex-col gap-4">
-      {isAdmin ? <WorkspaceForm workspace={workspace} /> : (
+      {isAdmin ? (
+        <WorkspaceForm workspace={workspace} />
+      ) : (
         <dl className="m-0 grid grid-cols-[max-content_1fr] gap-x-6 gap-y-2 text-sm">
-          <dt className="text-sf-ink-dim">Name</dt><dd className="m-0 text-sf-ink">{workspace.name}</dd>
-          <dt className="text-sf-ink-dim">Timezone</dt><dd className="m-0 text-sf-ink">{workspace.timezone}</dd>
+          <dt className="text-sf-ink-dim">Name</dt>
+          <dd className="m-0 text-sf-ink">{workspace.name}</dd>
+          <dt className="text-sf-ink-dim">Timezone</dt>
+          <dd className="m-0 text-sf-ink">{workspace.timezone}</dd>
         </dl>
       )}
       {workspace.public_url !== undefined && (
         <div>
           <div className={labelClass}>Public URL</div>
           <div className="break-all text-sm text-sf-ink">{workspace.public_url || 'Not set'}</div>
-          <p className="mb-0 mt-1 text-xs text-sf-ink-dim">Comes from the server's environment (PUBLIC_URL); change it there, then restart.</p>
+          <p className="mb-0 mt-1 text-xs text-sf-ink-dim">
+            Comes from the server's environment (PUBLIC_URL); change it there, then restart.
+          </p>
         </div>
       )}
       <p className="m-0 flex items-center gap-2 text-xs text-sf-ink-dim">
@@ -65,18 +71,50 @@ function WorkspaceForm({ workspace }: { workspace: Workspace }) {
   return (
     <form onSubmit={save} className="flex max-w-md flex-col gap-3">
       <div>
-        <label htmlFor="ws-name" className={labelClass}>Name</label>
-        <input id="ws-name" value={name} onChange={e => setName(e.target.value)} maxLength={80} required className={inputClass} />
+        <label htmlFor="ws-name" className={labelClass}>
+          Name
+        </label>
+        <input
+          id="ws-name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          maxLength={80}
+          required
+          className={inputClass}
+        />
       </div>
       <div>
-        <label htmlFor="ws-tz" className={labelClass}>Timezone</label>
-        <input id="ws-tz" value={timezone} onChange={e => setTimezone(e.target.value)} list="ws-tz-list" required
-          placeholder="America/Chicago" className={inputClass} />
-        <datalist id="ws-tz-list">{TIMEZONES.map(tz => <option key={tz} value={tz} />)}</datalist>
-        <p className="mb-0 mt-1 text-xs text-sf-ink-dim">Scheduled jobs, reminders and the days in reports follow this timezone.</p>
+        <label htmlFor="ws-tz" className={labelClass}>
+          Timezone
+        </label>
+        <input
+          id="ws-tz"
+          value={timezone}
+          onChange={(e) => setTimezone(e.target.value)}
+          list="ws-tz-list"
+          required
+          placeholder="America/Chicago"
+          className={inputClass}
+        />
+        <datalist id="ws-tz-list">
+          {TIMEZONES.map((tz) => (
+            <option key={tz} value={tz} />
+          ))}
+        </datalist>
+        <p className="mb-0 mt-1 text-xs text-sf-ink-dim">
+          Scheduled jobs, reminders and the days in reports follow this timezone.
+        </p>
       </div>
-      {error && <p role="alert" className={errorTextClass}>{error}</p>}
-      <div><button type="submit" disabled={busy || !changed} className={buttonClass}>{busy ? 'Saving…' : 'Save'}</button></div>
+      {error && (
+        <p role="alert" className={errorTextClass}>
+          {error}
+        </p>
+      )}
+      <div>
+        <button type="submit" disabled={busy || !changed} className={buttonClass}>
+          {busy ? 'Saving…' : 'Save'}
+        </button>
+      </div>
     </form>
   );
 }

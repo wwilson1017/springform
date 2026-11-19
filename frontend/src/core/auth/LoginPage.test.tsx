@@ -7,7 +7,9 @@ import { GOOGLE_ERRORS } from './api';
 import { AuthProvider } from './AuthContext';
 import { LoginPage } from './LoginPage';
 
-const status = (s: Partial<AuthStatus>): Reply => ({ body: { setup_required: false, google: false, preview: false, ...s } });
+const status = (s: Partial<AuthStatus>): Reply => ({
+  body: { setup_required: false, google: false, preview: false, ...s },
+});
 const member: User = { id: 2, email: 'm@example.com', name: 'M', role: 'member', tz: 'UTC' };
 
 function renderLogin(routes: Record<string, Reply>, entry = '/login') {
@@ -58,7 +60,8 @@ describe('LoginPage', () => {
   });
 
   it.each(['google_failed', 'not_invited', 'link_required', 'google_mismatch', 'google_not_configured'])(
-    'explains ?error=%s from the Google callback', async code => {
+    'explains ?error=%s from the Google callback',
+    async (code) => {
       renderLogin({}, `/login?error=${code}`);
       expect((await screen.findByRole('alert')).textContent).toBe(GOOGLE_ERRORS[code]);
     },
@@ -100,23 +103,37 @@ describe('LoginPage: the two-factor step', () => {
     renderLogin({ 'POST /api/auth/login': { body: { totp_required: true, challenge: 'ch-1' } } });
     await submitPassword();
     const code = await screen.findByLabelText('Authentication code');
-    const next = mockFetch({ 'POST /api/auth/login/totp': { body: { user: member } }, 'GET /api/me': { body: member } });
+    const next = mockFetch({
+      'POST /api/auth/login/totp': { body: { user: member } },
+      'GET /api/me': { body: member },
+    });
     fireEvent.change(code, { target: { value: '123456' } });
     fireEvent.click(screen.getByLabelText('Trust this browser for 30 days'));
     fireEvent.click(screen.getByRole('button', { name: 'Verify' }));
     expect(await screen.findByText('HOME')).toBeTruthy();
-    expect(bodyOf(next, 'POST', '/api/auth/login/totp')).toEqual({ challenge: 'ch-1', code: '123456', trust_device: true });
+    expect(bodyOf(next, 'POST', '/api/auth/login/totp')).toEqual({
+      challenge: 'ch-1',
+      code: '123456',
+      trust_device: true,
+    });
   });
 
   it('takes a backup code instead, sent as backup_code', async () => {
     renderLogin({ 'POST /api/auth/login': { body: { totp_required: true, challenge: 'ch-1' } } });
     await submitPassword();
     fireEvent.click(await screen.findByRole('button', { name: 'Use a backup code' }));
-    const next = mockFetch({ 'POST /api/auth/login/totp': { body: { user: member } }, 'GET /api/me': { body: member } });
+    const next = mockFetch({
+      'POST /api/auth/login/totp': { body: { user: member } },
+      'GET /api/me': { body: member },
+    });
     fireEvent.change(screen.getByLabelText('Backup code'), { target: { value: 'ABCD-EFGH' } });
     fireEvent.click(screen.getByRole('button', { name: 'Verify' }));
     expect(await screen.findByText('HOME')).toBeTruthy();
-    expect(bodyOf(next, 'POST', '/api/auth/login/totp')).toEqual({ challenge: 'ch-1', backup_code: 'ABCD-EFGH', trust_device: false });
+    expect(bodyOf(next, 'POST', '/api/auth/login/totp')).toEqual({
+      challenge: 'ch-1',
+      backup_code: 'ABCD-EFGH',
+      trust_device: false,
+    });
   });
 
   it('stays on the step after a wrong code (a 401 here is an answer, not a lost session)', async () => {
@@ -146,7 +163,10 @@ describe('LoginPage: the two-factor step', () => {
   it('opens straight on the step when Google hands over #totp_challenge=', async () => {
     renderLogin({}, '/login#totp_challenge=from-google');
     const code = await screen.findByLabelText('Authentication code');
-    const next = mockFetch({ 'POST /api/auth/login/totp': { body: { user: member } }, 'GET /api/me': { body: member } });
+    const next = mockFetch({
+      'POST /api/auth/login/totp': { body: { user: member } },
+      'GET /api/me': { body: member },
+    });
     fireEvent.change(code, { target: { value: '654321' } });
     fireEvent.click(screen.getByRole('button', { name: 'Verify' }));
     expect(await screen.findByText('HOME')).toBeTruthy();

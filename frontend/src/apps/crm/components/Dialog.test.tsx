@@ -7,8 +7,12 @@ describe('Dialog', () => {
     const onClose = vi.fn();
     render(
       <>
-        <Dialog title="Edit" onClose={onClose}><input aria-label="Field" /></Dialog>
-        <div role="dialog" aria-label="Confirm"><button type="button">Delete</button></div>
+        <Dialog title="Edit" onClose={onClose}>
+          <input aria-label="Field" />
+        </Dialog>
+        <div role="dialog" aria-label="Confirm">
+          <button type="button">Delete</button>
+        </div>
       </>,
     );
     screen.getByRole('button', { name: 'Delete' }).focus();
@@ -21,7 +25,11 @@ describe('Dialog', () => {
 
   it('leaves Escape to an open picker inside it', () => {
     const onClose = vi.fn();
-    render(<Dialog title="New" onClose={onClose}><input role="combobox" aria-expanded="true" aria-controls="x" aria-label="Person" /></Dialog>);
+    render(
+      <Dialog title="New" onClose={onClose}>
+        <input role="combobox" aria-expanded="true" aria-controls="x" aria-label="Person" />
+      </Dialog>,
+    );
     screen.getByLabelText('Person').focus();
     fireEvent.keyDown(document, { key: 'Escape' });
     expect(onClose).not.toHaveBeenCalled();

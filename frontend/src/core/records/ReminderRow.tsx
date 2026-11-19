@@ -21,9 +21,13 @@ const STATUS: Record<Reminder['status'], { label: string; tone: string }> = {
   voided: { label: 'Void', tone: 'text-sf-red-text' },
 };
 
-const SNOOZE_LABELS = snoozePresets().map(p => p.label);
+const SNOOZE_LABELS = snoozePresets().map((p) => p.label);
 
-export function ReminderRow({ reminder: r, onChanged, showRecord = false }: {
+export function ReminderRow({
+  reminder: r,
+  onChanged,
+  showRecord = false,
+}: {
   reminder: Reminder;
   onChanged: () => void;
   /** Show which record it is on (the /reminders page); a record's own panel leaves it out. */
@@ -46,25 +50,58 @@ export function ReminderRow({ reminder: r, onChanged, showRecord = false }: {
   }
 
   async function remove() {
-    if (!await confirmDialog({ title: 'Delete reminder', message: `Delete "${r.title}"?${r.repeat ? ' This occurrence goes; if it is the latest, the series ends.' : ''}`, confirmLabel: 'Delete', danger: true })) return;
+    if (
+      !(await confirmDialog({
+        title: 'Delete reminder',
+        message: `Delete "${r.title}"?${r.repeat ? ' This occurrence goes; if it is the latest, the series ends.' : ''}`,
+        confirmLabel: 'Delete',
+        danger: true,
+      }))
+    )
+      return;
     await act(() => del(`${REMINDERS}/${r.id}`), "Couldn't delete the reminder.");
   }
 
   if (editing) {
-    return <li className="py-2"><ReminderForm reminder={r} onSaved={() => { setEditing(false); onChanged(); }} onCancel={() => setEditing(false)} /></li>;
+    return (
+      <li className="py-2">
+        <ReminderForm
+          reminder={r}
+          onSaved={() => {
+            setEditing(false);
+            onChanged();
+          }}
+          onCancel={() => setEditing(false)}
+        />
+      </li>
+    );
   }
 
   return (
     <li className="flex flex-col gap-1 py-2.5">
       <div className="flex flex-wrap items-baseline gap-x-2">
-        <span className={`text-sm ${r.status === 'done' || r.status === 'voided' ? 'text-sf-ink-soft line-through' : 'text-sf-ink'}`}>{r.title}</span>
-        <span className={`text-xs ${STATUS[r.status].tone}`}>{STATUS[r.status].label}{r.fired_at && live ? ' · sent' : ''}</span>
+        <span
+          className={`text-sm ${r.status === 'done' || r.status === 'voided' ? 'text-sf-ink-soft line-through' : 'text-sf-ink'}`}
+        >
+          {r.title}
+        </span>
+        <span className={`text-xs ${STATUS[r.status].tone}`}>
+          {STATUS[r.status].label}
+          {r.fired_at && live ? ' · sent' : ''}
+        </span>
       </div>
       <div className="flex flex-wrap gap-x-2 text-xs text-sf-ink-dim">
         <span>{formatDate(r.due_at)}</span>
         {r.repeat && <span>· {REPEAT_LABEL[r.repeat.freq]}</span>}
         {!r.mine && <span>· {r.owner.name}'s</span>}
-        {showRecord && r.entity_title && r.link && <span>· <Link to={r.link} className="text-sf-accent-text">{r.entity_title}</Link></span>}
+        {showRecord && r.entity_title && r.link && (
+          <span>
+            ·{' '}
+            <Link to={r.link} className="text-sf-accent-text">
+              {r.entity_title}
+            </Link>
+          </span>
+        )}
       </div>
       {r.note && <p className="m-0 whitespace-pre-wrap text-xs text-sf-ink-mute">{r.note}</p>}
       {r.status === 'voided' && r.void_reason && <p className="m-0 text-xs text-sf-ink-dim">Voided: {r.void_reason}</p>}
@@ -72,23 +109,49 @@ export function ReminderRow({ reminder: r, onChanged, showRecord = false }: {
         <div className="mt-0.5 flex flex-wrap items-center gap-3">
           {live && (
             <>
-              <button type="button" className={BTN_LINK} disabled={busy}
-                onClick={() => void act(() => postJson(`${REMINDERS}/${r.id}/done`), "Couldn't mark the reminder done.")}>Done</button>
-              <label className="sr-only" htmlFor={`snooze-${r.id}`}>Snooze {r.title}</label>
-              <select id={`snooze-${r.id}`} value="" disabled={busy}
+              <button
+                type="button"
+                className={BTN_LINK}
+                disabled={busy}
+                onClick={() =>
+                  void act(() => postJson(`${REMINDERS}/${r.id}/done`), "Couldn't mark the reminder done.")
+                }
+              >
+                Done
+              </button>
+              <label className="sr-only" htmlFor={`snooze-${r.id}`}>
+                Snooze {r.title}
+              </label>
+              <select
+                id={`snooze-${r.id}`}
+                value=""
+                disabled={busy}
                 className="cursor-pointer rounded border border-sf-line-strong bg-sf-card px-1 py-0.5 font-sans text-xs text-sf-accent-text"
-                onChange={e => {
+                onChange={(e) => {
                   // Computed at the click, not at render, so a page left open snoozes from now.
                   const preset = snoozePresets()[Number(e.target.value)];
-                  if (preset) void act(() => postJson(`${REMINDERS}/${r.id}/snooze`, { until: preset.until }), "Couldn't snooze the reminder.");
-                }}>
+                  if (preset)
+                    void act(
+                      () => postJson(`${REMINDERS}/${r.id}/snooze`, { until: preset.until }),
+                      "Couldn't snooze the reminder.",
+                    );
+                }}
+              >
                 <option value="">Snooze…</option>
-                {SNOOZE_LABELS.map((label, i) => <option key={label} value={i}>{label}</option>)}
+                {SNOOZE_LABELS.map((label, i) => (
+                  <option key={label} value={i}>
+                    {label}
+                  </option>
+                ))}
               </select>
-              <button type="button" className={BTN_LINK} disabled={busy} onClick={() => setEditing(true)}>Edit</button>
+              <button type="button" className={BTN_LINK} disabled={busy} onClick={() => setEditing(true)}>
+                Edit
+              </button>
             </>
           )}
-          <button type="button" className={BTN_LINK} disabled={busy} onClick={() => void remove()}>Delete</button>
+          <button type="button" className={BTN_LINK} disabled={busy} onClick={() => void remove()}>
+            Delete
+          </button>
         </div>
       )}
     </li>

@@ -18,7 +18,9 @@ export function setWorkspace(next: Workspace) {
 
 function subscribe(onChange: () => void) {
   listeners.add(onChange);
-  return () => { listeners.delete(onChange); };
+  return () => {
+    listeners.delete(onChange);
+  };
 }
 
 /** null until the first answer; a failed load is retried by the next component that mounts. */
@@ -26,7 +28,11 @@ export function useWorkspace(): Workspace | null {
   const current = useSyncExternalStore(subscribe, () => workspace);
   useEffect(() => {
     if (workspace || loading) return;
-    loading = fetchJson<Workspace>('/api/core/workspace').then(setWorkspace, () => {}).finally(() => { loading = null; });
+    loading = fetchJson<Workspace>('/api/core/workspace')
+      .then(setWorkspace, () => {})
+      .finally(() => {
+        loading = null;
+      });
   }, []);
   return current;
 }

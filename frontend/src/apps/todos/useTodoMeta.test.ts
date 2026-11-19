@@ -24,7 +24,9 @@ const FILTERS = { contexts: [], tags: [], status_counts: {} };
  * a real state and not a timing hope. */
 function deferred<T>() {
   let resolve!: (v: T) => void;
-  const promise = new Promise<T>(r => { resolve = r; });
+  const promise = new Promise<T>((r) => {
+    resolve = r;
+  });
   return { promise, resolve };
 }
 

@@ -89,7 +89,9 @@ def use(token: str) -> tuple[int, User] | None:
         return None
     if row["last_used_at"] is None or row["last_used_at"] <= clock.ago(TOUCH_SECONDS):
         with db.transaction() as conn:
-            conn.execute("UPDATE core_agent_mcp_links SET last_used_at = ? WHERE id = ?", (clock.now_iso(), row["link_id"]))
+            conn.execute(
+                "UPDATE core_agent_mcp_links SET last_used_at = ? WHERE id = ?", (clock.now_iso(), row["link_id"])
+            )
     return row["link_id"], User.from_row(row)
 
 

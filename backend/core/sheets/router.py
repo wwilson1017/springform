@@ -48,7 +48,8 @@ def refresh_sheet(sheet_id: int):
         return service.refresh(sheet_id, manual=True)
     except service.Throttled as e:
         return JSONResponse(
-            {"detail": "throttled", "retry_after": e.retry_after}, status_code=429,
+            {"detail": "throttled", "retry_after": e.retry_after},
+            status_code=429,
             headers={"Retry-After": str(e.retry_after)},
         )
 

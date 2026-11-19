@@ -24,10 +24,14 @@ router = APIRouter(tags=["auth"])
 
 def is_trusted(request: Request, user_id: int) -> bool:
     token = request.cookies.get(COOKIE)
-    return bool(token) and db.one(
-        "SELECT 1 AS ok FROM core_trusted_devices WHERE token_hash = ? AND user_id = ? AND expires_at > ?",
-        (service.token_hash(token), user_id, clock.now_iso()),
-    ) is not None
+    return (
+        bool(token)
+        and db.one(
+            "SELECT 1 AS ok FROM core_trusted_devices WHERE token_hash = ? AND user_id = ? AND expires_at > ?",
+            (service.token_hash(token), user_id, clock.now_iso()),
+        )
+        is not None
+    )
 
 
 def trust(request: Request, response: Response, user_id: int) -> None:
@@ -35,11 +39,22 @@ def trust(request: Request, response: Response, user_id: int) -> None:
     with db.transaction() as conn:
         conn.execute(
             "INSERT INTO core_trusted_devices (token_hash, user_id, label, expires_at, created_at) VALUES (?, ?, ?, ?, ?)",
-            (service.token_hash(token), user_id, request.headers.get("user-agent", "")[:100],
-             clock.later(DAYS * 86400), clock.now_iso()),
+            (
+                service.token_hash(token),
+                user_id,
+                request.headers.get("user-agent", "")[:100],
+                clock.later(DAYS * 86400),
+                clock.now_iso(),
+            ),
         )
     response.set_cookie(
-        COOKIE, token, max_age=DAYS * 86400, httponly=True, samesite="lax", secure=request.url.scheme == "https", path=PATH
+        COOKIE,
+        token,
+        max_age=DAYS * 86400,
+        httponly=True,
+        samesite="lax",
+        secure=request.url.scheme == "https",
+        path=PATH,
     )
 
 
@@ -52,7 +67,12 @@ def trusted_devices(request: Request, user: User = Depends(current_user)) -> lis
         (user.id, clock.now_iso()),
     )
     return [
-        {"label": r["label"], "created_at": r["created_at"], "expires_at": r["expires_at"], "current": r["token_hash"] == mine}
+        {
+            "label": r["label"],
+            "created_at": r["created_at"],
+            "expires_at": r["expires_at"],
+            "current": r["token_hash"] == mine,
+        }
         for r in rows
     ]
 

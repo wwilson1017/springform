@@ -131,8 +131,13 @@ def stage_events_in(conn: db.Conn, user: User, deal_id: int) -> list[dict]:
 
 
 def board(
-    user: User, *, stage: str | None = None, include_archived: bool = False,
-    limit: int | None = None, after_id: int | None = None, limit_per_stage: int | None = None,
+    user: User,
+    *,
+    stage: str | None = None,
+    include_archived: bool = False,
+    limit: int | None = None,
+    after_id: int | None = None,
+    limit_per_stage: int | None = None,
 ) -> dict:
     """The pipeline board. Three bounding modes over one condition list:
     - default: every matching deal, newest edit first;
@@ -191,16 +196,24 @@ def stage_summary_in(conn: db.Conn, *, open_only: bool) -> list[dict]:
     """Count and value per stage over live deals, in pipeline order."""
     rows = conn.execute(
         f"""SELECT stage, count(*) AS count, coalesce(sum(value_cents), 0) AS total_value_cents
-              FROM crm_deals d WHERE {LIVE} {'AND ' + OPEN if open_only else ''} GROUP BY stage"""
+              FROM crm_deals d WHERE {LIVE} {"AND " + OPEN if open_only else ""} GROUP BY stage"""
     )
     by_stage = {r["stage"]: dict(r) for r in rows}
     return [by_stage[s] for s in STAGES if s in by_stage]
 
 
 def search(
-    user: User, q: str | None = None, *, stage: str | None = None, person_id: int | None = None,
-    organization_id: int | None = None, owner_user_id: int | None = None, sort_by: str = "updated_at",
-    sort_dir: str = "desc", limit: int = 25, include_archived: bool = False,
+    user: User,
+    q: str | None = None,
+    *,
+    stage: str | None = None,
+    person_id: int | None = None,
+    organization_id: int | None = None,
+    owner_user_id: int | None = None,
+    sort_by: str = "updated_at",
+    sort_dir: str = "desc",
+    limit: int = 25,
+    include_archived: bool = False,
 ) -> list[dict]:
     """Deals matching every word of `q` (prefix, case- and accent-insensitive) in their own
     title, notes or lost reason, or in the name of their person or organization."""
@@ -215,7 +228,12 @@ def search(
                                           WHERE core_contacts_fts MATCH ? AND owner_type = 'organization'))"""
         )
         params += [match, match, match]
-    for column, value in (("stage", stage), ("person_id", person_id), ("organization_id", organization_id), ("owner_user_id", owner_user_id)):
+    for column, value in (
+        ("stage", stage),
+        ("person_id", person_id),
+        ("organization_id", organization_id),
+        ("owner_user_id", owner_user_id),
+    ):
         if value is not None:
             where.append(f"d.{column} = ?")
             params.append(value)
@@ -230,7 +248,9 @@ def search(
     return [dict(r) for r in rows]
 
 
-def for_record_in(conn: db.Conn, user: User, entity_type: str, entity_id: int, include_archived: bool = False) -> list[dict]:
+def for_record_in(
+    conn: db.Conn, user: User, entity_type: str, entity_id: int, include_archived: bool = False
+) -> list[dict]:
     """A person's or an organization's deals, open ones first. 404 when the record is not readable."""
     column = {"core.person": "person_id", "core.organization": "organization_id"}.get(entity_type)
     if column is None:
@@ -238,7 +258,7 @@ def for_record_in(conn: db.Conn, user: User, entity_type: str, entity_id: int, i
     entities.authorize(user, conn, entity_type, entity_id, "read")
     _gate(conn, user)
     rows = conn.execute(
-        f"""{SELECT} WHERE d.{column} = ? {'' if include_archived else 'AND ' + LIVE}
+        f"""{SELECT} WHERE d.{column} = ? {"" if include_archived else "AND " + LIVE}
              ORDER BY d.stage IN ('won', 'lost'), d.updated_at DESC, d.id DESC""",
         (entity_id,),
     )
@@ -248,10 +268,14 @@ def for_record_in(conn: db.Conn, user: User, entity_type: str, entity_id: int, i
 def badge(user: User) -> dict:
     """The caller's live open deals that have gone quiet past crm.stale_days."""
     cutoff = clock.ago(crm_settings.stale_days() * 86400)
-    n = db.get_conn().execute(
-        f"SELECT count(*) FROM crm_deals d WHERE {LIVE} AND {OPEN} AND d.owner_user_id = ? AND {LAST_TOUCH} < ?",
-        (user.id, cutoff),
-    ).fetchone()[0]
+    n = (
+        db.get_conn()
+        .execute(
+            f"SELECT count(*) FROM crm_deals d WHERE {LIVE} AND {OPEN} AND d.owner_user_id = ? AND {LAST_TOUCH} < ?",
+            (user.id, cutoff),
+        )
+        .fetchone()[0]
+    )
     return {"count": n, "label": "Deals needing a touch"}
 
 
@@ -275,9 +299,13 @@ def _check_links_in(conn: db.Conn, user: User, fields: dict) -> None:
                 entities.authorize(user, conn, entity_type, fields[column], "read")
             except NotFound:
                 raise Invalid(f"{column}: no such record") from None
-    if fields.get("owner_user_id") is not None and not conn.execute(
-        "SELECT 1 FROM core_users WHERE id = ? AND role IN ('admin', 'member') AND is_active = 1", (fields["owner_user_id"],)
-    ).fetchone():
+    if (
+        fields.get("owner_user_id") is not None
+        and not conn.execute(
+            "SELECT 1 FROM core_users WHERE id = ? AND role IN ('admin', 'member') AND is_active = 1",
+            (fields["owner_user_id"],),
+        ).fetchone()
+    ):
         raise Invalid("owner_user_id: no such active user")
 
 
@@ -478,7 +506,13 @@ def archive(user: User, deal_id: int, reason: str) -> dict:
 
 def restore_in(conn: db.Conn, user: User, deal_id: int) -> dict:
     entities.authorize(user, conn, ENTITY, deal_id, "write")
-    _apply_in(conn, user, _row_in(conn, deal_id), {"archived_at": None, "archived_by": None, "archived_reason": None}, touch=False)
+    _apply_in(
+        conn,
+        user,
+        _row_in(conn, deal_id),
+        {"archived_at": None, "archived_by": None, "archived_reason": None},
+        touch=False,
+    )
     return deal_in(conn, deal_id)
 
 
@@ -502,7 +536,13 @@ def merge_in(conn: db.Conn, user: User, target_id: int, source_id: int) -> dict:
         raise Conflict(f"Deal {', '.join(archived)} is archived; restore it before merging")
     entities.on_entity_merged_in(conn, ENTITY, target_id, source_id)
     reason = f"Merged into deal #{target_id}"
-    _apply_in(conn, user, source, {"archived_at": clock.now_iso(), "archived_by": user.id, "archived_reason": reason}, touch=False)
+    _apply_in(
+        conn,
+        user,
+        source,
+        {"archived_at": clock.now_iso(), "archived_by": user.id, "archived_reason": reason},
+        touch=False,
+    )
     timeline.add_system_in(conn, ENTITY, target_id, f'Merged deal #{source_id} ("{source["title"]}") into this deal.')
     conn.execute("UPDATE crm_deals SET touch_dirty = 1 WHERE id = ?", (target_id,))
     scoring.refresh_in(conn, deal_ids=[target_id, source_id], person_ids=[target["person_id"], source["person_id"]])

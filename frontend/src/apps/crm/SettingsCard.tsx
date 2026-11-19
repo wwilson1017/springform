@@ -22,7 +22,9 @@ export default function CrmSettingsCard() {
       <SettingsForm key={JSON.stringify(data)} settings={data} onSaved={setData} />
       <div>
         <h3 className="m-0 mb-1 text-sm font-medium text-sf-ink">Stage criteria</h3>
-        <p className="m-0 mb-2 text-xs text-sf-ink-mute">What a deal should show to enter each stage. Everyone sees them on the board.</p>
+        <p className="m-0 mb-2 text-xs text-sf-ink-mute">
+          What a deal should show to enter each stage. Everyone sees them on the board.
+        </p>
         <StageCriteriaEditor />
       </div>
       <ResetCrm />
@@ -38,12 +40,21 @@ function SettingsForm({ settings, onSaved }: { settings: CrmSettings; onSaved: (
   const days = Number(stale);
   const validDays = Number.isInteger(days) && days >= 1 && days <= 365;
   const validCurrency = /^[A-Za-z]{3}$/.test(currency.trim());
-  const dirty = days !== settings.stale_days || touch !== settings.touch_count_enabled || currency.trim().toUpperCase() !== settings.default_currency;
+  const dirty =
+    days !== settings.stale_days ||
+    touch !== settings.touch_count_enabled ||
+    currency.trim().toUpperCase() !== settings.default_currency;
 
   async function save() {
     setBusy(true);
     try {
-      onSaved(await saveSettings({ stale_days: days, touch_count_enabled: touch, default_currency: currency.trim().toUpperCase() }));
+      onSaved(
+        await saveSettings({
+          stale_days: days,
+          touch_count_enabled: touch,
+          default_currency: currency.trim().toUpperCase(),
+        }),
+      );
       toast.success('CRM settings saved');
     } catch (e) {
       toast.error(e instanceof ApiError && e.status < 500 ? e.detail : "Couldn't save the CRM settings.");
@@ -53,22 +64,53 @@ function SettingsForm({ settings, onSaved }: { settings: CrmSettings; onSaved: (
   }
 
   return (
-    <form className="grid gap-3 md:grid-cols-2" onSubmit={e => { e.preventDefault(); void save(); }}>
+    <form
+      className="grid gap-3 md:grid-cols-2"
+      onSubmit={(e) => {
+        e.preventDefault();
+        void save();
+      }}
+    >
       <div>
-        <label htmlFor="crm-stale-days" className={label}>Stale after (days)</label>
-        <input id="crm-stale-days" type="number" min={1} max={365} value={stale} onChange={e => setStale(e.target.value)} className={input} />
+        <label htmlFor="crm-stale-days" className={label}>
+          Stale after (days)
+        </label>
+        <input
+          id="crm-stale-days"
+          type="number"
+          min={1}
+          max={365}
+          value={stale}
+          onChange={(e) => setStale(e.target.value)}
+          className={input}
+        />
         <p className="m-0 mt-1 text-xs text-sf-ink-dim">An open deal with no activity this long needs a touch.</p>
       </div>
       <div>
-        <label htmlFor="crm-currency" className={label}>Default currency</label>
-        <input id="crm-currency" value={currency} maxLength={3} onChange={e => setCurrency(e.target.value)} className={`${input} uppercase`} />
+        <label htmlFor="crm-currency" className={label}>
+          Default currency
+        </label>
+        <input
+          id="crm-currency"
+          value={currency}
+          maxLength={3}
+          onChange={(e) => setCurrency(e.target.value)}
+          className={`${input} uppercase`}
+        />
       </div>
       <label className="flex items-center gap-2 text-sm text-sf-ink md:col-span-2">
-        <input type="checkbox" checked={touch} onChange={e => setTouch(e.target.checked)} className="accent-sf-accent" />
+        <input
+          type="checkbox"
+          checked={touch}
+          onChange={(e) => setTouch(e.target.checked)}
+          className="accent-sf-accent"
+        />
         Count touches with AI (uses the configured AI provider; skipped without one)
       </label>
       <div className="md:col-span-2">
-        <button type="submit" disabled={busy || !dirty || !validDays || !validCurrency} className={btnPrimary}>Save</button>
+        <button type="submit" disabled={busy || !dirty || !validDays || !validCurrency} className={btnPrimary}>
+          Save
+        </button>
       </div>
     </form>
   );
@@ -95,12 +137,24 @@ function ResetCrm() {
     <div className="rounded-md border border-sf-line-strong p-3">
       <h3 className="m-0 mb-1 text-sm font-medium text-sf-red-text">Reset the CRM</h3>
       <p className="m-0 mb-2 text-xs text-sf-ink-mute">
-        Deletes every deal and activity entry, with their notes, files and history. People and organizations stay. This cannot be undone.
+        Deletes every deal and activity entry, with their notes, files and history. People and organizations stay. This
+        cannot be undone.
       </p>
       <div className="flex flex-wrap gap-2">
-        <label htmlFor="crm-reset-confirm" className="sr-only">Type RESET to confirm</label>
-        <input id="crm-reset-confirm" value={typed} onChange={e => setTyped(e.target.value)} placeholder="Type RESET" autoComplete="off" className={`${field} w-40`} />
-        <button type="button" disabled={busy || typed !== 'RESET'} onClick={() => void reset()} className={btnDanger}>Reset CRM</button>
+        <label htmlFor="crm-reset-confirm" className="sr-only">
+          Type RESET to confirm
+        </label>
+        <input
+          id="crm-reset-confirm"
+          value={typed}
+          onChange={(e) => setTyped(e.target.value)}
+          placeholder="Type RESET"
+          autoComplete="off"
+          className={`${field} w-40`}
+        />
+        <button type="button" disabled={busy || typed !== 'RESET'} onClick={() => void reset()} className={btnDanger}>
+          Reset CRM
+        </button>
       </div>
     </div>
   );

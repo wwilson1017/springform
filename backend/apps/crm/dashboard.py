@@ -39,7 +39,9 @@ TOP_DEAL_SCORE = "(max(d.value_cents, 0) * (0.4 + 0.6 * min(max(d.probability, 0
 
 
 def _live_count(conn: db.Conn, table: str) -> int:
-    return conn.execute(f"SELECT count(*) FROM {table} WHERE merged_into_id IS NULL AND archived_at IS NULL").fetchone()[0]
+    return conn.execute(
+        f"SELECT count(*) FROM {table} WHERE merged_into_id IS NULL AND archived_at IS NULL"
+    ).fetchone()[0]
 
 
 def dashboard_in(conn: db.Conn, user: User) -> dict:
@@ -58,7 +60,9 @@ def dashboard_in(conn: db.Conn, user: User) -> dict:
         "total_people": _live_count(conn, "core_people"),
         "total_organizations": _live_count(conn, "core_organizations"),
         "pipeline_by_stage": by_stage,
-        "total_pipeline_value_cents": sum(s["total_value_cents"] for s in by_stage if s["stage"] not in ("won", "lost")),
+        "total_pipeline_value_cents": sum(
+            s["total_value_cents"] for s in by_stage if s["stage"] not in ("won", "lost")
+        ),
         "won_this_month_cents": won,
         "recent_activity": activity.list_in(conn, user, limit=10),
         "top_deals": [dict(r) for r in readable_in(conn, user, top)],
@@ -87,7 +91,9 @@ def today_in(conn: db.Conn, user: User) -> dict:
         f"SELECT d.id, {deals.LAST_TOUCH} FROM crm_deals d WHERE d.deal_temperature = 'hot' AND {LIVE} AND {OPEN}"
     )}  # fmt: skip
     ranked, tail = [], []
-    for deal in sorted((dict(r) for r in readable_in(conn, user, hot)), key=lambda d: (touches[d["id"]], d["id"])):  # most idle first
+    for deal in sorted(
+        (dict(r) for r in readable_in(conn, user, hot)), key=lambda d: (touches[d["id"]], d["id"])
+    ):  # most idle first
         idle = max(0, (now - clock.parse(touches[deal["id"]])).days)
         if touches[deal["id"]] < stale_cutoff:
             item = {"kind": "deal", "reason": f"Hot, quiet for {idle} days", "deal": deal}
@@ -166,7 +172,9 @@ def _touch_rows(conn: db.Conn, user: User, window: dict) -> list[dict]:
     for r in readable_in(conn, user, rows):
         row = dict(r)
         worked = row["stage"] == "won" or row["last_activity_at"] is not None or row["touched_at"] != row["created_at"]
-        row["in_window"] = worked and row["touched_at"] is not None and window["start"] <= row["touched_at"] < window["end"]
+        row["in_window"] = (
+            worked and row["touched_at"] is not None and window["start"] <= row["touched_at"] < window["end"]
+        )
         out.append(row)
     return out
 
@@ -185,7 +193,22 @@ def _reps(rows: list[dict], cap: int) -> list[dict]:
         rep["open_deals"] += r["stage"] != "won"
         if r["in_window"]:
             rep["touches"] += 1
-            rep["deals"].append({k: r[k] for k in ("id", "title", "value_cents", "stage", "owner_user_id", "touch_count", "touched_at", "person_name", "organization_name")})
+            rep["deals"].append(
+                {
+                    k: r[k]
+                    for k in (
+                        "id",
+                        "title",
+                        "value_cents",
+                        "stage",
+                        "owner_user_id",
+                        "touch_count",
+                        "touched_at",
+                        "person_name",
+                        "organization_name",
+                    )
+                }
+            )
     for rep in reps.values():
         rep["deals"].sort(key=lambda d: (d["touch_count"] is None, -(d["touch_count"] or 0), -d["id"]))
         rep["truncated"] = len(rep["deals"]) > cap
@@ -209,7 +232,9 @@ def weekly_touches(user: User, start: str | None = None, end: str | None = None)
     return weekly_touches_in(db.get_conn(), user, start, end)
 
 
-def weekly_touch_detail_in(conn: db.Conn, user: User, owner: str, start: str | None = None, end: str | None = None) -> dict:
+def weekly_touch_detail_in(
+    conn: db.Conn, user: User, owner: str, start: str | None = None, end: str | None = None
+) -> dict:
     """One owner's touched deals, uncapped up to WEEKLY_TOUCHES_DETAIL_MAX. `owner` is a user id
     or 'unassigned'; an unknown id (or the system principal) is NotFound."""
     deals._gate(conn, user)
@@ -223,7 +248,11 @@ def weekly_touch_detail_in(conn: db.Conn, user: User, owner: str, start: str | N
         name = found[0]
     rows = [r for r in _touch_rows(conn, user, window) if r["owner_user_id"] == owner_id]
     reps = _reps(rows, WEEKLY_TOUCHES_DETAIL_MAX)
-    rep = reps[0] if reps else {"user_id": owner_id, "name": name, "open_deals": 0, "touches": 0, "deals": [], "truncated": False}
+    rep = (
+        reps[0]
+        if reps
+        else {"user_id": owner_id, "name": name, "open_deals": 0, "touches": 0, "deals": [], "truncated": False}
+    )
     truncated = rep.pop("truncated")
     return {"window": window, "rep": rep, "deals": rep["deals"], "truncated": truncated}
 

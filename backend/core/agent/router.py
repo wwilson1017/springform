@@ -90,7 +90,9 @@ def chat(body: ChatIn, user: User = Depends(current_user)) -> StreamingResponse:
     else:
         agent = agents.get(body.agent_slug)
     provider = providers.get_provider(
-        tier=agent["model_tier"], provider=agent["provider_override"], model=agent["model_override"],
+        tier=agent["model_tier"],
+        provider=agent["provider_override"],
+        model=agent["model_override"],
     )
     if provider is None:
         raise HTTPException(400, detail="no_provider")
@@ -107,7 +109,9 @@ def confirm(body: ConfirmIn, user: User = Depends(current_user)) -> dict:
 
 
 @router.get("/conversations", response_model=list[models.Conversation])
-def list_conversations(q: str | None = None, limit: int = 50, offset: int = 0, user: User = Depends(current_user)) -> list[dict]:
+def list_conversations(
+    q: str | None = None, limit: int = 50, offset: int = 0, user: User = Depends(current_user)
+) -> list[dict]:
     return history.list_conversations(user.id, q=q, limit=limit, offset=offset)
 
 
@@ -136,12 +140,25 @@ def get_conversation(conversation_id: int, user: User = Depends(current_user)) -
         calls = []
         for c in m["content"].get("tool_calls") or []:
             run = runs.get((m["id"], c["tool_use_id"]))
-            calls.append({
-                **c, "tool_run_id": run and run["id"], "status": run and run["status"],
-                "result": _preview(run and run["result"]), "error": run and run["error"],
-            })
-        out.append({"id": m["id"], "role": m["role"], "text": m["content"].get("text", ""), "tool_calls": calls,
-                    "model": m["content"].get("model"), "created_at": m["created_at"]})
+            calls.append(
+                {
+                    **c,
+                    "tool_run_id": run and run["id"],
+                    "status": run and run["status"],
+                    "result": _preview(run and run["result"]),
+                    "error": run and run["error"],
+                }
+            )
+        out.append(
+            {
+                "id": m["id"],
+                "role": m["role"],
+                "text": m["content"].get("text", ""),
+                "tool_calls": calls,
+                "model": m["content"].get("model"),
+                "created_at": m["created_at"],
+            }
+        )
     return {**conv, "messages": out}
 
 
@@ -201,7 +218,11 @@ async def test_provider(provider: str, user: User = Depends(require_admin)) -> d
         raise HTTPException(400, detail="no_key")
     client = providers.make(provider, row["api_key"], row["model_light"])
     try:
-        reply = await collect_text(client.stream_turn([{"role": "user", "content": "Reply with the word OK."}], [], "Reply briefly.", max_tokens=1024))
+        reply = await collect_text(
+            client.stream_turn(
+                [{"role": "user", "content": "Reply with the word OK."}], [], "Reply briefly.", max_tokens=1024
+            )
+        )
     except ProviderError as e:
         raise HTTPException(400, detail=str(e)) from None
     return {"ok": True, "model": row["model_light"], "reply": reply[:200]}

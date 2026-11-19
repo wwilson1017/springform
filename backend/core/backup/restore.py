@@ -57,7 +57,9 @@ def restore(
     except (OSError, ValueError, KeyError, TypeError) as e:
         raise RestoreError(f"cannot read the manifest {manifest_path}: {e!r}") from None
     if m.get("version") != MANIFEST_VERSION:
-        raise RestoreError(f"manifest version {m.get('version')!r} is not supported (this release reads {MANIFEST_VERSION})")
+        raise RestoreError(
+            f"manifest version {m.get('version')!r} is not supported (this release reads {MANIFEST_VERSION})"
+        )
     warnings = []
     try:
         if Version(m.get("springform_version", "0")) > Version(VERSION):
@@ -116,8 +118,12 @@ def restore(
     shutil.copyfile(snapshot, tmp)
     os.replace(tmp, target / DB_FILENAME)  # last, so a half-copied database never has the real name
     return {
-        "target": str(target), "snapshot": filename, "blobs": len(blobs) - len(missing),
-        "missing_blobs": missing, "key_file": bool(key_file), "warnings": warnings,
+        "target": str(target),
+        "snapshot": filename,
+        "blobs": len(blobs) - len(missing),
+        "missing_blobs": missing,
+        "key_file": bool(key_file),
+        "warnings": warnings,
     }
 
 
@@ -133,7 +139,10 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     try:
         result = restore(
-            args.manifest, args.target, files_from=args.files_from, key_file=args.key_file,
+            args.manifest,
+            args.target,
+            files_from=args.files_from,
+            key_file=args.key_file,
             allow_missing_blobs=args.allow_missing_blobs,
         )
     except (RestoreError, OSError) as e:

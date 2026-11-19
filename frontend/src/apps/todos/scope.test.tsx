@@ -12,8 +12,11 @@ import { MeContext } from './me';
 import { isMine, setScope, useScope } from './scope';
 
 describe('isMine', () => {
-  const row = (visibility: 'private' | 'team', owner: number, assignee: number | null) =>
-    ({ visibility, owner_user_id: owner, assignee_user_id: assignee });
+  const row = (visibility: 'private' | 'team', owner: number, assignee: number | null) => ({
+    visibility,
+    owner_user_id: owner,
+    assignee_user_id: assignee,
+  });
 
   it("is the server's work rule: my private rows, team rows for me or for nobody", () => {
     expect(isMine(row('private', 1, null), 1)).toBe(true);
@@ -48,9 +51,17 @@ function Inbox() {
 
 describe('useStatusList', () => {
   it('asks for my work, then for everything once the switch says Everyone', async () => {
-    await act(async () => { root.render(<MeContext.Provider value={{ id: 1, isAdmin: false }}><Inbox /></MeContext.Provider>); });
+    await act(async () => {
+      root.render(
+        <MeContext.Provider value={{ id: 1, isAdmin: false }}>
+          <Inbox />
+        </MeContext.Provider>,
+      );
+    });
     expect(listTodosMock).toHaveBeenLastCalledWith({ status: 'inbox', limit: 500, mine: true });
-    await act(async () => { setScope('all'); });
+    await act(async () => {
+      setScope('all');
+    });
     expect(listTodosMock).toHaveBeenLastCalledWith({ status: 'inbox', limit: 500 });
   });
 });

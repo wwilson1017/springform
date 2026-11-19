@@ -1,6 +1,10 @@
 import { expect, test, unique } from './fixtures';
 
-interface Person { id: number; name: string; organizations: Array<{ organization_id: number; name: string; role: string }> }
+interface Person {
+  id: number;
+  name: string;
+  organizations: Array<{ organization_id: number; name: string; role: string }>;
+}
 
 test('create an organization and a person, then link them with a role', async ({ admin }) => {
   const { page, api } = admin;

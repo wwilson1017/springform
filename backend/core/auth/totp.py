@@ -77,7 +77,9 @@ def _check_code_in(conn: db.Conn, user_id: int, code: str, is_enabled: bool) -> 
     step = next((totp.timecode(now) + i for i in (-1, 0, 1) if hmac.compare_digest(totp.at(now, i), code)), None)
     if step is None or (row["last_used_at"] and int(row["last_used_at"]) >= step):
         return False
-    conn.execute("UPDATE core_totp SET last_used_at = ?, updated_at = ? WHERE user_id = ?", (str(step), clock.now_iso(), user_id))
+    conn.execute(
+        "UPDATE core_totp SET last_used_at = ?, updated_at = ? WHERE user_id = ?", (str(step), clock.now_iso(), user_id)
+    )
     return True
 
 
@@ -97,17 +99,22 @@ def _new_backup_codes() -> tuple[list[str], list[str]]:
 def _spend_backup_code(user_id: int, given: str) -> bool:
     code = given.strip().upper().replace("-", "").encode()
     row = db.one("SELECT backup_codes FROM core_totp WHERE user_id = ? AND enabled = 1", (user_id,))
-    match = next((h for h in json.loads(row["backup_codes"]) if _bcrypt.checkpw(code, h.encode())), None) if row else None
+    match = (
+        next((h for h in json.loads(row["backup_codes"]) if _bcrypt.checkpw(code, h.encode())), None) if row else None
+    )
     if match is None:
         return False
     with db.transaction() as conn:  # re-read under the lock: a code spent meanwhile is gone
-        row = conn.execute("SELECT backup_codes FROM core_totp WHERE user_id = ? AND enabled = 1", (user_id,)).fetchone()
+        row = conn.execute(
+            "SELECT backup_codes FROM core_totp WHERE user_id = ? AND enabled = 1", (user_id,)
+        ).fetchone()
         hashes = json.loads(row["backup_codes"]) if row else []
         if match not in hashes:
             return False
         hashes.remove(match)
         conn.execute(
-            "UPDATE core_totp SET backup_codes = ?, updated_at = ? WHERE user_id = ?", (json.dumps(hashes), clock.now_iso(), user_id)
+            "UPDATE core_totp SET backup_codes = ?, updated_at = ? WHERE user_id = ?",
+            (json.dumps(hashes), clock.now_iso(), user_id),
         )
     return True
 
@@ -223,7 +230,12 @@ def login_totp(body: StepIn, request: Request, response: Response) -> dict:
         row = service.get_user(int(claims["sub"]))
     except (jwt.InvalidToken, KeyError, TypeError, ValueError):
         row = None
-    if not row or not row["is_active"] or row["role"] == "system" or int(claims.get("pwd_epoch", -1)) != int(row["token_epoch"]):
+    if (
+        not row
+        or not row["is_active"]
+        or row["role"] == "system"
+        or int(claims.get("pwd_epoch", -1)) != int(row["token_epoch"])
+    ):
         raise HTTPException(401, detail="challenge_expired")
     try:
         ok = verify(row["id"], body.code, body.backup_code)

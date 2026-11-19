@@ -20,7 +20,9 @@ def titles(rows):
 def _person() -> int:
     now = clock.now_iso()
     with core_db.transaction() as conn:
-        return conn.execute("INSERT INTO core_people (name, created_at, updated_at) VALUES ('Ada', ?, ?)", (now, now)).lastrowid
+        return conn.execute(
+            "INSERT INTO core_people (name, created_at, updated_at) VALUES ('Ada', ?, ?)", (now, now)
+        ).lastrowid
 
 
 @pytest.fixture
@@ -35,7 +37,9 @@ def test_a_private_todo_is_invisible_to_another_member_on_every_surface(login_as
     owner, other = login_as("member"), login_as("member")
     person = _person()
     link = {"entity_type": "core.person", "entity_id": person}
-    secret = owner.post(f"{API}/items", json={"title": "Secret plan", "context": "@hush", "tags": ["hidden"], **link}).json()
+    secret = owner.post(
+        f"{API}/items", json={"title": "Secret plan", "context": "@hush", "tags": ["hidden"], **link}
+    ).json()
     shared = owner.post(f"{API}/items", json={"title": "Shared", "visibility": "team", **link}).json()
     owner.post("/api/core/timeline", json={"entity_type": "todos.item", "entity_id": secret["id"], "body": "hush"})
     url, note = f"{API}/items/{secret['id']}", {"entity_type": "todos.item", "entity_id": secret["id"]}
@@ -61,14 +65,21 @@ def test_a_private_todo_is_invisible_to_another_member_on_every_surface(login_as
     assert owner.get(f"{API}/badge").json() == {"count": 2, "label": "Inbox"}
     assert other.get(f"{API}/review").json()["inbox"]["count"] == 1
     conn = core_db.get_conn()
-    assert entities.titles_for(other.principal, conn, "todos.item", [secret["id"], shared["id"]]) == {shared["id"]: "Shared"}
+    assert entities.titles_for(other.principal, conn, "todos.item", [secret["id"], shared["id"]]) == {
+        shared["id"]: "Shared"
+    }
     report = reports.get("todos.open_team_by_assignee")
     assert report.run({}, other.principal) == (["assignee", "open"], [["Unassigned", 1]])
     assert titles(tools.get("todos_list").handler(other.principal, {})) == ["Shared"]
     with pytest.raises(NotFound):
         todos_api.complete(other.principal.id, secret["id"])
     # Nor can it be used as a link target by someone who cannot read it.
-    assert other.post(f"{API}/items", json={"title": "x", "entity_type": "todos.item", "entity_id": secret["id"]}).status_code == 422
+    assert (
+        other.post(
+            f"{API}/items", json={"title": "x", "entity_type": "todos.item", "entity_id": secret["id"]}
+        ).status_code
+        == 422
+    )
     assert owner.get(url).json()["title"] == "Secret plan"
 
 
@@ -84,7 +95,9 @@ def test_a_team_todo_is_every_members_to_edit_complete_and_reassign(login_as):
     assert b.delete(url).status_code == 403
     assert b.post(f"{url}/complete").json()["status"] == "done"
     assert a.get(url).json()["title"] == "Restock cups"
-    timeline = a.get("/api/core/timeline", params={"entity_type": "todos.item", "entity_id": int(url.rsplit("/", 1)[1])}).json()
+    timeline = a.get(
+        "/api/core/timeline", params={"entity_type": "todos.item", "entity_id": int(url.rsplit("/", 1)[1])}
+    ).json()
     assert {e["author"]["id"] for e in timeline} == {b.user["id"]}
     # The owner may take it private once it is assigned to nobody else.
     b.patch(url, json={"assignee_user_id": b.user["id"]})
@@ -108,9 +121,17 @@ def test_admins_see_team_todos_and_their_own_never_anothers_private(login_as):
     assert member.get(f"{API}/items/{made['id']}").status_code == 200
     # A member may not; a team todo owned by someone else is fine.
     assert member.post(f"{API}/items", json={"title": "x", "owner_user_id": admin.user["id"]}).status_code == 403
-    assert member.post(f"{API}/items", json={"title": "x", "owner_user_id": admin.user["id"], "visibility": "team"}).status_code == 200
+    assert (
+        member.post(
+            f"{API}/items", json={"title": "x", "owner_user_id": admin.user["id"], "visibility": "team"}
+        ).status_code
+        == 200
+    )
     # An admin may give a team todo away, and delete one.
-    assert admin.patch(f"{API}/items/{team['id']}", json={"owner_user_id": admin.user["id"]}).json()["owner_user_id"] == admin.user["id"]
+    assert (
+        admin.patch(f"{API}/items/{team['id']}", json={"owner_user_id": admin.user["id"]}).json()["owner_user_id"]
+        == admin.user["id"]
+    )
     assert admin.delete(f"{API}/items/{team['id']}").json() == {"deleted": team["id"]}
 
 
@@ -163,7 +184,9 @@ def test_the_hierarchy_rule_on_move_reassign_and_visibility_change(two):
     with pytest.raises(Invalid, match="A team todo can only sit in a team project"):
         service.update_item(a, quiet["id"], {"visibility": "team"})
     # Reassign (a new owner): it would sit in someone else's private project.
-    with pytest.raises(Invalid, match="private todo can only sit in a team project or one of its owner's private projects"):
+    with pytest.raises(
+        Invalid, match="private todo can only sit in a team project or one of its owner's private projects"
+    ):
         service.update_item(a, quiet["id"], {"owner_user_id": b.id})
     moved = service.update_item(a, quiet["id"], {"owner_user_id": b.id, "project_id": None})
     assert moved["owner_user_id"] == b.id
@@ -196,7 +219,9 @@ def test_the_hierarchy_rule_on_move_reassign_and_visibility_change(two):
 
 def test_a_repeating_team_todo_comes_back_with_its_visibility_and_assignee(two):
     a, b = two
-    t = service.create_item(a, "Count the till", visibility="team", assignee_user_id=b.id, repeat="daily", status="next_action")
+    t = service.create_item(
+        a, "Count the till", visibility="team", assignee_user_id=b.id, repeat="daily", status="next_action"
+    )
     service.complete(b, t["id"])
     [nxt] = service.list_items(a, status="next_action")
     assert (nxt["visibility"], nxt["assignee_user_id"], nxt["owner_user_id"]) == ("team", b.id, a.id)
@@ -224,7 +249,12 @@ def test_badge_and_today_count_the_users_work(two, freeze):
     assert service.badge(a) == {"count": 3, "label": "Inbox"}  # private inbox, team unassigned, team mine
     assert service.badge(b) == {"count": 3, "label": "Inbox"}  # team unassigned, team theirs, b's private
     assert titles(service.today_view(a)) == ["team, mine", "my private next", "team, unassigned"]
-    assert titles(service.list_items(a, mine=True)) == ["my private inbox", "my private next", "team, unassigned", "team, mine"]
+    assert titles(service.list_items(a, mine=True)) == [
+        "my private inbox",
+        "my private next",
+        "team, unassigned",
+        "team, mine",
+    ]
     assert titles(service.list_items(a, assignee_user_id=b.id)) == ["team, theirs"]
 
 
@@ -236,7 +266,9 @@ def test_deactivation_hides_private_todos_until_an_admin_transfers_them(login_as
     lid, hid = leaver.user["id"], heir.user["id"]
     area = leaver.post(f"{API}/areas", json={"name": "Clients"}).json()
     project = leaver.post(f"{API}/projects", json={"name": "Follow-ups", "area_id": area["id"]}).json()
-    secret = leaver.post(f"{API}/items", json={"title": "Call the supplier", "project_id": project["id"], "assignee_user_id": lid}).json()
+    secret = leaver.post(
+        f"{API}/items", json={"title": "Call the supplier", "project_id": project["id"], "assignee_user_id": lid}
+    ).json()
     shared = leaver.post(f"{API}/items", json={"title": "Team thing", "visibility": "team"}).json()
     with core_db.transaction() as conn:
         conn.execute("UPDATE core_users SET is_active = 0 WHERE id = ?", (lid,))
@@ -248,13 +280,25 @@ def test_deactivation_hides_private_todos_until_an_admin_transfers_them(login_as
         assert viewer.get(f"{API}/projects").json() == []
     assert heir.post(f"{API}/transfer", json={"from_user_id": lid, "to_user_id": hid}).status_code == 403
     since = heir.get(f"{API}/changes").json()["next_since_rev"]
-    assert admin.post(f"{API}/transfer", json={"from_user_id": lid, "to_user_id": hid}).json() == {"items": 1, "projects": 1, "areas": 1}
+    assert admin.post(f"{API}/transfer", json={"from_user_id": lid, "to_user_id": hid}).json() == {
+        "items": 1,
+        "projects": 1,
+        "areas": 1,
+    }
     got = heir.get(f"{API}/items/{secret['id']}").json()
-    assert (got["owner_user_id"], got["assignee_user_id"], got["project_name"], got["area_name"]) == (hid, hid, "Follow-ups", "Clients")
+    assert (got["owner_user_id"], got["assignee_user_id"], got["project_name"], got["area_name"]) == (
+        hid,
+        hid,
+        "Follow-ups",
+        "Clients",
+    )
     assert heir.get(f"{API}/projects/{project['id']}").json()["open_count"] == 1
     feed = heir.get(f"{API}/changes", params={"since_rev": since}).json()
-    assert ([t["id"] for t in feed["items"]], [p["id"] for p in feed["projects"]], [a["id"] for a in feed["areas"]]) == (
-        [secret["id"]], [project["id"]], [area["id"]])
+    assert (
+        [t["id"] for t in feed["items"]],
+        [p["id"] for p in feed["projects"]],
+        [a["id"] for a in feed["areas"]],
+    ) == ([secret["id"]], [project["id"]], [area["id"]])
     assert admin.get(f"{API}/items/{secret['id']}").status_code == 404  # still private, now the heir's
     assert heir.get(f"{API}/items/{shared['id']}").json()["owner_user_id"] == lid  # team rows stay put
     assert admin.post(f"{API}/transfer", json={"from_user_id": hid, "to_user_id": lid}).status_code == 422  # inactive
@@ -291,7 +335,9 @@ def test_an_app_reset_leaves_sqlite_sequence_alone(login_as):
     since = member.get(f"{API}/changes").json()["next_since_rev"]
 
     def sequences():
-        return {r["name"]: r["seq"] for r in core_db.rows("SELECT name, seq FROM sqlite_sequence WHERE name LIKE 'todos_%'")}
+        return {
+            r["name"]: r["seq"] for r in core_db.rows("SELECT name, seq FROM sqlite_sequence WHERE name LIKE 'todos_%'")
+        }
 
     before = sequences()
     with core_db.transaction() as conn:
@@ -315,8 +361,15 @@ def test_an_app_reset_leaves_sqlite_sequence_alone(login_as):
 def test_the_published_api(app, make_user):
     admin, a, b = make_user("admin"), make_user(), make_user()
     person = _person()
-    made = todos_api.create(a.id, "Send the quote", entity_type="core.person", entity_id=person, due_date="2026-09-01", notes="n")
-    assert (made["owner_user_id"], made["visibility"], made["source"], made["status"]) == (a.id, "private", "app", "inbox")
+    made = todos_api.create(
+        a.id, "Send the quote", entity_type="core.person", entity_id=person, due_date="2026-09-01", notes="n"
+    )
+    assert (made["owner_user_id"], made["visibility"], made["source"], made["status"]) == (
+        a.id,
+        "private",
+        "app",
+        "inbox",
+    )
     with pytest.raises(Forbidden):
         todos_api.create(a.id, "for b", owner_user_id=b.id)
     assert todos_api.create(a.id, "for b", owner_user_id=b.id, visibility="team")["owner_user_id"] == b.id
@@ -350,7 +403,11 @@ def test_tools_are_registered_scoped_and_act_as_the_user(two):
     with core_db.transaction() as conn:
         made = create.handler_in(conn, a, {"title": "From Whisk", "visibility": "team", "status": "next_action"})
     assert (made["source"], made["visibility"]) == ("agent", "team")
-    assert update.targets({"id": made["id"], "title": "x"}) == complete.targets({"id": made["id"]}) == [("todos.item", made["id"])]
+    assert (
+        update.targets({"id": made["id"], "title": "x"})
+        == complete.targets({"id": made["id"]})
+        == [("todos.item", made["id"])]
+    )
     assert update.hides_when({"id": 1, "visibility": "private"}) and update.hides_when({"id": 1, "owner_user_id": 2})
     assert not update.hides_when({"id": 1, "title": "x"})
     with core_db.transaction() as conn:
@@ -371,13 +428,29 @@ def test_routes_shapes_and_status_codes(login_as):
     m = login_as("member")
     area = m.post(f"{API}/areas", json={"name": "Home", "visibility": "team"}).json()
     project = m.post(f"{API}/projects", json={"name": "Garden", "area_id": area["id"], "visibility": "team"}).json()
-    item = m.post(f"{API}/items", json={"title": "Dig", "project_id": project["id"], "visibility": "team", "context": "@yard"}).json()
-    assert set(area) == set(Area.model_fields) and set(project) == set(Project.model_fields) and set(item) == set(Item.model_fields)
-    assert (item["project_name"], item["area_name"], item["effective_area_id"], item["source"]) == ("Garden", "Home", area["id"], "ui")
+    item = m.post(
+        f"{API}/items", json={"title": "Dig", "project_id": project["id"], "visibility": "team", "context": "@yard"}
+    ).json()
+    assert (
+        set(area) == set(Area.model_fields)
+        and set(project) == set(Project.model_fields)
+        and set(item) == set(Item.model_fields)
+    )
+    assert (item["project_name"], item["area_name"], item["effective_area_id"], item["source"]) == (
+        "Garden",
+        "Home",
+        area["id"],
+        "ui",
+    )
     assert m.get(f"{API}/items/{item['id']}").json() == item
     assert m.patch(f"{API}/items/{item['id']}", json={"status": "next_action", "star": True}).json()["star"] is True
     assert [t["id"] for t in m.get(f"{API}/today").json()] == [item["id"]]
-    for body in ({"title": ""}, {"title": "x", "bogus": 1}, {"title": "x", "status": "soon"}, {"title": "x", "due_date": "soon"}):
+    for body in (
+        {"title": ""},
+        {"title": "x", "bogus": 1},
+        {"title": "x", "status": "soon"},
+        {"title": "x", "due_date": "soon"},
+    ):
         assert m.post(f"{API}/items", json=body).status_code == 422, body
     assert m.patch(f"{API}/items/999", json={"title": "x"}).status_code == 404
     assert m.get(f"{API}/items", params={"status": "soon"}).status_code == 422
@@ -385,10 +458,15 @@ def test_routes_shapes_and_status_codes(login_as):
     other = m.post(f"{API}/items", json={"title": "Weed", "context": "yard"}).json()
     assert m.post(f"{API}/contexts/rename", json={"old": "@yard", "new": "yard"}).status_code == 409
     assert m.post(f"{API}/contexts/rename", json={"old": "@yard", "new": "yard", "merge": True}).json() == {
-        "old": "@yard", "new": "yard", "updated": 1, "merged": True}
+        "old": "@yard",
+        "new": "yard",
+        "updated": 1,
+        "merged": True,
+    }
     assert m.post(f"{API}/contexts/rename", json={"old": "@nope", "new": "x"}).status_code == 404
-    assert m.post(f"{API}/items/bulk", json={"ids": [item["id"], other["id"]], "fields": {"status": "done"}}).json() == {
-        "updated": sorted([item["id"], other["id"]]), "not_found": []}
+    assert m.post(
+        f"{API}/items/bulk", json={"ids": [item["id"], other["id"]], "fields": {"status": "done"}}
+    ).json() == {"updated": sorted([item["id"], other["id"]]), "not_found": []}
     assert m.post(f"{API}/items/bulk", json={"ids": [item["id"]], "fields": {"colour": "red"}}).status_code == 422
     assert m.post(f"{API}/items/{other['id']}/complete").json()["status"] == "done"
 

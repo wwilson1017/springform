@@ -17,8 +17,17 @@ from backend.core.auth.deps import User
 
 PASSWORD = "correct-horse-battery"
 _ENV = (
-    "PREVIEW_MODE", "ENCRYPTION_KEY", "SECRET_KEY", "PUBLIC_URL", "TRUST_PROXY", "SPRINGFORM_REQUIRE_SQLITE",
-    "ANTHROPIC_API_KEY", "OPENAI_API_KEY", "GEMINI_API_KEY", "GOOGLE_API_KEY", "RESEND_API_KEY",
+    "PREVIEW_MODE",
+    "ENCRYPTION_KEY",
+    "SECRET_KEY",
+    "PUBLIC_URL",
+    "TRUST_PROXY",
+    "SPRINGFORM_REQUIRE_SQLITE",
+    "ANTHROPIC_API_KEY",
+    "OPENAI_API_KEY",
+    "GEMINI_API_KEY",
+    "GOOGLE_API_KEY",
+    "RESEND_API_KEY",
 )
 _counter = itertools.count(1)
 pytest_plugins = ["pytester"]  # test_conftest_guards runs a real inner session
@@ -153,7 +162,9 @@ def make_user(db):
     def _make(role: str = "member", email: str | None = None, password: str | None = PASSWORD) -> User:
         n = next(_counter)
         with core_db.transaction() as conn:
-            row = auth_service.create_user_in(conn, email or f"{role}{n}@example.com", f"{role.title()} {n}", role, password)
+            row = auth_service.create_user_in(
+                conn, email or f"{role}{n}@example.com", f"{role.title()} {n}", role, password
+            )
         return User.from_row(row)
 
     return _make
@@ -174,7 +185,9 @@ def login_as(app):
             _login("admin", on=on)  # finish setup first, as a real install would
             token = None
         if token is not None:
-            r = client.post("/api/auth/setup", json={"token": token, "email": email, "name": f"Admin {n}", "password": PASSWORD})
+            r = client.post(
+                "/api/auth/setup", json={"token": token, "email": email, "name": f"Admin {n}", "password": PASSWORD}
+            )
         else:
             with core_db.transaction() as conn:
                 auth_service.create_user_in(conn, email, f"{role.title()} {n}", role, PASSWORD)

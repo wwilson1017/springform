@@ -32,18 +32,30 @@ def test_definitions_crud_archive_and_restore(login_as):
     admin, member = login_as("admin"), login_as("member")
     colour = _define(admin, label="Paint colour", type="select", options=["red", "blue"], required=True)
     assert colour == {
-        "id": colour["id"], "entity_type": W, "key": "paint_colour", "label": "Paint colour", "type": "select",
-        "options": ["red", "blue"], "required": True, "position": 10, "archived_at": None,
-        "created_at": colour["created_at"], "updated_at": colour["updated_at"],
+        "id": colour["id"],
+        "entity_type": W,
+        "key": "paint_colour",
+        "label": "Paint colour",
+        "type": "select",
+        "options": ["red", "blue"],
+        "required": True,
+        "position": 10,
+        "archived_at": None,
+        "created_at": colour["created_at"],
+        "updated_at": colour["updated_at"],
     }
     size = _define(admin, label="Size", key="size_mm", type="number")
     assert size["position"] == 20 and size["options"] is None and size["required"] is False
     assert [d["key"] for d in member.get(DEFS, params={"entity_type": W}).json()] == ["paint_colour", "size_mm"]
 
-    assert member.post(DEFS, json={"entity_type": W, "label": "Mine", "type": "text"}).json() == {"detail": "admin_only"}
+    assert member.post(DEFS, json={"entity_type": W, "label": "Mine", "type": "text"}).json() == {
+        "detail": "admin_only"
+    }
     assert member.patch(f"{DEFS}/{size['id']}", json={"label": "x"}).status_code == 403
     assert member.delete(f"{DEFS}/{size['id']}").status_code == 403
-    assert admin.post(DEFS, json={"entity_type": W, "label": "Size", "key": "size_mm", "type": "text"}).status_code == 409
+    assert (
+        admin.post(DEFS, json={"entity_type": W, "label": "Size", "key": "size_mm", "type": "text"}).status_code == 409
+    )
     assert admin.post(DEFS, json={"entity_type": "nope.thing", "label": "X", "type": "text"}).status_code == 404
     for bad in (
         {"label": "X", "type": "colour"},  # unknown type
@@ -57,10 +69,16 @@ def test_definitions_crud_archive_and_restore(login_as):
     ):
         assert admin.post(DEFS, json={"entity_type": W, **bad}).status_code == 422, bad
 
-    patched = admin.patch(f"{DEFS}/{colour['id']}", json={"label": "Colour", "options": ["red", "blue", "teal"], "position": 30})
+    patched = admin.patch(
+        f"{DEFS}/{colour['id']}", json={"label": "Colour", "options": ["red", "blue", "teal"], "position": 30}
+    )
     assert patched.status_code == 200
     assert {k: patched.json()[k] for k in ("key", "label", "options", "position", "required")} == {
-        "key": "paint_colour", "label": "Colour", "options": ["red", "blue", "teal"], "position": 30, "required": True,
+        "key": "paint_colour",
+        "label": "Colour",
+        "options": ["red", "blue", "teal"],
+        "position": 30,
+        "required": True,
     }
     assert admin.patch(f"{DEFS}/{colour['id']}", json={"type": "text"}).status_code == 422  # type never changes
     assert admin.patch(f"{DEFS}/{colour['id']}", json={"options": []}).status_code == 422
@@ -74,10 +92,15 @@ def test_definitions_crud_archive_and_restore(login_as):
     assert [d["key"] for d in archived] == ["size_mm", "paint_colour"] and archived[1]["archived_at"]
     assert member.get(VALUES, params={"entity_type": W, "entity_id": w}).json() == {"size_mm": 4}
     assert _put(member, w, {"paint_colour": "red"}).json() == {"detail": "unknown field: paint_colour"}
-    assert admin.post(DEFS, json={"entity_type": W, "label": "Paint colour", "type": "text"}).status_code == 409  # key stays taken
+    assert (
+        admin.post(DEFS, json={"entity_type": W, "label": "Paint colour", "type": "text"}).status_code == 409
+    )  # key stays taken
 
     assert admin.patch(f"{DEFS}/{colour['id']}", json={"archived": False}).json()["archived_at"] is None
-    assert member.get(VALUES, params={"entity_type": W, "entity_id": w}).json() == {"size_mm": 4, "paint_colour": "teal"}
+    assert member.get(VALUES, params={"entity_type": W, "entity_id": w}).json() == {
+        "size_mm": 4,
+        "paint_colour": "teal",
+    }
 
 
 CASES = [  # type, extra definition fields, good values, bad values
@@ -87,7 +110,12 @@ CASES = [  # type, extra definition fields, good values, bad values
     ("date", {}, ["2026-11-02"], ["2026-02-30", "02/11/2026", "2026-11-02T09:00:00Z", "2026-11-02\n", 20261102]),
     ("select", {"options": ["s", "m", "l"]}, ["m"], ["xl", ["m"], 1]),
     ("multiselect", {"options": ["s", "m", "l"]}, [["l", "s"], ["m"]], [["s", "s"], ["xl"], "s", [1]]),
-    ("url", {}, ["https://example.com/a?b=1", "http://localhost:8000"], ["example.com", "ftp://x.y", "https://", "https://a b", "https://a.b\n"]),
+    (
+        "url",
+        {},
+        ["https://example.com/a?b=1", "http://localhost:8000"],
+        ["example.com", "ftp://x.y", "https://", "https://a b", "https://a.b\n"],
+    ),
 ]
 
 
@@ -165,7 +193,9 @@ def test_a_change_writes_one_timeline_row_and_change_log_rows(login_as):
     assert len(entries) == 2 and entries[0]["changes"] == [{"field": "field.size", "old": 3, "new": None}]
     log = core_db.rows("SELECT entity, entity_id, field, old, new, user_id FROM core_change_log ORDER BY id")
     assert [(r["field"], r["old"], r["new"]) for r in log] == [
-        ("field.colour", "null", '"red"'), ("field.size", "null", "3"), ("field.size", "3", "null"),
+        ("field.colour", "null", '"red"'),
+        ("field.size", "null", "3"),
+        ("field.size", "3", "null"),
     ]
     assert {(r["entity"], r["entity_id"], r["user_id"]) for r in log} == {(W, w, member.user["id"])}
 

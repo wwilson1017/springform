@@ -31,10 +31,16 @@ export function touchDetailPath(userId: number | null, window: TouchWindow): str
 export function windowText(window: TouchWindow): string {
   const day = (ymd: string, year: boolean) => {
     const [y, m, d] = ymd.split('-').map(Number);
-    return new Date(y, m - 1, d).toLocaleDateString(undefined, { month: 'short', day: 'numeric', ...(year ? { year: 'numeric' } : {}) });
+    return new Date(y, m - 1, d).toLocaleDateString(undefined, {
+      month: 'short',
+      day: 'numeric',
+      ...(year ? { year: 'numeric' } : {}),
+    });
   };
   const sameYear = window.start_day.slice(0, 4) === window.end_day.slice(0, 4);
-  const days = window.start_day === window.end_day ? day(window.end_day, true)
-    : `${day(window.start_day, !sameYear)} – ${day(window.end_day, true)}`;
+  const days =
+    window.start_day === window.end_day
+      ? day(window.end_day, true)
+      : `${day(window.start_day, !sameYear)} – ${day(window.end_day, true)}`;
   return window.custom ? days : `${window.label} · ${days}`;
 }

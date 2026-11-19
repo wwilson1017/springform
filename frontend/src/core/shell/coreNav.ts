@@ -19,8 +19,10 @@ export interface CoreNavItem {
 
 const ITEMS: CoreNavItem[] = Object.values(
   import.meta.glob<CoreNavItem[]>('../*/nav.tsx', { eager: true, import: 'default' }),
-).flat().sort((a, b) => (a.order ?? 100) - (b.order ?? 100));
+)
+  .flat()
+  .sort((a, b) => (a.order ?? 100) - (b.order ?? 100));
 
 export function coreNavItems(placement: CoreNavItem['placement'], isAdmin: boolean): CoreNavItem[] {
-  return ITEMS.filter(i => i.placement === placement && (!i.adminOnly || isAdmin));
+  return ITEMS.filter((i) => i.placement === placement && (!i.adminOnly || isAdmin));
 }

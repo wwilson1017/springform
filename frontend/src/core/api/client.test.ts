@@ -4,9 +4,7 @@ import { ApiError, del, fetchJson, postJson } from './client';
 function stub(status: number, body?: unknown, pathname = '/example') {
   const assign = vi.fn();
   vi.stubGlobal('location', { pathname, assign });
-  const fetchMock = vi.fn(async () => new Response(
-    body === undefined ? null : JSON.stringify(body), { status },
-  ));
+  const fetchMock = vi.fn(async () => new Response(body === undefined ? null : JSON.stringify(body), { status }));
   vi.stubGlobal('fetch', fetchMock);
   return { assign, fetchMock };
 }
@@ -17,9 +15,14 @@ describe('client', () => {
   it('sends the session cookie and parses JSON', async () => {
     const { fetchMock } = stub(200, { id: 1 });
     expect(await postJson('/api/example/widgets', { name: 'a' })).toEqual({ id: 1 });
-    expect(fetchMock).toHaveBeenCalledWith('/api/example/widgets', expect.objectContaining({
-      credentials: 'same-origin', method: 'POST', body: '{"name":"a"}',
-    }));
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/example/widgets',
+      expect.objectContaining({
+        credentials: 'same-origin',
+        method: 'POST',
+        body: '{"name":"a"}',
+      }),
+    );
   });
 
   it('redirects a 401 to /login and never settles', async () => {
@@ -27,7 +30,7 @@ describe('client', () => {
     const settled = vi.fn();
     fetchJson('/api/example/widgets').then(settled, settled);
     await vi.waitFor(() => expect(assign).toHaveBeenCalledWith('/login'));
-    await new Promise(r => setTimeout(r, 10));
+    await new Promise((r) => setTimeout(r, 10));
     expect(settled).not.toHaveBeenCalled();
   });
 

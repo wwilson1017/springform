@@ -142,6 +142,10 @@ class GuardedTransport(httpx2.AsyncBaseTransport):
 def http_client(token: str = "", inner: httpcore2.AsyncNetworkBackend | None = None) -> httpx2.AsyncClient:
     headers = {"Accept-Encoding": "identity", **({"Authorization": f"Bearer {token}"} if token else {})}
     return httpx2.AsyncClient(
-        transport=GuardedTransport(inner), headers=headers, timeout=TIMEOUT,
-        follow_redirects=False, max_redirects=0, trust_env=False,
+        transport=GuardedTransport(inner),
+        headers=headers,
+        timeout=TIMEOUT,
+        follow_redirects=False,
+        max_redirects=0,
+        trust_env=False,
     )

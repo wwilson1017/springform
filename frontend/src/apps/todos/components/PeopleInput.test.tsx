@@ -28,7 +28,9 @@ vi.mock('../api', () => ({
 // page's shell fills. Here it is simply given.
 vi.mock('../useTodoMeta', () => ({
   useListFilters: () => ({
-    contexts: ['@calls'], tags: [], status_counts: {},
+    contexts: ['@calls'],
+    tags: [],
+    status_counts: {},
     people: ['Ana', 'Bo', 'Bob'],
     areas: [{ id: 4, name: 'Work' }],
   }),
@@ -40,7 +42,8 @@ import type { Todo, TodoProject } from '../types';
 import { ITEM_EXTRA, PROJECT_EXTRA } from '../testFixtures';
 import { routed } from '../testRouter';
 
-const TODO: Todo = { ...ITEM_EXTRA,
+const TODO: Todo = {
+  ...ITEM_EXTRA,
   id: 7,
   title: 'Ask about the lease',
   notes: '',
@@ -60,10 +63,17 @@ const TODO: Todo = { ...ITEM_EXTRA,
   completed_at: null,
 };
 
-const PROJECT: TodoProject = { ...PROJECT_EXTRA,
-  id: 3, name: 'Move house', notes: '', status: 'active', open_count: 1,
-  area_id: 4, area_name: 'Work',
-  created_at: '2026-08-06T12:00:00Z', updated_at: '2026-08-06T12:00:00Z',
+const PROJECT: TodoProject = {
+  ...PROJECT_EXTRA,
+  id: 3,
+  name: 'Move house',
+  notes: '',
+  status: 'active',
+  open_count: 1,
+  area_id: 4,
+  area_name: 'Work',
+  created_at: '2026-08-06T12:00:00Z',
+  updated_at: '2026-08-06T12:00:00Z',
 };
 
 let container: HTMLDivElement;
@@ -91,11 +101,11 @@ function setValue(el: HTMLSelectElement | HTMLInputElement, value: string) {
   });
 }
 
-const offered = () =>
-  [...container.querySelectorAll('[data-people-suggestions] button')].map(b => b.textContent);
+const offered = () => [...container.querySelectorAll('[data-people-suggestions] button')].map((b) => b.textContent);
 const offer = (name: string) =>
-  [...container.querySelectorAll<HTMLButtonElement>('[data-people-suggestions] button')]
-    .find(b => b.textContent === `+ ${name}`)!;
+  [...container.querySelectorAll<HTMLButtonElement>('[data-people-suggestions] button')].find(
+    (b) => b.textContent === `+ ${name}`,
+  )!;
 const settle = () => act(async () => {});
 
 describe('the people field in the edit sheet', () => {
@@ -114,8 +124,10 @@ describe('the people field in the edit sheet', () => {
   }
   const input = () => container.querySelector<HTMLInputElement>('#tgtd-people')!;
   async function save(label = 'Save') {
-    const btn = [...container.querySelectorAll('button')].find(b => b.textContent?.trim() === label)!;
-    act(() => { btn.click(); });
+    const btn = [...container.querySelectorAll('button')].find((b) => b.textContent?.trim() === label)!;
+    act(() => {
+      btn.click();
+    });
     await settle();
   }
 
@@ -169,16 +181,23 @@ describe('the bring-back date and the area picker in the edit sheet', () => {
   function renderSheet(todo: Partial<Todo> = {}) {
     act(() => {
       root.render(
-        <TodoEditSheet todo={{ ...TODO, ...todo }} projects={[PROJECT]} contexts={[]}
-                       onClose={() => {}} onSaved={() => {}} />,
+        <TodoEditSheet
+          todo={{ ...TODO, ...todo }}
+          projects={[PROJECT]}
+          contexts={[]}
+          onClose={() => {}}
+          onSaved={() => {}}
+        />,
       );
     });
   }
   const revisit = () => container.querySelector<HTMLInputElement>('#tgtd-revisit');
   const area = () => container.querySelector<HTMLSelectElement>('#tgtd-area')!;
   async function saved() {
-    const btn = [...container.querySelectorAll('button')].find(b => b.textContent?.trim() === 'Save')!;
-    act(() => { btn.click(); });
+    const btn = [...container.querySelectorAll('button')].find((b) => b.textContent?.trim() === 'Save')!;
+    act(() => {
+      btn.click();
+    });
     await settle();
     return updateTodoMock.mock.calls.at(-1)?.[1] as Record<string, unknown>;
   }
@@ -206,14 +225,14 @@ describe('the bring-back date and the area picker in the edit sheet', () => {
 
   const inProject = { project_id: 3, project_name: 'Move house', effective_area_id: 4, area_name: 'Work' };
 
-  it('says when the todo is inheriting its project\'s area, and a save does not pin it', async () => {
+  it("says when the todo is inheriting its project's area, and a save does not pin it", async () => {
     renderSheet(inProject);
     expect(area().value).toBe('');
     expect(area().options[0].textContent).toBe('Same as project (Work)');
     expect((await saved()).area_id).toBeNull();
   });
 
-  it('writes the todo\'s OWN area when one is picked', async () => {
+  it("writes the todo's OWN area when one is picked", async () => {
     renderSheet(inProject);
     setValue(area(), '4');
     expect((await saved()).area_id).toBe(4);
@@ -222,7 +241,7 @@ describe('the bring-back date and the area picker in the edit sheet', () => {
   it('keeps an option for an area that has since been archived', () => {
     renderSheet({ area_id: 9, effective_area_id: 9, area_name: 'Old job' });
     expect(area().value).toBe('9');
-    expect([...area().options].map(o => o.textContent)).toEqual(['No area', 'Old job', 'Work']);
+    expect([...area().options].map((o) => o.textContent)).toEqual(['No area', 'Old job', 'Work']);
   });
 });
 
@@ -235,14 +254,22 @@ describe('the people field on the triage card', () => {
     onEdit = vi.fn();
     act(() => {
       root.render(
-        <TriageCard todo={{ ...TODO, status: 'inbox', context: '', people: [], ...todo }}
-                    projects={[]} contexts={[]} onProcessed={() => {}}
-                    onChanged={onChanged} onEdit={onEdit} />,
+        <TriageCard
+          todo={{ ...TODO, status: 'inbox', context: '', people: [], ...todo }}
+          projects={[]}
+          contexts={[]}
+          onProcessed={() => {}}
+          onChanged={onChanged}
+          onEdit={onEdit}
+        />,
       );
     });
   }
   const input = () => container.querySelector<HTMLInputElement>('input[aria-label="People"]')!;
-  const blur = () => act(() => { input().dispatchEvent(new FocusEvent('focusout', { bubbles: true })); });
+  const blur = () =>
+    act(() => {
+      input().dispatchEvent(new FocusEvent('focusout', { bubbles: true }));
+    });
 
   it('writes at once when a known person is picked, and leaves the item in the inbox', async () => {
     renderCard();
@@ -273,8 +300,10 @@ describe('the people field on the triage card', () => {
   it('hands the full editor the people as typed, not the stale saved list', async () => {
     renderCard({ people: ['Bo'] });
     setValue(input(), 'Bo, Zed');
-    const edit = [...container.querySelectorAll('button')].find(b => b.textContent === 'Edit')!;
-    act(() => { edit.click(); });
+    const edit = [...container.querySelectorAll('button')].find((b) => b.textContent === 'Edit')!;
+    act(() => {
+      edit.click();
+    });
     await settle();
     expect(onEdit.mock.calls.at(-1)?.[0].people).toEqual(['Bo', 'Zed']);
   });

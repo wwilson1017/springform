@@ -43,7 +43,11 @@ def build(token: str | None = None):
     inner = server.streamable_http_app(stateless_http=True, json_response=True)
 
     async def app(scope, receive, send):
-        if token and scope["type"] == "http" and dict(scope["headers"]).get(b"authorization") != f"Bearer {token}".encode():
+        if (
+            token
+            and scope["type"] == "http"
+            and dict(scope["headers"]).get(b"authorization") != f"Bearer {token}".encode()
+        ):
             await send({"type": "http.response.start", "status": 401, "headers": []})
             await send({"type": "http.response.body", "body": b""})
             return

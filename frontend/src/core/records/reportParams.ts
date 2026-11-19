@@ -13,12 +13,16 @@ export const isRequired = (schema: ReportParamsSchema | null, name: string) => (
 
 /** Each param's default, or "". */
 export function initialParams(schema: ReportParamsSchema | null): ParamValues {
-  return Object.fromEntries(paramEntries(schema).map(([name, p]) => [name, p.default === undefined ? '' : String(p.default)]));
+  return Object.fromEntries(
+    paramEntries(schema).map(([name, p]) => [name, p.default === undefined ? '' : String(p.default)]),
+  );
 }
 
 /** Required params still empty, by title. */
 export function missingParams(schema: ReportParamsSchema | null, values: ParamValues): string[] {
-  return paramEntries(schema).filter(([name]) => isRequired(schema, name) && !values[name]).map(([name, p]) => p.title ?? name);
+  return paramEntries(schema)
+    .filter(([name]) => isRequired(schema, name) && !values[name])
+    .map(([name, p]) => p.title ?? name);
 }
 
 /** The query string for a run or the CSV link: set values only. */

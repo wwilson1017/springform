@@ -64,7 +64,7 @@ const timers = new Map<number, ReturnType<typeof setTimeout>>();
 const listeners = new Set<(entries: UndoEntry[]) => void>();
 
 function emit() {
-  listeners.forEach(l => l(current));
+  listeners.forEach((l) => l(current));
 }
 
 function clearTimer(key: number) {
@@ -88,9 +88,7 @@ export function queueUndo(
     id: todo.id,
     title: todo.title,
     kind,
-    restore: kind === 'filed'
-      ? { status: todo.status, context: todo.context }
-      : { status: todo.status },
+    restore: kind === 'filed' ? { status: todo.status, context: todo.context } : { status: todo.status },
     repeat: todo.repeat,
     owner: queueOwner,
   };
@@ -103,17 +101,23 @@ export function queueUndo(
   // outliving the undo — and it is also what retires a stale mark-done row when
   // the same todo is then filed, which is the right answer for the same reason
   // `dropUndo` is: the older offer no longer describes a pending change.
-  current = [...current.filter(e => {
-    if (e.id !== todo.id) return true;
-    clearTimer(e.key);
-    return false;
-  }), entry];
-  timers.set(entry.key, setTimeout(() => {
-    // Elapsed with no click: the row silently drops out and the todo stays done.
-    timers.delete(entry.key);
-    current = current.filter(e => e.key !== entry.key);
-    emit();
-  }, UNDO_WINDOW_MS));
+  current = [
+    ...current.filter((e) => {
+      if (e.id !== todo.id) return true;
+      clearTimer(e.key);
+      return false;
+    }),
+    entry,
+  ];
+  timers.set(
+    entry.key,
+    setTimeout(() => {
+      // Elapsed with no click: the row silently drops out and the todo stays done.
+      timers.delete(entry.key);
+      current = current.filter((e) => e.key !== entry.key);
+      emit();
+    }, UNDO_WINDOW_MS),
+  );
   emit();
   return entry;
 }
@@ -122,10 +126,10 @@ export function queueUndo(
  *  taken. Taking BEFORE the revert is issued is what makes a double-click
  *  idempotent and stops the timer racing an in-flight undo. */
 export function takeEntry(key: number): UndoEntry | undefined {
-  const entry = current.find(e => e.key === key);
+  const entry = current.find((e) => e.key === key);
   if (!entry) return undefined;
   clearTimer(key);
-  current = current.filter(e => e.key !== key);
+  current = current.filter((e) => e.key !== key);
   emit();
   return entry;
 }
@@ -133,7 +137,7 @@ export function takeEntry(key: number): UndoEntry | undefined {
 /** Drain the whole queue in one shot ("Undo all"). */
 export function takeAll(): UndoEntry[] {
   const entries = current;
-  entries.forEach(e => clearTimer(e.key));
+  entries.forEach((e) => clearTimer(e.key));
   current = [];
   if (entries.length > 0) emit();
   return entries;
@@ -146,7 +150,7 @@ export function takeAll(): UndoEntry[] {
  *  perfectly valid. Callers that write a context alongside a status need this to
  *  tell the two cases apart; one that only ever writes a status does not. */
 export function hasPendingFiling(id: number): boolean {
-  return current.some(e => e.id === id && e.kind === 'filed');
+  return current.some((e) => e.id === id && e.kind === 'filed');
 }
 
 /** Drop any queued row for a todo, without reverting anything. Called when the
@@ -154,16 +158,18 @@ export function hasPendingFiling(id: number): boolean {
  *  completion they have already undone themselves is a stale affordance, and
  *  clicking it would re-apply a status change that is no longer pending. */
 export function dropUndo(id: number) {
-  const gone = current.filter(e => e.id === id);
+  const gone = current.filter((e) => e.id === id);
   if (gone.length === 0) return;
-  gone.forEach(e => clearTimer(e.key));
-  current = current.filter(e => e.id !== id);
+  gone.forEach((e) => clearTimer(e.key));
+  current = current.filter((e) => e.id !== id);
   emit();
 }
 
 function subscribe(onChange: () => void): () => void {
   listeners.add(onChange);
-  return () => { listeners.delete(onChange); };
+  return () => {
+    listeners.delete(onChange);
+  };
 }
 
 // The per-owner snapshot, memoized so `getSnapshot` returns a stable reference
@@ -176,7 +182,7 @@ function snapshotFor(owner: string): UndoEntry[] {
   if (snapFrom !== current || snapOwner !== owner) {
     snapFrom = current;
     snapOwner = owner;
-    snapshot = current.filter(e => e.owner === owner);
+    snapshot = current.filter((e) => e.owner === owner);
   }
   return snapshot;
 }
@@ -209,7 +215,7 @@ export function setUndoOwner(owner: string) {
 /** Drop every entry and its timer. Called by `useTodoMeta` when the list's owner
  *  changes (a signed-in user swap inside one tab), and by tests. */
 export function resetUndoQueue() {
-  current.forEach(e => clearTimer(e.key));
+  current.forEach((e) => clearTimer(e.key));
   current = [];
   emit();
 }

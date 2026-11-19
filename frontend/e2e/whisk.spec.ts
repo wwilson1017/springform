@@ -20,10 +20,12 @@ test('Whisk answers, proposes a write, and runs it on Approve', async ({ admin }
   await expect(card).toContainText('Create this widget.');
   await expect(card).not.toContainText('optionally linked to a person');
   await expect(card).toContainText(name);
-  expect((await api.get<Array<{ name: string }>>('/api/example/widgets')).map(w => w.name)).not.toContain(name);
+  expect((await api.get<Array<{ name: string }>>('/api/example/widgets')).map((w) => w.name)).not.toContain(name);
 
   await card.getByRole('button', { name: 'Approve' }).click();
   await expect(card).toContainText('Done');
   await expect(card.getByRole('button', { name: 'Approve' })).toHaveCount(0);
-  await expect.poll(async () => (await api.get<Array<{ name: string }>>('/api/example/widgets')).map(w => w.name)).toContain(name);
+  await expect
+    .poll(async () => (await api.get<Array<{ name: string }>>('/api/example/widgets')).map((w) => w.name))
+    .toContain(name);
 });

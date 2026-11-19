@@ -7,10 +7,26 @@ import type { PersonPage, PersonRow } from './types';
 
 const PEOPLE = '/api/core/contacts/people';
 const person = (id: number, name: string, extra: Partial<PersonRow> = {}): PersonRow => ({
-  id, name, given_name: null, family_name: null, email: null, phone: null, title: null, source: null, status: null,
-  tags: [], notes: null, owner_user_id: null, owner_name: null, archived_at: null, merged_into_id: null,
-  created_at: '2026-10-20T15:00:00Z', updated_at: '2026-10-20T15:00:00Z',
-  primary_organization_id: null, primary_organization_name: null, ...extra,
+  id,
+  name,
+  given_name: null,
+  family_name: null,
+  email: null,
+  phone: null,
+  title: null,
+  source: null,
+  status: null,
+  tags: [],
+  notes: null,
+  owner_user_id: null,
+  owner_name: null,
+  archived_at: null,
+  merged_into_id: null,
+  created_at: '2026-10-20T15:00:00Z',
+  updated_at: '2026-10-20T15:00:00Z',
+  primary_organization_id: null,
+  primary_organization_name: null,
+  ...extra,
 });
 const page = (items: PersonRow[]): PersonPage => ({ items, total: items.length, page: 1, page_size: 50 });
 
@@ -23,19 +39,33 @@ const search = () => screen.getByTestId('where').textContent;
 function renderAt(url: string) {
   render(
     <MemoryRouter initialEntries={[url]}>
-      <Routes><Route path="/people" element={<><ListPage kind="person" /><Where /></>} /></Routes>
+      <Routes>
+        <Route
+          path="/people"
+          element={
+            <>
+              <ListPage kind="person" />
+              <Where />
+            </>
+          }
+        />
+      </Routes>
     </MemoryRouter>,
   );
 }
 
 // jsdom has no matchMedia; the list asks it whether to render the phone layout.
-beforeEach(() => vi.stubGlobal('matchMedia', () => ({ matches: false, addEventListener() {}, removeEventListener() {} })));
+beforeEach(() =>
+  vi.stubGlobal('matchMedia', () => ({ matches: false, addEventListener() {}, removeEventListener() {} })),
+);
 afterEach(() => vi.unstubAllGlobals());
 
 describe('People list filters', () => {
   it('reads the filters from the URL into the list request', async () => {
     const fetchMock = mockFetch({
-      [`GET ${PEOPLE}?archived=true&tag=vip&organization_id=4&page=2&page_size=50`]: { body: { ...page([person(1, 'Ada Example', { tags: ['vip'] })]), page: 2 } },
+      [`GET ${PEOPLE}?archived=true&tag=vip&organization_id=4&page=2&page_size=50`]: {
+        body: { ...page([person(1, 'Ada Example', { tags: ['vip'] })]), page: 2 },
+      },
       'GET /api/core/contacts/organizations/4': { body: { id: 4, name: 'Demo Café Group' } },
     });
     renderAt('/people?archived=true&tag=vip&organization_id=4&page=2');
@@ -71,7 +101,9 @@ describe('People list filters', () => {
     mockFetch({
       [`GET ${PEOPLE}?page=1&page_size=50`]: { body: page([person(1, 'Ada Example', { tags: ['supplier'] })]) },
       [`GET ${PEOPLE}/duplicates`]: { body: [] },
-      [`GET ${PEOPLE}?tag=supplier&page=1&page_size=50`]: { body: page([person(1, 'Ada Example', { tags: ['supplier'] })]) },
+      [`GET ${PEOPLE}?tag=supplier&page=1&page_size=50`]: {
+        body: page([person(1, 'Ada Example', { tags: ['supplier'] })]),
+      },
     });
     renderAt('/people');
     fireEvent.click(await screen.findByRole('button', { name: 'supplier' }));

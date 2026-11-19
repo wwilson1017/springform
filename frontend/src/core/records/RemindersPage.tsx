@@ -40,23 +40,40 @@ export default function RemindersPage() {
   const [filters, setFilters] = useState<Filters>(NO_FILTERS);
   const [adding, setAdding] = useState(false);
   const { data, error, reload } = useJson<Reminder[]>(listUrl(filters));
-  const set = (patch: Partial<Filters>) => setFilters(f => ({ ...f, ...patch }));
+  const set = (patch: Partial<Filters>) => setFilters((f) => ({ ...f, ...patch }));
 
   return (
     <div className={`${PAGE} max-w-3xl`}>
       <div className="mb-6 flex items-center gap-3">
         <h1 className={`${H_PAGE} flex-1`}>Reminders</h1>
-        {!adding && <button type="button" className={BTN_PRIMARY} onClick={() => setAdding(true)}>New reminder</button>}
+        {!adding && (
+          <button type="button" className={BTN_PRIMARY} onClick={() => setAdding(true)}>
+            New reminder
+          </button>
+        )}
       </div>
       {adding && (
         <div className="mb-6">
-          <ReminderForm onSaved={() => { setAdding(false); reload(); }} onCancel={() => setAdding(false)} />
+          <ReminderForm
+            onSaved={() => {
+              setAdding(false);
+              reload();
+            }}
+            onCancel={() => setAdding(false)}
+          />
         </div>
       )}
       <div className="mb-4 flex flex-wrap items-end gap-3">
         <div>
-          <label htmlFor="rem-status" className={LABEL}>Status</label>
-          <select id="rem-status" className={INPUT} value={filters.status} onChange={e => set({ status: e.target.value as Filters['status'] })}>
+          <label htmlFor="rem-status" className={LABEL}>
+            Status
+          </label>
+          <select
+            id="rem-status"
+            className={INPUT}
+            value={filters.status}
+            onChange={(e) => set({ status: e.target.value as Filters['status'] })}
+          >
             <option value="">Any</option>
             <option value="open">Open</option>
             <option value="snoozed">Snoozed</option>
@@ -65,23 +82,44 @@ export default function RemindersPage() {
           </select>
         </div>
         <div>
-          <label htmlFor="rem-from" className={LABEL}>From</label>
-          <input id="rem-from" type="date" className={INPUT} value={filters.from} onChange={e => set({ from: e.target.value })} />
+          <label htmlFor="rem-from" className={LABEL}>
+            From
+          </label>
+          <input
+            id="rem-from"
+            type="date"
+            className={INPUT}
+            value={filters.from}
+            onChange={(e) => set({ from: e.target.value })}
+          />
         </div>
         <div>
-          <label htmlFor="rem-to" className={LABEL}>To</label>
-          <input id="rem-to" type="date" className={INPUT} value={filters.to} onChange={e => set({ to: e.target.value })} />
+          <label htmlFor="rem-to" className={LABEL}>
+            To
+          </label>
+          <input
+            id="rem-to"
+            type="date"
+            className={INPUT}
+            value={filters.to}
+            onChange={(e) => set({ to: e.target.value })}
+          />
         </div>
         <SavedViewBar surface="core.reminders" value={filters} onChange={setFilters} schemaVersion={1} />
       </div>
-      {error ? <LoadError label="Couldn't load your reminders" onRetry={reload} />
-        : !data ? <p className={MUTED}>Loading…</p>
-        : data.length === 0 ? <p className={MUTED}>No reminders{filters === NO_FILTERS ? ' yet' : ' match these filters'}.</p>
-        : (
-          <ul className="m-0 list-none divide-y divide-sf-line p-0">
-            {data.map(r => <ReminderRow key={r.id} reminder={r} onChanged={reload} showRecord />)}
-          </ul>
-        )}
+      {error ? (
+        <LoadError label="Couldn't load your reminders" onRetry={reload} />
+      ) : !data ? (
+        <p className={MUTED}>Loading…</p>
+      ) : data.length === 0 ? (
+        <p className={MUTED}>No reminders{filters === NO_FILTERS ? ' yet' : ' match these filters'}.</p>
+      ) : (
+        <ul className="m-0 list-none divide-y divide-sf-line p-0">
+          {data.map((r) => (
+            <ReminderRow key={r.id} reminder={r} onChanged={reload} showRecord />
+          ))}
+        </ul>
+      )}
     </div>
   );
 }

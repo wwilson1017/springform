@@ -12,9 +12,12 @@ export function todayStr(now: Date = new Date(), tz?: string): string {
     try {
       // Assembled from parts: a locale string is not a serialization contract.
       const parts = new Intl.DateTimeFormat('en-US', {
-        timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit',
+        timeZone: tz,
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
       }).formatToParts(now);
-      const get = (type: string) => parts.find(p => p.type === type)?.value ?? '';
+      const get = (type: string) => parts.find((p) => p.type === type)?.value ?? '';
       return `${get('year')}-${get('month')}-${get('day')}`;
     } catch {
       // unknown zone name — fall through to the browser's date
@@ -36,13 +39,18 @@ export function zonedNow(tz?: string, now: Date = new Date()): Date {
 /** Area picker options: a row's own area always has one, even once archived (the pickers
  * only list active areas). */
 export function withOwnArea(
-  areas: { id: number; name: string }[], id?: number | null, name?: string | null,
+  areas: { id: number; name: string }[],
+  id?: number | null,
+  name?: string | null,
 ): { id: number; name: string }[] {
-  return id && !areas.some(a => a.id === id) ? [{ id, name: name ?? 'Archived area' }, ...areas] : areas;
+  return id && !areas.some((a) => a.id === id) ? [{ id, name: name ?? 'Archived area' }, ...areas] : areas;
 }
 
 export function parseTags(input: string): string[] {
-  return input.split(',').map(t => t.trim()).filter(Boolean);
+  return input
+    .split(',')
+    .map((t) => t.trim())
+    .filter(Boolean);
 }
 
 /** Free-text filter behind the per-tab search boxes: a substring match across title, notes,
@@ -51,16 +59,20 @@ export function parseTags(input: string): string[] {
  * Context matching is `contextFacet.ts`'s `matchesContexts` (the facet is multi-select). */
 export function matchesFilter(
   todo: {
-    title: string; notes: string; context: string;
-    project_name: string | null; tags: string[]; people?: string[];
+    title: string;
+    notes: string;
+    context: string;
+    project_name: string | null;
+    tags: string[];
+    people?: string[];
   },
   search: string,
 ): boolean {
   const q = search.trim().toLowerCase();
   if (!q) return true;
-  return [todo.title, todo.notes, todo.context, todo.project_name || '', ...todo.tags,
-    ...(todo.people ?? [])]
-    .some(field => field.toLowerCase().includes(q));
+  return [todo.title, todo.notes, todo.context, todo.project_name || '', ...todo.tags, ...(todo.people ?? [])].some(
+    (field) => field.toLowerCase().includes(q),
+  );
 }
 
 /** "3d" / "5w" age chip for Waiting items — how long something has sat. */
@@ -101,5 +113,5 @@ export function dueLabel(due: string, today: string): { text: string; overdue: b
 /** A member's name from the filters' `members`; a deactivated one reads as "a former member". */
 export function memberName(members: Member[] | undefined, id: number | null | undefined): string | null {
   if (id === null || id === undefined) return null;
-  return members?.find(m => m.id === id)?.name ?? 'a former member';
+  return members?.find((m) => m.id === id)?.name ?? 'a former member';
 }

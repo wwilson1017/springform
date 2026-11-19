@@ -82,7 +82,9 @@ async def _serve(scope: Scope, receive: Receive, send: Send, token: str, *, bear
         return await _refuse(scope, receive, send, 404, "Not Found")
     link_id, user = found
     if not call_limiter.allow(str(link_id)):
-        return await _refuse(scope, receive, send, 429, "Too many requests. Wait a moment and try again.", {"Retry-After": "60"})
+        return await _refuse(
+            scope, receive, send, 429, "Too many requests. Wait a moment and try again.", {"Retry-After": "60"}
+        )
     declared = request.headers.get("content-length", "")
     if declared.isdigit() and int(declared) > server.MAX_BODY_BYTES:
         return await _refuse(scope, receive, send, 413, "Request too large: at most 4 MB")

@@ -36,10 +36,7 @@ export function QuickAdd({ onAdded, link, placeholder }: Props) {
   const tz = useListTz();
   const projects = useListProjects();
   const defaultVisibility = useListFilters()?.default_visibility;
-  const parsed = useMemo(
-    () => parseQuickAdd(input, zonedNow(tz), ignored),
-    [input, ignored, tz],
-  );
+  const parsed = useMemo(() => parseQuickAdd(input, zonedNow(tz), ignored), [input, ignored, tz]);
 
   const submit = async () => {
     if (!parsed.title.trim() || busy) return;
@@ -81,13 +78,19 @@ export function QuickAdd({ onAdded, link, placeholder }: Props) {
   return (
     <div>
       <form
-        onSubmit={e => { e.preventDefault(); void submit(); }}
+        onSubmit={(e) => {
+          e.preventDefault();
+          void submit();
+        }}
         className="flex gap-2"
       >
         <input
           ref={inputRef}
           value={input}
-          onChange={e => { setInput(e.target.value); setIgnored([]); }}
+          onChange={(e) => {
+            setInput(e.target.value);
+            setIgnored([]);
+          }}
           placeholder={placeholder ?? 'Add to inbox — try “call Sam tomorrow #House @calls !”'}
           aria-label="Add a todo"
           className="min-w-0 flex-1 rounded-lg border border-sf-line-strong bg-sf-card px-3 py-2 text-base sm:text-sm text-sf-ink placeholder:text-sf-ink-dim focus:border-sf-accent focus:outline-none"
@@ -106,7 +109,7 @@ export function QuickAdd({ onAdded, link, placeholder }: Props) {
             <button
               key={`${chip.raw}-${i}`}
               type="button"
-              onClick={() => setIgnored(prev => [...prev, chip.raw.trim()])}
+              onClick={() => setIgnored((prev) => [...prev, chip.raw.trim()])}
               title="Remove — keeps the words in the title"
               className={`rounded-full px-2 py-0.5 text-xs ${CHIP_STYLES[chip.kind]}`}
             >
@@ -120,13 +123,17 @@ export function QuickAdd({ onAdded, link, placeholder }: Props) {
           <input
             type="checkbox"
             checked={autoStar}
-            onChange={e => setAutoStar(e.target.checked)}
+            onChange={(e) => setAutoStar(e.target.checked)}
             className="h-3.5 w-3.5 accent-sf-amber"
           />
           ★ Star the next occurrence when it comes due today
         </label>
       )}
-      {error && <p role="alert" className="mt-1 text-xs text-sf-red-text">{error}</p>}
+      {error && (
+        <p role="alert" className="mt-1 text-xs text-sf-red-text">
+          {error}
+        </p>
+      )}
     </div>
   );
 }

@@ -8,13 +8,16 @@ import { describe, expect, it } from 'vitest';
 import type { AppContributions, AppModule } from './types';
 import { appBySlug, navItems, recordPanelsFor, settingsCardsFor } from './registry';
 
-const contributions = import.meta.glob<AppContributions>('../../apps/*/contributions.ts', { eager: true, import: 'default' });
+const contributions = import.meta.glob<AppContributions>('../../apps/*/contributions.ts', {
+  eager: true,
+  import: 'default',
+});
 const screens = import.meta.glob<AppModule>('../../apps/*/index.tsx', { import: 'default' });
 const sources = import.meta.glob<string>('../../apps/**/*.{ts,tsx}', { query: '?raw', import: 'default', eager: true });
 
 /** '../../apps/<slug>/…' -> '<slug>' */
 const slugOf = (path: string) => path.split('/')[3];
-const manifestSlugs = manifests.map(m => m.slug).sort();
+const manifestSlugs = manifests.map((m) => m.slug).sort();
 
 /**
  * Every import specifier in a source (static, re-export, side-effect and dynamic) that resolves
@@ -22,8 +25,8 @@ const manifestSlugs = manifests.map(m => m.slug).sort();
  */
 function crossAppImports(file: string, source: string): string[] {
   const own = slugOf(file);
-  const specs = [...source.matchAll(/(?:\bfrom\s*|\bimport\s*\(?\s*)['"]([^'"]+)['"]/g)].map(m => m[1]);
-  return specs.filter(spec => {
+  const specs = [...source.matchAll(/(?:\bfrom\s*|\bimport\s*\(?\s*)['"]([^'"]+)['"]/g)].map((m) => m[1]);
+  return specs.filter((spec) => {
     if (!spec.startsWith('.')) return false;
     const parts = file.split('/').slice(0, -1);
     for (const seg of spec.split('/')) {
@@ -44,8 +47,23 @@ describe('app contract', () => {
     // The shell's core pages: '/', /login, /setup, /invite/:token, /people(/:id),
     // /organizations(/:id), /settings/*, /guide, /requests, /changelog, /backups, /jobs, /whisk,
     // /reminders, /notifications. An app on one of these would be shadowed or shadow core.
-    const reserved = new Set(['', 'login', 'setup', 'invite', 'people', 'organizations', 'settings', 'guide',
-      'requests', 'changelog', 'backups', 'jobs', 'whisk', 'reminders', 'notifications']);
+    const reserved = new Set([
+      '',
+      'login',
+      'setup',
+      'invite',
+      'people',
+      'organizations',
+      'settings',
+      'guide',
+      'requests',
+      'changelog',
+      'backups',
+      'jobs',
+      'whisk',
+      'reminders',
+      'notifications',
+    ]);
     for (const m of manifests) expect(reserved.has(m.path.split('/')[1] ?? ''), `${m.slug} path ${m.path}`).toBe(false);
   });
 
@@ -65,42 +83,57 @@ describe('app contract', () => {
 
   it('every settings_cards[].id has exactly one loader, and every loader a manifest card', () => {
     for (const m of manifests) {
-      const ids = (m.settings_cards ?? []).map(c => c.id).sort();
+      const ids = (m.settings_cards ?? []).map((c) => c.id).sort();
       const loaders = Object.keys(contributions[`../../apps/${m.slug}/contributions.ts`]?.settingsCards ?? {}).sort();
       expect(loaders, `${m.slug} settings card loaders`).toEqual(ids);
     }
   });
 
   it('no app imports from another app folder', () => {
-    const violations = Object.entries(sources).flatMap(([file, src]) => crossAppImports(file, src).map(s => `${file}: ${s}`));
+    const violations = Object.entries(sources).flatMap(([file, src]) =>
+      crossAppImports(file, src).map((s) => `${file}: ${s}`),
+    );
     expect(violations).toEqual([]);
   });
 
   it('the cross-app scanner catches every import shape and ignores own-folder and core imports', () => {
     const file = '../../apps/crm/pages/Deals.tsx';
-    expect(crossAppImports(file, [
-      "import { x } from '../../todos/api';",
-      "export { y } from \"../../todos/api\";",
-      "import '../../todos/side-effect';",
-      "const P = lazy(() => import('../../todos/Page'));",
-    ].join('\n'))).toHaveLength(4);
-    expect(crossAppImports(file, [
-      "import { a } from '../api';",
-      "import { b } from '../../../core/api/client';",
-      "import { c } from 'react';",
-    ].join('\n'))).toEqual([]);
+    expect(
+      crossAppImports(
+        file,
+        [
+          "import { x } from '../../todos/api';",
+          'export { y } from "../../todos/api";',
+          "import '../../todos/side-effect';",
+          "const P = lazy(() => import('../../todos/Page'));",
+        ].join('\n'),
+      ),
+    ).toHaveLength(4);
+    expect(
+      crossAppImports(
+        file,
+        [
+          "import { a } from '../api';",
+          "import { b } from '../../../core/api/client';",
+          "import { c } from 'react';",
+        ].join('\n'),
+      ),
+    ).toEqual([]);
   });
 
   it('the registry wires the example app into every seam', () => {
     expect(appBySlug('example')?.manifest.path).toBe('/example');
-    expect(settingsCardsFor('example').map(c => c.id)).toEqual(['example']);
-    expect(recordPanelsFor('core.person').map(p => p.slug)).toContain('example');
-    expect(navItems([{ slug: 'example' }]).find(n => n.slug === 'example')).toMatchObject({ to: '/example', icon: 'flask' });
+    expect(settingsCardsFor('example').map((c) => c.id)).toEqual(['example']);
+    expect(recordPanelsFor('core.person').map((p) => p.slug)).toContain('example');
+    expect(navItems([{ slug: 'example' }]).find((n) => n.slug === 'example')).toMatchObject({
+      to: '/example',
+      icon: 'flask',
+    });
   });
 
   it('orders app nav as the server lists the apps, not by manifest order, and skips unknown slugs', () => {
     // Manifest order is crm (10), todos (20), example (900); an admin moved example first.
     const shown = [{ slug: 'example' }, { slug: 'gone' }, { slug: 'todos' }, { slug: 'crm' }];
-    expect(navItems(shown).map(n => n.slug)).toEqual(['example', 'todos', 'crm']);
+    expect(navItems(shown).map((n) => n.slug)).toEqual(['example', 'todos', 'crm']);
   });
 });

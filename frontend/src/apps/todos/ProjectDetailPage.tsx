@@ -1,8 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
-import {
-  createTodo, listProjects, listTodos, updateProject,
-} from './api';
+import { createTodo, listProjects, listTodos, updateProject } from './api';
 import { PROJECT_STATUSES } from './constants';
 import { todoPath } from './menu';
 import { updateProjectStatus } from './projectActions';
@@ -30,11 +28,11 @@ const WHY_AND_WHAT: { field: 'purpose' | 'outcome'; heading: string; placeholder
 ];
 
 const GROUPS: { title: string; match: (t: Todo) => boolean }[] = [
-  { title: 'Next actions', match: t => t.status === 'next_action' },
-  { title: 'Waiting / Delegated', match: t => t.status === 'waiting_for' || t.status === 'delegated' },
-  { title: 'Someday', match: t => t.status === 'someday_maybe' },
-  { title: 'Inbox', match: t => t.status === 'inbox' },
-  { title: 'Finished', match: t => t.status === 'done' || t.status === 'dropped' },
+  { title: 'Next actions', match: (t) => t.status === 'next_action' },
+  { title: 'Waiting / Delegated', match: (t) => t.status === 'waiting_for' || t.status === 'delegated' },
+  { title: 'Someday', match: (t) => t.status === 'someday_maybe' },
+  { title: 'Inbox', match: (t) => t.status === 'inbox' },
+  { title: 'Finished', match: (t) => t.status === 'done' || t.status === 'dropped' },
 ];
 
 export function ProjectDetailPage() {
@@ -57,8 +55,7 @@ export function ProjectDetailPage() {
    */
   const [saveError, setSaveError] = useState<{ field: Field; text: string } | null>(null);
   /** Clear the line only if it belongs to `field` — see above. */
-  const clearErrorFor = (field: Field) =>
-    setSaveError(e => (e?.field === field ? null : e));
+  const clearErrorFor = (field: Field) => setSaveError((e) => (e?.field === field ? null : e));
   const { projects, filters } = useTodoMeta();
 
   // Previous / next among projects of the same status, from the cached list.
@@ -80,7 +77,9 @@ export function ProjectDetailPage() {
   }, [prevId, nextId, sheetOpen, navigate]);
 
   const [loadSeq, setLoadSeq] = useState(0);
-  const reload = useCallback(() => { setLoadSeq(s => s + 1); }, []);
+  const reload = useCallback(() => {
+    setLoadSeq((s) => s + 1);
+  }, []);
   // This page fetches its own project + todos rather than going through
   // `useTodos`, so it subscribes to the undo broadcast and the change feed itself.
   useTodosChanged(reload);
@@ -94,14 +93,20 @@ export function ProjectDetailPage() {
       // A project's own page shows its deferred todos too, each saying when it comes
       // back — this is a record view, not a working list.
       listTodos({ project_id: projectId, limit: 500, include_deferred: true }),
-    ]).then(([allProjects, items]) => {
-      if (cancelled) return;
-      const p = allProjects.find(x => x.id === projectId) ?? null;
-      setProject(p);
-      setTodos(items);
-      setFailed(!p);
-    }).catch(() => { if (!cancelled) setFailed(true); });
-    return () => { cancelled = true; };
+    ])
+      .then(([allProjects, items]) => {
+        if (cancelled) return;
+        const p = allProjects.find((x) => x.id === projectId) ?? null;
+        setProject(p);
+        setTodos(items);
+        setFailed(!p);
+      })
+      .catch(() => {
+        if (!cancelled) setFailed(true);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [projectId, loadSeq]);
 
   const { toggleDone, toggleStar, after } = useRowActions(reload);
@@ -118,7 +123,7 @@ export function ProjectDetailPage() {
       return;
     }
     // Clear only what was sent, never text typed while the add was in flight.
-    setNewAction(cur => (cur.trim() === title ? '' : cur));
+    setNewAction((cur) => (cur.trim() === title ? '' : cur));
     after();
   };
 
@@ -152,7 +157,7 @@ export function ProjectDetailPage() {
     clearErrorFor(field);
     try {
       const saved = await updateProject(projectId, fields);
-      setProject(p => (p ? { ...p, ...fields, updated_at: saved.updated_at } : saved));
+      setProject((p) => (p ? { ...p, ...fields, updated_at: saved.updated_at } : saved));
       void refreshMeta();
       return true;
     } catch (e) {
@@ -187,8 +192,8 @@ export function ProjectDetailPage() {
   };
   const areaOptions = withOwnArea(filters?.areas ?? [], project?.area_id, project?.area_name);
 
-  const open = (todos ?? []).filter(t => !['done', 'dropped'].includes(t.status));
-  const hasNext = open.some(t => t.status === 'next_action');
+  const open = (todos ?? []).filter((t) => !['done', 'dropped'].includes(t.status));
+  const hasNext = open.some((t) => t.status === 'next_action');
 
   return (
     <TodoShell active="projects" onAdded={reload}>
@@ -198,17 +203,30 @@ export function ProjectDetailPage() {
         </Link>
         {neighbours && (
           <div className="flex gap-1">
-            {([['Previous project', '←', neighbours.prev], ['Next project', '→', neighbours.next]] as const)
-              .map(([label, arrow, to]) => (
-                <Link key={label} to={todoPath(`/projects/${to}`)} aria-label={label} title={label}
-                      className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-sf-line-strong bg-sf-card text-sf-ink-dim hover:bg-sf-hover hover:text-sf-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sf-accent">
-                  <span aria-hidden="true">{arrow}</span>
-                </Link>
-              ))}
+            {(
+              [
+                ['Previous project', '←', neighbours.prev],
+                ['Next project', '→', neighbours.next],
+              ] as const
+            ).map(([label, arrow, to]) => (
+              <Link
+                key={label}
+                to={todoPath(`/projects/${to}`)}
+                aria-label={label}
+                title={label}
+                className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-sf-line-strong bg-sf-card text-sf-ink-dim hover:bg-sf-hover hover:text-sf-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sf-accent"
+              >
+                <span aria-hidden="true">{arrow}</span>
+              </Link>
+            ))}
           </div>
         )}
       </div>
-      {failed && <div className="mt-3"><LoadFailed retry={reload} /></div>}
+      {failed && (
+        <div className="mt-3">
+          <LoadFailed retry={reload} />
+        </div>
+      )}
       {!failed && (project === null || todos === null) && <LoadingRows />}
       {project && todos !== null && (
         <>
@@ -229,16 +247,18 @@ export function ProjectDetailPage() {
                 <InlineTitle
                   title={project.name}
                   label="Project name"
-                  onSave={name => saveField('name', name)}
+                  onSave={(name) => saveField('name', name)}
                   // A blank name is refused by the control before it reaches the server, so
                   // this is the only place that refusal can be explained. Every other close
                   // (Escape, or nothing changed) just clears whatever line was up.
-                  onCancel={reason => (reason === 'blank'
-                    ? setSaveError({
-                      field: 'name',
-                      text: 'A project name is required — the previous name was kept.',
-                    })
-                    : clearErrorFor('name'))}
+                  onCancel={(reason) =>
+                    reason === 'blank'
+                      ? setSaveError({
+                          field: 'name',
+                          text: 'A project name is required — the previous name was kept.',
+                        })
+                      : clearErrorFor('name')
+                  }
                   className="-ml-1 font-display text-xl font-bold text-sf-ink"
                 />
               </h2>
@@ -250,53 +270,76 @@ export function ProjectDetailPage() {
                 label="Project notes"
                 variant="body"
                 placeholder="Add notes…"
-                onSave={notes => saveField('notes', notes)}
+                onSave={(notes) => saveField('notes', notes)}
                 onCancel={() => clearErrorFor('notes')}
                 className="-ml-1 mt-0.5 whitespace-pre-wrap text-sm text-sf-ink-dim"
               />
             </div>
             <div className="flex items-center gap-2">
               {project.status === 'completed' || project.status === 'dropped' ? (
-                <button type="button" onClick={() => void setProjectStatus('active')}
-                        className="rounded-lg border border-sf-line-strong bg-sf-card px-3 py-1.5 text-sm font-display text-sf-ink hover:bg-sf-hover">
+                <button
+                  type="button"
+                  onClick={() => void setProjectStatus('active')}
+                  className="rounded-lg border border-sf-line-strong bg-sf-card px-3 py-1.5 text-sm font-display text-sf-ink hover:bg-sf-hover"
+                >
                   Reactivate
                 </button>
               ) : (
-                <button type="button" onClick={() => void setProjectStatus('completed')}
-                        className="rounded-lg border border-sf-green px-3 py-1.5 text-sm font-display text-sf-green-text hover:bg-sf-green/10">
+                <button
+                  type="button"
+                  onClick={() => void setProjectStatus('completed')}
+                  className="rounded-lg border border-sf-green px-3 py-1.5 text-sm font-display text-sf-green-text hover:bg-sf-green/10"
+                >
                   ✓ Mark Completed
                 </button>
               )}
               <select
                 value={project.status}
-                onChange={e => void setProjectStatus(e.target.value as TodoProjectStatus)}
+                onChange={(e) => void setProjectStatus(e.target.value as TodoProjectStatus)}
                 className="rounded-lg border border-sf-line-strong bg-sf-card px-2 py-1.5 text-sm capitalize text-sf-ink focus:border-sf-accent focus:outline-none"
                 aria-label="Project status"
               >
-                {PROJECT_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
+                {PROJECT_STATUSES.map((s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))}
               </select>
               {areaOptions.length > 0 && (
                 <select
                   value={project.area_id ?? ''}
-                  onChange={e => void setArea(e.target.value)}
+                  onChange={(e) => void setArea(e.target.value)}
                   className="rounded-lg border border-sf-line-strong bg-sf-card px-2 py-1.5 text-sm text-sf-ink focus:border-sf-accent focus:outline-none"
                   aria-label="Project area"
                 >
                   <option value="">No area</option>
-                  {areaOptions.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+                  {areaOptions.map((a) => (
+                    <option key={a.id} value={a.id}>
+                      {a.name}
+                    </option>
+                  ))}
                 </select>
               )}
             </div>
           </div>
 
           <div className="mt-3 rounded-lg border border-sf-line bg-sf-card px-3 py-3">
-            <SharingFields idPrefix="project" visibility={project.visibility} assignee={project.assignee_user_id}
-                           ownerId={project.owner_user_id} members={filters?.members ?? []}
-                           onChange={p => void setSharing(p)} />
+            <SharingFields
+              idPrefix="project"
+              visibility={project.visibility}
+              assignee={project.assignee_user_id}
+              ownerId={project.owner_user_id}
+              members={filters?.members ?? []}
+              onChange={(p) => void setSharing(p)}
+            />
             <p className="mt-2 mb-0 text-xs text-sf-ink-dim">
               Owner: {memberName(filters?.members, project.owner_user_id)}
             </p>
-            {sharingError && <p role="alert" className="mt-2 mb-0 text-sm text-sf-red-text">{sharingError}</p>}
+            {sharingError && (
+              <p role="alert" className="mt-2 mb-0 text-sm text-sf-red-text">
+                {sharingError}
+              </p>
+            )}
           </div>
 
           {/* Always rendered, for the reason the notes are: the placeholder is the
@@ -304,15 +347,13 @@ export function ProjectDetailPage() {
           <div className="mt-3 grid gap-3 sm:grid-cols-2">
             {WHY_AND_WHAT.map(({ field, heading, placeholder }) => (
               <div key={field} className="rounded-lg border border-sf-line bg-sf-card px-3 py-2">
-                <h3 className="text-xs font-display font-bold uppercase tracking-wide text-sf-ink-dim">
-                  {heading}
-                </h3>
+                <h3 className="text-xs font-display font-bold uppercase tracking-wide text-sf-ink-dim">{heading}</h3>
                 <InlineTitle
                   title={project[field] ?? ''}
                   label={`Project ${field}`}
                   variant="body"
                   placeholder={placeholder}
-                  onSave={value => saveField(field, value)}
+                  onSave={(value) => saveField(field, value)}
                   onCancel={() => clearErrorFor(field)}
                   className="-ml-1 mt-0.5 whitespace-pre-wrap text-sm text-sf-ink"
                 />
@@ -325,28 +366,36 @@ export function ProjectDetailPage() {
               the status select. `role="alert"` because the eye is on the editor,
               which stays open above this with the typed text intact. */}
           {saveError && (
-            <p role="alert" className="mt-2 text-sm text-sf-red-text">{saveError.text}</p>
+            <p role="alert" className="mt-2 text-sm text-sf-red-text">
+              {saveError.text}
+            </p>
           )}
 
           {project.status === 'active' && !hasNext && (
             <p className="mt-3 rounded-lg border border-sf-amber/40 bg-sf-amber/10 px-3 py-2 text-sm text-sf-ink">
-              This active project has <strong>no next action</strong> — decide the very next
-              physical step, or it will stall.
+              This active project has <strong>no next action</strong> — decide the very next physical step, or it will
+              stall.
             </p>
           )}
 
           <form
-            onSubmit={e => { e.preventDefault(); void addNextAction(); }}
+            onSubmit={(e) => {
+              e.preventDefault();
+              void addNextAction();
+            }}
             className="mt-4 flex gap-2"
           >
             <input
               value={newAction}
-              onChange={e => setNewAction(e.target.value)}
+              onChange={(e) => setNewAction(e.target.value)}
               placeholder="Add a next action to this project…"
               className="min-w-0 flex-1 rounded-lg border border-sf-line-strong bg-sf-card px-3 py-2 text-base sm:text-sm text-sf-ink placeholder:text-sf-ink-dim focus:border-sf-accent focus:outline-none"
             />
-            <button type="submit" disabled={!newAction.trim()}
-                    className="shrink-0 rounded-lg bg-sf-accent px-4 py-2 text-sm font-display text-sf-accent-ink hover:bg-sf-accent-dark disabled:opacity-40">
+            <button
+              type="submit"
+              disabled={!newAction.trim()}
+              className="shrink-0 rounded-lg bg-sf-accent px-4 py-2 text-sm font-display text-sf-accent-ink hover:bg-sf-accent-dark disabled:opacity-40"
+            >
               Add
             </button>
           </form>
@@ -361,9 +410,14 @@ export function ProjectDetailPage() {
                     {title}
                   </h3>
                   <div className="space-y-2">
-                    {items.map(t => (
-                      <TodoRow key={t.id} todo={t} onToggleDone={toggleDone}
-                               onToggleStar={toggleStar} onEdit={setEditTodo} />
+                    {items.map((t) => (
+                      <TodoRow
+                        key={t.id}
+                        todo={t}
+                        onToggleDone={toggleDone}
+                        onToggleStar={toggleStar}
+                        onEdit={setEditTodo}
+                      />
                     ))}
                   </div>
                 </section>

@@ -100,7 +100,7 @@ describe('daysSince', () => {
 
 describe('withOwnArea', () => {
   const areas = [{ id: 1, name: 'Home' }];
-  it('adds a row\'s archived area, named or not, and leaves known/none alone', () => {
+  it("adds a row's archived area, named or not, and leaves known/none alone", () => {
     expect(withOwnArea(areas, 2, 'Old')).toEqual([{ id: 2, name: 'Old' }, ...areas]);
     expect(withOwnArea(areas, 2, null)[0].name).toBe('Archived area');
     expect(withOwnArea(areas, 1, 'Home')).toBe(areas);

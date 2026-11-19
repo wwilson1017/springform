@@ -34,9 +34,14 @@ describe('peopleGroup', () => {
   it('maps each person to an option', () => {
     const onToggle = () => {};
     expect(peopleGroup(['Ana', 'Bo'], ['Bo'], onToggle)).toEqual({
-      key: 'people', label: 'People',
-      options: [{ value: 'Ana', label: 'Ana' }, { value: 'Bo', label: 'Bo' }],
-      selected: ['Bo'], onToggle,
+      key: 'people',
+      label: 'People',
+      options: [
+        { value: 'Ana', label: 'Ana' },
+        { value: 'Bo', label: 'Bo' },
+      ],
+      selected: ['Bo'],
+      onToggle,
     });
   });
 });

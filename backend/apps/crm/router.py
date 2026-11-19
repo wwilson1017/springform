@@ -87,18 +87,27 @@ def board(
 ) -> dict:
     """The pipeline board (see deals.board for the three bounding modes)."""
     return deals.board(
-        user, stage=stage, include_archived=include_archived, limit=limit, after_id=after_id, limit_per_stage=limit_per_stage
+        user,
+        stage=stage,
+        include_archived=include_archived,
+        limit=limit,
+        after_id=after_id,
+        limit_per_stage=limit_per_stage,
     )
 
 
 @router.get("/deals/search", response_model=list[Deal])
 def search_deals(
-    q: str | None = Query(None, max_length=200, description="Every word, as a prefix, in the deal or its person or organization"),
+    q: str | None = Query(
+        None, max_length=200, description="Every word, as a prefix, in the deal or its person or organization"
+    ),
     stage: Stage | None = None,
     person_id: int | None = None,
     organization_id: int | None = None,
     owner_user_id: int | None = None,
-    sort_by: Literal["updated_at", "created_at", "value_cents", "expected_close", "title", "stage", "probability", "lead_score"] = "updated_at",
+    sort_by: Literal[
+        "updated_at", "created_at", "value_cents", "expected_close", "title", "stage", "probability", "lead_score"
+    ] = "updated_at",
     sort_dir: Literal["asc", "desc"] = "desc",
     limit: int = Query(25, ge=1, le=100),
     include_archived: bool = False,
@@ -184,7 +193,9 @@ def person_deals(person_id: int, include_archived: bool = False, user: User = De
 
 
 @router.get("/organizations/{organization_id}/deals", response_model=list[Deal])
-def organization_deals(organization_id: int, include_archived: bool = False, user: User = Depends(current_user)) -> list[dict]:
+def organization_deals(
+    organization_id: int, include_archived: bool = False, user: User = Depends(current_user)
+) -> list[dict]:
     return deals.for_record_in(db.get_conn(), user, "core.organization", organization_id, include_archived)
 
 
@@ -203,7 +214,9 @@ def badge(user: User = Depends(current_user)) -> dict:
 
 @router.get("/activity", response_model=list[Activity])
 def list_activity(
-    deal_id: int | None = None, person_id: int | None = None, limit: int = Query(50, ge=1, le=500),
+    deal_id: int | None = None,
+    person_id: int | None = None,
+    limit: int = Query(50, ge=1, le=500),
     user: User = Depends(current_user),
 ) -> list[dict]:
     return activity.list_(user, deal_id=deal_id, person_id=person_id, limit=limit)
@@ -259,7 +272,9 @@ def weekly_touch_detail(
 
 @router.get("/analytics", response_model=Analytics)
 def get_analytics(
-    days: int = Query(30, ge=7, le=365), stale_days: int | None = Query(None, ge=1, le=365), user: User = Depends(current_user)
+    days: int = Query(30, ge=7, le=365),
+    stale_days: int | None = Query(None, ge=1, le=365),
+    user: User = Depends(current_user),
 ) -> dict:
     return analytics.analytics(user, days, stale_days)
 
@@ -271,7 +286,9 @@ def get_pipeline_analytics(days: int = Query(90, ge=7, le=730), user: User = Dep
 
 @router.get("/stale-deals", response_model=StaleDeals)
 def stale_deals(
-    days: int | None = Query(None, ge=1, le=365), limit: int = Query(25, ge=1, le=200), user: User = Depends(current_user)
+    days: int | None = Query(None, ge=1, le=365),
+    limit: int = Query(25, ge=1, le=200),
+    user: User = Depends(current_user),
 ) -> dict:
     return analytics.stale_deals(user, days, limit)
 
@@ -280,7 +297,10 @@ def stale_deals(
 
 
 @router.get("/scores/people", response_model=list[PersonScore])
-def person_scores(ids: str = Query(pattern=r"^\d{1,10}(,\d{1,10}){0,199}$", description="Comma-separated person ids"), user: User = Depends(current_user)) -> list[dict]:
+def person_scores(
+    ids: str = Query(pattern=r"^\d{1,10}(,\d{1,10}){0,199}$", description="Comma-separated person ids"),
+    user: User = Depends(current_user),
+) -> list[dict]:
     """Stored lead scores for the given people (never-scored people are absent)."""
     return scoring.person_scores([int(i) for i in ids.split(",")])
 

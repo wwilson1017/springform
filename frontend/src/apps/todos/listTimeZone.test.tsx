@@ -24,7 +24,10 @@ vi.mock('./api', () => ({
   listTodos: vi.fn().mockResolvedValue([]),
   listProjects: vi.fn().mockResolvedValue([]),
   getFilters: vi.fn().mockResolvedValue({
-    contexts: [], tags: [], status_counts: {}, tz: 'Asia/Tokyo',
+    contexts: [],
+    tags: [],
+    status_counts: {},
+    tz: 'Asia/Tokyo',
   }),
 }));
 
@@ -37,11 +40,21 @@ import { ITEM_EXTRA } from './testFixtures';
 // 21:00 on Aug 1 in Chicago; 11:00 on Aug 2 in Tokyo.
 const NOW = new Date('2026-08-02T02:00:00Z');
 
-const base: Omit<Todo, 'id' | 'title' | 'due_date'> = { ...ITEM_EXTRA,
-  notes: '', project_id: null, project_name: null, context: '', tags: [],
-  status: 'next_action', star: false, repeat: '',
-  auto_star_on_due: false, source: 'ui',
-  created_at: '2026-07-20T12:00:00Z', updated_at: '2026-07-20T12:00:00Z', completed_at: null,
+const base: Omit<Todo, 'id' | 'title' | 'due_date'> = {
+  ...ITEM_EXTRA,
+  notes: '',
+  project_id: null,
+  project_name: null,
+  context: '',
+  tags: [],
+  status: 'next_action',
+  star: false,
+  repeat: '',
+  auto_star_on_due: false,
+  source: 'ui',
+  created_at: '2026-07-20T12:00:00Z',
+  updated_at: '2026-07-20T12:00:00Z',
+  completed_at: null,
 };
 
 let container: HTMLDivElement;
@@ -66,9 +79,8 @@ afterEach(() => {
 
 /** The titles under a section heading. */
 function section(heading: string): string[] {
-  const h2 = [...container.querySelectorAll('h2')].find(h => h.textContent?.trim() === heading);
-  return [...(h2?.parentElement?.querySelectorAll('p.break-words') ?? [])]
-    .map(p => p.textContent?.trim() ?? '');
+  const h2 = [...container.querySelectorAll('h2')].find((h) => h.textContent?.trim() === heading);
+  return [...(h2?.parentElement?.querySelectorAll('p.break-words') ?? [])].map((p) => p.textContent?.trim() ?? '');
 }
 
 describe('the list’s time zone decides "today"', () => {
@@ -90,7 +102,11 @@ describe('the list’s time zone decides "today"', () => {
       { ...base, id: 2, title: 'due on the 2nd', due_date: '2026-08-02' },
     ]);
     await act(async () => {
-      root.render(<MemoryRouter><TodayPage /></MemoryRouter>);
+      root.render(
+        <MemoryRouter>
+          <TodayPage />
+        </MemoryRouter>,
+      );
     });
     await act(async () => {}); // the filters payload (and its tz) lands
 
@@ -98,8 +114,9 @@ describe('the list’s time zone decides "today"', () => {
     expect(section('Overdue')).toEqual(['due on the 1st']);
     expect(section('Due today')).toEqual(['due on the 2nd']);
     // The row's own due chip agrees with the section it sits in.
-    const row = [...container.querySelectorAll('p.break-words')]
-      .find(p => p.textContent?.includes('due on the 2nd'))!.parentElement!;
+    const row = [...container.querySelectorAll('p.break-words')].find((p) =>
+      p.textContent?.includes('due on the 2nd'),
+    )!.parentElement!;
     expect(row.textContent).toContain('Today');
   });
 
@@ -107,7 +124,11 @@ describe('the list’s time zone decides "today"', () => {
     todayTodosMock.mockResolvedValue([]);
     createTodoMock.mockResolvedValue({});
     await act(async () => {
-      root.render(<MemoryRouter><TodayPage /></MemoryRouter>);
+      root.render(
+        <MemoryRouter>
+          <TodayPage />
+        </MemoryRouter>,
+      );
     });
     await act(async () => {});
 
@@ -134,7 +155,11 @@ describe('the list’s time zone decides "today"', () => {
       { ...base, id: 4, title: 'overdue and revisit', due_date: '2026-08-01', revisit_on: '2026-08-01' },
     ]);
     await act(async () => {
-      root.render(<MemoryRouter><TodayPage /></MemoryRouter>);
+      root.render(
+        <MemoryRouter>
+          <TodayPage />
+        </MemoryRouter>,
+      );
     });
     await act(async () => {});
 

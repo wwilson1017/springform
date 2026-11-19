@@ -40,9 +40,7 @@ def merged(conn, entity_type: str, target_id: int, source_id: int) -> None:
     else:
         return
     # A badge on the loser's field would describe a record that is gone; the survivor keeps its own.
-    conn.execute(
-        "DELETE FROM crm_field_provenance WHERE entity_type = ? AND entity_id = ?", (entity_type, source_id)
-    )
+    conn.execute("DELETE FROM crm_field_provenance WHERE entity_type = ? AND entity_id = ?", (entity_type, source_id))
 
 
 def deleted(conn, entity_type: str, entity_id: int) -> None:

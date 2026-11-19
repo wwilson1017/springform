@@ -22,4 +22,4 @@ const ROUTES: CoreRoute[] = Object.values(
 ).flat();
 
 export const coreRoutes = (where: 'public' | 'shell'): CoreRoute[] =>
-  ROUTES.filter(r => (where === 'public') === Boolean(r.public));
+  ROUTES.filter((r) => (where === 'public') === Boolean(r.public));

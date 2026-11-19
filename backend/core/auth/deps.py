@@ -32,8 +32,13 @@ class User:
     @classmethod
     def from_row(cls, row: dict) -> User:
         return cls(
-            id=int(row["id"]), email=row["email"], name=row["name"], role=row["role"], tz=row["tz"],
-            is_active=bool(row["is_active"]), token_epoch=int(row["token_epoch"]),
+            id=int(row["id"]),
+            email=row["email"],
+            name=row["name"],
+            role=row["role"],
+            tz=row["tz"],
+            is_active=bool(row["is_active"]),
+            token_epoch=int(row["token_epoch"]),
         )
 
     @property
@@ -90,8 +95,13 @@ def start_session(request: Request, response: Response, row: dict) -> dict:
     with db.transaction() as conn:
         conn.execute("UPDATE core_users SET last_login_at = ? WHERE id = ?", (clock.now_iso(), row["id"]))
     response.set_cookie(
-        COOKIE, jwt.mint(row["id"], row["token_epoch"]), max_age=jwt.SESSION_HOURS * 3600,
-        httponly=True, samesite="lax", secure=request.url.scheme == "https", path="/",
+        COOKIE,
+        jwt.mint(row["id"], row["token_epoch"]),
+        max_age=jwt.SESSION_HOURS * 3600,
+        httponly=True,
+        samesite="lax",
+        secure=request.url.scheme == "https",
+        path="/",
     )
     return {"user": User.from_row(row).public()}
 

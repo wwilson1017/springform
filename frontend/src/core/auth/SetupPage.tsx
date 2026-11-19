@@ -41,9 +41,17 @@ export function SetupPage() {
 
   const field = (key: keyof typeof form, label: string, type: string, autoComplete: string) => (
     <div className="mb-4">
-      <label htmlFor={`setup-${key}`} className={labelClass}>{label}</label>
-      <input id={`setup-${key}`} type={type} autoComplete={autoComplete} value={form[key]} className={inputClass}
-        onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))} />
+      <label htmlFor={`setup-${key}`} className={labelClass}>
+        {label}
+      </label>
+      <input
+        id={`setup-${key}`}
+        type={type}
+        autoComplete={autoComplete}
+        value={form[key]}
+        className={inputClass}
+        onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.value }))}
+      />
     </div>
   );
 
@@ -54,12 +62,20 @@ export function SetupPage() {
         {field('email', 'Email', 'email', 'username')}
         {field('name', 'Name', 'text', 'name')}
         {field('password', 'Password', 'password', 'new-password')}
-        {error && <p role="alert" className="mb-0 text-sm text-sf-red-text">{error}</p>}
-        <button type="submit" disabled={busy || Object.values(form).some(v => !v)} className={`${buttonClass} mt-2`}>
+        {error && (
+          <p role="alert" className="mb-0 text-sm text-sf-red-text">
+            {error}
+          </p>
+        )}
+        <button type="submit" disabled={busy || Object.values(form).some((v) => !v)} className={`${buttonClass} mt-2`}>
           {busy ? 'Creating…' : 'Create admin'}
         </button>
       </form>
-      <p className="mt-6 text-center text-sm"><Link to="/login" className="text-sf-accent-text">Back to sign in</Link></p>
+      <p className="mt-6 text-center text-sm">
+        <Link to="/login" className="text-sf-accent-text">
+          Back to sign in
+        </Link>
+      </p>
     </AuthLayout>
   );
 }

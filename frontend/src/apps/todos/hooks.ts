@@ -16,10 +16,8 @@ import { todayStr } from './util';
  *  (`service.py::_spawn_next_occurrence`), so both copies are now live. Said
  *  the same way whether the user unchecked the box by hand or used the undo pill;
  *  a silent duplicate is the failure mode this notice exists to prevent. */
-const REOPENED_REPEAT_ONE =
-  'Reopened — its next occurrence already exists from when it was completed.';
-const REOPENED_REPEAT_MANY =
-  'Reopened — their next occurrences already exist from when they were completed.';
+const REOPENED_REPEAT_ONE = 'Reopened — its next occurrence already exists from when it was completed.';
+const REOPENED_REPEAT_MANY = 'Reopened — their next occurrences already exist from when they were completed.';
 
 // ── "The todo lists changed" broadcast ───────────────────────────────────────
 // Every list page owns a page-local reload(). That is enough for a mutation made
@@ -42,7 +40,7 @@ let pendingInboxFocus: number | null = null;
 /** `focusInboxId` asks the Inbox to promote that todo to its triage card. */
 export function notifyTodosChanged(focusInboxId?: number) {
   if (focusInboxId !== undefined) pendingInboxFocus = focusInboxId;
-  listListeners.forEach(l => l());
+  listListeners.forEach((l) => l());
 }
 
 /** Reload this page's list whenever `notifyTodosChanged()` fires. `useTodos`
@@ -51,11 +49,17 @@ export function notifyTodosChanged(focusInboxId?: number) {
  *  still calling the latest reload. */
 export function useTodosChanged(reload: () => void) {
   const reloadRef = useRef(reload);
-  useEffect(() => { reloadRef.current = reload; });
   useEffect(() => {
-    const listener = () => { reloadRef.current(); };
+    reloadRef.current = reload;
+  });
+  useEffect(() => {
+    const listener = () => {
+      reloadRef.current();
+    };
     listListeners.add(listener);
-    return () => { listListeners.delete(listener); };
+    return () => {
+      listListeners.delete(listener);
+    };
   }, []);
 }
 
@@ -75,7 +79,9 @@ export function resetInboxFocus() {
  *  a focus is one request, not a standing preference. */
 export function useInboxFocus(focus: (id: number) => void) {
   const focusRef = useRef(focus);
-  useEffect(() => { focusRef.current = focus; });
+  useEffect(() => {
+    focusRef.current = focus;
+  });
   useEffect(() => {
     const take = () => {
       const id = pendingInboxFocus;
@@ -85,7 +91,9 @@ export function useInboxFocus(focus: (id: number) => void) {
     };
     take();
     listListeners.add(take);
-    return () => { listListeners.delete(take); };
+    return () => {
+      listListeners.delete(take);
+    };
   }, []);
 }
 
@@ -109,32 +117,52 @@ export function useTodos(
   const matchesRef = useRef(matches);
   const orderRef = useRef(order);
 
-  useEffect(() => { fetcherRef.current = fetcher; matchesRef.current = matches; orderRef.current = order; });
+  useEffect(() => {
+    fetcherRef.current = fetcher;
+    matchesRef.current = matches;
+    orderRef.current = order;
+  });
 
   useEffect(() => {
     let cancelled = false;
-    fetcherRef.current()
-      .then(result => {
+    fetcherRef
+      .current()
+      .then((result) => {
         if (cancelled) return;
         setTodos(result);
         setFailed(false);
       })
-      .catch(() => { if (!cancelled) setFailed(true); });
-    return () => { cancelled = true; };
+      .catch(() => {
+        if (!cancelled) setFailed(true);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [loadSeq, refetchKey]);
 
-  const reload = useCallback(() => { setLoadSeq(s => s + 1); }, []);
+  const reload = useCallback(() => {
+    setLoadSeq((s) => s + 1);
+  }, []);
   useTodosChanged(reload);
   const todosRef = useRef(todos);
-  useEffect(() => { todosRef.current = todos; });
-  useEffect(() => subscribeFeed(batch => {
-    const prev = todosRef.current;
-    if (batch.reset) { reload(); return; }
-    if (prev === null) return;
-    const next = applyChanges(prev, batch, matchesRef.current, orderRef.current);
-    if (next === null) reload();
-    else if (next !== prev) setTodos(next);
-  }), [reload]);
+  useEffect(() => {
+    todosRef.current = todos;
+  });
+  useEffect(
+    () =>
+      subscribeFeed((batch) => {
+        const prev = todosRef.current;
+        if (batch.reset) {
+          reload();
+          return;
+        }
+        if (prev === null) return;
+        const next = applyChanges(prev, batch, matchesRef.current, orderRef.current);
+        if (next === null) reload();
+        else if (next !== prev) setTodos(next);
+      }),
+    [reload],
+  );
   return { todos, failed, reload };
 }
 
@@ -153,13 +181,17 @@ export function useStatusList(status: TodoStatus, scope: Scope, limit = 500) {
   const tz = useListTz();
   const finished = status === 'done' || status === 'dropped';
   const matches = useCallback(
-    (t: Todo) => t.status === status && (scope === 'all' || isMine(t, me))
-      && (finished || !t.revisit_on || t.revisit_on <= todayStr(new Date(), tz)),
+    (t: Todo) =>
+      t.status === status &&
+      (scope === 'all' || isMine(t, me)) &&
+      (finished || !t.revisit_on || t.revisit_on <= todayStr(new Date(), tz)),
     [status, scope, me, finished, tz],
   );
   return useTodos(
     () => listTodos({ status, limit, ...(scope === 'mine' ? { mine: true } : {}) }),
-    `${status}:${scope}`, matches, finished ? byFinished : byCreated,
+    `${status}:${scope}`,
+    matches,
+    finished ? byFinished : byCreated,
   );
 }
 
@@ -167,7 +199,9 @@ export function useStatusList(status: TodoStatus, scope: Scope, limit = 500) {
  *  than one list (projects with their next actions, the review, a search). */
 export function useFeedReload(reload: () => void) {
   const reloadRef = useRef(reload);
-  useEffect(() => { reloadRef.current = reload; });
+  useEffect(() => {
+    reloadRef.current = reload;
+  });
   useEffect(() => subscribeFeed(() => reloadRef.current()), []);
 }
 
@@ -178,7 +212,7 @@ export function useFeedReload(reload: () => void) {
 export async function undoOne(key: number): Promise<void> {
   const entry = takeEntry(key);
   if (!entry) return;
-  if (!await revertEntry(entry)) return;
+  if (!(await revertEntry(entry))) return;
   // Only a completion spawned anything to warn about.
   if (entry.kind === 'done' && entry.repeat) toast.info(REOPENED_REPEAT_ONE);
   afterUndo(focusIdOf(entry));
@@ -190,13 +224,18 @@ export async function undoAll(): Promise<void> {
   if (entries.length === 0) return;
   const results = await Promise.all(entries.map(revertEntry));
   const restored = entries.filter((_, i) => results[i]);
-  const reopenedRepeats = restored.filter(e => e.kind === 'done' && e.repeat).length;
+  const reopenedRepeats = restored.filter((e) => e.kind === 'done' && e.repeat).length;
   if (reopenedRepeats === 1) toast.info(REOPENED_REPEAT_ONE);
   else if (reopenedRepeats > 1) toast.info(REOPENED_REPEAT_MANY);
   if (restored.length === 0) return;
   // The LAST inbox item that actually made it back — a revert that failed never
   // returned to the inbox, so pointing the card at it would show an empty card.
-  afterUndo(restored.map(focusIdOf).filter(id => id !== undefined).pop());
+  afterUndo(
+    restored
+      .map(focusIdOf)
+      .filter((id) => id !== undefined)
+      .pop(),
+  );
 }
 
 /** An undo that puts an item back in the INBOX has somewhere to be looked at:
@@ -245,43 +284,52 @@ export function useRowActions(reload: () => void) {
     }
   }, []);
 
-  const toggleDone = useCallback(async (todo: Todo, uncheckStatus: TodoStatus = 'next_action') => {
-    const markingDone = todo.status !== 'done';
-    const ok = await patch(todo.id, {
-      status: markingDone ? 'done' : uncheckStatus,
-    });
-    if (ok && markingDone) {
-      // todo-gtd #2879 — the 7s undo row. Queued with the todo AS IT WAS, so undo restores
-      // the status it actually held (not always 'next_action': the Done page's
-      // Dropped tab completes a 'dropped' row).
-      queueUndo(todo);
-    }
-    if (ok && !markingDone) {
-      // Unchecked by hand inside the window — the pending "Undo?" for this todo
-      // now offers to redo what the user just did themselves.
-      dropUndo(todo.id);
-      if (todo.repeat) {
-        // Completing a repeating todo already spawned its successor; reopening
-        // this one means both copies are now live.
-        toast.info(REOPENED_REPEAT_ONE);
+  const toggleDone = useCallback(
+    async (todo: Todo, uncheckStatus: TodoStatus = 'next_action') => {
+      const markingDone = todo.status !== 'done';
+      const ok = await patch(todo.id, {
+        status: markingDone ? 'done' : uncheckStatus,
+      });
+      if (ok && markingDone) {
+        // todo-gtd #2879 — the 7s undo row. Queued with the todo AS IT WAS, so undo restores
+        // the status it actually held (not always 'next_action': the Done page's
+        // Dropped tab completes a 'dropped' row).
+        queueUndo(todo);
       }
-    }
-    after();
-  }, [after, patch]);
+      if (ok && !markingDone) {
+        // Unchecked by hand inside the window — the pending "Undo?" for this todo
+        // now offers to redo what the user just did themselves.
+        dropUndo(todo.id);
+        if (todo.repeat) {
+          // Completing a repeating todo already spawned its successor; reopening
+          // this one means both copies are now live.
+          toast.info(REOPENED_REPEAT_ONE);
+        }
+      }
+      after();
+    },
+    [after, patch],
+  );
 
-  const toggleStar = useCallback(async (todo: Todo) => {
-    await patch(todo.id, { star: !todo.star });
-    after();
-  }, [after, patch]);
+  const toggleStar = useCallback(
+    async (todo: Todo) => {
+      await patch(todo.id, { star: !todo.star });
+      after();
+    },
+    [after, patch],
+  );
 
-  const setStatus = useCallback(async (todo: Todo, status: TodoStatus) => {
-    const ok = await patch(todo.id, { status });
-    // Same invariant as `toggleDone`'s un-done branch: an explicit status write
-    // invalidates any undo row still pending for this todo, which would otherwise
-    // revert the decision the user just made (todo-gtd #2879).
-    if (ok && status !== 'done') dropUndo(todo.id);
-    after();
-  }, [after, patch]);
+  const setStatus = useCallback(
+    async (todo: Todo, status: TodoStatus) => {
+      const ok = await patch(todo.id, { status });
+      // Same invariant as `toggleDone`'s un-done branch: an explicit status write
+      // invalidates any undo row still pending for this todo, which would otherwise
+      // revert the decision the user just made (todo-gtd #2879).
+      if (ok && status !== 'done') dropUndo(todo.id);
+      after();
+    },
+    [after, patch],
+  );
 
   return { toggleDone, toggleStar, setStatus, after };
 }

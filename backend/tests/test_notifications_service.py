@@ -22,7 +22,9 @@ def _private(client, widget_id: int) -> None:
 
 
 def _deliveries() -> list[dict]:
-    return core_db.rows("SELECT notification_id, channel, status, attempts, last_error, sent_at FROM core_notification_deliveries ORDER BY id")
+    return core_db.rows(
+        "SELECT notification_id, channel, status, attempts, last_error, sent_at FROM core_notification_deliveries ORDER BY id"
+    )
 
 
 @pytest.fixture
@@ -198,7 +200,14 @@ def _fake_pywebpush(monkeypatch, dead: set[str]) -> list[dict]:
             self.response = response
 
     def webpush(subscription_info, data, vapid_private_key, vapid_claims, timeout, ttl):
-        calls.append({"endpoint": subscription_info["endpoint"], "data": json.loads(data), "key": vapid_private_key, "sub": vapid_claims["sub"]})
+        calls.append(
+            {
+                "endpoint": subscription_info["endpoint"],
+                "data": json.loads(data),
+                "key": vapid_private_key,
+                "sub": vapid_claims["sub"],
+            }
+        )
         if subscription_info["endpoint"] in dead:
             raise WebPushException("gone", response=types.SimpleNamespace(status_code=410))
 
@@ -219,9 +228,14 @@ def test_push_subscribe_send_and_dead_subscription(login_as, monkeypatch):
 
     keys = {"p256dh": "BPk", "auth": "au"}
     for endpoint in (live, dead):
-        assert member.post("/api/core/notifications/push/subscribe", json={"endpoint": endpoint, "keys": keys}).json() == {"ok": True}
+        assert member.post(
+            "/api/core/notifications/push/subscribe", json={"endpoint": endpoint, "keys": keys}
+        ).json() == {"ok": True}
     for bad in ("http://push.example.com/x", "https://127.0.0.1/x", "https://localhost/x"):
-        assert member.post("/api/core/notifications/push/subscribe", json={"endpoint": bad, "keys": keys}).status_code == 422
+        assert (
+            member.post("/api/core/notifications/push/subscribe", json={"endpoint": bad, "keys": keys}).status_code
+            == 422
+        )
 
     assert notifications.deliver("Nobody subscribed", "", user_id=other.user["id"]) and _deliveries() == []
     [nid] = notifications.deliver("Hi", "body", user_id=member.user["id"], link="/x")
@@ -229,7 +243,9 @@ def test_push_subscribe_send_and_dead_subscription(login_as, monkeypatch):
     assert [c["endpoint"] for c in calls] == [live, dead]
     assert calls[0]["data"] == {"notification_id": nid, "title": "Hi", "body": "body", "url": "/x"}
     assert calls[0]["key"] == push.vapid_keys()[1] and calls[0]["sub"] == "mailto:push@springform.invalid"
-    failed = {r["endpoint"]: r["failed_at"] for r in core_db.rows("SELECT endpoint, failed_at FROM core_push_subscriptions")}
+    failed = {
+        r["endpoint"]: r["failed_at"] for r in core_db.rows("SELECT endpoint, failed_at FROM core_push_subscriptions")
+    }
     assert failed[live] is None and failed[dead] is not None
 
     notifications.deliver("Second", "", user_id=member.user["id"])
@@ -238,9 +254,12 @@ def test_push_subscribe_send_and_dead_subscription(login_as, monkeypatch):
 
     def unsubscribe(client, endpoint):
         return client.request("DELETE", "/api/core/notifications/push/subscribe", json={"endpoint": endpoint})
+
     assert unsubscribe(other, live).json() == {"removed": False}
     assert unsubscribe(member, live).json() == {"removed": True}
-    assert notifications.deliver("Third", "", user_id=member.user["id"]) and len(_deliveries()) == 2  # no live subscription left
+    assert (
+        notifications.deliver("Third", "", user_id=member.user["id"]) and len(_deliveries()) == 2
+    )  # no live subscription left
 
 
 def test_delete_hides_and_merge_repoints(login_as, fake_channel):
@@ -259,6 +278,12 @@ def test_delete_hides_and_merge_repoints(login_as, fake_channel):
 
 def test_links_are_in_app_paths_only(login_as):
     member = login_as("member")
-    for link, kept in [("/crm/1", "/crm/1"), ("//evil.example", None), ("https://evil.example", None), ("/a b", None), ("/\\evil", None)]:
+    for link, kept in [
+        ("/crm/1", "/crm/1"),
+        ("//evil.example", None),
+        ("https://evil.example", None),
+        ("/a b", None),
+        ("/\\evil", None),
+    ]:
         [nid] = notifications.deliver("t", "", user_id=member.user["id"], link=link)
         assert core_db.one("SELECT link FROM core_notifications WHERE id = ?", (nid,))["link"] == kept

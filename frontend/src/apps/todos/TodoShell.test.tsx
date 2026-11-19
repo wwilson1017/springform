@@ -23,8 +23,10 @@ let root: Root;
 
 function setScreen(matching: string[]) {
   window.matchMedia = ((q: string) => ({
-    matches: matching.includes(q), media: q,
-    addEventListener() {}, removeEventListener() {},
+    matches: matching.includes(q),
+    media: q,
+    addEventListener() {},
+    removeEventListener() {},
   })) as unknown as typeof window.matchMedia;
 }
 
@@ -32,15 +34,17 @@ async function render(active: TodoTab, scoped = false) {
   await act(async () => {
     root.render(
       <MemoryRouter>
-        <TodoShell active={active} hideQuickAdd scoped={scoped}><p>page body</p></TodoShell>
+        <TodoShell active={active} hideQuickAdd scoped={scoped}>
+          <p>page body</p>
+        </TodoShell>
       </MemoryRouter>,
     );
   });
 }
 
-const navLabels = () => [...container.querySelectorAll('nav')].map(n => n.getAttribute('aria-label'));
-const current = () => [...container.querySelectorAll('[aria-current="page"]')].map(e => e.textContent);
-const more = () => [...container.querySelectorAll('button')].find(b => b.textContent?.startsWith('More'));
+const navLabels = () => [...container.querySelectorAll('nav')].map((n) => n.getAttribute('aria-label'));
+const current = () => [...container.querySelectorAll('[aria-current="page"]')].map((e) => e.textContent);
+const more = () => [...container.querySelectorAll('button')].find((b) => b.textContent?.startsWith('More'));
 
 beforeEach(() => {
   (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -50,7 +54,9 @@ beforeEach(() => {
 });
 
 afterEach(async () => {
-  await act(async () => { root.unmount(); });
+  await act(async () => {
+    root.unmount();
+  });
   container.remove();
   setScope('mine');
 });
@@ -74,28 +80,41 @@ describe('TodoShell menus', () => {
     // lists and More) plus 10px of divider, in a slot 170px wide.
     const offset = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetWidth')!;
     Object.defineProperty(HTMLElement.prototype, 'offsetWidth', {
-      configurable: true, get(this: HTMLElement) { return this.tagName === 'SPAN' ? 50 : 310; },
+      configurable: true,
+      get(this: HTMLElement) {
+        return this.tagName === 'SPAN' ? 50 : 310;
+      },
     });
     Object.defineProperty(HTMLElement.prototype, 'clientWidth', { configurable: true, get: () => 170 });
     try {
       setScreen([]);
       await render('review');
       const other = container.querySelector('nav[aria-label="Other lists"]')!;
-      expect([...other.querySelectorAll(':scope > a')].map(a => a.textContent)).toEqual(['Areas', 'Review']);
+      expect([...other.querySelectorAll(':scope > a')].map((a) => a.textContent)).toEqual(['Areas', 'Review']);
       expect(current()).toEqual(['Review']);
       const button = more()!;
       expect(button.hasAttribute('aria-current')).toBe(false);
-      await act(async () => { button.click(); });
+      await act(async () => {
+        button.click();
+      });
       const panel = document.getElementById(button.getAttribute('aria-controls')!)!;
-      expect([...panel.querySelectorAll('a')].map(a => a.textContent)).toEqual(['Waiting', 'Someday', 'Done']);
+      expect([...panel.querySelectorAll('a')].map((a) => a.textContent)).toEqual(['Waiting', 'Someday', 'Done']);
 
       // A press inside keeps it open; a press or keyboard focus outside closes it.
-      await act(async () => { panel.dispatchEvent(new Event('pointerdown', { bubbles: true })); });
+      await act(async () => {
+        panel.dispatchEvent(new Event('pointerdown', { bubbles: true }));
+      });
       expect(button.getAttribute('aria-expanded')).toBe('true');
-      await act(async () => { document.body.dispatchEvent(new Event('pointerdown', { bubbles: true })); });
+      await act(async () => {
+        document.body.dispatchEvent(new Event('pointerdown', { bubbles: true }));
+      });
       expect(button.getAttribute('aria-expanded')).toBe('false');
-      await act(async () => { button.click(); });
-      await act(async () => { container.querySelector('input')!.focus(); });
+      await act(async () => {
+        button.click();
+      });
+      await act(async () => {
+        container.querySelector('input')!.focus();
+      });
       expect(button.getAttribute('aria-expanded')).toBe('false');
     } finally {
       Object.defineProperty(HTMLElement.prototype, 'offsetWidth', offset);
@@ -122,12 +141,19 @@ describe('TodoShell menus', () => {
     const button = more()!;
     expect(button.getAttribute('aria-current')).toBe('true'); // so More carries the marking
     expect(button.getAttribute('aria-expanded')).toBe('false');
-    await act(async () => { button.click(); });
+    await act(async () => {
+      button.click();
+    });
     expect(button.getAttribute('aria-expanded')).toBe('true');
     expect(current()).toEqual(['Waiting']);
     const sheet = document.getElementById(button.getAttribute('aria-controls')!)!;
-    expect([...sheet.querySelectorAll('a')].map(a => a.textContent))
-      .toEqual(['Areas', 'Waiting', 'Someday', 'Review', 'Done']);
+    expect([...sheet.querySelectorAll('a')].map((a) => a.textContent)).toEqual([
+      'Areas',
+      'Waiting',
+      'Someday',
+      'Review',
+      'Done',
+    ]);
 
     await act(async () => {
       document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
@@ -137,8 +163,10 @@ describe('TodoShell menus', () => {
 });
 
 describe('the Mine / Everyone switch', () => {
-  const pressed = () => [...container.querySelectorAll('[aria-label="Whose todos"] button')]
-    .map(b => `${b.textContent}:${b.getAttribute('aria-pressed')}`);
+  const pressed = () =>
+    [...container.querySelectorAll('[aria-label="Whose todos"] button')].map(
+      (b) => `${b.textContent}:${b.getAttribute('aria-pressed')}`,
+    );
 
   it('shows only on pages that honour it, starting at Mine', async () => {
     setScreen([]);
@@ -151,8 +179,10 @@ describe('the Mine / Everyone switch', () => {
   it('switches the scope every list reads, and remembers it', async () => {
     setScreen([]);
     await render('next', true);
-    const everyone = [...container.querySelectorAll('button')].find(b => b.textContent === 'Everyone')!;
-    await act(async () => { everyone.click(); });
+    const everyone = [...container.querySelectorAll('button')].find((b) => b.textContent === 'Everyone')!;
+    await act(async () => {
+      everyone.click();
+    });
     expect(pressed()).toEqual(['Mine:false', 'Everyone:true']);
     expect(localStorage.getItem('springform.todos.scope')).toBe('all');
   });

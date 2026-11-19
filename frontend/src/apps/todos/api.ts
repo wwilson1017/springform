@@ -2,8 +2,21 @@
 // every refusal arrives as an ApiError carrying the service's own sentence (errors.ts).
 import { del, fetchJson, patchJson, postJson } from '../../core/api/client';
 import type {
-  AreaIn, AreaPatch, Changes, ItemIn, ItemPatch, ProjectIn, ProjectPatch, Review, ReviewStatus,
-  Todo, TodoArea, TodoFilters, TodoProject, TodoStatus, Visibility,
+  AreaIn,
+  AreaPatch,
+  Changes,
+  ItemIn,
+  ItemPatch,
+  ProjectIn,
+  ProjectPatch,
+  Review,
+  ReviewStatus,
+  Todo,
+  TodoArea,
+  TodoFilters,
+  TodoProject,
+  TodoStatus,
+  Visibility,
 } from './types';
 
 export const API = '/api/todos';
@@ -74,24 +87,35 @@ export const deleteTodo = (id: number) => del(`${API}/items/${id}`);
 
 /** Team todos and the caller's private ones linked to a record. */
 export const todosForRecord = (entityType: string, entityId: number, includeDone = false) =>
-  fetchJson<Todo[]>(`${API}/for/${encodeURIComponent(entityType)}/${entityId}${qs({ include_done: includeDone || undefined })}`);
+  fetchJson<Todo[]>(
+    `${API}/for/${encodeURIComponent(entityType)}/${entityId}${qs({ include_done: includeDone || undefined })}`,
+  );
 
 /** Rename a context on every todo carrying it. 409 = `next` already exists; resend with `merge`
  *  once the user has confirmed. */
 export const renameContext = (old: string, next: string, merge = false) =>
-  postJson<{ old: string; new: string; updated: number; merged: boolean }>(`${API}/contexts/rename`, { old, new: next, merge });
+  postJson<{ old: string; new: string; updated: number; merged: boolean }>(`${API}/contexts/rename`, {
+    old,
+    new: next,
+    merge,
+  });
 
 export const listProjects = (status?: string) => fetchJson<TodoProject[]>(`${API}/projects${qs({ status })}`);
 export const getProject = (id: number) => fetchJson<TodoProject>(`${API}/projects/${id}`);
 export const createProject = (body: ProjectIn) => postJson<TodoProject>(`${API}/projects`, body);
-export const updateProject = (id: number, fields: ProjectPatch) => patchJson<TodoProject>(`${API}/projects/${id}`, fields);
+export const updateProject = (id: number, fields: ProjectPatch) =>
+  patchJson<TodoProject>(`${API}/projects/${id}`, fields);
 export const deleteProject = (id: number) => del(`${API}/projects/${id}`);
 
 /** The id of the project named `name` (any case) among those the user can see, creating it when
  *  there is none: how a typed project name (quick add's `#Project`, the edit sheet's "+ New
  *  project") becomes the `project_id` the API takes. */
-export async function projectIdFor(name: string, known: TodoProject[], fields: Omit<ProjectIn, 'name'> = {}): Promise<number> {
-  const hit = known.find(p => p.name.toLowerCase() === name.toLowerCase());
+export async function projectIdFor(
+  name: string,
+  known: TodoProject[],
+  fields: Omit<ProjectIn, 'name'> = {},
+): Promise<number> {
+  const hit = known.find((p) => p.name.toLowerCase() === name.toLowerCase());
   return hit ? hit.id : (await createProject({ name, ...fields })).id;
 }
 

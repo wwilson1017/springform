@@ -32,7 +32,7 @@ export default function NightlyCard() {
   return (
     <div className="flex flex-col gap-3">
       <label className="flex cursor-pointer items-center gap-2 text-sm text-sf-ink">
-        <input type="checkbox" checked={on} disabled={busy} onChange={e => void toggle(e.target.checked)} />
+        <input type="checkbox" checked={on} disabled={busy} onChange={(e) => void toggle(e.target.checked)} />
         Run the nightly memory pass
       </label>
       <p className={HINT}>

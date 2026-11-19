@@ -25,7 +25,11 @@ def test_a_note_lands_on_the_record_as_the_user(login_as):
     end = inline(member, "core_add_note", entity_type="core.person", entity_id=jane, body="Prefers calls after 2pm.")
     note = end["result"]
     assert end["status"] == "done"
-    assert (note["body"], note["author"]["id"], note["url"]) == ("Prefers calls after 2pm.", member.principal.id, f"http://localhost:8000/people/{jane}")
+    assert (note["body"], note["author"]["id"], note["url"]) == (
+        "Prefers calls after 2pm.",
+        member.principal.id,
+        f"http://localhost:8000/people/{jane}",
+    )
     [entry] = timeline.list_for(member.principal, "core.person", jane)
     assert (entry["kind"], entry["author"]["id"]) == ("note", member.principal.id)
 

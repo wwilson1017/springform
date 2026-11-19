@@ -14,7 +14,13 @@ export type Rgb = [number, number, number];
 
 export function hexToRgb(hex: string): Rgb {
   const h = hex.replace('#', '');
-  const v = h.length === 3 ? h.split('').map((c) => c + c).join('') : h;
+  const v =
+    h.length === 3
+      ? h
+          .split('')
+          .map((c) => c + c)
+          .join('')
+      : h;
   if (!/^[0-9a-fA-F]{6}$/.test(v)) throw new Error(`not a hex colour: ${hex}`);
   return [0, 2, 4].map((i) => parseInt(v.slice(i, i + 2), 16)) as Rgb;
 }
@@ -67,7 +73,8 @@ export const DARK_TOKENS = { ...LIGHT_TOKENS, ...declarations(DARK_BLOCK) };
  * target, a non-hex non-var value and a cycle, rather than guessing a passing colour.
  */
 export function resolve(tokens: Record<string, string>, name: string, seen: string[] = []): string {
-  if (seen.includes(name)) throw new Error(`index.css: --color-sf-${name} is a var() cycle (${[...seen, name].join(' -> ')})`);
+  if (seen.includes(name))
+    throw new Error(`index.css: --color-sf-${name} is a var() cycle (${[...seen, name].join(' -> ')})`);
   const raw = tokens[name];
   if (raw === undefined) throw new Error(`index.css: --color-sf-${name} is not declared`);
   const ref = /^var\(\s*--color-sf-([a-z0-9-]+)\s*\)$/.exec(raw);

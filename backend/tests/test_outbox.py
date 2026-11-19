@@ -67,7 +67,9 @@ def test_local_consumer_effect_and_processed_at_commit_together(fresh):
 
 def test_external_consumer_runs_outside_any_transaction_with_its_id(fresh):
     calls = []
-    outbox.register("t.remote", lambda outbox_id, payload: calls.append((outbox_id, core_db.in_transaction())), external=True)
+    outbox.register(
+        "t.remote", lambda outbox_id, payload: calls.append((outbox_id, core_db.in_transaction())), external=True
+    )
     row_id = _enqueue("t.remote", {"x": 1})
     assert outbox.drain() == 1
     assert calls == [(row_id, False)]
@@ -147,5 +149,12 @@ def test_after_record_changed_runs_once_after_commit(app, make_user):
         timeline.record_changes_in(conn, "example.widget", 7, {"name": "a"}, {"name": "b"}, owner.id)
         assert seen == []
     assert outbox.drain() == 1
-    assert seen == [{"entity_type": "example.widget", "entity_id": 7, "changes": [{"field": "name", "old": "a", "new": "b"}], "user_id": owner.id}]
+    assert seen == [
+        {
+            "entity_type": "example.widget",
+            "entity_id": 7,
+            "changes": [{"field": "name", "old": "a", "new": "b"}],
+            "user_id": owner.id,
+        }
+    ]
     assert outbox.drain() == 0

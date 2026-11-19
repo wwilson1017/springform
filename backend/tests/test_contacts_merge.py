@@ -36,20 +36,32 @@ def test_merge_people_by_every_collision_rule(user):
 
     assert merged["id"] == target and merged["name"] == "Ada Example"  # the survivor is the target
     assert [(o["name"], o["role"], o["is_primary"]) for o in merged["organizations"]] == [
-        ("Acme Example", "Buyer", True), ("Globex Sample", "Owner", False),
+        ("Acme Example", "Buyer", True),
+        ("Globex Sample", "Owner", False),
     ]
-    assert core_db.one("SELECT id FROM core_person_organizations WHERE organization_id = ? AND role = 'Buyer'", (acme,))["id"] == kept["id"]
+    assert (
+        core_db.one("SELECT id FROM core_person_organizations WHERE organization_id = ? AND role = 'Buyer'", (acme,))[
+            "id"
+        ]
+        == kept["id"]
+    )
     assert [(c["kind"], c["value"], c["is_primary"]) for c in merged["channels"]] == [
-        ("email", "ada@example.com", True), ("email", "ada@work.example.com", False),  # same address in another case dropped
+        ("email", "ada@example.com", True),
+        ("email", "ada@work.example.com", False),  # same address in another case dropped
         ("phone", "555-0101", True),  # the target had no phone, so the source's primary stays primary
     ]
     assert (merged["email"], merged["phone"]) == ("ada@example.com", "555-0101")
-    assert [(a["line1"], a["is_primary"]) for a in merged["addresses"]] == [("1 Sample Street", True), ("2 Example Road", False)]
+    assert [(a["line1"], a["is_primary"]) for a in merged["addresses"]] == [
+        ("1 Sample Street", True),
+        ("2 Example Road", False),
+    ]
     assert merged["addresses"][0]["id"] == home["id"]
     gone = core_db.one("SELECT merged_into_id, archived_at, email, phone FROM core_people WHERE id = ?", (source,))
     assert gone["merged_into_id"] == target and gone["archived_at"] and (gone["email"], gone["phone"]) == (None, None)
     assert contacts.get_person(user, source) == {"merged_into": target}
-    assert contacts.organizations_for(user, source) == contacts.organizations_for(user, target)  # reads follow the alias
+    assert contacts.organizations_for(user, source) == contacts.organizations_for(
+        user, target
+    )  # reads follow the alias
 
 
 def test_a_target_without_primaries_takes_the_sources(user):
@@ -109,10 +121,22 @@ def test_merge_drives_subscribers_and_records_itself(user):
     assert widgets.get_widget(user, widget["id"])["person_id"] == target  # the example app's subscriber
     entries = timeline.list_for(user, "core.person", target)
     assert [(e["kind"], e["body"], e["author"]["id"]) for e in entries] == [
-        ("system", f"merged #{source} into this record", 0), ("note", "met at the fair", user.id),
+        ("system", f"merged #{source} into this record", 0),
+        ("note", "met at the fair", user.id),
     ]  # the system principal writes the merge row; the change log below keeps who merged
-    log = core_db.rows("SELECT entity, entity_id, field, old, new, user_id FROM core_change_log WHERE field = 'merged_from'")
-    assert log == [{"entity": "core.person", "entity_id": target, "field": "merged_from", "old": "null", "new": str(source), "user_id": user.id}]
+    log = core_db.rows(
+        "SELECT entity, entity_id, field, old, new, user_id FROM core_change_log WHERE field = 'merged_from'"
+    )
+    assert log == [
+        {
+            "entity": "core.person",
+            "entity_id": target,
+            "field": "merged_from",
+            "old": "null",
+            "new": str(source),
+            "user_id": user.id,
+        }
+    ]
 
 
 def test_a_failing_subscriber_rolls_the_whole_merge_back(user, monkeypatch):
@@ -126,7 +150,14 @@ def test_a_failing_subscriber_rolls_the_whole_merge_back(user, monkeypatch):
         raise RuntimeError("subscriber failed")
 
     monkeypatch.setitem(entities._SUBSCRIBERS, "on_entity_merged", [*entities._SUBSCRIBERS["on_entity_merged"], boom])
-    tables = ("core_people", "core_person_organizations", "core_contact_channels", "core_timeline", "core_change_log", "example_widgets")
+    tables = (
+        "core_people",
+        "core_person_organizations",
+        "core_contact_channels",
+        "core_timeline",
+        "core_change_log",
+        "example_widgets",
+    )
     before = [core_db.rows(f"SELECT * FROM {t} ORDER BY id") for t in tables]
     with pytest.raises(RuntimeError, match="subscriber failed"):
         contacts.merge_people(user, target, source)
@@ -140,6 +171,9 @@ def test_merge_organizations_keeps_each_persons_primary(user):
     contacts.link(user, grace, acme, "Owner")
     contacts.link(user, grace, acme_inc, "Owner", is_primary=True)  # collides with the kept row; was Grace's primary
     merged = contacts.merge_organizations(user, acme, acme_inc)
-    assert [(p["name"], p["role"], p["is_primary"]) for p in merged["people"]] == [("Ada", "Buyer", True), ("Grace", "Owner", True)]
+    assert [(p["name"], p["role"], p["is_primary"]) for p in merged["people"]] == [
+        ("Ada", "Buyer", True),
+        ("Grace", "Owner", True),
+    ]
     assert contacts.get_organization(user, acme_inc) == {"merged_into": acme}
     assert contacts.create_organization(user, name="Acme Example Inc")["id"] > acme_inc  # a merged name is free again

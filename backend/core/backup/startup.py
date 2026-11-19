@@ -38,5 +38,7 @@ def on_startup() -> None:
             "The encryption key (fingerprint %s) is not the one the newest backup, %s, was taken with (%s): "
             "stored secrets will read as unset. Restore the matching key (ENCRYPTION_KEY or <data>/.encryption-key) "
             "or run a restore (scripts/restore.sh, docs/agents/deploy.md).",
-            secrets.key_fingerprint(), newest[0], newest[1],
+            secrets.key_fingerprint(),
+            newest[0],
+            newest[1],
         )

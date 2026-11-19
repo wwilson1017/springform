@@ -64,7 +64,15 @@ def list_(user: User, **filters) -> list[dict]:
     return list_in(db.get_conn(), user, **filters)
 
 
-def log_in(conn: db.Conn, user: User, activity: str, note: str = "", *, deal_id: int | None = None, person_id: int | None = None) -> dict:
+def log_in(
+    conn: db.Conn,
+    user: User,
+    activity: str,
+    note: str = "",
+    *,
+    deal_id: int | None = None,
+    person_id: int | None = None,
+) -> dict:
     """Record something that happened, credited to `user` (the system principal: no human)."""
     text = (activity or "").strip()
     if not text:

@@ -31,7 +31,9 @@ def deals_for_person(user: User, person_id: int, include_archived: bool = False)
     return deals_for_person_in(db.get_conn(), user, person_id, include_archived)
 
 
-def deals_for_organization_in(conn: db.Conn, user: User, organization_id: int, include_archived: bool = False) -> list[dict]:
+def deals_for_organization_in(
+    conn: db.Conn, user: User, organization_id: int, include_archived: bool = False
+) -> list[dict]:
     return deals.for_record_in(conn, user, "core.organization", organization_id, include_archived)
 
 

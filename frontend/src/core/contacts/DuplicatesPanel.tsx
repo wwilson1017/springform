@@ -12,7 +12,12 @@ import { duplicatesUrl, errorText, KINDS, mergeRecords, pageOf } from './api';
 import type { ContactKind, ContactDuplicates } from './types';
 import * as ui from './ui';
 
-const MATCH_LABEL: Record<ContactDuplicates['match_on'], string> = { email: 'Same email', phone: 'Same phone', name: 'Same name', domain: 'Same domain' };
+const MATCH_LABEL: Record<ContactDuplicates['match_on'], string> = {
+  email: 'Same email',
+  phone: 'Same phone',
+  name: 'Same name',
+  domain: 'Same domain',
+};
 
 export function DuplicatesPanel({ kind }: { kind: ContactKind }) {
   const { data: groups } = useJson<ContactDuplicates[]>(duplicatesUrl(kind));
@@ -24,7 +29,9 @@ export function DuplicatesPanel({ kind }: { kind: ContactKind }) {
         Possible duplicates <span className="text-sf-ink-dim">({groups.length})</span>
       </summary>
       <ul className="m-0 mt-3 flex list-none flex-col gap-3 p-0">
-        {groups.map(g => <Group key={`${g.match_on}:${g.value}`} kind={kind} group={g} />)}
+        {groups.map((g) => (
+          <Group key={`${g.match_on}:${g.value}`} kind={kind} group={g} />
+        ))}
       </ul>
     </details>
   );
@@ -34,14 +41,15 @@ function Group({ kind, group }: { kind: ContactKind; group: ContactDuplicates })
   const navigate = useNavigate();
   const [keep, setKeep] = useState(group.records[0].id);
   const [busy, setBusy] = useState(false);
-  const survivor = group.records.find(r => r.id === keep)!;
-  const sources = group.records.filter(r => r.id !== keep);
+  const survivor = group.records.find((r) => r.id === keep)!;
+  const sources = group.records.filter((r) => r.id !== keep);
 
   async function merge() {
     const ok = await confirmDialog({
       title: `Merge ${KINDS[kind].title.toLowerCase()}`,
-      message: `Merge ${sources.map(s => `${s.label} #${s.id}`).join(', ')} into ${survivor.label} #${survivor.id}? `
-        + 'Their contact details, links, timeline and files move to it. This cannot be undone.',
+      message:
+        `Merge ${sources.map((s) => `${s.label} #${s.id}`).join(', ')} into ${survivor.label} #${survivor.id}? ` +
+        'Their contact details, links, timeline and files move to it. This cannot be undone.',
       confirmLabel: 'Merge',
       danger: true,
     });
@@ -54,7 +62,7 @@ function Group({ kind, group }: { kind: ContactKind; group: ContactDuplicates })
       setBusy(false);
       return;
     }
-    navigate(pageOf(kind, keep), { state: { mergedFrom: sources.map(s => s.id) } });
+    navigate(pageOf(kind, keep), { state: { mergedFrom: sources.map((s) => s.id) } });
   }
 
   return (
@@ -63,16 +71,25 @@ function Group({ kind, group }: { kind: ContactKind; group: ContactDuplicates })
         <span className="text-sf-ink-mute">{MATCH_LABEL[group.match_on]}: </span>
         <span className="break-all text-sf-ink">{group.value}</span>
         <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1">
-          {group.records.map(r => (
-            <Link key={r.id} to={pageOf(kind, r.id)} className="text-sf-accent-text">{r.label} #{r.id}</Link>
+          {group.records.map((r) => (
+            <Link key={r.id} to={pageOf(kind, r.id)} className="text-sf-accent-text">
+              {r.label} #{r.id}
+            </Link>
           ))}
         </div>
       </div>
       <label className="flex items-center gap-2 text-xs text-sf-ink-mute">
         Keep
-        <select value={keep} onChange={e => setKeep(Number(e.target.value))}
-          className="rounded-md border border-sf-line-strong bg-sf-card px-2 py-1 text-sm text-sf-ink">
-          {group.records.map(r => <option key={r.id} value={r.id}>{r.label} #{r.id}</option>)}
+        <select
+          value={keep}
+          onChange={(e) => setKeep(Number(e.target.value))}
+          className="rounded-md border border-sf-line-strong bg-sf-card px-2 py-1 text-sm text-sf-ink"
+        >
+          {group.records.map((r) => (
+            <option key={r.id} value={r.id}>
+              {r.label} #{r.id}
+            </option>
+          ))}
         </select>
       </label>
       <button type="button" disabled={busy} onClick={() => void merge()} className={ui.btnSecondary}>

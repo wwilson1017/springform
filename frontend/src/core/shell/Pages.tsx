@@ -5,7 +5,9 @@ export function NotFound() {
     <div className="mx-auto max-w-xl px-4 py-16 text-center">
       <h1 className="m-0 font-display text-2xl font-medium text-sf-ink">Page not found</h1>
       <p className="text-sf-ink-mute">This page doesn't exist, or you don't have access to it.</p>
-      <Link to="/" className="text-sf-accent-text">Back to the launcher</Link>
+      <Link to="/" className="text-sf-accent-text">
+        Back to the launcher
+      </Link>
     </div>
   );
 }
@@ -16,7 +18,9 @@ export function NotAllowed() {
     <div className="mx-auto max-w-xl px-4 py-16 text-center">
       <h1 className="m-0 font-display text-2xl font-medium text-sf-ink">Not allowed</h1>
       <p className="text-sf-ink-mute">Only admins can open this page.</p>
-      <Link to="/" className="text-sf-accent-text">Back to the launcher</Link>
+      <Link to="/" className="text-sf-accent-text">
+        Back to the launcher
+      </Link>
     </div>
   );
 }

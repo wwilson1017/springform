@@ -8,8 +8,25 @@ import { Timeline } from './Timeline';
 const BASE = '/api/core/timeline?entity_type=example.widget&entity_id=7';
 const LIST = `${BASE}&limit=50`;
 const entries: TimelineEntry[] = [
-  { id: 2, kind: 'field_change', body: '', changes: [{ field: 'color', old: 'red', new: 'blue' }, { field: 'is_private', old: false, new: true }], author: { id: 1, name: 'Ada' }, created_at: '2026-10-20T15:04:05Z' },
-  { id: 1, kind: 'note', body: 'First note', changes: null, author: { id: 1, name: 'Ada' }, created_at: '2026-10-20T15:00:00Z' },
+  {
+    id: 2,
+    kind: 'field_change',
+    body: '',
+    changes: [
+      { field: 'color', old: 'red', new: 'blue' },
+      { field: 'is_private', old: false, new: true },
+    ],
+    author: { id: 1, name: 'Ada' },
+    created_at: '2026-10-20T15:04:05Z',
+  },
+  {
+    id: 1,
+    kind: 'note',
+    body: 'First note',
+    changes: null,
+    author: { id: 1, name: 'Ada' },
+    created_at: '2026-10-20T15:00:00Z',
+  },
 ];
 
 afterEach(() => vi.unstubAllGlobals());
@@ -26,17 +43,39 @@ describe('Timeline', () => {
   });
 
   it("names a custom field change by the field's label, fetched once per entity type", async () => {
-    const custom: TimelineEntry = { ...entries[0], id: 5, changes: [{ field: 'field.favourite_cake', old: null, new: 'Lemon' }] };
+    const custom: TimelineEntry = {
+      ...entries[0],
+      id: 5,
+      changes: [{ field: 'field.favourite_cake', old: null, new: 'Lemon' }],
+    };
     const defs = '/api/core/fields/definitions?entity_type=core.person&include_archived=true';
     const fetchMock = mockFetch({
       'GET /api/core/timeline?entity_type=core.person&entity_id=1&limit=50': { body: [custom] },
       'GET /api/core/timeline?entity_type=core.person&entity_id=2&limit=50': { body: [custom] },
       // A label unlike the humanized key ("Favourite cake"), so the find below waits for the
       // definitions fetch instead of matching the fallback on the first render.
-      [`GET ${defs}`]: { body: [{ id: 1, entity_type: 'core.person', key: 'favourite_cake', label: 'Cake of choice', type: 'text',
-        options: null, required: false, position: 0, archived_at: null }] },
+      [`GET ${defs}`]: {
+        body: [
+          {
+            id: 1,
+            entity_type: 'core.person',
+            key: 'favourite_cake',
+            label: 'Cake of choice',
+            type: 'text',
+            options: null,
+            required: false,
+            position: 0,
+            archived_at: null,
+          },
+        ],
+      },
     });
-    render(<><Timeline entityType="core.person" entityId={1} /><Timeline entityType="core.person" entityId={2} /></>);
+    render(
+      <>
+        <Timeline entityType="core.person" entityId={1} />
+        <Timeline entityType="core.person" entityId={2} />
+      </>,
+    );
     expect(await screen.findAllByText('Cake of choice changed from empty to Lemon')).toHaveLength(2);
     expect(callsTo(fetchMock, 'GET', defs)).toHaveLength(1);
   });
@@ -63,7 +102,11 @@ describe('Timeline', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Add note' }));
     await vi.waitFor(() => expect(callsTo(fetchMock, 'GET', LIST)).toHaveLength(2));
     const [, init] = callsTo(fetchMock, 'POST', '/api/core/timeline')[0];
-    expect(JSON.parse(init!.body as string)).toEqual({ entity_type: 'example.widget', entity_id: 7, body: 'Called them' });
+    expect(JSON.parse(init!.body as string)).toEqual({
+      entity_type: 'example.widget',
+      entity_id: 7,
+      body: 'Called them',
+    });
     expect((screen.getByLabelText('Add a note') as HTMLTextAreaElement).value).toBe('');
   });
 

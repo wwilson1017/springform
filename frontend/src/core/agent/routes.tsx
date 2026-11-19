@@ -9,6 +9,4 @@ function whisk() {
 
 // One splat route, `/whisk` and `/whisk/<conversation id>`: a new chat moves to its id's URL
 // mid-stream, and staying on the same route keeps the page (and the stream) mounted.
-export default [
-  { path: 'whisk/*', element: whisk() },
-] satisfies CoreRoute[];
+export default [{ path: 'whisk/*', element: whisk() }] satisfies CoreRoute[];

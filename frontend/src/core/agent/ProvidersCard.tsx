@@ -42,7 +42,10 @@ function ProviderRow({ p, onSaved }: { p: ProviderInfo; onSaved: (p: ProviderInf
       setTest({ ok: true, text: `${r.model} answered: ${r.reply || '(empty reply)'}` });
     } catch (e) {
       const detail = e instanceof ApiError ? e.detail : 'Could not reach the server.';
-      setTest({ ok: false, text: detail === 'no_key' ? 'No usable key: add one, and check the provider is enabled.' : detail });
+      setTest({
+        ok: false,
+        text: detail === 'no_key' ? 'No usable key: add one, and check the provider is enabled.' : detail,
+      });
     } finally {
       setBusy(false);
     }
@@ -58,45 +61,90 @@ function ProviderRow({ p, onSaved }: { p: ProviderInfo; onSaved: (p: ProviderInf
             {p.has_key ? 'Key saved' : 'No key'}
           </span>
           <label className="flex cursor-pointer items-center gap-1.5 text-xs text-sf-ink-mute">
-            <input type="checkbox" checked={p.enabled} disabled={busy}
-              onChange={e => void save({ enabled: e.target.checked }, e.target.checked ? 'Provider enabled.' : 'Provider disabled.')} />
+            <input
+              type="checkbox"
+              checked={p.enabled}
+              disabled={busy}
+              onChange={(e) =>
+                void save({ enabled: e.target.checked }, e.target.checked ? 'Provider enabled.' : 'Provider disabled.')
+              }
+            />
             Enabled
           </label>
         </span>
       </div>
 
-      <form className="flex flex-wrap items-end gap-2" onSubmit={e => {
-        e.preventDefault();
-        if (key.trim()) void save({ api_key: key.trim() }, 'Key saved.').then(ok => ok && setKey(''));
-      }}>
+      <form
+        className="flex flex-wrap items-end gap-2"
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (key.trim()) void save({ api_key: key.trim() }, 'Key saved.').then((ok) => ok && setKey(''));
+        }}
+      >
         <label className={`${LABEL} flex-1`}>
           {p.has_key ? 'Replace the key' : 'API key'}
-          <input type="password" autoComplete="off" value={key} onChange={e => setKey(e.target.value)} className={INPUT}
-            placeholder={p.has_key ? 'A new key replaces the saved one' : 'Paste the key'} />
+          <input
+            type="password"
+            autoComplete="off"
+            value={key}
+            onChange={(e) => setKey(e.target.value)}
+            className={INPUT}
+            placeholder={p.has_key ? 'A new key replaces the saved one' : 'Paste the key'}
+          />
         </label>
-        <button type="submit" disabled={busy || !key.trim()} className={PRIMARY}>Save key</button>
+        <button type="submit" disabled={busy || !key.trim()} className={PRIMARY}>
+          Save key
+        </button>
         {p.has_key && (
-          <button type="button" disabled={busy} className={BUTTON} onClick={() => void save({ api_key: '' }, 'Key removed.')}>Remove key</button>
+          <button
+            type="button"
+            disabled={busy}
+            className={BUTTON}
+            onClick={() => void save({ api_key: '' }, 'Key removed.')}
+          >
+            Remove key
+          </button>
         )}
       </form>
 
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
         <label className={LABEL}>
           Chat model
-          <input value={models.model_default} onChange={e => setModels({ ...models, model_default: e.target.value })} className={INPUT} />
+          <input
+            value={models.model_default}
+            onChange={(e) => setModels({ ...models, model_default: e.target.value })}
+            className={INPUT}
+          />
         </label>
         <label className={LABEL}>
           Light model (summaries, background)
-          <input value={models.model_light} onChange={e => setModels({ ...models, model_light: e.target.value })} className={INPUT} />
+          <input
+            value={models.model_light}
+            onChange={(e) => setModels({ ...models, model_light: e.target.value })}
+            className={INPUT}
+          />
         </label>
-        <button type="button" disabled={busy || !modelsChanged || !models.model_default.trim() || !models.model_light.trim()} className={BUTTON}
-          onClick={() => void save(models, 'Models saved.')}>Save models</button>
+        <button
+          type="button"
+          disabled={busy || !modelsChanged || !models.model_default.trim() || !models.model_light.trim()}
+          className={BUTTON}
+          onClick={() => void save(models, 'Models saved.')}
+        >
+          Save models
+        </button>
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
-        <button type="button" disabled={busy} className={BUTTON} onClick={() => void runTest()}>Test</button>
+        <button type="button" disabled={busy} className={BUTTON} onClick={() => void runTest()}>
+          Test
+        </button>
         {test && (
-          <span role="status" className={`min-w-0 break-words text-sm ${test.ok ? 'text-sf-green-text' : 'text-sf-red-text'}`}>{test.text}</span>
+          <span
+            role="status"
+            className={`min-w-0 break-words text-sm ${test.ok ? 'text-sf-green-text' : 'text-sf-red-text'}`}
+          >
+            {test.text}
+          </span>
         )}
       </div>
     </div>
@@ -111,10 +159,15 @@ export default function ProvidersCard() {
   return (
     <div className="flex flex-col gap-3">
       <p className={HINT}>
-        Whisk uses the first enabled provider that has a key, in this order. Keys are stored encrypted and never shown again.
+        Whisk uses the first enabled provider that has a key, in this order. Keys are stored encrypted and never shown
+        again.
       </p>
-      {data.map(p => (
-        <ProviderRow key={p.provider} p={p} onSaved={next => setData(data.map(x => (x.provider === next.provider ? next : x)))} />
+      {data.map((p) => (
+        <ProviderRow
+          key={p.provider}
+          p={p}
+          onSaved={(next) => setData(data.map((x) => (x.provider === next.provider ? next : x)))}
+        />
       ))}
     </div>
   );

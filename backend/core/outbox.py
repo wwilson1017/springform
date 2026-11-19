@@ -125,8 +125,12 @@ def _fail(row: dict, error: Exception) -> None:
             """UPDATE core_outbox SET attempts = ?, last_error = ?, claimed_at = NULL, available_at = ?, dead_at = ?
                 WHERE id = ? AND claimed_at = ?""",
             (
-                attempts, repr(error)[:2000], clock.later(BACKOFF * 2 ** (attempts - 1)),
-                clock.now_iso() if dead else None, row["id"], row["claimed_at"],
+                attempts,
+                repr(error)[:2000],
+                clock.later(BACKOFF * 2 ** (attempts - 1)),
+                clock.now_iso() if dead else None,
+                row["id"],
+                row["claimed_at"],
             ),
         )
 

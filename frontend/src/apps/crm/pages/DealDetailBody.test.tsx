@@ -15,7 +15,20 @@ function setup(d: DealDetail, extra: Record<string, Reply> = {}) {
   const fetchMock = mockFetch({
     [`GET ${URL}`]: { body: d },
     [`GET ${URL}/health`]: { body: { deal: d, score: null, factors: {}, stale_days: 14, flags: [] } },
-    [`GET ${URL}/touch-evidence`]: { body: { deal_id: 7, open: true, stage: d.stage, ai_touch_count: null, computed_at: null, verdict_state: 'none', counted: null, evaluated: 0, truncated: false, events: [] } },
+    [`GET ${URL}/touch-evidence`]: {
+      body: {
+        deal_id: 7,
+        open: true,
+        stage: d.stage,
+        ai_touch_count: null,
+        computed_at: null,
+        verdict_state: 'none',
+        counted: null,
+        evaluated: 0,
+        truncated: false,
+        events: [],
+      },
+    },
     'GET /api/core/timeline/mentionable?q=': { body: [] },
     'GET /api/core/timeline?entity_type=crm.deal&entity_id=7&limit=50': { body: [] },
     'GET /api/core/files?entity_type=crm.deal&entity_id=7': { body: [] },
@@ -26,7 +39,9 @@ function setup(d: DealDetail, extra: Record<string, Reply> = {}) {
   });
   render(
     <MemoryRouter initialEntries={['/crm/deals/7']}>
-      <Routes><Route path="/crm/deals/:id" element={<DealDetailPage />} /></Routes>
+      <Routes>
+        <Route path="/crm/deals/:id" element={<DealDetailPage />} />
+      </Routes>
     </MemoryRouter>,
   );
   return fetchMock;
@@ -82,7 +97,9 @@ describe('deal page stage controls', () => {
 
   it('Archive needs a reason; an archived deal offers Restore and no stage controls', async () => {
     const live = detail({ id: 7, stage: 'lead' });
-    const fetchMock = setup(live, { [`POST ${URL}/archive`]: { body: deal({ ...live, archived_at: '2026-10-24T10:00:00Z' }) } });
+    const fetchMock = setup(live, {
+      [`POST ${URL}/archive`]: { body: deal({ ...live, archived_at: '2026-10-24T10:00:00Z' }) },
+    });
     fireEvent.click(await screen.findByRole('button', { name: 'Archive' }));
     const dialog = screen.getByRole('dialog', { name: 'Archive deal' });
     const confirm = within(dialog).getByRole('button', { name: 'Archive' }) as HTMLButtonElement;
@@ -119,7 +136,7 @@ describe('deal page stage controls', () => {
       'GET /api/core/timeline/mentionable?q=bea': { body: [{ id: 4, name: 'Bea Rep' }] },
       [`PATCH ${URL}`]: { body: deal({ ...d, owner_user_id: 4, owner_name: 'Bea Rep' }) },
     });
-    const owner = await screen.findByLabelText('Owner') as HTMLInputElement;
+    const owner = (await screen.findByLabelText('Owner')) as HTMLInputElement;
     expect(owner.value).toBe('Zed Late');
     fireEvent.focus(owner);
     fireEvent.change(owner, { target: { value: 'bea' } });
@@ -134,10 +151,23 @@ describe('deal page stage controls', () => {
 describe('deal page record services', () => {
   it("shows the deal's custom fields and reminders", async () => {
     setup(detail({ id: 7 }), {
-      'GET /api/core/fields/definitions?entity_type=crm.deal': { body: [{
-        id: 1, entity_type: 'crm.deal', key: 'po_number', label: 'PO number', type: 'text', options: null, required: false,
-        position: 10, archived_at: null, created_at: '2026-10-20T15:00:00Z', updated_at: '2026-10-20T15:00:00Z',
-      }] },
+      'GET /api/core/fields/definitions?entity_type=crm.deal': {
+        body: [
+          {
+            id: 1,
+            entity_type: 'crm.deal',
+            key: 'po_number',
+            label: 'PO number',
+            type: 'text',
+            options: null,
+            required: false,
+            position: 10,
+            archived_at: null,
+            created_at: '2026-10-20T15:00:00Z',
+            updated_at: '2026-10-20T15:00:00Z',
+          },
+        ],
+      },
       'GET /api/core/fields/values?entity_type=crm.deal&entity_id=7': { body: { po_number: 'PO-118' } },
     });
     const fields = await screen.findByRole('region', { name: 'Custom fields' });

@@ -58,6 +58,7 @@ def stream_csv(header: list, rows: Iterable[Iterable], filename: str) -> Streami
         yield buf.getvalue().encode()
 
     return StreamingResponse(
-        chunks(), media_type="text/csv; charset=utf-8",
+        chunks(),
+        media_type="text/csv; charset=utf-8",
         headers={"Content-Disposition": f'attachment; filename="{safe_filename(filename)}"'},
     )

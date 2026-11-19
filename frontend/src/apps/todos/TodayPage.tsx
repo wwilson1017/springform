@@ -17,13 +17,12 @@ export function TodayPage() {
   const [editTodo, setEditTodo] = useState<Todo | null>(null);
 
   const today = todayStr(new Date(), filters?.tz);
-  const overdue = (todos ?? []).filter(t => t.due_date && t.due_date < today);
-  const dueToday = (todos ?? []).filter(t => t.due_date === today);
-  const dated = new Set([...overdue, ...dueToday].map(t => t.id));
-  const revisit = (todos ?? []).filter(
-    t => t.revisit_on && t.revisit_on <= today && !dated.has(t.id));
-  const seen = new Set([...dated, ...revisit.map(t => t.id)]);
-  const starred = (todos ?? []).filter(t => t.star && !seen.has(t.id));
+  const overdue = (todos ?? []).filter((t) => t.due_date && t.due_date < today);
+  const dueToday = (todos ?? []).filter((t) => t.due_date === today);
+  const dated = new Set([...overdue, ...dueToday].map((t) => t.id));
+  const revisit = (todos ?? []).filter((t) => t.revisit_on && t.revisit_on <= today && !dated.has(t.id));
+  const seen = new Set([...dated, ...revisit.map((t) => t.id)]);
+  const starred = (todos ?? []).filter((t) => t.star && !seen.has(t.id));
 
   const section = (title: string, items: Todo[], tone?: string) =>
     items.length > 0 && (
@@ -32,9 +31,8 @@ export function TodayPage() {
           {title}
         </h2>
         <div className="space-y-2">
-          {items.map(t => (
-            <TodoRow key={t.id} todo={t} onToggleDone={toggleDone}
-                     onToggleStar={toggleStar} onEdit={setEditTodo} />
+          {items.map((t) => (
+            <TodoRow key={t.id} todo={t} onToggleDone={toggleDone} onToggleStar={toggleStar} onEdit={setEditTodo} />
           ))}
         </div>
       </section>
@@ -44,12 +42,10 @@ export function TodayPage() {
     <TodoShell active="today" onAdded={reload}>
       {failed && <LoadFailed retry={reload} />}
       {!failed && todos === null && <LoadingRows />}
-      {todos !== null && !failed && (
-        overdue.length + dueToday.length + revisit.length + starred.length === 0 ? (
-          <EmptyState
-            title="Nothing on today's plate"
-            hint="Star a task or give it a due date and it shows up here."
-          />
+      {todos !== null &&
+        !failed &&
+        (overdue.length + dueToday.length + revisit.length + starred.length === 0 ? (
+          <EmptyState title="Nothing on today's plate" hint="Star a task or give it a due date and it shows up here." />
         ) : (
           <div className="space-y-6">
             {section('Overdue', overdue, 'text-sf-red-text')}
@@ -57,15 +53,17 @@ export function TodayPage() {
             {section('Time to revisit', revisit)}
             {section('★ Starred', starred, 'text-sf-amber-text')}
           </div>
-        )
-      )}
+        ))}
       {editTodo && (
         <TodoEditSheet
           todo={editTodo}
           projects={projects}
           contexts={filters?.contexts ?? []}
           onClose={() => setEditTodo(null)}
-          onSaved={() => { reload(); void refreshMeta(); }}
+          onSaved={() => {
+            reload();
+            void refreshMeta();
+          }}
         />
       )}
     </TodoShell>

@@ -28,11 +28,24 @@ import type { Todo } from '../types';
 import { ITEM_EXTRA } from '../testFixtures';
 import { routed } from '../testRouter';
 
-const TODO: Todo = { ...ITEM_EXTRA,
-  id: 1, title: 'water the plants', notes: '', project_id: null, project_name: null,
-  context: '', tags: [], status: 'next_action', star: false, due_date: null,
-  repeat: 'weekly', auto_star_on_due: false, source: 'ui',
-  created_at: '2026-08-06T12:00:00Z', updated_at: '2026-08-06T12:00:00Z', completed_at: null,
+const TODO: Todo = {
+  ...ITEM_EXTRA,
+  id: 1,
+  title: 'water the plants',
+  notes: '',
+  project_id: null,
+  project_name: null,
+  context: '',
+  tags: [],
+  status: 'next_action',
+  star: false,
+  due_date: null,
+  repeat: 'weekly',
+  auto_star_on_due: false,
+  source: 'ui',
+  created_at: '2026-08-06T12:00:00Z',
+  updated_at: '2026-08-06T12:00:00Z',
+  completed_at: null,
 };
 
 let container: HTMLDivElement;
@@ -62,20 +75,21 @@ function setValue(el: HTMLSelectElement | HTMLInputElement, value: string) {
   });
 }
 
-const click = (el: Element) => act(() => { (el as HTMLElement).click(); });
+const click = (el: Element) =>
+  act(() => {
+    (el as HTMLElement).click();
+  });
 
 /** The auto-star checkbox, found by its label rather than by position — the
  * star checkbox sits right beside it and index-based lookup would silently
  * follow the wrong one if the order ever changed. */
 function autoStarBox(): HTMLInputElement | null {
-  const label = [...container.querySelectorAll('label')]
-    .find(l => l.textContent?.includes('next occurrence'));
+  const label = [...container.querySelectorAll('label')].find((l) => l.textContent?.includes('next occurrence'));
   return label?.querySelector('input[type="checkbox"]') ?? null;
 }
 
 function button(label: string): HTMLButtonElement {
-  const found = [...container.querySelectorAll('button')]
-    .find(b => b.textContent?.trim() === label);
+  const found = [...container.querySelectorAll('button')].find((b) => b.textContent?.trim() === label);
   if (!found) throw new Error(`no button labelled "${label}"`);
   return found;
 }
@@ -83,10 +97,7 @@ function button(label: string): HTMLButtonElement {
 describe('TodoEditSheet auto-star gating', () => {
   const renderSheet = async (todo: Todo) => {
     await act(async () => {
-      root.render(
-        <TodoEditSheet todo={todo} projects={[]} contexts={[]}
-                       onClose={() => {}} onSaved={() => {}} />,
-      );
+      root.render(<TodoEditSheet todo={todo} projects={[]} contexts={[]} onClose={() => {}} onSaved={() => {}} />);
     });
   };
 
@@ -101,11 +112,14 @@ describe('TodoEditSheet auto-star gating', () => {
   it('saves the flag when it is checked against a repeating todo', async () => {
     await renderSheet(TODO);
     click(autoStarBox()!);
-    await act(async () => { button('Save').click(); });
+    await act(async () => {
+      button('Save').click();
+    });
 
     expect(updateTodoMock).toHaveBeenCalledTimes(1);
     expect(updateTodoMock.mock.calls[0][1]).toMatchObject({
-      repeat: 'weekly', auto_star_on_due: true,
+      repeat: 'weekly',
+      auto_star_on_due: true,
     });
   });
 
@@ -114,17 +128,22 @@ describe('TodoEditSheet auto-star gating', () => {
     expect(autoStarBox()!.checked).toBe(true);
 
     setValue(container.querySelector<HTMLSelectElement>('#tgtd-repeat')!, '');
-    await act(async () => { button('Save').click(); });
+    await act(async () => {
+      button('Save').click();
+    });
 
     expect(updateTodoMock.mock.calls[0][1]).toMatchObject({
-      repeat: '', auto_star_on_due: false,
+      repeat: '',
+      auto_star_on_due: false,
     });
   });
 });
 
 describe('QuickAdd auto-star gating', () => {
   const renderQuickAdd = async () => {
-    await act(async () => { root.render(<QuickAdd onAdded={() => {}} />); });
+    await act(async () => {
+      root.render(<QuickAdd onAdded={() => {}} />);
+    });
   };
   const input = () => container.querySelector<HTMLInputElement>('input:not([type="checkbox"])')!;
 
@@ -141,11 +160,14 @@ describe('QuickAdd auto-star gating', () => {
     await renderQuickAdd();
     setValue(input(), 'water the plants every week');
     click(autoStarBox()!);
-    await act(async () => { button('Add').click(); });
+    await act(async () => {
+      button('Add').click();
+    });
 
     expect(createTodoMock).toHaveBeenCalledTimes(1);
     expect(createTodoMock.mock.calls[0][0]).toMatchObject({
-      repeat: 'weekly', auto_star_on_due: true,
+      repeat: 'weekly',
+      auto_star_on_due: true,
     });
   });
 
@@ -154,10 +176,13 @@ describe('QuickAdd auto-star gating', () => {
     setValue(input(), 'water the plants every week');
     click(autoStarBox()!);
     setValue(input(), 'water the plants');
-    await act(async () => { button('Add').click(); });
+    await act(async () => {
+      button('Add').click();
+    });
 
     expect(createTodoMock.mock.calls[0][0]).toMatchObject({
-      repeat: '', auto_star_on_due: false,
+      repeat: '',
+      auto_star_on_due: false,
     });
   });
 });

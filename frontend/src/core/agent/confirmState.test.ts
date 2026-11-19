@@ -11,7 +11,12 @@ describe('confirmReducer', () => {
   it('goes pending, sending, resolved with what the server said', () => {
     expect(sent()).toEqual({ phase: 'sending', decision: 'approve' });
     expect(answer({ status: 'done', result: { id: 3 } })).toEqual({
-      phase: 'resolved', decision: 'approve', outcome: 'done', result: { id: 3 }, error: undefined, current: undefined,
+      phase: 'resolved',
+      decision: 'approve',
+      outcome: 'done',
+      result: { id: 3 },
+      error: undefined,
+      current: undefined,
     });
   });
 
@@ -41,10 +46,14 @@ describe('confirmReducer', () => {
 
   it('gives every outcome its own words; stale says to ask again', () => {
     const outcomes: ConfirmResponse[] = [
-      { status: 'done' }, { status: 'denied' }, { status: 'error', error: 'boom' }, { status: 'uncertain', error: 'timeout' },
-      { status: 'stale' }, { status: 'already_resolved', current: 'done' },
+      { status: 'done' },
+      { status: 'denied' },
+      { status: 'error', error: 'boom' },
+      { status: 'uncertain', error: 'timeout' },
+      { status: 'stale' },
+      { status: 'already_resolved', current: 'done' },
     ];
-    const texts = outcomes.map(body => {
+    const texts = outcomes.map((body) => {
       const s = answer(body);
       if (s.phase !== 'resolved') throw new Error('not resolved');
       return outcomeText(s);

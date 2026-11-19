@@ -16,4 +16,8 @@ def open_team_by_assignee(params: dict, user) -> tuple[list[str], list[list]]:
     return ["assignee", "open"], [[name, n] for name, n in sorted(counts.items())]
 
 
-REPORTS = [Report(key="todos.open_team_by_assignee", label="Open team todos by assignee", app="todos", run=open_team_by_assignee)]
+REPORTS = [
+    Report(
+        key="todos.open_team_by_assignee", label="Open team todos by assignee", app="todos", run=open_team_by_assignee
+    )
+]

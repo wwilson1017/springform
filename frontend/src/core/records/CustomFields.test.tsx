@@ -13,27 +13,58 @@ const USERS = '/api/core/timeline/mentionable?q=';
 
 let nextId = 1;
 const def = (key: string, type: FieldType, extra: Partial<FieldDefinition> = {}): FieldDefinition => ({
-  id: nextId++, entity_type: 'example.widget', key, label: key.replace(/_/g, ' '), type, options: null,
-  required: false, position: nextId * 10, archived_at: null,
-  created_at: '2026-10-20T15:00:00Z', updated_at: '2026-10-20T15:00:00Z', ...extra,
+  id: nextId++,
+  entity_type: 'example.widget',
+  key,
+  label: key.replace(/_/g, ' '),
+  type,
+  options: null,
+  required: false,
+  position: nextId * 10,
+  archived_at: null,
+  created_at: '2026-10-20T15:00:00Z',
+  updated_at: '2026-10-20T15:00:00Z',
+  ...extra,
 });
 const ALL = [
-  def('notes', 'text', { required: true }), def('size', 'number'), def('fragile', 'boolean'), def('ships_on', 'date'),
-  def('tier', 'select', { options: ['Gold', 'Silver'] }), def('tags', 'multiselect', { options: ['a', 'b', 'c'] }),
-  def('site', 'url'), def('rep', 'user'),
+  def('notes', 'text', { required: true }),
+  def('size', 'number'),
+  def('fragile', 'boolean'),
+  def('ships_on', 'date'),
+  def('tier', 'select', { options: ['Gold', 'Silver'] }),
+  def('tags', 'multiselect', { options: ['a', 'b', 'c'] }),
+  def('site', 'url'),
+  def('rep', 'user'),
 ];
-const STORED = { notes: 'Handle with care', size: 2.5, fragile: true, ships_on: '2026-11-02', tier: 'Gold', tags: ['a', 'c'], site: 'https://example.com', rep: 2 };
+const STORED = {
+  notes: 'Handle with care',
+  size: 2.5,
+  fragile: true,
+  ships_on: '2026-11-02',
+  tier: 'Gold',
+  tags: ['a', 'c'],
+  site: 'https://example.com',
+  rep: 2,
+};
 
 afterEach(() => {
   vi.unstubAllGlobals();
   resetUserNames();
 });
 
-function renderAll(values: Record<string, unknown> = STORED, put: { status?: number; body?: unknown } = { body: STORED }) {
+function renderAll(
+  values: Record<string, unknown> = STORED,
+  put: { status?: number; body?: unknown } = { body: STORED },
+) {
   const fetchMock = mockFetch({
     [`GET ${DEFS}`]: { body: ALL },
     [`GET ${VALUES}`]: { body: values },
-    [`GET ${USERS}`]: { body: [{ id: 1, name: 'Ada Admin' }, { id: 2, name: 'Max Member' }] },
+    [`GET ${USERS}`]: {
+      body: [
+        { id: 1, name: 'Ada Admin' },
+        { id: 2, name: 'Max Member' },
+      ],
+    },
     'PUT /api/core/fields/values': put,
   });
   render(<CustomFields entityType="example.widget" entityId={7} />);
@@ -45,11 +76,22 @@ describe('CustomFields', () => {
     renderAll();
     await screen.findByText('Handle with care');
     const dl = screen.getByRole('region', { name: 'Custom fields' });
-    for (const text of ['notes *', 'Handle with care', '2.5', 'Yes', '2026-11-02', 'Gold', 'a, c', 'https://example.com']) {
+    for (const text of [
+      'notes *',
+      'Handle with care',
+      '2.5',
+      'Yes',
+      '2026-11-02',
+      'Gold',
+      'a, c',
+      'https://example.com',
+    ]) {
       expect(within(dl).getByText(text)).toBeTruthy();
     }
     expect(await within(dl).findByText('Max Member')).toBeTruthy();
-    expect(within(dl).getByRole('link', { name: 'https://example.com' }).getAttribute('href')).toBe('https://example.com');
+    expect(within(dl).getByRole('link', { name: 'https://example.com' }).getAttribute('href')).toBe(
+      'https://example.com',
+    );
   });
 
   it('renders the editor each type needs and PUTs only what changed, typed, in one request', async () => {
@@ -76,7 +118,8 @@ describe('CustomFields', () => {
     await vi.waitFor(() => expect(callsTo(fetchMock, 'PUT', '/api/core/fields/values')).toHaveLength(1));
     const [, init] = callsTo(fetchMock, 'PUT', '/api/core/fields/values')[0];
     expect(JSON.parse(init!.body as string)).toEqual({
-      entity_type: 'example.widget', entity_id: 7,
+      entity_type: 'example.widget',
+      entity_id: 7,
       values: { size: 12, fragile: false, ships_on: '2026-12-01', tags: ['a', 'b'], rep: 2, tier: null },
     });
     // The record's Timeline hears about the save, so the change entry shows.

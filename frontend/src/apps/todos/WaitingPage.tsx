@@ -20,7 +20,10 @@ export function WaitingPage() {
   const scope = useScope();
   const { todos: waiting, failed: f1, reload: r1 } = useStatusList('waiting_for', scope);
   const { todos: delegated, failed: f2, reload: r2 } = useStatusList('delegated', scope);
-  const reload = () => { r1(); r2(); };
+  const reload = () => {
+    r1();
+    r2();
+  };
   const { setStatus, after } = useRowActions(reload);
   const { projects, filters } = useTodoMeta();
   const [search, setSearch] = useState('');
@@ -29,10 +32,8 @@ export function WaitingPage() {
   const failed = f1 || f2;
   const loading = waiting === null || delegated === null;
 
-  const memoWaiting = useMemo(
-    () => (waiting ?? []).filter(t => matchesFilter(t, search)), [waiting, search]);
-  const memoDelegated = useMemo(
-    () => (delegated ?? []).filter(t => matchesFilter(t, search)), [delegated, search]);
+  const memoWaiting = useMemo(() => (waiting ?? []).filter((t) => matchesFilter(t, search)), [waiting, search]);
+  const memoDelegated = useMemo(() => (delegated ?? []).filter((t) => matchesFilter(t, search)), [delegated, search]);
 
   const section = (title: string, items: Todo[]) => (
     <section>
@@ -43,9 +44,8 @@ export function WaitingPage() {
         <p className="text-sm text-sf-ink-dim">Nothing here.</p>
       ) : (
         <div className="space-y-2">
-          {items.map(t => (
-            <div key={t.id}
-                 className="flex items-start gap-3 rounded-xl border border-sf-line bg-sf-card px-3 py-2.5">
+          {items.map((t) => (
+            <div key={t.id} className="flex items-start gap-3 rounded-xl border border-sf-line bg-sf-card px-3 py-2.5">
               <button type="button" onClick={() => setEditTodo(t)} className="min-w-0 flex-1 text-left">
                 {/* The title wraps in full; the notes stay a one-line preview,
                     which is what the age chip beside it is scanned against. */}
@@ -53,12 +53,12 @@ export function WaitingPage() {
                 {t.notes && <p className="truncate text-xs text-sf-ink-dim">{t.notes}</p>}
               </button>
               {t.context && (
-                <span className="shrink-0 rounded-full bg-sf-bg px-2 py-0.5 text-xs text-sf-ink-dim">
-                  {t.context}
-                </span>
+                <span className="shrink-0 rounded-full bg-sf-bg px-2 py-0.5 text-xs text-sf-ink-dim">{t.context}</span>
               )}
-              <span className="shrink-0 rounded-full bg-sf-bg px-2 py-0.5 text-xs text-sf-ink-dim"
-                    title="Time since last touched">
+              <span
+                className="shrink-0 rounded-full bg-sf-bg px-2 py-0.5 text-xs text-sf-ink-dim"
+                title="Time since last touched"
+              >
                 {formatAge(t.updated_at)}
               </span>
               <button

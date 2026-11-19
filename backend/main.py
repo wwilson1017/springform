@@ -62,8 +62,13 @@ def create_app(apps_dir: Path = db.APPS_DIR) -> FastAPI:
                 logger.warning("a job was still running at shutdown; leaving the database open")
 
     app = FastAPI(
-        title="Springform", version=VERSION, lifespan=lifespan, generate_unique_id_function=_operation_id,
-        docs_url=None, redoc_url=None, openapi_url=None,  # served signed-in only, by _serve_docs()
+        title="Springform",
+        version=VERSION,
+        lifespan=lifespan,
+        generate_unique_id_function=_operation_id,
+        docs_url=None,
+        redoc_url=None,
+        openapi_url=None,  # served signed-in only, by _serve_docs()
     )
     errors.install(app)
     csrf.install(app)

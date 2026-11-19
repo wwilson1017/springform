@@ -15,9 +15,9 @@ test('a hidden app stays on the admin launcher, marked, and leaves the member la
     await expect(admin.page.getByRole('main').getByRole('link', { name: 'Example' })).toContainText('hidden');
 
     await member.page.goto('/');
-    const slugs = (await member.api.get<Array<{ slug: string }>>('/api/core/apps')).map(a => a.slug);
+    const slugs = (await member.api.get<Array<{ slug: string }>>('/api/core/apps')).map((a) => a.slug);
     expect(slugs).toContain('crm');
-    expect(slugs).not.toContain('example');  // a fork's own apps may be listed too
+    expect(slugs).not.toContain('example'); // a fork's own apps may be listed too
     await expect(member.page.getByRole('main').getByRole('listitem')).toHaveCount(slugs.length);
     await expect(member.page.getByRole('main').getByRole('link', { name: 'Example' })).toHaveCount(0);
     await expect(member.page.getByRole('banner').getByRole('link', { name: 'Example' })).toHaveCount(0);

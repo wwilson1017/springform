@@ -132,7 +132,9 @@ def create_user_in(
 
 def over_limit_in(conn: db.Conn, key: str, limit: int, window: int) -> bool:
     """Sliding window over core_login_attempts; an attempt under the limit is recorded."""
-    n = conn.execute("SELECT count(*) FROM core_login_attempts WHERE key = ? AND at > ?", (key, clock.ago(window))).fetchone()[0]
+    n = conn.execute(
+        "SELECT count(*) FROM core_login_attempts WHERE key = ? AND at > ?", (key, clock.ago(window))
+    ).fetchone()[0]
     if n >= limit:
         return True
     conn.execute("INSERT INTO core_login_attempts (key, at) VALUES (?, ?)", (key, clock.now_iso()))
@@ -182,7 +184,9 @@ def prune_login_attempts(cancel=None) -> None:
 def issue_token_in(conn: db.Conn, user_id: int, purpose: str, created_by: int | None = None) -> str:
     """A fresh one-hour link token (`invite` or `reset`); the user's unused one of that purpose stops working."""
     token = secrets.token_urlsafe(32)
-    conn.execute("DELETE FROM core_login_tokens WHERE user_id = ? AND purpose = ? AND used_at IS NULL", (user_id, purpose))
+    conn.execute(
+        "DELETE FROM core_login_tokens WHERE user_id = ? AND purpose = ? AND used_at IS NULL", (user_id, purpose)
+    )
     conn.execute(
         """INSERT INTO core_login_tokens (token_hash, user_id, purpose, expires_at, created_by, created_at)
            VALUES (?, ?, ?, ?, ?, ?)""",
@@ -206,7 +210,9 @@ def spend_token_in(conn: db.Conn, token: str, purpose: str) -> dict | None:
     """Like token_user_in, and the token is used up."""
     row = token_user_in(conn, token, purpose)
     if row:
-        conn.execute("UPDATE core_login_tokens SET used_at = ? WHERE token_hash = ?", (clock.now_iso(), token_hash(token)))
+        conn.execute(
+            "UPDATE core_login_tokens SET used_at = ? WHERE token_hash = ?", (clock.now_iso(), token_hash(token))
+        )
     return row
 
 
@@ -216,12 +222,20 @@ def spend_token_in(conn: db.Conn, token: str, purpose: str) -> dict | None:
 def admin_view(row: dict, totp_enabled: bool = False) -> dict:
     """A user as the Users card shows it. Never the hash or the Google subject."""
     return {
-        "id": row["id"], "email": row["email"], "name": row["name"], "role": row["role"], "tz": row["tz"],
+        "id": row["id"],
+        "email": row["email"],
+        "name": row["name"],
+        "role": row["role"],
+        "tz": row["tz"],
         "is_active": bool(row["is_active"]),
         "invite_pending": not has_password(row["password_hash"]) and not row["google_sub"],
-        "has_password": has_password(row["password_hash"]), "google_linked": bool(row["google_sub"]),
-        "totp_enabled": totp_enabled, "invited_by": row["invited_by"], "last_login_at": row["last_login_at"],
-        "deactivated_at": row["deactivated_at"], "created_at": row["created_at"],
+        "has_password": has_password(row["password_hash"]),
+        "google_linked": bool(row["google_sub"]),
+        "totp_enabled": totp_enabled,
+        "invited_by": row["invited_by"],
+        "last_login_at": row["last_login_at"],
+        "deactivated_at": row["deactivated_at"],
+        "created_at": row["created_at"],
     }
 
 
@@ -281,7 +295,10 @@ def update_user_in(conn: db.Conn, user_id: int, changes: dict) -> dict:
         changes["name"] = (changes["name"] or "").strip()
     for col in ("name", "role", "tz"):
         if col in changes:
-            conn.execute(f"UPDATE core_users SET {col} = ?, updated_at = ? WHERE id = ?", (changes[col], clock.now_iso(), user_id))
+            conn.execute(
+                f"UPDATE core_users SET {col} = ?, updated_at = ? WHERE id = ?",
+                (changes[col], clock.now_iso(), user_id),
+            )
     return human_in(conn, user_id)
 
 
@@ -305,7 +322,8 @@ def deactivate_in(conn: db.Conn, user_id: int) -> dict:
 def reactivate_in(conn: db.Conn, user_id: int) -> dict:
     human_in(conn, user_id)
     conn.execute(
-        "UPDATE core_users SET is_active = 1, deactivated_at = NULL, updated_at = ? WHERE id = ?", (clock.now_iso(), user_id)
+        "UPDATE core_users SET is_active = 1, deactivated_at = NULL, updated_at = ? WHERE id = ?",
+        (clock.now_iso(), user_id),
     )
     return human_in(conn, user_id)
 

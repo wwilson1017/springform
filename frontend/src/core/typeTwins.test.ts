@@ -12,14 +12,18 @@ const typeFiles = import.meta.glob<string>('./**/types.ts', { query: '?raw', imp
 function schemaNames(source: string): Set<string> {
   const start = source.indexOf('\n    schemas: {');
   const block = source.slice(start, source.indexOf('\n    responses:', start));
-  return new Set([...block.matchAll(/^ {8}(\w+): /gm)].map(m => m[1]));
+  return new Set([...block.matchAll(/^ {8}(\w+): /gm)].map((m) => m[1]));
 }
 
 const DECLARED = /^\s*(?:export\s+)?(?:interface\s+(\w+)|type\s+(\w+)(?:<[^=]*>)?\s*=\s*\{)/gm;
 
 function twins(files: Record<string, string>, names: Set<string>): string[] {
   return Object.entries(files).flatMap(([file, text]) =>
-    [...text.matchAll(DECLARED)].map(m => m[1] ?? m[2]).filter(n => names.has(n)).map(n => `${file}: ${n}`));
+    [...text.matchAll(DECLARED)]
+      .map((m) => m[1] ?? m[2])
+      .filter((n) => names.has(n))
+      .map((n) => `${file}: ${n}`),
+  );
 }
 
 describe('generated type twins', () => {
@@ -37,12 +41,22 @@ describe('generated type twins', () => {
 
   it('is falsifiable', () => {
     const fake = new Set(['Workspace', 'KeyReveal']);
-    expect(twins({
-      'a/types.ts': 'export interface Workspace {\n  name: string;\n}',
-      'b/types.ts': "export type KeyReveal = { key: string } | { fingerprint: string };",
-    }, fake)).toEqual(['a/types.ts: Workspace', 'b/types.ts: KeyReveal']);
-    expect(twins({
-      'c/types.ts': "export type Workspace = S['Workspace'];\nexport interface ServerDraft {\n  name: string;\n}",
-    }, fake)).toEqual([]);
+    expect(
+      twins(
+        {
+          'a/types.ts': 'export interface Workspace {\n  name: string;\n}',
+          'b/types.ts': 'export type KeyReveal = { key: string } | { fingerprint: string };',
+        },
+        fake,
+      ),
+    ).toEqual(['a/types.ts: Workspace', 'b/types.ts: KeyReveal']);
+    expect(
+      twins(
+        {
+          'c/types.ts': "export type Workspace = S['Workspace'];\nexport interface ServerDraft {\n  name: string;\n}",
+        },
+        fake,
+      ),
+    ).toEqual([]);
   });
 });

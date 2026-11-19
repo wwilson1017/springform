@@ -54,20 +54,19 @@ export function InboxPage() {
   // inbox wearing a title the search no longer matches. The user's last action was
   // Undo on a row they picked by name, so showing that row is what they asked for;
   // the query is one keystroke to retype and the item is on screen either way.
-  useInboxFocus(id => {
+  useInboxFocus((id) => {
     setSelectedId(id);
     setSearch('');
     setContexts([]);
     setPeople([]);
-    setFocusSeq(n => n + 1);
+    setFocusSeq((n) => n + 1);
   });
 
   const items = (todos ?? []).filter(
-    t => matchesContexts(t.context, contexts) && matchesPeople(t.people, people)
-      && matchesFilter(t, search),
+    (t) => matchesContexts(t.context, contexts) && matchesPeople(t.people, people) && matchesFilter(t, search),
   );
-  const head = items.find(t => t.id === selectedId) ?? items[0];
-  const rest = items.filter(t => head && t.id !== head.id);
+  const head = items.find((t) => t.id === selectedId) ?? items[0];
+  const rest = items.filter((t) => head && t.id !== head.id);
 
   // Two callbacks, because they mean different things to the selection. An
   // in-place edit (title, project, star) must NOT move you to another card —
@@ -91,23 +90,19 @@ export function InboxPage() {
         // Preserved verbatim — `InboxPage.test.tsx` selects the input by this placeholder.
         placeholder="Search inbox…"
         groups={[
-          contextGroup(
-            filters?.contexts ?? [],
-            contexts,
-            v => setContexts(prev => toggleValue(prev, v)),
-          ),
-          peopleGroup(
-            filters?.people ?? [],
-            people,
-            v => setPeople(prev => toggleValue(prev, v)),
-          ),
+          contextGroup(filters?.contexts ?? [], contexts, (v) => setContexts((prev) => toggleValue(prev, v))),
+          peopleGroup(filters?.people ?? [], people, (v) => setPeople((prev) => toggleValue(prev, v))),
         ]}
         visibleCount={items.length}
         totalCount={todos?.length ?? 0}
         countNoun="capture"
         active={search.trim() !== '' || contexts.length + people.length > 0}
         activeFacetCount={contexts.length + people.length}
-        onClear={() => { setSearch(''); setContexts([]); setPeople([]); }}
+        onClear={() => {
+          setSearch('');
+          setContexts([]);
+          setPeople([]);
+        }}
       />
       {/* Capture lives in the page body on the Inbox, right above the card you
           are triaging, instead of up in the shell above the filters. It is a
@@ -119,25 +114,28 @@ export function InboxPage() {
       </div>
       {failed && <LoadFailed retry={reload} />}
       {!failed && todos === null && <LoadingRows />}
-      {todos !== null && !failed && items.length === 0 && (
-        (todos?.length ?? 0) > 0
-          ? <FilterEmptyState />
-          : <EmptyState title="Inbox zero" hint="Everything is captured and clarified. Mind like water." />
-      )}
+      {todos !== null &&
+        !failed &&
+        items.length === 0 &&
+        ((todos?.length ?? 0) > 0 ? (
+          <FilterEmptyState />
+        ) : (
+          <EmptyState title="Inbox zero" hint="Everything is captured and clarified. Mind like water." />
+        ))}
       {head && (
-          /* Keyed by id: the card holds the chosen destination in local state
+        /* Keyed by id: the card holds the chosen destination in local state
               until it is filed, and that choice belongs to ONE item. The undo
               counter rides along so a restored item never reuses the spent card
               it was filed from (see `focusSeq`). */
-          <TriageCard
-            key={`${head.id}:${focusSeq}`}
-            todo={head}
-            projects={projects}
-            contexts={filters?.contexts ?? []}
-            onProcessed={processed}
-            onChanged={changed}
-            onEdit={setEditTodo}
-          />
+        <TriageCard
+          key={`${head.id}:${focusSeq}`}
+          todo={head}
+          projects={projects}
+          contexts={filters?.contexts ?? []}
+          onProcessed={processed}
+          onChanged={changed}
+          onEdit={setEditTodo}
+        />
       )}
       {/* The undo notice, in the flow: right under the card (or the empty state, once
           the last item is filed) and above the queue — where the eyes already are.
@@ -146,36 +144,36 @@ export function InboxPage() {
           copy, which sits above the sheet, and returns here when the sheet closes. */}
       {!editTodo && <UndoPill inline />}
       {head && rest.length > 0 && (
-            <div className="mt-4">
-              <h2 className="mb-2 text-xs font-display font-bold uppercase tracking-wide text-sf-ink-dim">
-                {rest.length} more in inbox
-              </h2>
-              {/* Promote-only, deliberately. The whole row is one "triage this
+        <div className="mt-4">
+          <h2 className="mb-2 text-xs font-display font-bold uppercase tracking-wide text-sf-ink-dim">
+            {rest.length} more in inbox
+          </h2>
+          {/* Promote-only, deliberately. The whole row is one "triage this
                   one next" target, so its title must never become a click-to-
                   rename editor the way the card's is — an edit box opening
                   mid-row makes skipping between items fiddly, and the item is
                   about to land on the card where renaming belongs. If TodoRow
                   ever gains inline rename, this list stays plain.
                   Pinned by InboxPage.test.tsx. */}
-              {/* `data-inbox-queue` is the test's handle on these rows. It used
+          {/* `data-inbox-queue` is the test's handle on these rows. It used
                   to select them by their `truncate` class, which tied a test to
                   a styling decision — and broke the moment the titles were made
                   to wrap. Select on this, never on a utility class. */}
-              <div className="space-y-1" data-inbox-queue>
-                {rest.map(t => (
-                  <button
-                    key={t.id}
-                    type="button"
-                    onClick={() => setSelectedId(t.id)}
-                    // Wraps: choosing which capture to triage next is exactly
-                    // the moment you need to read the whole thing.
-                    className="block w-full break-words rounded-lg border border-sf-line bg-sf-card px-3 py-2 text-left text-sm text-sf-ink hover:border-sf-accent/40"
-                  >
-                    {t.title}
-                  </button>
-                ))}
-              </div>
-            </div>
+          <div className="space-y-1" data-inbox-queue>
+            {rest.map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => setSelectedId(t.id)}
+                // Wraps: choosing which capture to triage next is exactly
+                // the moment you need to read the whole thing.
+                className="block w-full break-words rounded-lg border border-sf-line bg-sf-card px-3 py-2 text-left text-sm text-sf-ink hover:border-sf-accent/40"
+              >
+                {t.title}
+              </button>
+            ))}
+          </div>
+        </div>
       )}
       {editTodo && (
         <TodoEditSheet

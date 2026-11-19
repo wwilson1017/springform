@@ -18,13 +18,18 @@ const BADGE_POLL_MS = 60_000;
 function useBadges(apps: CoreApp[] | null): Record<string, Badge> {
   const [badges, setBadges] = useState<Record<string, Badge>>({});
   useEffect(() => {
-    const withBadge = (apps ?? []).filter(a => a.badge);
+    const withBadge = (apps ?? []).filter((a) => a.badge);
     if (withBadge.length === 0) return;
     let cancelled = false;
     const poll = () => {
       if (document.visibilityState !== 'visible') return;
       for (const app of withBadge) {
-        fetchJson<Badge>(app.badge!).then(b => { if (!cancelled) setBadges(prev => ({ ...prev, [app.slug]: b })); }, () => {});
+        fetchJson<Badge>(app.badge!).then(
+          (b) => {
+            if (!cancelled) setBadges((prev) => ({ ...prev, [app.slug]: b }));
+          },
+          () => {},
+        );
       }
     };
     poll();
@@ -45,12 +50,17 @@ export function Launcher() {
   const { apps, error, reload } = useCoreApps();
   const badges = useBadges(apps);
 
-  if (error) return <div className="mx-auto max-w-5xl px-4 md:px-8"><LoadError label="Couldn't load your apps" onRetry={reload} /></div>;
+  if (error)
+    return (
+      <div className="mx-auto max-w-5xl px-4 md:px-8">
+        <LoadError label="Couldn't load your apps" onRetry={reload} />
+      </div>
+    );
   if (!apps || !user) return <BootFallback variant="panel" />;
 
   // The server already filters by role; filtering again keeps a member from ever seeing an
   // admin-only tile if it didn't.
-  const tiles = apps.filter(a => a.roles.includes(user.role) && (!a.hidden || user.role === 'admin'));
+  const tiles = apps.filter((a) => a.roles.includes(user.role) && (!a.hidden || user.role === 'admin'));
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-8 md:px-8">
@@ -59,7 +69,9 @@ export function Launcher() {
         <p className="text-sf-ink-mute">No apps are installed for your role yet.</p>
       ) : (
         <ul className="m-0 grid list-none gap-3 p-0 sm:grid-cols-2 lg:grid-cols-3">
-          {tiles.map(app => <AppTile key={app.slug} app={app} badge={badges[app.slug]} />)}
+          {tiles.map((app) => (
+            <AppTile key={app.slug} app={app} badge={badges[app.slug]} />
+          ))}
         </ul>
       )}
     </div>
@@ -69,8 +81,11 @@ export function Launcher() {
 function AppTile({ app, badge }: { app: CoreApp; badge?: Badge }) {
   return (
     <li>
-      <Link to={app.path} aria-label={app.name}
-        className={`flex h-full gap-3 rounded-lg border border-sf-line-strong bg-sf-card p-4 no-underline hover:border-sf-accent`}>
+      <Link
+        to={app.path}
+        aria-label={app.name}
+        className={`flex h-full gap-3 rounded-lg border border-sf-line-strong bg-sf-card p-4 no-underline hover:border-sf-accent`}
+      >
         <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-sf-raised text-sf-ink-mute">
           <AppIcon name={app.icon} size={22} aria-hidden />
         </span>
@@ -82,8 +97,11 @@ function AppTile({ app, badge }: { app: CoreApp; badge?: Badge }) {
           <span className="mt-1 line-clamp-2 block text-sm text-sf-ink-soft">{app.description}</span>
         </span>
         {badge && badge.count > 0 && (
-          <span title={badge.label ?? undefined} aria-label={badge.label ?? `${badge.count} new`}
-            className="h-fit min-w-6 rounded-full bg-sf-accent px-2 py-0.5 text-center text-xs font-medium text-sf-accent-ink">
+          <span
+            title={badge.label ?? undefined}
+            aria-label={badge.label ?? `${badge.count} new`}
+            className="h-fit min-w-6 rounded-full bg-sf-accent px-2 py-0.5 text-center text-xs font-medium text-sf-accent-ink"
+          >
             {badge.count}
           </span>
         )}

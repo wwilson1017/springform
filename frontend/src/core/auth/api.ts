@@ -80,7 +80,8 @@ export interface GoogleTest {
 export const GOOGLE_ERRORS: Record<string, string> = {
   google_failed: "Google sign-in didn't finish. Try again.",
   not_invited: "That Google account hasn't been invited. Ask an admin for an invite.",
-  link_required: 'That Google account isn\'t linked to your account yet. Sign in with your password, then link Google under Settings → Account.',
+  link_required:
+    "That Google account isn't linked to your account yet. Sign in with your password, then link Google under Settings → Account.",
   google_mismatch: 'Your account is linked to a different Google account. Use that one, or sign in with your password.',
   google_not_configured: "Google sign-in isn't set up on this install yet.",
   invite_invalid: 'This invite link has expired or was already used. Ask an admin to send a new one.',
@@ -109,6 +110,7 @@ export const btnSecondary =
   'cursor-pointer rounded-md border border-sf-line-strong bg-transparent px-3 py-2 text-sm text-sf-ink hover:bg-sf-hover disabled:cursor-default disabled:opacity-50';
 export const btnDanger =
   'cursor-pointer rounded-md border border-sf-red bg-transparent px-3 py-2 text-sm text-sf-red-text hover:bg-sf-hover disabled:cursor-default disabled:opacity-50';
-export const btnLink = 'cursor-pointer border-0 bg-transparent p-0 text-sm text-sf-accent-text hover:underline disabled:opacity-50';
+export const btnLink =
+  'cursor-pointer border-0 bg-transparent p-0 text-sm text-sf-accent-text hover:underline disabled:opacity-50';
 export const alertText = 'm-0 text-sm text-sf-red-text';
 export const noteText = 'm-0 text-sm text-sf-ink-mute';

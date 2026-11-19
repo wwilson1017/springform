@@ -12,9 +12,12 @@ export default function PushCard() {
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    if (!pushSupported()) { queueMicrotask(() => setState('unsupported')); return; }
+    if (!pushSupported()) {
+      queueMicrotask(() => setState('unsupported'));
+      return;
+    }
     currentSubscription().then(
-      sub => setState(sub ? 'on' : Notification.permission === 'denied' ? 'blocked' : 'off'),
+      (sub) => setState(sub ? 'on' : Notification.permission === 'denied' ? 'blocked' : 'off'),
       () => setState('off'),
     );
   }, []);
@@ -33,9 +36,11 @@ export default function PushCard() {
       }
     } catch (err) {
       // 503 push_unavailable: the server's VAPID key can't be read (see backend notifications/push.py).
-      toast.error(err instanceof ApiError && err.detail === 'push_unavailable'
-        ? 'Push is unavailable on this server right now.'
-        : errorText(err, "Couldn't change push notifications in this browser."));
+      toast.error(
+        err instanceof ApiError && err.detail === 'push_unavailable'
+          ? 'Push is unavailable on this server right now.'
+          : errorText(err, "Couldn't change push notifications in this browser."),
+      );
     } finally {
       setBusy(false);
     }
@@ -53,7 +58,12 @@ export default function PushCard() {
     <div className="flex flex-col gap-3">
       <p className={MUTED}>{text[state]}</p>
       {(state === 'on' || state === 'off') && (
-        <button type="button" disabled={busy} onClick={() => void toggle()} className={`${state === 'on' ? BTN_SECONDARY : BTN_PRIMARY} w-fit`}>
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => void toggle()}
+          className={`${state === 'on' ? BTN_SECONDARY : BTN_PRIMARY} w-fit`}
+        >
           {busy ? 'Working…' : state === 'on' ? 'Turn off in this browser' : 'Turn on in this browser'}
         </button>
       )}

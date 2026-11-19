@@ -27,16 +27,19 @@ beforeEach(() => {
   root = createRoot(container);
   renameContextMock.mockReset().mockResolvedValue({});
   onRenamed = vi.fn();
-  act(() => { root.render(<ContextRename context="@Baking" onRenamed={onRenamed} />); });
+  act(() => {
+    root.render(<ContextRename context="@Baking" onRenamed={onRenamed} />);
+  });
 });
 
 afterEach(() => {
-  act(() => { root.unmount(); });
+  act(() => {
+    root.unmount();
+  });
   container.remove();
 });
 
-const button = (label: string) =>
-  [...container.querySelectorAll('button')].find(b => b.textContent === label)!;
+const button = (label: string) => [...container.querySelectorAll('button')].find((b) => b.textContent === label)!;
 
 function setInput(value: string) {
   const input = container.querySelector('input')!;
@@ -48,9 +51,13 @@ function setInput(value: string) {
 }
 
 async function typeAndSave(value: string) {
-  act(() => { button('Rename').click(); });
+  act(() => {
+    button('Rename').click();
+  });
   setInput(value);
-  await act(async () => { button('Save').click(); });
+  await act(async () => {
+    button('Save').click();
+  });
 }
 
 describe('ContextRename', () => {
@@ -62,48 +69,60 @@ describe('ContextRename', () => {
   });
 
   it('shows the 409 sentence and merges only when Merge is pressed', async () => {
-    renameContextMock.mockRejectedValueOnce(
-      new ApiError(409, 'You already have a context named "Baking".'),
-    );
+    renameContextMock.mockRejectedValueOnce(new ApiError(409, 'You already have a context named "Baking".'));
     await typeAndSave('Baking');
     expect(onRenamed).not.toHaveBeenCalled();
-    expect(container.querySelector('[role="alert"]')!.textContent)
-      .toBe('You already have a context named "Baking".');
+    expect(container.querySelector('[role="alert"]')!.textContent).toBe('You already have a context named "Baking".');
     expect(button('Save')).toBeUndefined();
 
-    await act(async () => { button('Merge').click(); });
+    await act(async () => {
+      button('Merge').click();
+    });
     expect(renameContextMock).toHaveBeenLastCalledWith('@Baking', 'Baking', true);
     expect(onRenamed).toHaveBeenCalledWith('Baking');
   });
 
   it('does not arm Merge for a name typed while the conflict answer was in flight', async () => {
     let reject!: (e: unknown) => void;
-    renameContextMock.mockReturnValueOnce(new Promise((_, r) => { reject = r; }));
+    renameContextMock.mockReturnValueOnce(
+      new Promise((_, r) => {
+        reject = r;
+      }),
+    );
     await typeAndSave('Baking');
     setInput('Office');
-    await act(async () => { reject(new ApiError(409, 'You already have "Baking".')); });
+    await act(async () => {
+      reject(new ApiError(409, 'You already have "Baking".'));
+    });
     expect(button('Merge')).toBeUndefined();
     expect(container.querySelector('[role="alert"]')).toBeNull();
   });
 
   it('cannot be cancelled once the write is in flight', async () => {
     let resolve!: (v: unknown) => void;
-    renameContextMock.mockReturnValueOnce(new Promise(r => { resolve = r; }));
+    renameContextMock.mockReturnValueOnce(
+      new Promise((r) => {
+        resolve = r;
+      }),
+    );
     await typeAndSave('Baking');
     expect(button('Cancel').disabled).toBe(true);
     act(() => {
-      container.querySelector('input')!
-        .dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+      container.querySelector('input')!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
     });
     expect(container.querySelector('input')).not.toBeNull();
-    await act(async () => { resolve({}); });
+    await act(async () => {
+      resolve({});
+    });
     expect(onRenamed).toHaveBeenCalledWith('Baking');
   });
 
   it('sends nothing for a blank or unchanged name', async () => {
     await typeAndSave('   ');
     expect(container.querySelector('[role="alert"]')!.textContent).toMatch(/required/);
-    act(() => { button('Cancel').click(); });
+    act(() => {
+      button('Cancel').click();
+    });
     await typeAndSave('@Baking');
     expect(renameContextMock).not.toHaveBeenCalled();
   });

@@ -21,9 +21,22 @@ URL_GUIDANCE = (
     " Every deal in the result carries a `url` that opens it in the CRM: give it when you name a specific deal. "
     "Never build one yourself."
 )
-_SEARCH_ARGS = {"q", "stage", "person_id", "organization_id", "owner_user_id", "sort_by", "sort_dir", "include_archived", "limit"}
+_SEARCH_ARGS = {
+    "q",
+    "stage",
+    "person_id",
+    "organization_id",
+    "owner_user_id",
+    "sort_by",
+    "sort_dir",
+    "include_archived",
+    "limit",
+}
 _DEAL_ID = {"deal_id": {"type": "integer", "description": "The deal's id"}}
-_CLOSED_ON = {"type": "string", "description": "The day it closed, YYYY-MM-DD. Default today; past days are fine; a future day is refused."}
+_CLOSED_ON = {
+    "type": "string",
+    "description": "The day it closed, YYYY-MM-DD. Default today; past days are fine; a future day is refused.",
+}
 
 
 def _link(value):
@@ -52,7 +65,9 @@ def _deal(args: dict) -> list[tuple[str, int]]:
 
 def _open_stage(args: dict) -> str:
     if args.get("stage") not in OPEN_STAGES:
-        raise Invalid(f"stage must be an open stage ({', '.join(OPEN_STAGES)}); close a deal with crm_mark_deal_won or crm_mark_deal_lost")
+        raise Invalid(
+            f"stage must be an open stage ({', '.join(OPEN_STAGES)}); close a deal with crm_mark_deal_won or crm_mark_deal_lost"
+        )
     return args["stage"]
 
 
@@ -95,7 +110,14 @@ def _lost(conn, user, args: dict) -> dict:
 
 
 def _log(conn, user, args: dict) -> dict:
-    return activity.log_in(conn, user, args["activity"], args.get("note") or "", deal_id=args.get("deal_id"), person_id=args.get("person_id"))
+    return activity.log_in(
+        conn,
+        user,
+        args["activity"],
+        args.get("note") or "",
+        deal_id=args.get("deal_id"),
+        person_id=args.get("person_id"),
+    )
 
 
 def _search(user, args: dict) -> list[dict]:
@@ -130,7 +152,9 @@ def _score(user, args: dict) -> dict:
     raise Invalid("give deal_id or person_id")
 
 
-def _read(name: str, description: str, handler, properties: dict | None = None, required: tuple = (), links: bool = True) -> ToolSpec:
+def _read(
+    name: str, description: str, handler, properties: dict | None = None, required: tuple = (), links: bool = True
+) -> ToolSpec:
     return ToolSpec(
         name=name, description=description + (URL_GUIDANCE if links else ""),
         input_schema={"type": "object", "properties": properties or {}, "required": list(required)},
@@ -138,7 +162,17 @@ def _read(name: str, description: str, handler, properties: dict | None = None, 
     )  # fmt: skip
 
 
-def _write(name: str, description: str, handler_in, properties: dict, required: tuple, targets, *, summary: str, routine: bool = True) -> ToolSpec:
+def _write(
+    name: str,
+    description: str,
+    handler_in,
+    properties: dict,
+    required: tuple,
+    targets,
+    *,
+    summary: str,
+    routine: bool = True,
+) -> ToolSpec:
     return ToolSpec(
         name=name, description=description, input_schema={"type": "object", "properties": properties, "required": list(required)},
         writes=True, confirm_tier=ROUTINE if routine else None, handler_in=handler_in, targets=targets, summary=summary,
@@ -153,113 +187,213 @@ def get_tools() -> list[ToolSpec]:
             "and/or filter by stage, person_id, organization_id or owner_user_id; mine=true for the user's own deals. "
             "Money is in cents ($1,250.00 is 125000).",
             _search,
-            {"q": {"type": "string"}, "stage": {"type": "string", "enum": list(STAGES)}, "person_id": {"type": "integer"},
-             "organization_id": {"type": "integer"}, "owner_user_id": {"type": "integer"},
-             "mine": {"type": "boolean", "description": "Only deals the user owns"},
-             "sort_by": {"type": "string", "enum": sorted(deals.SORTS)}, "sort_dir": {"type": "string", "enum": ["asc", "desc"]},
-             "include_archived": {"type": "boolean", "description": "Also archived deals: the way back to one archived by mistake"},
-             "limit": {"type": "integer", "minimum": 1, "maximum": 100}},
+            {
+                "q": {"type": "string"},
+                "stage": {"type": "string", "enum": list(STAGES)},
+                "person_id": {"type": "integer"},
+                "organization_id": {"type": "integer"},
+                "owner_user_id": {"type": "integer"},
+                "mine": {"type": "boolean", "description": "Only deals the user owns"},
+                "sort_by": {"type": "string", "enum": sorted(deals.SORTS)},
+                "sort_dir": {"type": "string", "enum": ["asc", "desc"]},
+                "include_archived": {
+                    "type": "boolean",
+                    "description": "Also archived deals: the way back to one archived by mistake",
+                },
+                "limit": {"type": "integer", "minimum": 1, "maximum": 100},
+            },
         ),  # fmt: skip
-        _read("crm_get_deal", "One deal with its recent activity and stage history.", lambda user, args: deals.detail(user, int(args["deal_id"])), _DEAL_ID, ("deal_id",)),
         _read(
-            "crm_get_pipeline", "The pipeline: the newest deals in each stage (at most limit_per_stage) and the open count and value per stage.",
+            "crm_get_deal",
+            "One deal with its recent activity and stage history.",
+            lambda user, args: deals.detail(user, int(args["deal_id"])),
+            _DEAL_ID,
+            ("deal_id",),
+        ),
+        _read(
+            "crm_get_pipeline",
+            "The pipeline: the newest deals in each stage (at most limit_per_stage) and the open count and value per stage.",
             lambda user, args: deals.board(user, limit_per_stage=int(args.get("limit_per_stage") or 10)),
             {"limit_per_stage": {"type": "integer", "minimum": 1, "maximum": 50}},
         ),
         _read(
-            "crm_get_activity_log", "Logged calls, emails and meetings, newest first, optionally one deal's or one person's.",
-            lambda user, args: activity.list_(user, deal_id=args.get("deal_id"), person_id=args.get("person_id"), limit=args.get("limit") or 20),
-            {**_DEAL_ID, "person_id": {"type": "integer"}, "limit": {"type": "integer", "minimum": 1, "maximum": 100}}, links=False,
+            "crm_get_activity_log",
+            "Logged calls, emails and meetings, newest first, optionally one deal's or one person's.",
+            lambda user, args: activity.list_(
+                user, deal_id=args.get("deal_id"), person_id=args.get("person_id"), limit=args.get("limit") or 20
+            ),
+            {**_DEAL_ID, "person_id": {"type": "integer"}, "limit": {"type": "integer", "minimum": 1, "maximum": 100}},
+            links=False,
         ),  # fmt: skip
-        _read("crm_dashboard", "The CRM's headline numbers, pipeline by stage, top deals and latest activity.", lambda user, args: dashboard.dashboard(user)),
-        _read("crm_today", "What needs the user today: their hot deals that have gone quiet, their reminders due today, then the other hot deals.", lambda user, args: dashboard.today(user)),
+        _read(
+            "crm_dashboard",
+            "The CRM's headline numbers, pipeline by stage, top deals and latest activity.",
+            lambda user, args: dashboard.dashboard(user),
+        ),
+        _read(
+            "crm_today",
+            "What needs the user today: their hot deals that have gone quiet, their reminders due today, then the other hot deals.",
+            lambda user, args: dashboard.today(user),
+        ),
         _read(
             "crm_analytics",
             "Outcomes over a window of days: wins, losses, win rate, deal sizes in cents, days to close, activity volume and types, "
             "deal aging, stale deals and per-person numbers.",
-            _analytics, {"days": {"type": "integer", "minimum": 7, "maximum": 365}, "stale_days": {"type": "integer", "minimum": 1, "maximum": 365}},
+            _analytics,
+            {
+                "days": {"type": "integer", "minimum": 7, "maximum": 365},
+                "stale_days": {"type": "integer", "minimum": 1, "maximum": 365},
+            },
         ),  # fmt: skip
         _read(
             "crm_get_pipeline_analytics",
             "Movement through the funnel from the stage history: time in each stage, conversion from each stage, how long wins took. "
             "The history starts when the CRM was installed: when history_covers_window is false, say how far back it goes.",
-            lambda user, args: analytics.pipeline_analytics(user, int(args.get("days") or 90)), {"days": {"type": "integer", "minimum": 7, "maximum": 730}}, links=False,
+            lambda user, args: analytics.pipeline_analytics(user, int(args.get("days") or 90)),
+            {"days": {"type": "integer", "minimum": 7, "maximum": 730}},
+            links=False,
         ),  # fmt: skip
         _read(
-            "crm_get_deal_health", "A deal's lead score with its factors, and the flags to act on: stale, stuck_in_stage, no_next_step, overdue_todo, missing_person, missing_organization.",
-            lambda user, args: analytics.deal_health(user, int(args["deal_id"])), _DEAL_ID, ("deal_id",),
+            "crm_get_deal_health",
+            "A deal's lead score with its factors, and the flags to act on: stale, stuck_in_stage, no_next_step, overdue_todo, missing_person, missing_organization.",
+            lambda user, args: analytics.deal_health(user, int(args["deal_id"])),
+            _DEAL_ID,
+            ("deal_id",),
         ),  # fmt: skip
         _read(
-            "crm_get_stale_deals", "Live open deals nothing has happened on for `days` (default the install's staleness window), quietest first.",
+            "crm_get_stale_deals",
+            "Live open deals nothing has happened on for `days` (default the install's staleness window), quietest first.",
             lambda user, args: analytics.stale_deals(user, args.get("days"), int(args.get("limit") or 25)),
-            {"days": {"type": "integer", "minimum": 1, "maximum": 365}, "limit": {"type": "integer", "minimum": 1, "maximum": 100}},
+            {
+                "days": {"type": "integer", "minimum": 1, "maximum": 365},
+                "limit": {"type": "integer", "minimum": 1, "maximum": 100},
+            },
         ),  # fmt: skip
-        _read("crm_find_duplicate_deals", "Live deals that share a title and a person: likely double entries to merge.", lambda user, args: analytics.duplicates(user)),
         _read(
-            "crm_get_lead_score", "The 0-100 lead score of a deal (with its factors) or a person. Plain arithmetic, no AI.",
-            _score, {**_DEAL_ID, "person_id": {"type": "integer"}}, links=False,
+            "crm_find_duplicate_deals",
+            "Live deals that share a title and a person: likely double entries to merge.",
+            lambda user, args: analytics.duplicates(user),
+        ),
+        _read(
+            "crm_get_lead_score",
+            "The 0-100 lead score of a deal (with its factors) or a person. Plain arithmetic, no AI.",
+            _score,
+            {**_DEAL_ID, "person_id": {"type": "integer"}},
+            links=False,
         ),  # fmt: skip
         _write(
             "crm_create_deal",
             "Create a deal. value_cents is money in cents ($1,250.00 is 125000). Link it to a person and/or organization by id "
-            "(find them with core_search_contacts first; add a missing one with core_create_person or core_create_organization)." + URL_GUIDANCE,
-            _create, _schema(DealIn)["properties"], ("title",), lambda args: [],  # links are checked for read access
+            "(find them with core_search_contacts first; add a missing one with core_create_person or core_create_organization)."
+            + URL_GUIDANCE,
+            _create,
+            _schema(DealIn)["properties"],
+            ("title",),
+            lambda args: [],  # links are checked for read access
             summary="Create this deal.",
         ),  # fmt: skip
         _write(
             "crm_update_deal",
             "Change a deal: only the fields given change, and null clears one. Moving it to won settles probability at 100 and records "
-            "closed_on (default today); to lost, probability 0. Prefer crm_mark_deal_won and crm_mark_deal_lost for closing." + URL_GUIDANCE,
-            _update, _schema(DealPatch, **_DEAL_ID)["properties"], ("deal_id",), _deal,
+            "closed_on (default today); to lost, probability 0. Prefer crm_mark_deal_won and crm_mark_deal_lost for closing."
+            + URL_GUIDANCE,
+            _update,
+            _schema(DealPatch, **_DEAL_ID)["properties"],
+            ("deal_id",),
+            _deal,
             summary="Update this deal with the changes below.",
         ),  # fmt: skip
         _write(
-            "crm_update_deal_stage", f"Move a deal between open stages ({', '.join(OPEN_STAGES)}). To close one use crm_mark_deal_won or crm_mark_deal_lost." + URL_GUIDANCE,
-            _move, {**_DEAL_ID, "stage": {"type": "string", "enum": list(OPEN_STAGES)}}, ("deal_id", "stage"), _deal,
+            "crm_update_deal_stage",
+            f"Move a deal between open stages ({', '.join(OPEN_STAGES)}). To close one use crm_mark_deal_won or crm_mark_deal_lost."
+            + URL_GUIDANCE,
+            _move,
+            {**_DEAL_ID, "stage": {"type": "string", "enum": list(OPEN_STAGES)}},
+            ("deal_id", "stage"),
+            _deal,
             summary="Move this deal to the selected stage.",
         ),  # fmt: skip
         _write(
-            "crm_bulk_move_deals", f"Move several deals to one open stage in one call (at most {BULK_MOVE_MAX}). A deal that cannot move is listed in errors; the rest move.",
-            _bulk, {"deal_ids": {"type": "array", "items": {"type": "integer"}, "maxItems": BULK_MOVE_MAX}, "stage": {"type": "string", "enum": list(OPEN_STAGES)}},
-            ("deal_ids", "stage"), lambda args: [(ENTITY, int(i)) for i in args.get("deal_ids") or []],
+            "crm_bulk_move_deals",
+            f"Move several deals to one open stage in one call (at most {BULK_MOVE_MAX}). A deal that cannot move is listed in errors; the rest move.",
+            _bulk,
+            {
+                "deal_ids": {"type": "array", "items": {"type": "integer"}, "maxItems": BULK_MOVE_MAX},
+                "stage": {"type": "string", "enum": list(OPEN_STAGES)},
+            },
+            ("deal_ids", "stage"),
+            lambda args: [(ENTITY, int(i)) for i in args.get("deal_ids") or []],
             summary="Move these deals to the selected stage.",
         ),  # fmt: skip
         _write(
-            "crm_mark_deal_won", "Close a deal as won: stage won, probability 100, and the day it closed. On a deal already won, a closed_on corrects its day." + URL_GUIDANCE,
-            _won, {**_DEAL_ID, "closed_on": _CLOSED_ON}, ("deal_id",), _deal,
+            "crm_mark_deal_won",
+            "Close a deal as won: stage won, probability 100, and the day it closed. On a deal already won, a closed_on corrects its day."
+            + URL_GUIDANCE,
+            _won,
+            {**_DEAL_ID, "closed_on": _CLOSED_ON},
+            ("deal_id",),
+            _deal,
             summary="Mark this deal as won.",
         ),  # fmt: skip
         _write(
-            "crm_mark_deal_lost", "Close a deal as lost: stage lost, probability 0, and the reason. Always ask for the reason: it is what makes lost deals worth reviewing." + URL_GUIDANCE,
-            _lost, {**_DEAL_ID, "lost_reason": {"type": "string", "description": "Why: price, timing, chose a competitor, no budget…"}}, ("deal_id",), _deal,
+            "crm_mark_deal_lost",
+            "Close a deal as lost: stage lost, probability 0, and the reason. Always ask for the reason: it is what makes lost deals worth reviewing."
+            + URL_GUIDANCE,
+            _lost,
+            {
+                **_DEAL_ID,
+                "lost_reason": {"type": "string", "description": "Why: price, timing, chose a competitor, no budget…"},
+            },
+            ("deal_id",),
+            _deal,
             summary="Mark this deal as lost.",
         ),  # fmt: skip
         _write(
             "crm_archive_deal",
             "Archive a deal: it leaves every list, board and total but is never deleted. Only for duplicates, test records and mistakes; "
             "a deal that really closed is won or lost instead. A reason is required: ask for it." + URL_GUIDANCE,
-            lambda conn, user, args: _link(deals.archive_in(conn, user, int(args["deal_id"]), args.get("reason") or "")),
-            {**_DEAL_ID, "reason": {"type": "string"}}, ("deal_id", "reason"), _deal, routine=False,
+            lambda conn, user, args: _link(
+                deals.archive_in(conn, user, int(args["deal_id"]), args.get("reason") or "")
+            ),
+            {**_DEAL_ID, "reason": {"type": "string"}},
+            ("deal_id", "reason"),
+            _deal,
+            routine=False,
             summary="Archive this deal, removing it from lists, boards and totals.",
         ),  # fmt: skip
         _write(
-            "crm_restore_deal", "Bring an archived deal back to the board." + URL_GUIDANCE,
-            lambda conn, user, args: _link(deals.restore_in(conn, user, int(args["deal_id"]))), _DEAL_ID, ("deal_id",), _deal,
+            "crm_restore_deal",
+            "Bring an archived deal back to the board." + URL_GUIDANCE,
+            lambda conn, user, args: _link(deals.restore_in(conn, user, int(args["deal_id"]))),
+            _DEAL_ID,
+            ("deal_id",),
+            _deal,
             summary="Restore this archived deal to the board.",
         ),  # fmt: skip
         _write(
             "crm_merge_deals",
             "Fold a duplicate deal (source) into the deal to keep (target): its notes, files, activity, reminders and to-dos move to the "
-            "target, its custom fields fill only the target's blanks, and the source is archived. The target's own fields do not change." + URL_GUIDANCE,
+            "target, its custom fields fill only the target's blanks, and the source is archived. The target's own fields do not change."
+            + URL_GUIDANCE,
             lambda conn, user, args: _link(deals.merge_in(conn, user, int(args["target_id"]), int(args["source_id"]))),
-            {"target_id": {"type": "integer"}, "source_id": {"type": "integer"}}, ("target_id", "source_id"),
-            lambda args: [(ENTITY, int(args["target_id"])), (ENTITY, int(args["source_id"]))], routine=False,
+            {"target_id": {"type": "integer"}, "source_id": {"type": "integer"}},
+            ("target_id", "source_id"),
+            lambda args: [(ENTITY, int(args["target_id"])), (ENTITY, int(args["source_id"]))],
+            routine=False,
             summary="Merge the source deal into the target and archive the source.",
         ),  # fmt: skip
         _write(
-            "crm_log_activity", "Log a call, email, meeting or other interaction that happened, on a deal and/or a person, credited to the user.",
-            _log, {"activity": {"type": "string", "description": "call, email, meeting, …"}, "note": {"type": "string"}, **_DEAL_ID, "person_id": {"type": "integer"}},
-            ("activity",), lambda args: [(ENTITY, int(args["deal_id"]))] if args.get("deal_id") else [],
+            "crm_log_activity",
+            "Log a call, email, meeting or other interaction that happened, on a deal and/or a person, credited to the user.",
+            _log,
+            {
+                "activity": {"type": "string", "description": "call, email, meeting, …"},
+                "note": {"type": "string"},
+                **_DEAL_ID,
+                "person_id": {"type": "integer"},
+            },
+            ("activity",),
+            lambda args: [(ENTITY, int(args["deal_id"]))] if args.get("deal_id") else [],
             summary="Log this activity on the selected deal or person.",
         ),  # fmt: skip
     ]

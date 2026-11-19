@@ -50,26 +50,59 @@ function Credentials() {
         <div>
           <div className={labelClass}>Service account</div>
           <div className="break-all font-mono text-sm text-sf-ink">{data.service_account_email}</div>
-          <p className="mb-0 mt-1 text-sm text-sf-ink-mute">Share your sheet with this address: Viewer to read, Editor to write.</p>
+          <p className="mb-0 mt-1 text-sm text-sf-ink-mute">
+            Share your sheet with this address: Viewer to read, Editor to write.
+          </p>
         </div>
       )}
       {data.configured && !replacing ? (
-        <div><button type="button" onClick={() => setReplacing(true)} className={secondaryButtonClass}>Replace key</button></div>
+        <div>
+          <button type="button" onClick={() => setReplacing(true)} className={secondaryButtonClass}>
+            Replace key
+          </button>
+        </div>
       ) : (
         <form onSubmit={save} className="flex flex-col gap-3">
           <div>
-            <label htmlFor="sheets-key" className={labelClass}>Service-account key (JSON)</label>
-            <textarea id="sheets-key" value={raw} onChange={e => setRaw(e.target.value)} rows={5} spellCheck={false}
+            <label htmlFor="sheets-key" className={labelClass}>
+              Service-account key (JSON)
+            </label>
+            <textarea
+              id="sheets-key"
+              value={raw}
+              onChange={(e) => setRaw(e.target.value)}
+              rows={5}
+              spellCheck={false}
               placeholder='{"type": "service_account", "client_email": "…", "private_key": "…"}'
-              className={`${inputClass} font-mono text-xs`} />
+              className={`${inputClass} font-mono text-xs`}
+            />
             <p className="mb-0 mt-1 text-xs text-sf-ink-dim">
-              Create a service account in Google Cloud, add a JSON key, and paste the whole file here. It is stored encrypted.
+              Create a service account in Google Cloud, add a JSON key, and paste the whole file here. It is stored
+              encrypted.
             </p>
           </div>
-          {saveError && <p role="alert" className={errorTextClass}>{saveError}</p>}
+          {saveError && (
+            <p role="alert" className={errorTextClass}>
+              {saveError}
+            </p>
+          )}
           <div className="flex gap-2">
-            <button type="submit" disabled={busy || !raw.trim()} className={buttonClass}>{busy ? 'Saving…' : 'Save key'}</button>
-            {replacing && <button type="button" onClick={() => { setReplacing(false); setRaw(''); setSaveError(null); }} className={secondaryButtonClass}>Cancel</button>}
+            <button type="submit" disabled={busy || !raw.trim()} className={buttonClass}>
+              {busy ? 'Saving…' : 'Save key'}
+            </button>
+            {replacing && (
+              <button
+                type="button"
+                onClick={() => {
+                  setReplacing(false);
+                  setRaw('');
+                  setSaveError(null);
+                }}
+                className={secondaryButtonClass}
+              >
+                Cancel
+              </button>
+            )}
           </div>
         </form>
       )}
@@ -82,7 +115,7 @@ function SheetList() {
   const [previewing, setPreviewing] = useState<Sheet | null>(null);
   if (error) return <LoadError label="Couldn't load the connected sheets" onRetry={reload} compact />;
   if (!data) return <BootFallback variant="panel" />;
-  const replace = (sheet: Sheet) => setData(data.map(s => (s.id === sheet.id ? sheet : s)));
+  const replace = (sheet: Sheet) => setData(data.map((s) => (s.id === sheet.id ? sheet : s)));
 
   return (
     <div>
@@ -91,8 +124,14 @@ function SheetList() {
         <p className="m-0 text-sm text-sf-ink-mute">No installed app declares a sheet.</p>
       ) : (
         <ul className="m-0 list-none divide-y divide-sf-line p-0">
-          {data.map(sheet => (
-            <SheetRow key={sheet.id} sheet={sheet} onChange={replace} onReload={reload} onPreview={() => setPreviewing(sheet)} />
+          {data.map((sheet) => (
+            <SheetRow
+              key={sheet.id}
+              sheet={sheet}
+              onChange={replace}
+              onReload={reload}
+              onPreview={() => setPreviewing(sheet)}
+            />
           ))}
         </ul>
       )}

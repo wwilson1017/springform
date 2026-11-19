@@ -12,15 +12,33 @@ import type { Todo } from './types';
 
 const ME = { id: 1, email: 'ann@example.com', name: 'Ann Owner', role: 'member', tz: 'America/Chicago' };
 const row = (id: number, title: string, over: Partial<Todo> = {}): Todo => ({
-  ...ITEM_EXTRA, id, title, notes: '', project_id: null, project_name: null, context: '', tags: [],
-  status: 'next_action', star: false, due_date: null, repeat: '', auto_star_on_due: false, source: 'ui',
-  created_at: '2026-10-01T12:00:00Z', updated_at: '2026-10-01T12:00:00Z', completed_at: null,
-  entity_type: 'core.person', entity_id: 5, ...over,
+  ...ITEM_EXTRA,
+  id,
+  title,
+  notes: '',
+  project_id: null,
+  project_name: null,
+  context: '',
+  tags: [],
+  status: 'next_action',
+  star: false,
+  due_date: null,
+  repeat: '',
+  auto_star_on_due: false,
+  source: 'ui',
+  created_at: '2026-10-01T12:00:00Z',
+  updated_at: '2026-10-01T12:00:00Z',
+  completed_at: null,
+  entity_type: 'core.person',
+  entity_id: 5,
+  ...over,
 });
 const OPEN = row(1, 'Call about the order', { visibility: 'team', owner_name: 'Bo Member' });
 const DONE = row(2, 'Send the quote', { status: 'done', completed_at: '2026-10-02T12:00:00Z' });
 
-afterEach(() => { vi.unstubAllGlobals(); });
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
 
 function panel() {
   return render(
@@ -75,7 +93,10 @@ describe('the To-dos panel on a record', () => {
     expect(await screen.findByText('Ask for the invoice')).toBeTruthy();
     const [, init] = callsTo(fetch, 'POST', '/api/todos/items')[0];
     expect(JSON.parse(init!.body as string)).toMatchObject({
-      title: 'Ask for the invoice', entity_type: 'core.person', entity_id: 5, status: 'inbox',
+      title: 'Ask for the invoice',
+      entity_type: 'core.person',
+      entity_id: 5,
+      status: 'inbox',
     });
   });
 

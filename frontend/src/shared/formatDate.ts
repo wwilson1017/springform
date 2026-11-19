@@ -7,7 +7,12 @@ export function formatDate(iso: string): string {
     const hasZone = /[Zz]|[+-]\d\d:?\d\d$/.test(iso);
     const d = new Date(hasZone ? iso : iso + 'Z');
     if (isNaN(d.getTime())) return iso;
-    return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) +
-      ' ' + d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
-  } catch { return iso; }
+    return (
+      d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) +
+      ' ' +
+      d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
+    );
+  } catch {
+    return iso;
+  }
 }

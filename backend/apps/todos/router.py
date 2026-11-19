@@ -51,7 +51,10 @@ def list_items(
     search: str | None = None,
     assignee_user_id: int | None = None,
     visibility: Visibility | None = None,
-    mine: bool = Query(False, description="Only the caller's work: their private todos, team todos assigned to them, unassigned team todos"),
+    mine: bool = Query(
+        False,
+        description="Only the caller's work: their private todos, team todos assigned to them, unassigned team todos",
+    ),
     include_deferred: bool = Query(False, description="Keep todos whose revisit date is still ahead"),
     limit: int = Query(200, ge=1, le=500),
     offset: int = Query(0, ge=0),
@@ -105,7 +108,9 @@ def today(user: User = Depends(current_user)) -> list[dict]:
 
 
 @router.get("/for/{entity_type}/{entity_id}", response_model=list[Item])
-def for_record(entity_type: str, entity_id: int, include_done: bool = False, user: User = Depends(current_user)) -> list[dict]:
+def for_record(
+    entity_type: str, entity_id: int, include_done: bool = False, user: User = Depends(current_user)
+) -> list[dict]:
     """Team todos and the caller's private ones linked to a record; 404 when the record is not readable."""
     return service.list_for_record(user, entity_type, entity_id, include_done)
 

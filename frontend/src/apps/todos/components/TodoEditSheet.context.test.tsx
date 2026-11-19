@@ -27,7 +27,8 @@ import type { Todo } from '../types';
 import { ITEM_EXTRA } from '../testFixtures';
 import { routed } from '../testRouter';
 
-const TODO: Todo = { ...ITEM_EXTRA,
+const TODO: Todo = {
+  ...ITEM_EXTRA,
   id: 7,
   title: 'Call the plumber',
   notes: '',
@@ -91,13 +92,14 @@ function setValue(el: HTMLSelectElement | HTMLInputElement, value: string) {
 }
 
 const picker = () => container.querySelector<HTMLSelectElement>('#tgtd-context')!;
-const newContextInput = () =>
-  container.querySelector<HTMLInputElement>('input[aria-label="New context"]');
-const labels = () => [...picker().options].map(o => o.textContent);
+const newContextInput = () => container.querySelector<HTMLInputElement>('input[aria-label="New context"]');
+const labels = () => [...picker().options].map((o) => o.textContent);
 
 async function save() {
-  const btn = [...container.querySelectorAll('button')].find(b => b.textContent?.trim() === 'Save')!;
-  act(() => { btn.click(); });
+  const btn = [...container.querySelectorAll('button')].find((b) => b.textContent?.trim() === 'Save')!;
+  act(() => {
+    btn.click();
+  });
   await act(async () => {});
   return updateTodoMock.mock.calls.at(-1)?.[1] as Record<string, unknown>;
 }

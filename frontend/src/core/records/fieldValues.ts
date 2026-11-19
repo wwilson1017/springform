@@ -41,7 +41,11 @@ export function draftChanged(def: FieldDefinition, value: FieldValue | undefined
 }
 
 /** How a stored value reads on the record page. `userName` resolves a `user` field's id. */
-export function displayValue(def: FieldDefinition, value: FieldValue | undefined, userName: (id: number) => string): string {
+export function displayValue(
+  def: FieldDefinition,
+  value: FieldValue | undefined,
+  userName: (id: number) => string,
+): string {
   if (value === null || value === undefined || value === '' || (Array.isArray(value) && value.length === 0)) return '—';
   if (def.type === 'boolean') return value ? 'Yes' : 'No';
   if (def.type === 'user') return userName(Number(value));

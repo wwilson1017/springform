@@ -35,9 +35,13 @@ const components: Components = {
   a: ({ href, children }: ComponentPropsWithoutRef<'a'>) => {
     const internal = inAppPath(href);
     return internal !== null ? (
-      <Link to={internal} style={linkStyle}>{children}</Link>
+      <Link to={internal} style={linkStyle}>
+        {children}
+      </Link>
     ) : (
-      <a href={href} target="_blank" rel="noopener noreferrer" style={linkStyle}>{children}</a>
+      <a href={href} target="_blank" rel="noopener noreferrer" style={linkStyle}>
+        {children}
+      </a>
     );
   },
   // Never fetch remote images: the browser would request the URL on render, which injected
@@ -58,7 +62,16 @@ const components: Components = {
     </blockquote>
   ),
   pre: ({ children }) => (
-    <pre style={{ background: BG_RAISED, padding: 12, borderRadius: 8, overflowX: 'auto', fontSize: 13, margin: '0 0 10px' }}>
+    <pre
+      style={{
+        background: BG_RAISED,
+        padding: 12,
+        borderRadius: 8,
+        overflowX: 'auto',
+        fontSize: 13,
+        margin: '0 0 10px',
+      }}
+    >
       {children}
     </pre>
   ),
@@ -84,7 +97,9 @@ const components: Components = {
 export function MarkdownContent({ content }: { content: string }) {
   return (
     <div style={{ fontSize: 14, lineHeight: 1.6, color: INK, wordBreak: 'break-word' }}>
-      <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>{content}</ReactMarkdown>
+      <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
+        {content}
+      </ReactMarkdown>
     </div>
   );
 }

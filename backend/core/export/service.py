@@ -52,7 +52,11 @@ def preview_in(conn: db.Conn) -> dict:
     """Row counts before row authorization, hence "estimated"."""
     return {
         "tables": [
-            {"name": t, "columns": cols, "estimated_rows": conn.execute(f"SELECT count(*) {_from(t, spec)}").fetchone()[0]}
+            {
+                "name": t,
+                "columns": cols,
+                "estimated_rows": conn.execute(f"SELECT count(*) {_from(t, spec)}").fetchone()[0],
+            }
             for t, spec, cols in tables_in(conn)
         ]
     }

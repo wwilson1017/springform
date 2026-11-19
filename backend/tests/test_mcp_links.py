@@ -74,7 +74,9 @@ def test_a_link_is_shown_once_and_only_its_owner_lists_or_revokes_it(login_as):
     made = mint(a, "Claude Desktop")
     assert made["url"] == f"http://localhost:8000/mcp/{made['token']}" and len(made["token"]) == 43
     listed = a.get(LINKS)
-    assert listed.json() == [{"id": made["id"], "label": "Claude Desktop", "created_at": made["created_at"], "last_used_at": None}]
+    assert listed.json() == [
+        {"id": made["id"], "label": "Claude Desktop", "created_at": made["created_at"], "last_used_at": None}
+    ]
     assert made["token"] not in listed.text
     assert core_db.one("SELECT token_hash FROM core_agent_mcp_links")["token_hash"] != made["token"]
     assert a.post(LINKS, json={"label": "   "}).status_code == 422
@@ -82,7 +84,9 @@ def test_a_link_is_shown_once_and_only_its_owner_lists_or_revokes_it(login_as):
     assert b.get(LINKS).json() == [] and b.delete(f"{LINKS}/{made['id']}").status_code == 404
     assert b.get(LINKS, params={"all": 1}).status_code == 403
     everyone = login_as("admin").get(LINKS, params={"all": 1})
-    assert [(x["id"], x["user_id"], x["label"]) for x in everyone.json()] == [(made["id"], a.principal.id, "Claude Desktop")]
+    assert [(x["id"], x["user_id"], x["label"]) for x in everyone.json()] == [
+        (made["id"], a.principal.id, "Claude Desktop")
+    ]
     assert made["token"] not in everyone.text
 
     assert a.delete(f"{LINKS}/{made['id']}").status_code == 204
@@ -113,9 +117,16 @@ def test_tools_are_role_filtered_and_a_write_runs_at_once_as_the_link_user(app, 
 
     made = call_tool(app, at(m_link), "example_create_widget", {"name": "From Claude"})
     assert not made.is_error and json.loads(made.content[0].text)["name"] == "From Claude"
-    assert [(w["name"], w["owner_user_id"]) for w in core_db.rows("SELECT * FROM example_widgets")] == [("From Claude", member.principal.id)]
+    assert [(w["name"], w["owner_user_id"]) for w in core_db.rows("SELECT * FROM example_widgets")] == [
+        ("From Claude", member.principal.id)
+    ]
     run = tool_run("example_create_widget")
-    assert (run["status"], run["source"], run["user_id"], run["conversation_id"]) == ("done", "mcp", member.principal.id, None)
+    assert (run["status"], run["source"], run["user_id"], run["conversation_id"]) == (
+        "done",
+        "mcp",
+        member.principal.id,
+        None,
+    )
 
     read = call_tool(app, at(m_link), "example_list_widgets", {})
     assert [w["name"] for w in json.loads(read.content[0].text)] == ["From Claude"]
@@ -130,10 +141,21 @@ def test_a_failing_external_effect_over_mcp_is_uncertain(app, login_as):
         raise RuntimeError("the mail server hung up after DATA")
 
     before = tool_registry.current()
-    tool_registry.set_current(tool_registry.build_registry([*before.all(), ToolSpec(
-        name="core_send_note", description="Send a note out.", input_schema={"type": "object", "properties": {}},
-        writes=True, external_effect=True, handler=send,
-    )]))
+    tool_registry.set_current(
+        tool_registry.build_registry(
+            [
+                *before.all(),
+                ToolSpec(
+                    name="core_send_note",
+                    description="Send a note out.",
+                    input_schema={"type": "object", "properties": {}},
+                    writes=True,
+                    external_effect=True,
+                    handler=send,
+                ),
+            ]
+        )
+    )
     try:
         out = call_tool(app, at(mint(login_as("member"))), "core_send_note", {})
     finally:
@@ -168,9 +190,16 @@ def test_revoked_and_deactivated_links_are_404_never_401(client, login_as):
 def test_origin_is_refused_and_there_is_no_oauth_to_discover(client, login_as):
     link = mint(login_as("member"))
     assert client.post(at(link), headers={"Origin": "https://example.com"}).status_code == 403
-    assert client.post("/mcp", headers={"Origin": "null", "Authorization": f"Bearer {link['token']}"}).status_code == 403
-    for path in ("/.well-known/oauth-authorization-server", "/.well-known/oauth-protected-resource/mcp",
-                 "/register", "/authorize", "/token"):
+    assert (
+        client.post("/mcp", headers={"Origin": "null", "Authorization": f"Bearer {link['token']}"}).status_code == 403
+    )
+    for path in (
+        "/.well-known/oauth-authorization-server",
+        "/.well-known/oauth-protected-resource/mcp",
+        "/register",
+        "/authorize",
+        "/token",
+    ):
         assert client.get(path).status_code == 404 and client.post(path).status_code == 404
 
 
@@ -203,7 +232,14 @@ def test_last_used_is_stamped_at_most_once_a_minute(db, make_user, freeze):
 
 
 def test_access_log_lines_hide_the_link_token():
-    record = logging.LogRecord("uvicorn.access", logging.INFO, "", 0, '%s - "%s %s HTTP/%s" %d',
-                               ("10.0.0.1:5000", "POST", "/mcp/abcDEF123_-xyz?x=1", "1.1", 200), None)
+    record = logging.LogRecord(
+        "uvicorn.access",
+        logging.INFO,
+        "",
+        0,
+        '%s - "%s %s HTTP/%s" %d',
+        ("10.0.0.1:5000", "POST", "/mcp/abcDEF123_-xyz?x=1", "1.1", 200),
+        None,
+    )
     ScrubLinkTokens().filter(record)
     assert record.getMessage() == '10.0.0.1:5000 - "POST /mcp/***?x=1 HTTP/1.1" 200'

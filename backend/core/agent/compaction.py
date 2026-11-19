@@ -106,7 +106,9 @@ def _estimate_in_context(rows, by_message, prev_id, prev_summary) -> int:
 def _unsettled(row: dict, by_message: dict) -> bool:
     calls = row["content"].get("tool_calls") or []
     runs = {r["tool_use_id"]: r for r in by_message.get(row["id"], [])}
-    return any(c["tool_use_id"] not in runs or runs[c["tool_use_id"]]["status"] in ("pending", "executing") for c in calls)
+    return any(
+        c["tool_use_id"] not in runs or runs[c["tool_use_id"]]["status"] in ("pending", "executing") for c in calls
+    )
 
 
 def boundary(rows, by_message, fullness: int, budget: int, prev_id: int | None) -> int | None:
@@ -173,10 +175,12 @@ async def _summarize(middle: list[dict], by_message: dict, prev_summary: str | N
     transcript = "\n".join(reversed(chunks)).strip()
     if not transcript:
         return ""
-    prompt = ("PRIOR SUMMARY (of even older messages; fold this in):\n" + prev_summary + "\n\n" if prev_summary else "")
+    prompt = "PRIOR SUMMARY (of even older messages; fold this in):\n" + prev_summary + "\n\n" if prev_summary else ""
     prompt += "MIDDLE MESSAGES TO COMPACT:\n" + transcript
     try:
-        return (await asyncio.wait_for(acomplete(SUMMARY_SYSTEM, prompt, tier="light", max_tokens=8000), SUMMARY_TIMEOUT)).strip()
+        return (
+            await asyncio.wait_for(acomplete(SUMMARY_SYSTEM, prompt, tier="light", max_tokens=8000), SUMMARY_TIMEOUT)
+        ).strip()
     except Exception as e:  # no key, timeout, provider error: stay uncompacted
         logger.warning("compaction summary failed: %s", e)
         return ""

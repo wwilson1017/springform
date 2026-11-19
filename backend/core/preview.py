@@ -34,7 +34,9 @@ def check_startup() -> None:
         return
     found = [k for k in REAL_SECRETS if os.environ.get(k)]
     marks = ", ".join("?" * len(GENERATED_SECRETS))
-    if db.one(f"SELECT 1 AS x FROM core_settings WHERE is_secret = 1 AND key NOT IN ({marks}) LIMIT 1", GENERATED_SECRETS):
+    if db.one(
+        f"SELECT 1 AS x FROM core_settings WHERE is_secret = 1 AND key NOT IN ({marks}) LIMIT 1", GENERATED_SECRETS
+    ):
         found.append("a secret in core_settings")
     if found:
         raise RuntimeError(f"PREVIEW_MODE=1 refuses to start with real secrets present: {', '.join(found)}")

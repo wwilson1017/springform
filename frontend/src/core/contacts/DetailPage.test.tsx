@@ -9,12 +9,47 @@ import DetailPage from './DetailPage';
 import type { PersonDetail } from './types';
 
 const ada: PersonDetail = {
-  id: 1, name: 'Ada Example', given_name: null, family_name: null, email: 'ada@example.com', phone: null,
-  title: 'Owner', source: null, status: null, tags: ['supplier'], notes: null, owner_user_id: null, owner_name: null,
-  archived_at: null, merged_into_id: null, created_at: '2026-10-20T15:00:00Z', updated_at: '2026-10-20T15:00:00Z',
-  organizations: [{ organization_id: 4, name: 'Example Bakery Supply', archived_at: null, role: 'Owner', is_primary: true, started_on: null, ended_on: null }],
-  channels: [{ id: 1, owner_type: 'person', owner_id: 1, kind: 'email', value: 'ada@example.com', label: 'work', is_primary: true,
-    created_at: '2026-10-20T15:00:00Z', updated_at: '2026-10-20T15:00:00Z' }],
+  id: 1,
+  name: 'Ada Example',
+  given_name: null,
+  family_name: null,
+  email: 'ada@example.com',
+  phone: null,
+  title: 'Owner',
+  source: null,
+  status: null,
+  tags: ['supplier'],
+  notes: null,
+  owner_user_id: null,
+  owner_name: null,
+  archived_at: null,
+  merged_into_id: null,
+  created_at: '2026-10-20T15:00:00Z',
+  updated_at: '2026-10-20T15:00:00Z',
+  organizations: [
+    {
+      organization_id: 4,
+      name: 'Example Bakery Supply',
+      archived_at: null,
+      role: 'Owner',
+      is_primary: true,
+      started_on: null,
+      ended_on: null,
+    },
+  ],
+  channels: [
+    {
+      id: 1,
+      owner_type: 'person',
+      owner_id: 1,
+      kind: 'email',
+      value: 'ada@example.com',
+      label: 'work',
+      is_primary: true,
+      created_at: '2026-10-20T15:00:00Z',
+      updated_at: '2026-10-20T15:00:00Z',
+    },
+  ],
   addresses: [],
 };
 
@@ -33,9 +68,21 @@ function renderAt(url: string, routes: Record<string, unknown>) {
   });
   render(
     <MemoryRouter initialEntries={[url]}>
-      <AuthProvider><CoreAppsProvider>
-        <Routes><Route path="/people/:id" element={<><DetailPage kind="person" /><Where /></>} /></Routes>
-      </CoreAppsProvider></AuthProvider>
+      <AuthProvider>
+        <CoreAppsProvider>
+          <Routes>
+            <Route
+              path="/people/:id"
+              element={
+                <>
+                  <DetailPage kind="person" />
+                  <Where />
+                </>
+              }
+            />
+          </Routes>
+        </CoreAppsProvider>
+      </AuthProvider>
     </MemoryRouter>,
   );
   return fetchMock;
@@ -91,7 +138,9 @@ describe('Person page', () => {
     fireEvent.click(await screen.findByRole('option', { name: 'Pat Partner' }));
     fireEvent.click(within(screen.getByRole('form', { name: 'Edit person' })).getByRole('button', { name: 'Save' }));
     await vi.waitFor(() => expect(callsTo(fetchMock, 'PATCH', '/api/core/contacts/people/1')).toHaveLength(1));
-    expect(JSON.parse(callsTo(fetchMock, 'PATCH', '/api/core/contacts/people/1')[0][1]!.body as string)).toEqual({ owner_user_id: 9 });
+    expect(JSON.parse(callsTo(fetchMock, 'PATCH', '/api/core/contacts/people/1')[0][1]!.body as string)).toEqual({
+      owner_user_id: 9,
+    });
   });
 
   it('an unknown id says so', async () => {

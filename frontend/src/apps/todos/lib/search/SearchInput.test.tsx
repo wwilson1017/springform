@@ -52,7 +52,10 @@ function mount(props: { value: string; onChange: (v: string) => void; resetNonce
     clearButton: () => container.querySelector('button[aria-label="Clear search"]') as HTMLButtonElement | null,
     type: (text: string) => act(() => setInputValue(input(), text)),
     rerender: (next: typeof props) => act(() => root.render(<SearchInput {...next} />)),
-    unmount: () => { act(() => root.unmount()); container.remove(); },
+    unmount: () => {
+      act(() => root.unmount());
+      container.remove();
+    },
   };
 }
 
@@ -65,7 +68,9 @@ describe('SearchInput', () => {
     const onChange = vi.fn();
     const h = mount({ value: 'restored', onChange });
     expect(h.input().value).toBe('restored');
-    act(() => { vi.advanceTimersByTime(1000); });
+    act(() => {
+      vi.advanceTimersByTime(1000);
+    });
     expect(onChange).not.toHaveBeenCalled();
     h.unmount();
   });
@@ -78,7 +83,9 @@ describe('SearchInput', () => {
     h.type('ac');
     h.type('acm');
     expect(onChange).not.toHaveBeenCalled();
-    act(() => { vi.advanceTimersByTime(250); });
+    act(() => {
+      vi.advanceTimersByTime(250);
+    });
     expect(onChange).toHaveBeenCalledTimes(1);
     expect(onChange).toHaveBeenCalledWith('acm');
     h.unmount();
@@ -89,7 +96,9 @@ describe('SearchInput', () => {
     const onChange = vi.fn();
     const h = mount({ value: '', onChange });
     h.type('acm');
-    act(() => { vi.advanceTimersByTime(250); });
+    act(() => {
+      vi.advanceTimersByTime(250);
+    });
     // Model a real controlled parent: it accepted the reported query.
     h.rerender({ value: 'acm', onChange });
     onChange.mockClear();
@@ -97,7 +106,9 @@ describe('SearchInput', () => {
     // Now the page clears the filter from outside (a Clear-filters button).
     h.rerender({ value: '', onChange });
     expect(h.input().value).toBe('');
-    act(() => { vi.advanceTimersByTime(1000); });
+    act(() => {
+      vi.advanceTimersByTime(1000);
+    });
     // The in-flight text must not be pushed back up and undo the clear.
     expect(onChange).not.toHaveBeenCalled();
     h.unmount();
@@ -116,7 +127,9 @@ describe('SearchInput', () => {
 
     h.rerender({ value: '', onChange, resetNonce: 1 });
     expect(h.input().value).toBe('');
-    act(() => { vi.advanceTimersByTime(1000); });
+    act(() => {
+      vi.advanceTimersByTime(1000);
+    });
     expect(onChange).not.toHaveBeenCalled();
     h.unmount();
   });
@@ -127,8 +140,12 @@ describe('SearchInput', () => {
     const h = mount({ value: 'acm', onChange });
     const clear = h.clearButton();
     expect(clear).not.toBeNull();
-    act(() => { clear?.click(); });
-    act(() => { vi.advanceTimersByTime(250); });
+    act(() => {
+      clear?.click();
+    });
+    act(() => {
+      vi.advanceTimersByTime(250);
+    });
     expect(onChange).toHaveBeenCalledWith('');
     h.unmount();
   });

@@ -14,7 +14,9 @@ const listeners = new Set<() => void>();
 
 function subscribe(onStoreChange: () => void) {
   listeners.add(onStoreChange);
-  return () => { listeners.delete(onStoreChange); };
+  return () => {
+    listeners.delete(onStoreChange);
+  };
 }
 
 /** The DOM class is the source of truth: index.html seeds it, applyTheme keeps it current. */

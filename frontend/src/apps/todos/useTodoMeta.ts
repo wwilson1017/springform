@@ -37,7 +37,7 @@ async function fetchMeta(owner: string): Promise<void> {
     // nor be shown to them.
     if (cacheOwner === owner) {
       cache = { filters, projects, loaded: true };
-      listeners.forEach(l => l(cache));
+      listeners.forEach((l) => l(cache));
     }
   } catch {
     // stale-while-revalidate: keep the last good snapshot on a failed refresh
@@ -73,7 +73,10 @@ function startFetch(): Promise<void> {
 export function refreshMeta(): Promise<void> {
   if (inflight && inflightOwner === cacheOwner) {
     if (!queued) {
-      queued = inflight.then(() => { queued = null; return startFetch(); });
+      queued = inflight.then(() => {
+        queued = null;
+        return startFetch();
+      });
     }
     return queued;
   }
@@ -89,7 +92,9 @@ export function useTodoOwner(): string {
 
 function subscribeMeta(onChange: () => void): () => void {
   listeners.add(onChange);
-  return () => { listeners.delete(onChange); };
+  return () => {
+    listeners.delete(onChange);
+  };
 }
 
 /** The user's IANA time zone, as the server reads it (undefined until the first filters payload
@@ -97,18 +102,30 @@ function subscribeMeta(onChange: () => void): () => void {
  *  app and Whisk must agree on it. Subscribes to the meta
  *  cache without triggering a fetch — the shell on every page already does that. */
 export function useListTz(): string | undefined {
-  return useSyncExternalStore(subscribeMeta, () => cache.filters?.tz, () => undefined);
+  return useSyncExternalStore(
+    subscribeMeta,
+    () => cache.filters?.tz,
+    () => undefined,
+  );
 }
 
 /** Every project the user can see, on the same no-fetch subscription. */
 export function useListProjects(): TodoProject[] {
-  return useSyncExternalStore(subscribeMeta, () => cache.projects, () => cache.projects);
+  return useSyncExternalStore(
+    subscribeMeta,
+    () => cache.projects,
+    () => cache.projects,
+  );
 }
 
 /** The filters payload (people, areas, contexts…), on the same no-fetch
  *  subscription — for components inside a page, like the edit sheet. */
 export function useListFilters(): TodoFilters | null {
-  return useSyncExternalStore(subscribeMeta, () => cache.filters, () => null);
+  return useSyncExternalStore(
+    subscribeMeta,
+    () => cache.filters,
+    () => null,
+  );
 }
 
 export function useTodoMeta(): TodoMeta & { refreshMeta: () => Promise<void> } {
@@ -116,9 +133,7 @@ export function useTodoMeta(): TodoMeta & { refreshMeta: () => Promise<void> } {
   // Snapshot carries the owner it was built for; the render-time guard below
   // refuses to serve a mismatched snapshot, so no effect-time setState is
   // needed to blank stale data — it simply never renders.
-  const [snap, setSnap] = useState<{ owner: string; meta: TodoMeta }>(
-    () => ({ owner: cacheOwner, meta: cache }),
-  );
+  const [snap, setSnap] = useState<{ owner: string; meta: TodoMeta }>(() => ({ owner: cacheOwner, meta: cache }));
 
   useEffect(() => {
     const listener = (m: TodoMeta) => setSnap({ owner: cacheOwner, meta: m });
@@ -134,7 +149,9 @@ export function useTodoMeta(): TodoMeta & { refreshMeta: () => Promise<void> } {
       setUndoOwner(owner);
     }
     void refreshMeta(); // render cached instantly, revalidate in background
-    return () => { listeners.delete(listener); };
+    return () => {
+      listeners.delete(listener);
+    };
   }, [owner]);
 
   const refresh = useCallback(() => refreshMeta(), []);

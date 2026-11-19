@@ -29,7 +29,9 @@ class DealIn(_CrmIn):
     currency: str = Field(default="USD", min_length=3, max_length=3)
     probability: int = Field(default=0, ge=0, le=100)
     expected_close: str | None = Day
-    closed_on: str | None = Field(default=None, max_length=10, description="YYYY-MM-DD; only for a deal created won (default today)")
+    closed_on: str | None = Field(
+        default=None, max_length=10, description="YYYY-MM-DD; only for a deal created won (default today)"
+    )
     notes: str = Field(default="", max_length=MAX_TEXT)
     person_id: int | None = None
     organization_id: int | None = None
@@ -45,7 +47,8 @@ class DealPatch(_CrmIn):
     probability: int | None = Field(default=None, ge=0, le=100)
     expected_close: str | None = Day
     closed_on: str | None = Field(
-        default=None, max_length=10,
+        default=None,
+        max_length=10,
         description="YYYY-MM-DD. With a move into won: the day it was won (default today). Alone: edits a won deal's day.",
     )
     notes: str | None = Field(default=None, max_length=MAX_TEXT)
@@ -140,7 +143,9 @@ class BulkMoveOut(BaseModel):
 
 
 class WonIn(_CrmIn):
-    closed_on: str | None = Field(default=None, max_length=10, description="Default today; on an already-won deal, edits the day")
+    closed_on: str | None = Field(
+        default=None, max_length=10, description="Default today; on an already-won deal, edits the day"
+    )
 
 
 class LostIn(_CrmIn):

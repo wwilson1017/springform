@@ -10,7 +10,12 @@ const BASE = '/api/core/contacts';
 
 export const KINDS = {
   person: { path: 'people', entityType: 'core.person', noun: 'person', title: 'People' },
-  organization: { path: 'organizations', entityType: 'core.organization', noun: 'organization', title: 'Organizations' },
+  organization: {
+    path: 'organizations',
+    entityType: 'core.organization',
+    noun: 'organization',
+    title: 'Organizations',
+  },
 } as const satisfies Record<ContactKind, { path: string; entityType: string; noun: string; title: string }>;
 
 export const PAGE_SIZE = 50;
@@ -59,7 +64,8 @@ export const mergeRecords = <T = ContactDetail>(kind: ContactKind, targetId: num
 // a JSON body; this mirrors its 401 and error handling. Upgrade: an optional body on `del()`.
 async function sendDelete<T>(path: string, body?: unknown): Promise<T> {
   const res = await fetch(path, {
-    method: 'DELETE', credentials: 'same-origin',
+    method: 'DELETE',
+    credentials: 'same-origin',
     headers: body === undefined ? undefined : { 'Content-Type': 'application/json' },
     body: body === undefined ? undefined : JSON.stringify(body),
   });
@@ -72,7 +78,9 @@ async function sendDelete<T>(path: string, body?: unknown): Promise<T> {
     try {
       const j = await res.json();
       if (typeof j.detail === 'string' && j.detail) detail = j.detail;
-    } catch { /* not JSON */ }
+    } catch {
+      /* not JSON */
+    }
     throw new ApiError(res.status, detail);
   }
   return res.json() as Promise<T>;
@@ -110,7 +118,9 @@ export const deletePart = (part: Part, id: number) => del(`${BASE}/${part}/${id}
 export const PICKER_LIMIT = 20;
 
 export const searchContacts = (kind: ContactKind, q: string): Promise<ContactSearchHit[]> =>
-  q ? fetchJson<ContactSearchHit[]>(`${BASE}/search?${new URLSearchParams({ q, kind, limit: String(PICKER_LIMIT) })}`) : Promise.resolve([]);
+  q
+    ? fetchJson<ContactSearchHit[]>(`${BASE}/search?${new URLSearchParams({ q, kind, limit: String(PICKER_LIMIT) })}`)
+    : Promise.resolve([]);
 
 /**
  * Quick-create from a typed name. An organization name is unique among live records, so a 409
@@ -130,7 +140,11 @@ export async function createContact(kind: ContactKind, name: string): Promise<Co
 }
 
 /** "a, b ,, c" -> ['a', 'b', 'c'] */
-export const splitTags = (text: string) => text.split(',').map(t => t.trim()).filter(Boolean);
+export const splitTags = (text: string) =>
+  text
+    .split(',')
+    .map((t) => t.trim())
+    .filter(Boolean);
 
 /** A user-facing message for a failed write. */
 export function errorText(err: unknown, fallback: string): string {

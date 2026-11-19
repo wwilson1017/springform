@@ -19,7 +19,10 @@ export function useConversations() {
     try {
       const url = `/api/agent/conversations?limit=100${q.trim() ? `&q=${encodeURIComponent(q.trim())}` : ''}`;
       const data = await fetchJson<Conversation[]>(url);
-      if (seq === seqRef.current) { setList(data); setFailed(false); }
+      if (seq === seqRef.current) {
+        setList(data);
+        setFailed(false);
+      }
     } catch {
       if (seq === seqRef.current) setFailed(true);
     }
@@ -38,18 +41,18 @@ export function useConversations() {
 
   const patch = useCallback(async (id: number, body: { title?: string; is_private?: boolean }) => {
     const updated = await patchJson<Conversation>(`/api/agent/conversations/${id}`, body);
-    setList(prev => prev?.map(c => (c.id === id ? updated : c)) ?? prev);
+    setList((prev) => prev?.map((c) => (c.id === id ? updated : c)) ?? prev);
     return updated;
   }, []);
 
   const remove = useCallback(async (id: number) => {
     await del(`/api/agent/conversations/${id}`);
-    setList(prev => prev?.filter(c => c.id !== id) ?? prev);
+    setList((prev) => prev?.filter((c) => c.id !== id) ?? prev);
   }, []);
 
   /** A title the stream announced, without a round trip. */
   const retitle = useCallback((id: number, title: string) => {
-    setList(prev => prev?.map(c => (c.id === id ? { ...c, title } : c)) ?? prev);
+    setList((prev) => prev?.map((c) => (c.id === id ? { ...c, title } : c)) ?? prev);
   }, []);
 
   return { list, failed, query, setQuery, reload, patch, remove, retitle };

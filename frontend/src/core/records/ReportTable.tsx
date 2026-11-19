@@ -17,13 +17,24 @@ export function ReportTable({ result }: { result: ReportResult }) {
       <table className="w-full border-collapse text-sm">
         <thead>
           <tr className="bg-sf-raised">
-            {result.columns.map(c => <th key={c} scope="col" className="whitespace-nowrap px-3 py-2 text-left font-medium text-sf-ink-mute">{c.replace(/_cents$/, '').replace(/_/g, ' ')}</th>)}
+            {result.columns.map((c) => (
+              <th key={c} scope="col" className="whitespace-nowrap px-3 py-2 text-left font-medium text-sf-ink-mute">
+                {c.replace(/_cents$/, '').replace(/_/g, ' ')}
+              </th>
+            ))}
           </tr>
         </thead>
         <tbody>
           {result.rows.map((row, i) => (
             <tr key={i} className="border-t border-sf-line">
-              {row.map((v, j) => <td key={j} className={`px-3 py-2 text-sf-ink ${typeof v === 'number' ? 'text-right tabular-nums' : ''}`}>{cell(result.columns[j], v)}</td>)}
+              {row.map((v, j) => (
+                <td
+                  key={j}
+                  className={`px-3 py-2 text-sf-ink ${typeof v === 'number' ? 'text-right tabular-nums' : ''}`}
+                >
+                  {cell(result.columns[j], v)}
+                </td>
+              ))}
             </tr>
           ))}
         </tbody>

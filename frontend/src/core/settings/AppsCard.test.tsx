@@ -8,19 +8,39 @@ import { AppsCard } from './AppsCard';
 
 const user = (role: User['role']): User => ({ id: 1, email: 'a@example.com', name: 'A', role, tz: 'UTC' });
 const app = (slug: string, extra: Partial<CoreApp> = {}): CoreApp => ({
-  slug, name: slug[0].toUpperCase() + slug.slice(1), description: '', path: `/${slug}`, icon: 'flask',
-  roles: ['admin', 'member'], order: 1, badge: null, hidden: false, settings_cards: [], version: '0.1.0', ...extra,
+  slug,
+  name: slug[0].toUpperCase() + slug.slice(1),
+  description: '',
+  path: `/${slug}`,
+  icon: 'flask',
+  roles: ['admin', 'member'],
+  order: 1,
+  badge: null,
+  hidden: false,
+  settings_cards: [],
+  version: '0.1.0',
+  ...extra,
 });
 const todos = app('todos', { badge: '/api/todos/badge' });
 const example = app('example');
 
 function renderCard(role: User['role'], routes = {}) {
-  const fetchMock = mockFetch({ 'GET /api/me': { body: user(role) }, 'GET /api/core/apps': { body: [todos, example] }, ...routes });
-  render(<AuthProvider><CoreAppsProvider><AppsCard /></CoreAppsProvider></AuthProvider>);
+  const fetchMock = mockFetch({
+    'GET /api/me': { body: user(role) },
+    'GET /api/core/apps': { body: [todos, example] },
+    ...routes,
+  });
+  render(
+    <AuthProvider>
+      <CoreAppsProvider>
+        <AppsCard />
+      </CoreAppsProvider>
+    </AuthProvider>,
+  );
   return fetchMock;
 }
 
-const names = () => screen.getAllByRole('listitem').map(li => li.textContent);
+const names = () => screen.getAllByRole('listitem').map((li) => li.textContent);
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -39,11 +59,15 @@ describe('AppsCard', () => {
   });
 
   it('hides an app with a PATCH and marks it hidden', async () => {
-    const fetchMock = renderCard('admin', { 'PATCH /api/core/apps/example': { body: [todos, { ...example, hidden: true }] } });
+    const fetchMock = renderCard('admin', {
+      'PATCH /api/core/apps/example': { body: [todos, { ...example, hidden: true }] },
+    });
     fireEvent.click(await screen.findByRole('button', { name: 'Hide Example' }));
     expect(await screen.findByRole('button', { name: 'Show Example' })).toBeTruthy();
     expect(names()[1]).toContain('Hidden');
-    expect(JSON.parse(String(callsTo(fetchMock, 'PATCH', '/api/core/apps/example')[0][1]?.body))).toEqual({ hidden: true });
+    expect(JSON.parse(String(callsTo(fetchMock, 'PATCH', '/api/core/apps/example')[0][1]?.body))).toEqual({
+      hidden: true,
+    });
   });
 
   it('shows members the list without controls, and marks badge routes', async () => {

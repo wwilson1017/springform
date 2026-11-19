@@ -1,6 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import {
-  AA_NORMAL_TEXT, BASES, CSS, DARK_TOKENS, LIGHT_TOKENS, contrast, hexToRgb, luminance, over, resolve, type Rgb,
+  AA_NORMAL_TEXT,
+  BASES,
+  CSS,
+  DARK_TOKENS,
+  LIGHT_TOKENS,
+  contrast,
+  hexToRgb,
+  luminance,
+  over,
+  resolve,
+  type Rgb,
 } from './palette.testutil';
 
 /**
@@ -30,8 +40,11 @@ function surfaces(hue: string, tokens: Record<string, string>): Record<string, R
 /** `--color-sf-accent-soft`'s mix percentage, which must be mixed from the accent FILL. */
 function accentSoftPercent(tokens: Record<string, string>): number {
   const raw = tokens['accent-soft'] ?? '';
-  const m = /^color-mix\(\s*in\s+srgb\s*,\s*var\(\s*--color-sf-accent\s*\)\s*([\d.]+)%\s*,\s*transparent\s*\)$/.exec(raw);
-  if (!m) throw new Error(`index.css: could not read --color-sf-accent-soft as a mix of --color-sf-accent (got ${raw})`);
+  const m = /^color-mix\(\s*in\s+srgb\s*,\s*var\(\s*--color-sf-accent\s*\)\s*([\d.]+)%\s*,\s*transparent\s*\)$/.exec(
+    raw,
+  );
+  if (!m)
+    throw new Error(`index.css: could not read --color-sf-accent-soft as a mix of --color-sf-accent (got ${raw})`);
   return Number(m[1]);
 }
 
@@ -65,7 +78,10 @@ describe.each([
     for (const base of BASES) {
       const b = hexToRgb(resolve(tokens, base));
       const accent = hexToRgb(resolve(tokens, 'accent'));
-      for (const [name, bg] of [[base, b], [`soft${softPct}/${base}`, over(accent, softPct, b)]] as const) {
+      for (const [name, bg] of [
+        [base, b],
+        [`soft${softPct}/${base}`, over(accent, softPct, b)],
+      ] as const) {
         const ratio = contrast(accentFg, bg);
         if (ratio < AA_NORMAL_TEXT) failures.push(`accent-text on ${name}: ${ratio.toFixed(2)}:1`);
       }
@@ -79,15 +95,18 @@ describe.each([
     for (const hue of [...HUES, 'accent']) {
       const fill = luminance(hexToRgb(resolve(tokens, hue)));
       const text = luminance(hexToRgb(resolve(tokens, `${hue}-text`)));
-      expect((fill - text) * sign, `${themeName}: --color-sf-${hue}-text moved the wrong way`).toBeGreaterThanOrEqual(0);
+      expect((fill - text) * sign, `${themeName}: --color-sf-${hue}-text moved the wrong way`).toBeGreaterThanOrEqual(
+        0,
+      );
     }
   });
 
   it('keeps labels legible on solid fills', () => {
     const on = hexToRgb(resolve(tokens, 'on-status'));
     for (const hue of ['green', 'red'] as const) {
-      expect(contrast(on, hexToRgb(resolve(tokens, hue))), `${themeName}: on-status on ${hue}`)
-        .toBeGreaterThanOrEqual(AA_NORMAL_TEXT);
+      expect(contrast(on, hexToRgb(resolve(tokens, hue))), `${themeName}: on-status on ${hue}`).toBeGreaterThanOrEqual(
+        AA_NORMAL_TEXT,
+      );
     }
     const inkOnAccent = contrast(hexToRgb(resolve(tokens, 'accent-ink')), hexToRgb(resolve(tokens, 'accent')));
     expect(inkOnAccent, `${themeName}: accent-ink on accent`).toBeGreaterThanOrEqual(AA_NORMAL_TEXT);

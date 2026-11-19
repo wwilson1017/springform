@@ -49,21 +49,25 @@ afterEach(() => {
 
 async function mount() {
   await act(async () => {
-    root.render(<MemoryRouter><ReviewPage /></MemoryRouter>);
+    root.render(
+      <MemoryRouter>
+        <ReviewPage />
+      </MemoryRouter>,
+    );
   });
-  await act(async () => { await Promise.resolve(); });
+  await act(async () => {
+    await Promise.resolve();
+  });
 }
 
 const text = () => container.textContent ?? '';
-const markButton = () =>
-  [...container.querySelectorAll('button')].find(b => b.textContent === 'Mark review done');
+const markButton = () => [...container.querySelectorAll('button')].find((b) => b.textContent === 'Mark review done');
 
 describe('the review-due line', () => {
   it('says a review is due when none was ever recorded', async () => {
     getReviewStatusMock.mockResolvedValue({ review_due: true, days_since_review: null });
     await mount();
-    expect(container.querySelector('[role="status"]')?.textContent)
-      .toBe('Review due — none recorded yet');
+    expect(container.querySelector('[role="status"]')?.textContent).toBe('Review due — none recorded yet');
   });
 
   it('says how long it has been when one is overdue', async () => {
@@ -92,7 +96,9 @@ describe('the review-due line', () => {
     getReviewStatusMock.mockResolvedValue({ review_due: true, days_since_review: null });
     markReviewDoneMock.mockResolvedValue({ review_due: false, days_since_review: 0 });
     await mount();
-    await act(async () => { markButton()!.click(); });
+    await act(async () => {
+      markButton()!.click();
+    });
     expect(markReviewDoneMock).toHaveBeenCalledTimes(1);
     expect(text()).not.toContain('Review due');
     expect(text()).toContain('Last review today.');
@@ -102,7 +108,9 @@ describe('the review-due line', () => {
     getReviewStatusMock.mockResolvedValue({ review_due: true, days_since_review: 9 });
     markReviewDoneMock.mockRejectedValue(new Error('API error 500'));
     await mount();
-    await act(async () => { markButton()!.click(); });
+    await act(async () => {
+      markButton()!.click();
+    });
     expect(container.querySelector('[role="alert"]')?.textContent).toBe('Could not save. Try again.');
     expect(text()).toContain('Review due');
   });

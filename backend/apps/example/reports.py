@@ -9,7 +9,8 @@ def widgets_by_color(params: dict, user) -> tuple[list[str], list[list]]:
     conn = db.get_conn()
     entity = entities.get("example.widget")
     counts = Counter(
-        row["color"] or "" for row in conn.execute("SELECT id, color FROM example_widgets")
+        row["color"] or ""
+        for row in conn.execute("SELECT id, color FROM example_widgets")
         if entity.can_read(user, conn, row["id"])
     )
     return ["color", "widgets"], [[color, n] for color, n in sorted(counts.items())]

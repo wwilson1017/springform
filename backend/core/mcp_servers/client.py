@@ -131,21 +131,23 @@ def _specs(row: dict, tools: list[types.Tool]) -> tuple[list[ToolSpec], list[dic
             continue
         hint = tool.annotations.read_only_hint if tool.annotations else None
         description = (tool.description or "").strip()[:MAX_DESCRIPTION]
-        specs.append(ToolSpec(
-            name=wire,
-            description=f"{row['prefix']}.{tool.name}, a remote tool on {row['name']}: {description}",
-            summary=f"Run {row['prefix']}.{tool.name} on {row['name']}.",  # never the server's own text
-            input_schema=tool.input_schema,
-            writes=hint is not True,
-            handler=_handler(row["id"], row["url"], tool.name),
-            always_confirm=True,
-            untrusted_source=True,
-            external_effect=True,
-            mcp_exposed=False,
-            app=row["prefix"],
-            server_id=str(row["id"]),
-            server_url=row["url"],
-        ))
+        specs.append(
+            ToolSpec(
+                name=wire,
+                description=f"{row['prefix']}.{tool.name}, a remote tool on {row['name']}: {description}",
+                summary=f"Run {row['prefix']}.{tool.name} on {row['name']}.",  # never the server's own text
+                input_schema=tool.input_schema,
+                writes=hint is not True,
+                handler=_handler(row["id"], row["url"], tool.name),
+                always_confirm=True,
+                untrusted_source=True,
+                external_effect=True,
+                mcp_exposed=False,
+                app=row["prefix"],
+                server_id=str(row["id"]),
+                server_url=row["url"],
+            )
+        )
         shown.append({"name": tool.name, "description": description, "read_only_hint": hint is True})
     return specs, shown
 

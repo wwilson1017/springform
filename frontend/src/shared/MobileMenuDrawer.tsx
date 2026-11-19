@@ -22,22 +22,36 @@ export function MobileMenuDrawer({ items, onClose, onSignOut, children }: Props)
     <div role="dialog" aria-modal="true" aria-label="Menu" className="fixed inset-0 z-50 flex flex-col bg-sf-card">
       <div className="flex shrink-0 items-center justify-between border-b border-sf-line px-4 py-3">
         <span className="font-display text-xl text-sf-ink">Menu</span>
-        <button type="button" onClick={onClose} aria-label="Close menu"
-          className="cursor-pointer border-0 bg-transparent p-1 text-sf-ink-mute">
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Close menu"
+          className="cursor-pointer border-0 bg-transparent p-1 text-sf-ink-mute"
+        >
           <IconX aria-hidden />
         </button>
       </div>
       <nav className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto px-4 py-3">
-        {items.map(item => (
-          <Link key={item.to} to={item.to} onClick={onClose}
-            className="flex items-center gap-2.5 rounded px-2 py-3 text-sm text-sf-ink no-underline hover:text-sf-accent-text">
+        {items.map((item) => (
+          <Link
+            key={item.to}
+            to={item.to}
+            onClick={onClose}
+            className="flex items-center gap-2.5 rounded px-2 py-3 text-sm text-sf-ink no-underline hover:text-sf-accent-text"
+          >
             {item.icon}
             {item.label}
           </Link>
         ))}
         {onSignOut && (
-          <button type="button" onClick={() => { onClose(); onSignOut(); }}
-            className="cursor-pointer rounded border-0 bg-transparent px-2 py-3 text-left font-sans text-sm text-sf-ink hover:text-sf-accent-text">
+          <button
+            type="button"
+            onClick={() => {
+              onClose();
+              onSignOut();
+            }}
+            className="cursor-pointer rounded border-0 bg-transparent px-2 py-3 text-left font-sans text-sm text-sf-ink hover:text-sf-accent-text"
+          >
             Sign out
           </button>
         )}

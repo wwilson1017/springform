@@ -24,7 +24,9 @@ def _readable(user, conn, rows) -> list:
 
 def pipeline_by_stage(params: dict, user) -> tuple[list[str], list[list]]:
     conn = db.get_conn()
-    rows = _readable(user, conn, conn.execute(f"SELECT d.id, d.stage, d.value_cents FROM crm_deals d WHERE {LIVE}").fetchall())
+    rows = _readable(
+        user, conn, conn.execute(f"SELECT d.id, d.stage, d.value_cents FROM crm_deals d WHERE {LIVE}").fetchall()
+    )
     totals: dict[str, list[int]] = {}
     for r in rows:
         t = totals.setdefault(r["stage"], [0, 0])
@@ -63,10 +65,15 @@ def organization_rollup(user: User, organization_id: int) -> dict:
     )
     last = max((d["last_activity_at"] for d in org_deals if d["last_activity_at"]), default=None)
     return {
-        "organization_id": organization_id, "name": org["name"], "people": org.get("people", []), "deals": org_deals,
-        "open_deals": len(open_deals), "open_value_cents": sum(d["value_cents"] for d in open_deals),
+        "organization_id": organization_id,
+        "name": org["name"],
+        "people": org.get("people", []),
+        "deals": org_deals,
+        "open_deals": len(open_deals),
+        "open_value_cents": sum(d["value_cents"] for d in open_deals),
         "won_value_cents": sum(d["value_cents"] for d in org_deals if d["status"] == "won"),
-        "last_activity_at": last, "recent_activity": [dict(r) for r in recent],
+        "last_activity_at": last,
+        "recent_activity": [dict(r) for r in recent],
     }
 
 

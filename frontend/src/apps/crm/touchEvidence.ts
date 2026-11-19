@@ -41,9 +41,9 @@ export function bannerCopy(state: AiTouchVerdictState, open: boolean): string | 
   }
   if (state === 'stale') {
     return open
-      // Deliberately "will be re-evaluated with the next note", not "a refresh is queued":
-      // the queue is process-local and this read cannot see it.
-      ? "The deal's events have changed since this was worked out. It will be re-evaluated with the deal's next note or logged activity."
+      ? // Deliberately "will be re-evaluated with the next note", not "a refresh is queued":
+        // the queue is process-local and this read cannot see it.
+        "The deal's events have changed since this was worked out. It will be re-evaluated with the deal's next note or logged activity."
       : "The deal's events changed after this was worked out, and it is closed, so the count no longer updates.";
   }
   return open ? null : 'This deal is closed, so its touch count no longer recalculates.';
@@ -51,16 +51,10 @@ export function bannerCopy(state: AiTouchVerdictState, open: boolean): string | 
 
 /** Says the list is a recent window, not the deal's whole history. */
 export function coverageNote(truncated: boolean): string | null {
-  return truncated
-    ? "Only the deal's most recent events are shown — older history isn't part of this count."
-    : null;
+  return truncated ? "Only the deal's most recent events are shown — older history isn't part of this count." : null;
 }
 
-export function summaryLine(
-  counted: number | null,
-  evaluated: number,
-  computedAt: string | null,
-): string {
+export function summaryLine(counted: number | null, evaluated: number, computedAt: string | null): string {
   if (counted == null || evaluated === 0) return 'No per-event explanations stored yet.';
   const when = formatEvaluatedAt(computedAt);
   const base = `${counted} of ${evaluated} events counted as touches`;

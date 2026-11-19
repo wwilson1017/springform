@@ -29,8 +29,16 @@ def record_in(
         """INSERT INTO core_change_log (at, user_id, app, entity, entity_id, field, old, new, reason, request_id)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
         (
-            clock.now_iso(), user_id, entity_type.split(".", 1)[0], entity_type, entity_id, field,
-            json.dumps(old), json.dumps(new), reason, request_id,
+            clock.now_iso(),
+            user_id,
+            entity_type.split(".", 1)[0],
+            entity_type,
+            entity_id,
+            field,
+            json.dumps(old),
+            json.dumps(new),
+            reason,
+            request_id,
         ),
     )
     return cur.lastrowid
@@ -41,4 +49,3 @@ def on_entity_deleted_in(conn: db.Conn, entity_type: str, entity_id: int) -> Non
         "UPDATE core_change_log SET deleted_at = ? WHERE entity = ? AND entity_id = ? AND deleted_at IS NULL",
         (clock.now_iso(), entity_type, entity_id),
     )
-
