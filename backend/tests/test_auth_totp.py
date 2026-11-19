@@ -10,7 +10,7 @@ T0 = "2026-11-02T09:00:10Z"
 
 def code(secret: str, steps: int = 0) -> str:
     """The code an authenticator shows `steps` 30-second steps from the frozen now."""
-    return pyotp.TOTP(secret).at(clock.now(), steps)
+    return pyotp.TOTP(secret).at(clock.now(), counter_offset=steps)
 
 
 def enrol(client) -> tuple[str, list[str]]:

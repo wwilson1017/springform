@@ -29,6 +29,7 @@ labels=(
   "awaiting-answer|d93f0b|Parked: waiting on a human answer"
   "bug|d73a4a|Something is broken"
   "enhancement|a2eeef|A new capability or improvement"
+  "dependencies|0366d6|Pull requests that update a dependency file"
 )
 for manifest in backend/apps/*/app.json; do
   [ -e "$manifest" ] || continue
