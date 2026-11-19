@@ -173,9 +173,7 @@ def _readable(user: User, row: dict) -> bool:
 
 def _insert_in(conn: db.Conn, table: str, row: dict) -> int:
     cols = ", ".join(row)
-    return conn.execute(
-        f"INSERT INTO {table} ({cols}) VALUES ({', '.join('?' * len(row))})", tuple(row.values())
-    ).lastrowid
+    return db.insert_in(conn, f"INSERT INTO {table} ({cols}) VALUES ({', '.join('?' * len(row))})", tuple(row.values()))
 
 
 def _save_in(conn: db.Conn, kind: str, row: dict) -> None:
@@ -234,7 +232,7 @@ def _guard_in(conn: db.Conn, user: User, kind: str, before: dict | None, after: 
 
     widened = before is None or vis != before["visibility"] or moved
     for field, pkind in _PARENTS[kind]:
-        if after[field] is not None and (widened or after[field] != before[field]):
+        if after[field] is not None and (widened or before is None or after[field] != before[field]):
             _check_parent_in(conn, user, kind, after, field, pkind)
     if before is not None and widened and vis == "private":
         for table, field in _CHILDREN[kind]:
@@ -276,9 +274,11 @@ def _stamp_in(conn: db.Conn, kind: str, row_id: int, *states: dict) -> int:
     row's rev is its current audience's), and move each audience's head. Returns the rev."""
     rev = 0
     for audience in dict.fromkeys(_audience(s) for s in states):
-        rev = conn.execute(
-            "INSERT OR REPLACE INTO todos_journal (kind, row_id, audience) VALUES (?, ?, ?)", (kind, row_id, audience)
-        ).lastrowid
+        rev = db.insert_in(
+            conn,
+            "INSERT OR REPLACE INTO todos_journal (kind, row_id, audience) VALUES (?, ?, ?)",
+            (kind, row_id, audience),
+        )
         # The team row is made by the first stamp after install or an app reset; its floor marks that.
         conn.execute(
             "INSERT INTO todos_sync (user_id, floor) VALUES (0, ?) ON CONFLICT (user_id) DO NOTHING", (rev - 1,)
@@ -388,7 +388,7 @@ def _apply_update_in(conn: db.Conn, user: User, item_id: int, fields: dict) -> b
         entities.authorize(user, conn, ENTITY, item_id, "write")
     except NotFound:
         return False
-    before = _raw_in(conn, "item", item_id)
+    before = db.must(_raw_in(conn, "item", item_id))
     after = dict(before)
     now = clock.now_iso()
     if "title" in fields:
@@ -428,8 +428,8 @@ def _apply_update_in(conn: db.Conn, user: User, item_id: int, fields: dict) -> b
     after["updated_at"] = now
     _save_in(conn, "item", after)
     _stamp_in(conn, "item", item_id, before, after)
-    tracked = [{k: v for k, v in r.items() if k != "rev"} for r in (before, after)]
-    timeline.record_changes_in(conn, ENTITY, item_id, *tracked, user.id)
+    old, new = ({k: v for k, v in r.items() if k != "rev"} for r in (before, after))
+    timeline.record_changes_in(conn, ENTITY, item_id, old, new, user.id)
     if just_completed:
         _spawn_next_occurrence_in(conn, user, after, before["status"])
     return True
@@ -512,7 +512,7 @@ def delete_item_in(conn: db.Conn, user: User, item_id: int) -> None:
     """Delete a todo for good (archiving is status 'dropped'): the owner's or an admin's call.
     Core's delete subscribers take its timeline and files; hooks.py writes the tombstone."""
     entities.authorize(user, conn, ENTITY, item_id, "write")
-    _check_deleter(user, _raw_in(conn, "item", item_id), "todo")
+    _check_deleter(user, db.must(_raw_in(conn, "item", item_id)), "todo")
     entities.delete_record_in(conn, ENTITY, item_id)
 
 
@@ -860,7 +860,7 @@ def review_status(user: User) -> dict:
     creation) and how many of the user's calendar days since the last one."""
     row = db.one("SELECT last_review_at FROM todos_sync WHERE user_id = ?", (user.id,))
     last = row["last_review_at"] if row else None
-    since = last or db.one("SELECT created_at FROM core_users WHERE id = ?", (user.id,))["created_at"]
+    since = last or db.must(db.one("SELECT created_at FROM core_users WHERE id = ?", (user.id,)))["created_at"]
     days = None
     if last:
         days = max(0, (today(user) - clock.parse(last).astimezone(zone(user)).date()).days)
@@ -1026,7 +1026,7 @@ def forget_in(conn: db.Conn, entity_type: str, entity_id: int) -> None:
     relink_in(conn, entity_type, entity_id, None)
 
 
-def transfer_in(conn: db.Conn, admin: User, from_user_id: int, to_user_id: int) -> dict:
+def transfer_in(conn: db.Conn, admin: User, from_user_id: int | None, to_user_id: int) -> dict:
     """Give one person's private areas, projects and todos to another (an admin's tool, after a
     deactivation). Assignments to the old owner follow; team rows stay where they are. Names are
     not re-checked for clashes. The caller has checked that `admin` is one."""

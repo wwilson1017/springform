@@ -25,7 +25,8 @@ def record_in(
     reason: str | None = None,
     request_id: str | None = None,
 ) -> int:
-    cur = conn.execute(
+    return db.insert_in(
+        conn,
         """INSERT INTO core_change_log (at, user_id, app, entity, entity_id, field, old, new, reason, request_id)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
         (
@@ -41,7 +42,6 @@ def record_in(
             request_id,
         ),
     )
-    return cur.lastrowid
 
 
 def on_entity_deleted_in(conn: db.Conn, entity_type: str, entity_id: int) -> None:

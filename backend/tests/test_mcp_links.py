@@ -10,6 +10,7 @@ import httpx2
 import pytest
 from mcp.client.session import ClientSession
 from mcp.client.streamable_http import streamable_http_client
+from mcp.types import CallToolResult, TextContent
 
 from backend.core import db as core_db, ratelimit
 from backend.core.agent import registry as tool_registry
@@ -65,7 +66,14 @@ def call_tool(app, path: str, name: str, args: dict):
     return asyncio.run(go())
 
 
-def tool_run(tool: str) -> dict:
+def result_json(result: CallToolResult):
+    """A tool result's one text block, parsed."""
+    block = result.content[0]
+    assert isinstance(block, TextContent)
+    return json.loads(block.text)
+
+
+def tool_run(tool: str) -> dict | None:
     return core_db.one("SELECT * FROM core_agent_tool_runs WHERE tool = ? ORDER BY id DESC", (tool,))
 
 
@@ -116,7 +124,7 @@ def test_tools_are_role_filtered_and_a_write_runs_at_once_as_the_link_user(app, 
     assert member_tools["example_create_widget"].input_schema["required"] == ["name"]
 
     made = call_tool(app, at(m_link), "example_create_widget", {"name": "From Claude"})
-    assert not made.is_error and json.loads(made.content[0].text)["name"] == "From Claude"
+    assert not made.is_error and result_json(made)["name"] == "From Claude"
     assert [(w["name"], w["owner_user_id"]) for w in core_db.rows("SELECT * FROM example_widgets")] == [
         ("From Claude", member.principal.id)
     ]
@@ -129,7 +137,7 @@ def test_tools_are_role_filtered_and_a_write_runs_at_once_as_the_link_user(app, 
     )
 
     read = call_tool(app, at(m_link), "example_list_widgets", {})
-    assert [w["name"] for w in json.loads(read.content[0].text)] == ["From Claude"]
+    assert [w["name"] for w in result_json(read)] == ["From Claude"]
     assert tool_run("example_list_widgets")["source"] == "mcp"
     refused = call_tool(app, at(m_link), "example_count_widgets", {})  # listed for admins only, so not callable
     assert refused.is_error and tool_run("example_count_widgets") is None
@@ -160,7 +168,7 @@ def test_a_failing_external_effect_over_mcp_is_uncertain(app, login_as):
         out = call_tool(app, at(mint(login_as("member"))), "core_send_note", {})
     finally:
         tool_registry.set_current(before)
-    assert out.is_error and json.loads(out.content[0].text)["status"] == "uncertain"
+    assert out.is_error and result_json(out)["status"] == "uncertain"
     run = tool_run("core_send_note")
     assert (run["status"], run["source"]) == ("uncertain", "mcp") and "hung up" in run["error"]
 

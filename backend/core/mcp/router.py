@@ -21,6 +21,7 @@ from fastapi import APIRouter, Depends, Query, Response
 from pydantic import BaseModel, ConfigDict, Field
 from starlette.requests import Request
 from starlette.responses import PlainTextResponse
+from starlette.routing import Route
 from starlette.types import Receive, Scope, Send
 
 from backend.core.auth.deps import User, current_user
@@ -118,8 +119,9 @@ async def _no_sign_in(scope: Scope, receive: Receive, send: Send) -> None:
     await _refuse(scope, receive, send, 404, "Not Found")
 
 
-router.add_route("/mcp", _Asgi(_bearer_token), include_in_schema=False)
-router.add_route("/mcp/{token}", _Asgi(_path_token), include_in_schema=False)
-router.add_route("/.well-known/{rest:path}", _Asgi(_no_sign_in), include_in_schema=False)
+# Route, not add_route: add_route is typed for request handlers only, though Starlette serves any ASGI app.
+router.routes.append(Route("/mcp", _Asgi(_bearer_token), include_in_schema=False))
+router.routes.append(Route("/mcp/{token}", _Asgi(_path_token), include_in_schema=False))
+router.routes.append(Route("/.well-known/{rest:path}", _Asgi(_no_sign_in), include_in_schema=False))
 for _path in ("/register", "/authorize", "/token"):
-    router.add_route(_path, _Asgi(_no_sign_in), include_in_schema=False)
+    router.routes.append(Route(_path, _Asgi(_no_sign_in), include_in_schema=False))

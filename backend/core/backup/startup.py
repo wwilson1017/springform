@@ -27,10 +27,10 @@ def _newest_fingerprint() -> tuple[str, str] | None:
 
 def on_startup() -> None:
     newest = _newest_fingerprint()
-    mismatch = newest is not None and newest[1] != secrets.key_fingerprint()
+    mismatch = newest if newest is not None and newest[1] != secrets.key_fingerprint() else None
     with db.transaction() as conn:
         if mismatch:
-            settings.set_setting_in(conn, KEY_MISMATCH, newest[0], None)
+            settings.set_setting_in(conn, KEY_MISMATCH, mismatch[0], None)
         else:
             conn.execute("DELETE FROM core_settings WHERE key = ?", (KEY_MISMATCH,))
     if mismatch:
@@ -39,6 +39,6 @@ def on_startup() -> None:
             "stored secrets will read as unset. Restore the matching key (ENCRYPTION_KEY or <data>/.encryption-key) "
             "or run a restore (scripts/restore.sh, docs/agents/deploy.md).",
             secrets.key_fingerprint(),
-            newest[0],
-            newest[1],
+            mismatch[0],
+            mismatch[1],
         )

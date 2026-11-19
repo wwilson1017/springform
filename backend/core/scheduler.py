@@ -101,15 +101,17 @@ def due_jobs(registered: dict[str, Job], since: datetime) -> list[tuple[Job, str
     install-local wall-clock times, like `last_slot_day`."""
     now, zone, due = clock.now(), localtime.tz(), []
     for job in registered.values():
-        last = db.one("SELECT max(started_at) AS t FROM core_job_runs WHERE job = ?", (job.name,))["t"]
+        last = db.must(db.one("SELECT max(started_at) AS t FROM core_job_runs WHERE job = ?", (job.name,)))["t"]
         if job.every is not None:
             if last is None or clock.parse(last) + timedelta(seconds=job.every) <= now:
                 due.append((job, None))
             continue
-        day = last_slot_day(job.at, now, zone)
+        at = db.must(job.at)  # a Job has exactly one of every and at
+        day = last_slot_day(at, now, zone)
         if db.one("SELECT 1 AS x FROM core_job_runs WHERE job = ? AND scheduled_for = ?", (job.name, day)):
             continue
-        slot = datetime.combine(date.fromisoformat(day), time(*map(int, job.at.split(":"))))
+        hour, minute = map(int, at.split(":"))
+        slot = datetime.combine(date.fromisoformat(day), time(hour, minute))
         anchor = clock.parse(last) if last else since
         if slot >= anchor.astimezone(zone).replace(tzinfo=None):
             due.append((job, day))
@@ -137,11 +139,12 @@ def prune_job_runs(cancel: threading.Event | None = None) -> None:
 def _insert_run(job: Job, trigger: str, status: str, scheduled_for: str | None) -> int:
     now = clock.now_iso()
     with db.transaction() as conn:
-        return conn.execute(
+        return db.insert_in(
+            conn,
             """INSERT INTO core_job_runs (job, app, trigger, status, scheduled_for, started_at, finished_at)
                VALUES (?, ?, ?, ?, ?, ?, ?)""",
             (job.name, job.app, trigger, status, scheduled_for, now, now if status == "skipped" else None),
-        ).lastrowid
+        )
 
 
 def _update_run(run_id: int, status: str, error: str | None = None, finished: bool = True) -> None:

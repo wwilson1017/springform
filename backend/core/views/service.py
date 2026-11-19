@@ -89,7 +89,7 @@ def _entity_type(value: Any) -> str | None:
 
 def _write_in(conn: db.Conn, sql: str, params: tuple) -> int:
     try:
-        return conn.execute(sql, params).lastrowid
+        return db.insert_in(conn, sql, params)
     except db.sqlite3.IntegrityError:  # core_saved_views_name: one name per owner and surface
         raise Conflict("duplicate_name") from None
 

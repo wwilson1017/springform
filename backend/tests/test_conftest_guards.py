@@ -95,7 +95,7 @@ def test_a_thread_left_running_stops_the_run_and_names_the_test(pytester, monkey
     finally:  # the inner run is in-process: release its thread so it does not outlive this test
         for t in threading.enumerate():
             if t.name == "left-running":
-                t.release.set()
+                getattr(t, "release").set()  # set by the inner run's conftest
                 t.join()
 
 

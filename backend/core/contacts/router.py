@@ -3,7 +3,7 @@ service authorizes each record through `entities.authorize`. Record shapes: `api
 
 People and organizations get the same routes (built by `_record_routes`); so do channels and
 addresses (`_part_routes`). Not `from __future__ import annotations`: the route factories bind
-their body models by closure, which FastAPI must see as real classes.
+their body models by closure (`_takes`), which FastAPI must see as real classes.
 """
 
 from datetime import date
@@ -142,6 +142,17 @@ def list_organizations(
     return service.list_records(user, "organization", q=q, archived=archived, tag=tag, page=page, page_size=page_size)
 
 
+def _takes(model: type[Body]):
+    """Bind a factory route's `body` to the model picked for this kind. The route is typed with a
+    base class for the checker (a type expression cannot name a variable); FastAPI reads this."""
+
+    def bind(fn):
+        fn.__annotations__["body"] = model
+        return fn
+
+    return bind
+
+
 def _record_routes(kind: str, path: str, fields_model: type[Body], detail: type[Out]) -> None:
     @router.get(f"/{path}/duplicates", name=f"{path}_duplicates", response_model=list[models.ContactDuplicates])
     def duplicates(user: User = Depends(current_user)) -> list[dict]:
@@ -152,7 +163,8 @@ def _record_routes(kind: str, path: str, fields_model: type[Body], detail: type[
         return service.merge(kind, body.target_id, body.source_id, user)
 
     @router.post(f"/{path}", name=f"create_{kind}", response_model=detail)
-    def create(body: fields_model, user: User = Depends(current_user)) -> dict:
+    @_takes(fields_model)
+    def create(body: Body, user: User = Depends(current_user)) -> dict:
         return service.create(user, kind, body.model_dump(exclude_unset=True))
 
     @router.get(f"/{path}/{{record_id}}", name=f"get_{kind}", response_model=detail | models.MergedAway)
@@ -160,7 +172,8 @@ def _record_routes(kind: str, path: str, fields_model: type[Body], detail: type[
         return service.get(user, kind, record_id)
 
     @router.patch(f"/{path}/{{record_id}}", name=f"update_{kind}", response_model=detail)
-    def update(record_id: int, body: fields_model, user: User = Depends(current_user)) -> dict:
+    @_takes(fields_model)
+    def update(record_id: int, body: Body, user: User = Depends(current_user)) -> dict:
         return service.update(user, kind, record_id, body.model_dump(exclude_unset=True))
 
     @router.delete(f"/{path}/{{record_id}}", name=f"archive_{kind}", response_model=detail)
@@ -174,12 +187,14 @@ def _record_routes(kind: str, path: str, fields_model: type[Body], detail: type[
 
 def _part_routes(part: str, path: str, in_model: type[Body], patch_model: type[Body], out: type[Out]) -> None:
     @router.post(f"/{path}", name=f"add_{part}", response_model=out)
-    def add(body: in_model, user: User = Depends(current_user)) -> dict:
+    @_takes(in_model)
+    def add(body: ChannelIn | AddressIn, user: User = Depends(current_user)) -> dict:
         fields = body.model_dump(exclude_unset=True, exclude={"owner_type", "owner_id"})
         return service.add_part(user, part, body.owner_type, body.owner_id, **fields)
 
     @router.patch(f"/{path}/{{part_id}}", name=f"update_{part}", response_model=out)
-    def update(part_id: int, body: patch_model, user: User = Depends(current_user)) -> dict:
+    @_takes(patch_model)
+    def update(part_id: int, body: Body, user: User = Depends(current_user)) -> dict:
         return service.update_part(user, part, part_id, **body.model_dump(exclude_unset=True))
 
     @router.delete(f"/{path}/{{part_id}}", name=f"delete_{part}", response_model=Ok)

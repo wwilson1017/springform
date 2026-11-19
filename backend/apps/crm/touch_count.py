@@ -423,7 +423,7 @@ def evidence(user: User, deal_id: int) -> dict:
     adds up to the count on the deal)."""
     conn = db.get_conn()
     entities.authorize(user, conn, ENTITY, deal_id, "read")
-    seen = _load_in(conn, deal_id)
+    seen = db.must(_load_in(conn, deal_id))
     deal = seen["deal"]
     entries, skipped = build_entries(seen)
     snap = conn.execute(

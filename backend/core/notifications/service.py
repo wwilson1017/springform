@@ -86,7 +86,7 @@ def can_read_in(conn: db.Conn, user: User, entity_type: str | None, entity_id: i
     if entity_type is None:
         return True
     try:
-        entities.authorize(user, conn, entity_type, entity_id, "read")
+        entities.authorize(user, conn, entity_type, db.must(entity_id), "read")  # the schema pairs them
     except NotFound:
         return False
     return True
@@ -104,7 +104,7 @@ def _recipients_in(
         where, params = f"{where} AND id = ?", [user_id]
     if role is not None:
         where = f"{where} AND role = ?"
-        params.append(role)
+        params = [*params, role]
     users = [
         User.from_row(dict(r))
         for r in conn.execute(f"SELECT {_USER_COLS} FROM core_users WHERE {where} ORDER BY id", params)

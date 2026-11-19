@@ -243,7 +243,7 @@ def test_executing_runs_become_interrupted_at_startup(login_as):
     with core_db.transaction() as conn:
         assert history.claim_in(conn, confirm["tool_run_id"])
     startup.on_startup()
-    run = history.get_tool_run(confirm["tool_run_id"])
+    run = core_db.must(history.get_tool_run(confirm["tool_run_id"]))
     assert run["status"] == "interrupted" and "interrupted" in history.model_content(run)
 
 
@@ -271,7 +271,7 @@ def test_conversations_are_private(login_as):
 def test_compaction_triggers_at_the_threshold(login_as, monkeypatch):
     a = login_as("member")
     monkeypatch.setattr(fake, "CONTEXT_WINDOW", 20_000)
-    cid = None
+    cid, reading = None, 0
     for i in range(12):
         body = {"message": f"turn {i} " + "lorem ipsum " * 300, **({"conversation_id": cid} if cid else {})}
         evs = chat(a, **body)

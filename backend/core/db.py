@@ -23,6 +23,7 @@ import threading
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from packaging.specifiers import InvalidSpecifier, SpecifierSet
 from packaging.version import InvalidVersion, Version
@@ -30,10 +31,13 @@ from packaging.version import InvalidVersion, Version
 from backend.core import REPO_ROOT, VERSION
 from backend.core.clock import now_iso
 
-try:
-    import pysqlite3 as sqlite3  # dev/CI: a SQLite with FTS5, newer than the system one
-except ImportError:  # the Docker image links the stdlib module against its own SQLite
+if TYPE_CHECKING:  # pysqlite3 ships no type information; it has the stdlib module's API
     import sqlite3
+else:
+    try:
+        import pysqlite3 as sqlite3  # dev/CI: a SQLite with FTS5, newer than the system one
+    except ImportError:  # the Docker image links the stdlib module against its own SQLite
+        import sqlite3
 
 logger = logging.getLogger(__name__)
 
@@ -62,7 +66,7 @@ _connections: list[Conn] = []
 _state_lock = threading.Lock()
 _write_lock = threading.Lock()
 _lock_file = None
-_commit_nudge: Callable[[], None] | None = None
+_commit_nudge: Callable[[], object] | None = None
 
 
 def connect(path: Path | str) -> Conn:
@@ -205,7 +209,7 @@ def mark_outbox_pending() -> None:
     _local.outbox_pending = True
 
 
-def set_commit_nudge(fn: Callable[[], None] | None) -> None:
+def set_commit_nudge(fn: Callable[[], object] | None) -> None:
     """The scheduler installs the function that wakes the outbox drainer."""
     global _commit_nudge
     _commit_nudge = fn
@@ -227,6 +231,19 @@ def rows(sql: str, params: tuple | list | dict = ()) -> list[dict]:
 def one(sql: str, params: tuple | list | dict = ()) -> dict | None:
     row = get_conn().execute(sql, params).fetchone()
     return dict(row) if row is not None else None
+
+
+def insert_in(conn: Conn, sql: str, params: tuple | list | dict = ()) -> int:
+    """Run one INSERT and return the new row's id."""
+    return must(conn.execute(sql, params).lastrowid)
+
+
+def must[T](value: T | None) -> T:
+    """`value`, which the caller knows is set: a row just written or authorized, an aggregate's
+    one row, an INSERT's lastrowid, a field an invariant fills. LookupError when it is None."""
+    if value is None:
+        raise LookupError("expected a value, got None")
+    return value
 
 
 # ── Migrations ────────────────────────────────────────────────────────────────

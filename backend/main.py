@@ -44,7 +44,8 @@ def create_app(apps_dir: Path = db.APPS_DIR) -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         db.init(settings.data_dir())
-        secrets.key(), settings.secret_key()  # first boot writes both key files; a bad one stops startup here
+        secrets.key()  # first boot writes both key files; a bad one stops startup here
+        settings.secret_key()
         db.migrate(db.app_dirs(apps_dir))
         preview.check_startup()
         registry.seed_apps()

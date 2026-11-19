@@ -20,7 +20,9 @@ def _remind(client, **body) -> dict:
 
 
 def _row(reminder_id: int) -> dict:
-    return core_db.one("SELECT status, void_reason, fired_at, due_at FROM core_reminders WHERE id = ?", (reminder_id,))
+    return core_db.must(
+        core_db.one("SELECT status, void_reason, fired_at, due_at FROM core_reminders WHERE id = ?", (reminder_id,))
+    )
 
 
 def _notes() -> list[dict]:

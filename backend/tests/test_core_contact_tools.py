@@ -26,7 +26,7 @@ class Refused(Exception):
 
 def call(user, tool, /, **args):
     """Run a tool as chat approvals and MCP do (execute.run_tool), raising Refused on an error."""
-    out = execute.run_tool(user, registry.get(tool), args, source="mcp")
+    out = execute.run_tool(user, core_db.must(registry.get(tool)), args, source="mcp")
     if out["status"] != "done":
         raise Refused(out["error"])
     return out["result"]

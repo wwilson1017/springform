@@ -4,6 +4,7 @@ No network: Google is a stub (or httpx.MockTransport for the real client)."""
 import functools
 import json
 import threading
+from typing import Literal
 from urllib.parse import parse_qs
 
 import httpx
@@ -78,7 +79,9 @@ def _configure(admin, sheet_id: int, **extra) -> dict:
     return r.json()
 
 
-def _add_sheet(name: str, mode: str = "read", schedule: str = "hourly", enabled: bool = True) -> int:
+def _add_sheet(
+    name: str, mode: Literal["read", "write"] = "read", schedule: str = "hourly", enabled: bool = True
+) -> int:
     with core_db.transaction() as conn:
         service.seed_in(conn, [("example", registry.Sheet(name=name, mode=mode))])
     sheet_id = core_db.one("SELECT id FROM core_connected_sheets WHERE name = ?", (name,))["id"]

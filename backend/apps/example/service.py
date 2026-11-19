@@ -55,12 +55,13 @@ def create_widget_in(conn: db.Conn, user: User, data: WidgetIn) -> dict:
     _check_person_in(conn, user, data.person_id)
     color = data.color if data.color is not None else settings.get_setting("example.default_color")
     now = clock.now_iso()
-    cur = conn.execute(
+    widget_id = db.insert_in(
+        conn,
         """INSERT INTO example_widgets (name, color, owner_user_id, person_id, is_private, created_at, updated_at)
            VALUES (?, ?, ?, ?, ?, ?, ?)""",
         (data.name, color, user.id, data.person_id, int(data.is_private), now, now),
     )
-    return _widget(_row_in(conn, cur.lastrowid))
+    return _widget(_row_in(conn, widget_id))
 
 
 def create_widget(user: User, data: WidgetIn) -> dict:
@@ -108,5 +109,5 @@ def widgets_for_person(user: User, person_id: int) -> list[dict]:
 
 
 def badge(user: User) -> dict:
-    n = db.one("SELECT count(*) AS n FROM example_widgets WHERE owner_user_id = ?", (user.id,))["n"]
+    n = db.must(db.one("SELECT count(*) AS n FROM example_widgets WHERE owner_user_id = ?", (user.id,)))["n"]
     return {"count": n, "label": "Your widgets"}
