@@ -1,0 +1,7 @@
+package-lock.json
+node_modules/
+dist/
+coverage/
+*.tsbuildinfo
+# openapi-typescript output; scripts/gen-types.sh regenerates it and CI fails on any diff.
+src/core/api/types.gen.ts
