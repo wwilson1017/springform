@@ -75,6 +75,7 @@ The script reads the first `upstream: <tag-or-sha>` line of `FORK.md`, fetching 
 1. `.github/workflows/ci.yml` runs the **Fork scope** job on every push and PR. It first self-tests the check (`scripts/test-fork-scope.sh`), then runs `scripts/check-fork-scope.sh`, which passes at once when there is no `FORK.md` (upstream).
 2. So a fork's `.github/` stays byte-identical to upstream, and there is no fork-specific workflow file.
 3. Other jobs: SHA-pinned actions, ruff, an import check, pytest, frontend build / lint / test + types diff, gitleaks (Secret scan), the image test (`testing.md` §6).
+4. `.github/dependabot.yml` is core too, so a fork carries it unchanged and Dependabot opens dependency PRs in the fork. Close them: upstream's dependency bumps arrive with each release.
 
 ## 6. Releases and fork images
 
