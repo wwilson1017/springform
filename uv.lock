@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 5
 requires-python = ">=3.12"
 resolution-markers = [
     "python_full_version >= '3.14'",
@@ -1989,7 +1989,7 @@ requires-dist = [
     { name = "pyotp", specifier = ">=2.10.0" },
     { name = "python-multipart", specifier = ">=0.0.12" },
     { name = "pywebpush", specifier = ">=2.3" },
-    { name = "uvicorn", extras = ["standard"], specifier = ">=0.32" },
+    { name = "uvicorn", extras = ["standard"], specifier = ">=0.54.0" },
 ]
 
 [package.metadata.requires-dev]
