@@ -13,9 +13,9 @@ from backend.core.reports import registry as reports
 def _person() -> int:
     now = clock.now_iso()
     with core_db.transaction() as conn:
-        return conn.execute(
-            "INSERT INTO core_people (name, created_at, updated_at) VALUES ('Ada', ?, ?)", (now, now)
-        ).lastrowid
+        return core_db.insert_in(
+            conn, "INSERT INTO core_people (name, created_at, updated_at) VALUES ('Ada', ?, ?)", (now, now)
+        )
 
 
 def test_private_widget_is_invisible_to_another_member_on_every_surface(login_as):

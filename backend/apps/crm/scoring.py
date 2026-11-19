@@ -38,7 +38,7 @@ NOTES = """SELECT count(*), max(created_at) FROM core_timeline
             WHERE entity_type = ? AND entity_id = ? AND kind IN ('note', 'comment') AND archived_at IS NULL"""
 
 
-def _band(value: float | None, bands: list[tuple[float, float]], last: float) -> float:
+def _band(value: float, bands: list[tuple[float, float]], last: float) -> float:
     """The multiplier of the first band whose upper bound `value` does not pass."""
     for upper, multiplier in bands:
         if value <= upper:

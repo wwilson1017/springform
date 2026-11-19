@@ -145,7 +145,7 @@ def get_conversation(conversation_id: int, user: User = Depends(current_user)) -
                     **c,
                     "tool_run_id": run and run["id"],
                     "status": run and run["status"],
-                    "result": _preview(run and run["result"]),
+                    "result": _preview(run["result"] if run else None),
                     "error": run and run["error"],
                 }
             )

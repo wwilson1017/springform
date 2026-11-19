@@ -16,7 +16,7 @@ def _corpus(tmp_path, files: dict[str, str]):
     return library.load((("core", str(folder)),))
 
 
-def _topic(title: str, summary: str = "", body: str = "Body.", order: int | None = None) -> str:
+def _topic(title: str, summary: str = "", body: str = "Body.", order: int | str | None = None) -> str:
     front = f"title: {title}\nsummary: {summary}\n" + (f"order: {order}\n" if order is not None else "")
     return f"---\n{front}---\n{body}\n"
 

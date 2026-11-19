@@ -3,6 +3,7 @@ import re
 import threading
 import time
 from datetime import UTC, datetime
+from typing import Any
 from zoneinfo import ZoneInfo
 
 import pytest
@@ -355,8 +356,9 @@ def test_job_validation():
         Job("core.x", print)
     with pytest.raises(ValueError, match="HH:MM"):
         Job("core.x", print, at="3am")
+    half: Any = 0.5  # the wrong type on purpose
     with pytest.raises(ValueError, match="whole number"):
-        Job("core.x", print, every=0.5)
+        Job("core.x", print, every=half)
     with pytest.raises(ValueError, match="on_boot"):
         Job("core.x", print, at="03:00", on_boot=True)
     scheduler.clear()

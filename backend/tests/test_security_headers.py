@@ -143,5 +143,8 @@ def test_non_http_passes_through(scope_type):
         assert await actual_receive() is incoming
         await actual_send(outgoing)
 
-    asyncio.run(security_headers._wrap(asgi)(scope, receive, send))
+    async def run():
+        await security_headers._wrap(asgi)(scope, receive, send)
+
+    asyncio.run(run())
     assert sent == [outgoing]

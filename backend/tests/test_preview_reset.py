@@ -35,7 +35,7 @@ def test_reset_restores_samples_and_removes_recent_uploads(app, monkeypatch, fre
     registry.seed_apps()
     preview.seed()
     before = _samples()
-    admin = User.from_row(db.one("SELECT * FROM core_users WHERE role = 'admin'"))
+    admin = User.from_row(db.must(db.one("SELECT * FROM core_users WHERE role = 'admin'")))
     widget, file, path = _upload(admin)
     with db.transaction() as conn:
         conn.execute("UPDATE example_widgets SET name = 'Edited' WHERE id = 1")

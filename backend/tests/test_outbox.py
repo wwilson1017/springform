@@ -19,7 +19,7 @@ def _enqueue(hook: str, payload: dict) -> int:
 
 
 def _row(row_id: int) -> dict:
-    return core_db.one("SELECT * FROM core_outbox WHERE id = ?", (row_id,))
+    return core_db.must(core_db.one("SELECT * FROM core_outbox WHERE id = ?", (row_id,)))
 
 
 def test_claim_is_atomic_and_a_stale_claim_is_reclaimed(fresh, freeze):
@@ -86,7 +86,7 @@ def test_dead_after_five_attempts_with_backoff(fresh, freeze):
         assert row["attempts"] == attempt
         assert outbox.claim() is None  # backing off
         freeze(row["available_at"])
-    assert row["dead_at"] is not None
+    assert _row(row_id)["dead_at"] is not None
     assert outbox.claim() is None
 
 

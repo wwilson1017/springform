@@ -13,9 +13,9 @@ from backend.core.timeline import api as timeline
 def _person(name: str = "Ada") -> int:
     now = clock.now_iso()
     with core_db.transaction() as conn:
-        return conn.execute(
-            "INSERT INTO core_people (name, created_at, updated_at) VALUES (?, ?, ?)", (name, now, now)
-        ).lastrowid
+        return core_db.insert_in(
+            conn, "INSERT INTO core_people (name, created_at, updated_at) VALUES (?, ?, ?)", (name, now, now)
+        )
 
 
 def test_authorize_404_for_missing_or_unreadable_403_for_unwritable(app, make_user):

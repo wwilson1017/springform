@@ -24,8 +24,8 @@ _CONVERSATION = """SELECT c.id, c.user_id, c.agent_id, a.slug AS agent_slug, c.t
                      FROM core_agent_conversations c JOIN core_agents a ON a.id = c.agent_id"""
 
 
-def _conversation(row: dict | None) -> dict | None:
-    return {**row, "is_private": bool(row["is_private"])} if row else None
+def _conversation(row: dict) -> dict:
+    return {**row, "is_private": bool(row["is_private"])}
 
 
 # ── Conversations ─────────────────────────────────────────────────────────────
@@ -33,20 +33,22 @@ def _conversation(row: dict | None) -> dict | None:
 
 def create_conversation_in(conn: db.Conn, user_id: int, agent_id: int) -> int:
     now = now_iso()
-    return conn.execute(
+    return db.insert_in(
+        conn,
         "INSERT INTO core_agent_conversations (user_id, agent_id, created_at, updated_at) VALUES (?, ?, ?, ?)",
         (user_id, agent_id, now, now),
-    ).lastrowid
+    )
 
 
 def create_conversation(user_id: int, agent_id: int) -> dict:
     with db.transaction() as conn:
         conversation_id = create_conversation_in(conn, user_id, agent_id)
-    return get_conversation(conversation_id, user_id)
+    return db.must(get_conversation(conversation_id, user_id))
 
 
 def get_conversation(conversation_id: int, user_id: int) -> dict | None:
-    return _conversation(db.one(f"{_CONVERSATION} WHERE c.id = ? AND c.user_id = ?", (conversation_id, user_id)))
+    row = db.one(f"{_CONVERSATION} WHERE c.id = ? AND c.user_id = ?", (conversation_id, user_id))
+    return _conversation(row) if row else None
 
 
 def owner_of(conversation_id: int) -> int | None:
@@ -151,10 +153,11 @@ def save_message_in(
     """Insert one message and bump the thread. `tokens_in` (the cache-inclusive input the model
     read) also becomes the thread's fullness reading for compaction."""
     now = now_iso()
-    message_id = conn.execute(
+    message_id = db.insert_in(
+        conn,
         "INSERT INTO core_agent_messages (conversation_id, role, content, tokens_in, tokens_out, created_at) VALUES (?, ?, ?, ?, ?, ?)",
         (conversation_id, role, json.dumps(content, default=str), tokens_in, tokens_out, now),
-    ).lastrowid
+    )
     # simplification: the latest reading wins; two turns racing on one thread can leave a stale
     # one until the next turn. CakeCRM versions readings by compaction boundary if this bites.
     conn.execute(
@@ -221,7 +224,8 @@ def insert_tool_run_in(
     """`result` is already serialized (JSON text)."""
     now = now_iso()
     terminal = status in TERMINAL
-    return conn.execute(
+    return db.insert_in(
+        conn,
         """INSERT INTO core_agent_tool_runs (conversation_id, message_id, tool_use_id, tool, tool_def_sha256, args,
                                              status, result, error, user_id, source, requested_at, resolved_at, resolved_by)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
@@ -241,7 +245,7 @@ def insert_tool_run_in(
             now if terminal else None,
             user_id if terminal else None,
         ),
-    ).lastrowid
+    )
 
 
 def insert_tool_run(**kw) -> int:

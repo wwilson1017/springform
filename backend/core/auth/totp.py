@@ -74,7 +74,9 @@ def _check_code_in(conn: db.Conn, user_id: int, code: str, is_enabled: bool) -> 
     if not secret:
         return False
     totp, now, code = pyotp.TOTP(secret), clock.now(), (code or "").replace(" ", "")
-    step = next((totp.timecode(now) + i for i in (-1, 0, 1) if hmac.compare_digest(totp.at(now, i), code)), None)
+    step = next(
+        (totp.timecode(now) + i for i in (-1, 0, 1) if hmac.compare_digest(totp.at(now, counter_offset=i), code)), None
+    )
     if step is None or (row["last_used_at"] and int(row["last_used_at"]) >= step):
         return False
     conn.execute(
@@ -229,7 +231,7 @@ def login_totp(body: StepIn, request: Request, response: Response) -> dict:
         claims = jwt.decode_purpose(body.challenge, "totp")
         row = service.get_user(int(claims["sub"]))
     except (jwt.InvalidToken, KeyError, TypeError, ValueError):
-        row = None
+        raise HTTPException(401, detail="challenge_expired") from None
     if (
         not row
         or not row["is_active"]

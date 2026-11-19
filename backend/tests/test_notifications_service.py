@@ -1,6 +1,7 @@
 import json
 import sys
 import types
+from typing import Any
 
 import pytest
 
@@ -211,7 +212,7 @@ def _fake_pywebpush(monkeypatch, dead: set[str]) -> list[dict]:
         if subscription_info["endpoint"] in dead:
             raise WebPushException("gone", response=types.SimpleNamespace(status_code=410))
 
-    module = types.ModuleType("pywebpush")
+    module: Any = types.ModuleType("pywebpush")  # a stand-in module: its attributes are set below
     module.webpush, module.WebPushException = webpush, WebPushException
     monkeypatch.setitem(sys.modules, "pywebpush", module)
     return calls

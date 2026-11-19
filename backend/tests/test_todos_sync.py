@@ -1,6 +1,8 @@
 """The change feed: what `changes` reports to each person, the team rev and per-person revs, and
 tombstones for rows that leave someone's view. Ported in part from todo-gtd's test_changes.py."""
 
+from typing import Any
+
 import pytest
 
 from backend.apps.todos import service
@@ -96,7 +98,8 @@ def test_bad_cursors(two):
     todo = service.create_item(me, "a")
     out = service.changes(me, head(me) + 50)  # ahead of this database: it was put back
     assert out["reset"] is True and ids(out)["items"] == [todo["id"]] and out["next_since_rev"] == head(me)
-    for args in ({"since_rev": -1}, {"limit": 0}, {"limit": 501}):
+    bad: list[dict[str, Any]] = [{"since_rev": -1}, {"limit": 0}, {"limit": 501}]
+    for args in bad:
         with pytest.raises(Invalid):
             service.changes(me, **args)
 

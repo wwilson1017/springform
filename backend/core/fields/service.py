@@ -116,7 +116,7 @@ def create_definition_in(conn: db.Conn, user: User, data: dict) -> dict:
     options, required, position (default: after the last). Admin only. entity_type, key and type
     never change afterwards."""
     _require_admin(user)
-    entity_type, field_type = data.get("entity_type"), data.get("type")
+    entity_type, field_type = data.get("entity_type") or "", data.get("type")
     entities.get(entity_type)
     if field_type not in TYPES:
         raise Invalid(f"type: one of {', '.join(TYPES)}")
@@ -135,13 +135,14 @@ def create_definition_in(conn: db.Conn, user: User, data: dict) -> dict:
             "SELECT COALESCE(MAX(position), 0) + 10 FROM core_field_definitions WHERE entity_type = ?", (entity_type,)
         ).fetchone()[0]
     now = clock.now_iso()
-    cur = conn.execute(
+    definition_id = db.insert_in(
+        conn,
         """INSERT INTO core_field_definitions
            (entity_type, key, label, type, options, required, position, created_at, updated_at)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
         (entity_type, key, label, field_type, options, int(bool(data.get("required"))), int(position), now, now),
     )
-    return _get_in(conn, cur.lastrowid)
+    return _get_in(conn, definition_id)
 
 
 def create_definition(user: User, data: dict) -> dict:

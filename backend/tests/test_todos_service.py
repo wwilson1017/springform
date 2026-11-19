@@ -5,6 +5,7 @@ todo-gtd's service tests (docs/PROVENANCE.md); two-person rules are in test_todo
 import dataclasses
 import datetime
 import threading
+from typing import Any
 
 import pytest
 
@@ -192,8 +193,9 @@ class TestBulkUpdate:
     def test_caps_ids_and_rejects_non_integers(self, me):
         with pytest.raises(Invalid, match="too many ids"):
             service.bulk_update(me, list(range(501)), {"status": "done"})
+        ids: list[Any] = [1, "seven"]  # the wrong type on purpose
         with pytest.raises(Invalid, match="ids must be integers"):
-            service.bulk_update(me, [1, "seven"], {"status": "done"})
+            service.bulk_update(me, ids, {"status": "done"})
         with pytest.raises(Invalid, match="ids is required"):
             service.bulk_update(me, [], {"status": "done"})
 
@@ -408,9 +410,9 @@ def _person() -> int:
 
     now = clock.now_iso()
     with core_db.transaction() as conn:
-        return conn.execute(
-            "INSERT INTO core_people (name, created_at, updated_at) VALUES ('Ada', ?, ?)", (now, now)
-        ).lastrowid
+        return core_db.insert_in(
+            conn, "INSERT INTO core_people (name, created_at, updated_at) VALUES ('Ada', ?, ?)", (now, now)
+        )
 
 
 class TestAutoStar:

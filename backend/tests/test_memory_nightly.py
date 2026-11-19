@@ -1,6 +1,7 @@
 import json
 import sys
 import types
+from typing import Any
 
 import pytest
 
@@ -27,7 +28,7 @@ INSERT OR IGNORE INTO core_agents (slug, name, created_at) VALUES ('whisk', 'Whi
 @pytest.fixture
 def llm(db, monkeypatch):
     """A fake backend.core.agent.llm: records calls, returns `.reply`, or raises when it is None."""
-    mod = types.ModuleType(LLM)
+    mod: Any = types.ModuleType(LLM)  # a stand-in module: its attributes are set below
     mod.NoProviderConfigured = type("NoProviderConfigured", (Exception,), {})
     mod.calls, mod.reply, mod.during_call = [], '{"facts": []}', None
 
@@ -49,11 +50,12 @@ def llm(db, monkeypatch):
 
 def conversation(user_id: int, messages: list[tuple[str, str]], private: bool = False) -> int:
     with core_db.transaction() as conn:
-        cid = conn.execute(
+        cid = core_db.insert_in(
+            conn,
             """INSERT INTO core_agent_conversations (user_id, agent_id, is_private, created_at, updated_at)
                VALUES (?, (SELECT id FROM core_agents WHERE slug = 'whisk'), ?, ?, ?)""",
             (user_id, int(private), NOW, NOW),
-        ).lastrowid
+        )
         say(conn, cid, messages)
     return cid
 

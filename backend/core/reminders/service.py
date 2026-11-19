@@ -135,17 +135,18 @@ def create_in(
     zone (else the install's). `repeat` is a freq or None. A record needs `authorize(read)`."""
     if (entity_type is None) != (entity_id is None):
         raise Invalid("entity_type and entity_id go together")
-    if entity_type is not None:
+    if entity_type is not None and entity_id is not None:
         entities.authorize(user, conn, entity_type, entity_id, "read")
     zone = _zone(user)
     due = _instant(due_at, zone, "due_at")
     now = clock.now_iso()
-    rid = conn.execute(
+    rid = db.insert_in(
+        conn,
         """INSERT INTO core_reminders (owner_user_id, entity_type, entity_id, title, note, due_at, repeat, created_at, updated_at)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
         (user.id, entity_type, entity_id, _text(title, "title", TITLE_MAX, True), _text(note, "note", NOTE_MAX, False),
          due, _repeat(repeat, due, zone), now, now),
-    ).lastrowid  # fmt: skip
+    )  # fmt: skip
     conn.execute("UPDATE core_reminders SET series_id = id WHERE id = ?", (rid,))
     return _get_in(conn, user, rid)
 
@@ -166,7 +167,8 @@ def list_mine_in(
 ) -> list[dict]:
     """The caller's reminders with `from_ <= due_at < to`, soonest first. Reminders on records
     the caller can no longer read are left out."""
-    where, params = ["r.owner_user_id = ?"], [user.id]
+    where: list[str] = ["r.owner_user_id = ?"]
+    params: list[int | str] = [user.id]
     if status is not None:
         if status not in STATUSES:
             raise Invalid(f"status must be one of {', '.join(STATUSES)}")
@@ -353,7 +355,7 @@ def fire_due_in(conn: db.Conn) -> dict:
             conn,
             f"Reminder: {row['title']}",
             row["note"],
-            user_id=owner.id,
+            user_id=db.must(owner).id,
             entity=entity,
             link=None if entity else LINK,
         )

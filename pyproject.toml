@@ -29,12 +29,26 @@ dependencies = [
 dev = [
     # SQLite with FTS5 for dev/CI. Linux x86_64 wheels only; elsewhere the stdlib sqlite3 is used.
     "pysqlite3-binary>=0.5.4; sys_platform == 'linux' and platform_machine == 'x86_64'",
+    "pyright==1.1.414",
     "pytest>=8.3",
     "ruff>=0.7",
 ]
 
 [tool.uv]
 package = false
+
+[tool.pyright]
+include = ["backend", "scripts", "run.py", "conftest.py"]
+exclude = ["backend/static", "**/node_modules", "**/__pycache__"]
+typeCheckingMode = "standard"
+pythonVersion = "3.12"
+# Tests subscript and call rows and specs they have just made: a None there already fails the test
+# with a TypeError, so the Optional-access rules (about 270 hits) are off for test code only.
+# simplification: roots take no globs, so each app's tests folder is listed; add one when an app's tests need it.
+executionEnvironments = [
+    { root = "backend/tests", extraPaths = ["."], reportOptionalSubscript = "none", reportOptionalMemberAccess = "none", reportOptionalCall = "none" },
+    { root = "backend/apps/example/tests", extraPaths = ["."], reportOptionalSubscript = "none", reportOptionalMemberAccess = "none", reportOptionalCall = "none" },
+]
 
 [tool.pytest.ini_options]
 testpaths = ["backend/tests", "backend/apps"]

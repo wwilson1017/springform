@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
@@ -33,7 +34,7 @@ def test_apps_listing_by_role_and_hidden_state(login_as):
     def example(client) -> dict | None:  # forks install more apps; only the fixture is pinned here
         return next((a for a in client.get("/api/core/apps").json() if a["slug"] == "example"), None)
 
-    listed = example(member)
+    listed = core_db.must(example(member))
     assert set(listed) == {
         "slug",
         "name",
@@ -167,7 +168,8 @@ def test_samples_run_after_the_apps_they_require(app, monkeypatch):
             requires_core=">=0.1,<1",
             requires_apps=list(requires),
         )
-        return registry.App(manifest, Path(slug), {"seed": seed})
+        modules: dict[str, Any] = {"seed": seed}  # stand-in modules
+        return registry.App(manifest, Path(slug), modules)
 
     ordered = registry.dependency_order([fake("aaa"), fake("orders", "recipes"), fake("recipes"), fake("zzz")])
     assert [a.slug for a in ordered] == ["aaa", "recipes", "orders", "zzz"]

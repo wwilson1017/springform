@@ -51,7 +51,7 @@ class User:
 
 def system_user() -> User:
     """The system principal (id 0) for unattended work: jobs and their tool runs."""
-    return User.from_row(service.get_user(0))
+    return User.from_row(db.must(service.get_user(0)))
 
 
 def _unauthorized(detail: str = "not_authenticated") -> HTTPException:

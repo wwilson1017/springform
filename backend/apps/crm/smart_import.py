@@ -17,7 +17,7 @@ import json
 import logging
 import quopri
 import re
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from pydantic import ValidationError
 
@@ -73,7 +73,7 @@ Rules:
 def _person(raw: dict) -> dict | str | None:
     """One reviewed-shape person named by name, else email, else phone; None when the row has
     none of the three, or the reason it cannot be imported."""
-    fields = {
+    fields: dict[str, Any] = {
         k: " ".join(str(raw.get(k) or "").split())
         for k in ("name", "email", "phone", "organization", "title", "source")
     }

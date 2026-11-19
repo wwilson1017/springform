@@ -30,6 +30,7 @@ import logging
 import re
 import secrets
 import time
+from typing import TypeGuard
 from urllib.parse import quote, urlencode, urlparse
 
 import httpx
@@ -89,9 +90,17 @@ class _Response(google_transport.Response):
     def __init__(self, r: httpx.Response):
         self._r = r
 
-    status = property(lambda self: self._r.status_code)
-    headers = property(lambda self: self._r.headers)
-    data = property(lambda self: self._r.content)
+    @property
+    def status(self) -> int:
+        return self._r.status_code
+
+    @property
+    def headers(self) -> httpx.Headers:
+        return self._r.headers
+
+    @property
+    def data(self) -> bytes:
+        return self._r.content
 
 
 class _Request(google_transport.Request):
@@ -142,14 +151,14 @@ def identity(code: str, saved: dict) -> dict:
                 },
             )
         r.raise_for_status()
-        claims = id_token.verify_oauth2_token(r.json()["id_token"], _Request(), audience=client_id)
+        claims = dict(id_token.verify_oauth2_token(r.json()["id_token"], _Request(), audience=client_id))
     except (httpx.HTTPError, KeyError, ValueError, GoogleAuthError) as e:
         raise GoogleError(f"{type(e).__name__}: {e}") from e
     check_claims(claims, client_id, saved["nonce"])
     return claims
 
 
-def _usable(row: dict | None) -> bool:
+def _usable(row: dict | None) -> TypeGuard[dict]:
     return bool(row) and bool(row["is_active"]) and row["role"] != "system"
 
 
@@ -299,6 +308,7 @@ def google_callback(request: Request, state: str = "", code: str = "", error: st
     row, err = accept_invite(invite, claims["sub"]) if invite else match(claims)
     if err:
         return _go(fail + err)
+    row = db.must(row)
     if settings.get_setting(REQUIRE_TOTP, False) and totp.needs_step(request, row):
         return _go("/login#" + urlencode({"totp_challenge": totp.challenge(row)}))
     response = _go("/")
@@ -324,7 +334,7 @@ def google_stub(state: str = "") -> str:
 
 @router.get("/api/auth/google")
 def google_status(user: User = Depends(current_user)) -> dict:
-    row = service.get_user(user.id)
+    row = db.must(service.get_user(user.id))
     return {
         "available": available(),
         "linked": bool(row["google_sub"]),
@@ -334,7 +344,7 @@ def google_status(user: User = Depends(current_user)) -> dict:
 
 @router.post("/api/auth/google/unlink")
 def google_unlink(user: User = Depends(current_user)) -> dict:
-    if not service.has_password(service.get_user(user.id)["password_hash"]):
+    if not service.has_password(db.must(service.get_user(user.id))["password_hash"]):
         raise Conflict("password_required")
     with db.transaction() as conn:
         conn.execute("UPDATE core_users SET google_sub = NULL, updated_at = ? WHERE id = ?", (clock.now_iso(), user.id))
