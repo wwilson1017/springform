@@ -17,7 +17,7 @@ cd frontend && npm ci && npm run dev           # hot-reload frontend
 ```
 
 Before a PR, run `scripts/check.sh` (the Backend and Frontend CI checks: ruff, pyright, pytest,
-the types diff, ESLint, Prettier, typecheck, vitest, build). The Image test boots
+the types diff, the script self-tests, ESLint, Prettier, typecheck, vitest, build). The Image test boots
 `docker build -t springform .` and reads `/api/health`.
 
 Scaffold an app with `scripts/new-app.sh <slug> "<Name>"`. Fork tooling: `scripts/new-fork.sh`,
