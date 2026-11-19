@@ -33,9 +33,11 @@ def test_suppression_markers_fail_collection(pytester):
     pytester.makepyfile(test_suppressed=SUPPRESSED, test_clean=CLEAN)
     result = pytester.runpytest()
     assert result.ret == ExitCode.USAGE_ERROR
+    # fmt: off
     for line in ("test_skipped: @pytest.mark.skip", "test_skipped_if: @pytest.mark.skipif",
                  "test_expected_to_fail: @pytest.mark.xfail"):
         result.stderr.fnmatch_lines([f"*test_suppressed.py::{line}"])
+    # fmt: on
 
 
 def test_clean_tests_and_allow_listed_ids_pass(pytester, monkeypatch):

@@ -114,6 +114,7 @@ def test_two_members_share_the_directory_but_not_private_widgets(login_as):
     assert _ok(alice.get(f"{BASE}/people/{person['id']}"))["title"] == "Buyer"
     _ok(bob.post("/api/example/widgets", json={"name": "Private gear", "is_private": True, "person_id": person["id"]}))
     _ok(bob.post("/api/example/widgets", json={"name": "Open gear", "person_id": person["id"]}))
-    panel = lambda client: [w["name"] for w in _ok(client.get("/api/example/widgets", params={"person_id": person["id"]}))]  # noqa: E731
+    def panel(client):
+        return [w["name"] for w in _ok(client.get("/api/example/widgets", params={"person_id": person["id"]}))]
     assert panel(alice) == ["Open gear"]  # the widget's own rule, not the directory's
     assert panel(bob) == ["Private gear", "Open gear"]

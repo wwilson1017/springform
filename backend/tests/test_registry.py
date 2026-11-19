@@ -120,7 +120,8 @@ def test_every_app_sample_is_idempotent(app, make_user, monkeypatch):
 
     monkeypatch.setenv("PREVIEW_MODE", "1")
     preview.seed()
-    counts = lambda: {t: core_db.one(f"SELECT count(*) AS n FROM {t}")["n"] for a in registry.installed() for t in a.modules["seed"].RESET_TABLES}  # noqa: E731
+    def counts():
+        return {t: core_db.one(f"SELECT count(*) AS n FROM {t}")["n"] for a in registry.installed() for t in a.modules["seed"].RESET_TABLES}
     first = counts()
     preview.seed()
     assert counts() == first

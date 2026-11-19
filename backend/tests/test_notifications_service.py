@@ -236,7 +236,8 @@ def test_push_subscribe_send_and_dead_subscription(login_as, monkeypatch):
     notifications.flush()
     assert [c["endpoint"] for c in calls[2:]] == [live]
 
-    unsubscribe = lambda client, endpoint: client.request("DELETE", "/api/core/notifications/push/subscribe", json={"endpoint": endpoint})  # noqa: E731
+    def unsubscribe(client, endpoint):
+        return client.request("DELETE", "/api/core/notifications/push/subscribe", json={"endpoint": endpoint})
     assert unsubscribe(other, live).json() == {"removed": False}
     assert unsubscribe(member, live).json() == {"removed": True}
     assert notifications.deliver("Third", "", user_id=member.user["id"]) and len(_deliveries()) == 2  # no live subscription left

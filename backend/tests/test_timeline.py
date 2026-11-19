@@ -48,7 +48,8 @@ def test_apps_write_system_rows_through_the_api(login_as):
 def test_note_validation_and_missing_records(login_as):
     member = login_as("member")
     w = _widget(member)
-    post = lambda **b: member.post("/api/core/timeline", json={"entity_type": "example.widget", "entity_id": w["id"], "body": "x", **b})  # noqa: E731
+    def post(**b):
+        return member.post("/api/core/timeline", json={"entity_type": "example.widget", "entity_id": w["id"], "body": "x", **b})
     assert post(body="   ").status_code == 422
     assert post(entity_id=9999).status_code == 404
     assert post(entity_type="nope.thing").status_code == 404
