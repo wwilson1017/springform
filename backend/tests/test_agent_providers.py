@@ -18,7 +18,9 @@ def _no_fake(monkeypatch):
 def test_zero_keys_status_and_chat_400_while_the_rest_works(login_as):
     a = login_as("member")
     s = a.get("/api/agent/status").json()
-    assert s["configured"] is False and s["default_agent"] == "whisk" and s["models"] == {"default": None, "light": None}
+    assert (
+        s["configured"] is False and s["default_agent"] == "whisk" and s["models"] == {"default": None, "light": None}
+    )
     assert {p["provider"]: p["has_key"] for p in s["providers"]} == {"anthropic": False, "openai": False}
     r = a.post("/api/agent/chat", json={"message": "hi"})
     assert (r.status_code, r.json()) == (400, {"detail": "no_provider"})
@@ -40,7 +42,10 @@ def test_provider_routes_are_admin_only_and_never_leak_keys(login_as):
     for path in ("/api/agent/providers", "/api/agent/status"):
         assert KEY not in admin.get(path).text
     status = admin.get("/api/agent/status").json()
-    assert status["configured"] is True and status["models"] == {"default": "claude-opus-5-5", "light": "claude-haiku-5-5"}
+    assert status["configured"] is True and status["models"] == {
+        "default": "claude-opus-5-5",
+        "light": "claude-haiku-5-5",
+    }
     provider = get_provider(tier="light")
     assert (provider.provider_name, provider.model) == ("anthropic", "claude-haiku-5-5")
 
@@ -71,7 +76,11 @@ def test_llm_complete(db, monkeypatch):
 def test_agents_routes(login_as):
     admin, member = login_as("admin"), login_as("member")
     whisk = member.get("/api/agent/agents").json()[0]
-    assert (whisk["name"], whisk["is_default"], whisk["model_tier"]) == ("Whisk", True, "default") and "soul" not in whisk
+    assert (whisk["name"], whisk["is_default"], whisk["model_tier"]) == (
+        "Whisk",
+        True,
+        "default",
+    ) and "soul" not in whisk
     assert member.patch("/api/agent/agents/whisk", json={"name": "Pip"}).status_code == 403
     r = admin.patch("/api/agent/agents/whisk", json={"personality": "Answer in haiku.", "model_tier": "light"})
     assert r.status_code == 200 and (r.json()["personality"], r.json()["model_tier"]) == ("Answer in haiku.", "light")

@@ -73,7 +73,10 @@ Rules:
 def _person(raw: dict) -> dict | str | None:
     """One reviewed-shape person named by name, else email, else phone; None when the row has
     none of the three, or the reason it cannot be imported."""
-    fields = {k: " ".join(str(raw.get(k) or "").split()) for k in ("name", "email", "phone", "organization", "title", "source")}
+    fields = {
+        k: " ".join(str(raw.get(k) or "").split())
+        for k in ("name", "email", "phone", "organization", "title", "source")
+    }
     fields["name"] = fields["name"] or fields["email"] or fields["phone"]
     if not fields["name"]:
         return None
@@ -99,13 +102,26 @@ def _parse_csv(text: str) -> list[dict] | None:
     if not reader.fieldnames:
         return None
     by_header = {f.strip().lower(): f for f in reader.fieldnames if f}
-    columns = {field: next((by_header[a] for a in aliases if a in by_header), None) for field, aliases in ALIASES.items()}
+    columns = {
+        field: next((by_header[a] for a in aliases if a in by_header), None) for field, aliases in ALIASES.items()
+    }
     if not (columns["name"] or columns["first"] or columns["last"]):
         return None
     out = []
     for row in reader:
-        name = csv_cell(row, columns["name"]) or f"{csv_cell(row, columns['first'])} {csv_cell(row, columns['last'])}".strip()
-        out.append({"name": name, **{f: csv_cell(row, columns[f]) for f in ("email", "phone", "organization", "title", "source", "tags", "notes")}})
+        name = (
+            csv_cell(row, columns["name"])
+            or f"{csv_cell(row, columns['first'])} {csv_cell(row, columns['last'])}".strip()
+        )
+        out.append(
+            {
+                "name": name,
+                **{
+                    f: csv_cell(row, columns[f])
+                    for f in ("email", "phone", "organization", "title", "source", "tags", "notes")
+                },
+            }
+        )
     return out
 
 
@@ -118,7 +134,9 @@ def _parse_vcf(text: str) -> list[dict]:
         if upper == "BEGIN:VCARD":
             card = {}
         elif upper == "END:VCARD" and card is not None:
-            name = card.get("fn") or " ".join(reversed([p.strip() for p in card.get("n", "").split(";")[:2] if p.strip()]))
+            name = card.get("fn") or " ".join(
+                reversed([p.strip() for p in card.get("n", "").split(";")[:2] if p.strip()])
+            )
             people.append({"name": name, "email": card.get("email", ""), "phone": card.get("tel", ""), "organization": card.get("org", ""),
                            "title": card.get("title", ""), "source": "vCard", "notes": card.get("note", "")})  # fmt: skip
             card = None
@@ -140,12 +158,18 @@ def _parse_ai(text: str, filename: str, warnings: list[str]) -> list[dict]:
         text = text[:MAX_AI_CHARS]
         warnings.append("Only the first 200,000 characters were read; split the file to import the rest.")
     try:
-        reply = llm.complete(AI_SYSTEM_PROMPT, f"Filename: {filename}\n\nFile content:\n{text}", tier="light", max_tokens=8192)
+        reply = llm.complete(
+            AI_SYSTEM_PROMPT, f"Filename: {filename}\n\nFile content:\n{text}", tier="light", max_tokens=8192
+        )
     except llm.NoProviderConfigured:
-        raise Invalid("These columns are not recognised and no AI provider is set up. Rename the columns to name, email, phone, organization, title, source, tags and notes, or upload a vCard file.") from None
+        raise Invalid(
+            "These columns are not recognised and no AI provider is set up. Rename the columns to name, email, phone, organization, title, source, tags and notes, or upload a vCard file."
+        ) from None
     except llm.ProviderError:
         logger.warning("smart import: the provider failed", exc_info=True)
-        raise Invalid("The AI provider could not read this file. Try a CSV with named columns or a vCard file.") from None
+        raise Invalid(
+            "The AI provider could not read this file. Try a CSV with named columns or a vCard file."
+        ) from None
     fenced = re.search(r"```(?:json)?\s*([\s\S]*?)```", reply or "")
     body = (fenced.group(1) if fenced else reply or "").strip()
     for candidate in (body, *(m.group() for m in [re.search(r"\[[\s\S]*\]", body)] if m)):
@@ -156,7 +180,11 @@ def _parse_ai(text: str, filename: str, warnings: list[str]) -> list[dict]:
         if isinstance(data, dict) and len(data) == 1:
             data = next(iter(data.values()))
         if isinstance(data, list):
-            return [{**d, "organization": d.get("organization") or d.get("company") or ""} for d in data if isinstance(d, dict)]
+            return [
+                {**d, "organization": d.get("organization") or d.get("company") or ""}
+                for d in data
+                if isinstance(d, dict)
+            ]
     raise Invalid("The AI could not read any people from this file. Try a CSV with named columns or a vCard file.")
 
 
@@ -229,12 +257,16 @@ def confirm(user: User, people: list[dict]) -> dict:
     created, linked, skipped = [], 0, []
     with db.transaction() as conn:
         rows = _new_rows_in(conn, people, skipped)
-        org_ids = contacts.resolve_or_create_organizations_in(conn, user, [p["organization"] for _, p in rows if p["organization"]])
+        org_ids = contacts.resolve_or_create_organizations_in(
+            conn, user, [p["organization"] for _, p in rows if p["organization"]]
+        )
         for i, p in rows:
             conn.execute("SAVEPOINT crm_import_row")
             try:
                 fields = {k: p[k] for k in ("email", "phone", "title", "source", "notes") if p[k]}
-                person = contacts.create_person_in(conn, user, name=p["name"], tags=p["tags"], owner_user_id=user.id, **fields)
+                person = contacts.create_person_in(
+                    conn, user, name=p["name"], tags=p["tags"], owner_user_id=user.id, **fields
+                )
                 if p["organization"]:
                     contacts.link_in(conn, user, person["id"], org_ids[p["organization"]], p["title"], is_primary=True)
                     linked += 1

@@ -10,12 +10,21 @@ import { useJson } from '../api/useJson';
 import { LoadError } from '../../shared/LoadError';
 import { toast } from '../../shared/toast';
 import {
-  alertText, btnLink, btnPrimary, btnSecondary, errorText, inputSm, labelSm, noteText,
-  type GoogleConfig, type GoogleTest,
+  alertText,
+  btnLink,
+  btnPrimary,
+  btnSecondary,
+  errorText,
+  inputSm,
+  labelSm,
+  noteText,
+  type GoogleConfig,
+  type GoogleTest,
 } from './api';
 import { CopyField } from './fields';
 
-const putConfig = (body: Partial<GoogleConfig> & { client_secret?: string }) => putJson<GoogleConfig>('/api/auth/google/config', body);
+const putConfig = (body: Partial<GoogleConfig> & { client_secret?: string }) =>
+  putJson<GoogleConfig>('/api/auth/google/config', body);
 
 export default function GoogleConfigCard() {
   const { data: config, error, reload, setData } = useJson<GoogleConfig>('/api/auth/google/config');
@@ -68,8 +77,8 @@ function ConfigForm({ config, onSaved }: { config: GoogleConfig; onSaved: (c: Go
   return (
     <div className="flex max-w-xl flex-col gap-5">
       <p className={noteText}>
-        Create an OAuth client (type "Web application") in Google Cloud, add the redirect URI below
-        to it, then paste its client ID and secret here.
+        Create an OAuth client (type "Web application") in Google Cloud, add the redirect URI below to it, then paste
+        its client ID and secret here.
       </p>
       <div>
         <p className={labelSm}>Redirect URI</p>
@@ -77,50 +86,101 @@ function ConfigForm({ config, onSaved }: { config: GoogleConfig; onSaved: (c: Go
       </div>
       <form onSubmit={onSubmit} className="flex flex-col gap-3">
         <div>
-          <label htmlFor="google-client-id" className={labelSm}>Client ID</label>
-          <input id="google-client-id" value={clientId} onChange={e => setClientId(e.target.value)} autoComplete="off"
-            placeholder="1234567890-abc123.apps.googleusercontent.com" className={`${inputSm} font-mono text-xs`} />
+          <label htmlFor="google-client-id" className={labelSm}>
+            Client ID
+          </label>
+          <input
+            id="google-client-id"
+            value={clientId}
+            onChange={(e) => setClientId(e.target.value)}
+            autoComplete="off"
+            placeholder="1234567890-abc123.apps.googleusercontent.com"
+            className={`${inputSm} font-mono text-xs`}
+          />
         </div>
         <div>
-          <label htmlFor="google-secret" className={labelSm}>Client secret</label>
-          <input id="google-secret" type="password" value={secret} onChange={e => setSecret(e.target.value)} autoComplete="off"
-            placeholder={config.has_secret ? 'Saved. Type a new one to replace it.' : 'Not set'} className={inputSm} />
+          <label htmlFor="google-secret" className={labelSm}>
+            Client secret
+          </label>
+          <input
+            id="google-secret"
+            type="password"
+            value={secret}
+            onChange={(e) => setSecret(e.target.value)}
+            autoComplete="off"
+            placeholder={config.has_secret ? 'Saved. Type a new one to replace it.' : 'Not set'}
+            className={inputSm}
+          />
           {config.has_secret && (
-            <button type="button" disabled={busy} className={`${btnLink} mt-1 text-xs`}
-              onClick={() => void save({ client_secret: '' }, 'Client secret cleared.')}>
+            <button
+              type="button"
+              disabled={busy}
+              className={`${btnLink} mt-1 text-xs`}
+              onClick={() => void save({ client_secret: '' }, 'Client secret cleared.')}
+            >
               Clear the saved secret
             </button>
           )}
         </div>
-        {problem && <p role="alert" className={alertText}>{problem}</p>}
+        {problem && (
+          <p role="alert" className={alertText}>
+            {problem}
+          </p>
+        )}
         <div className="flex flex-wrap gap-2">
-          <button type="submit" disabled={busy || (clientId.trim() === config.client_id && !secret)} className={btnPrimary}>Save</button>
-          <button type="button" disabled={busy} className={btnSecondary} onClick={() => void runTest()}>Test</button>
+          <button
+            type="submit"
+            disabled={busy || (clientId.trim() === config.client_id && !secret)}
+            className={btnPrimary}
+          >
+            Save
+          </button>
+          <button type="button" disabled={busy} className={btnSecondary} onClick={() => void runTest()}>
+            Test
+          </button>
         </div>
       </form>
       {test && (
         <div role="status" className={`rounded-md border p-3 text-sm ${test.ok ? 'border-sf-green' : 'border-sf-red'}`}>
-          {test.ok
-            ? <p className="m-0 text-sf-ink"><span className="font-medium text-sf-green-text">Looks right.</span> Sign in with Google from a private window to finish checking.</p>
-            : (
-              <>
-                <p className="m-0 mb-1 font-medium text-sf-red-text">Not ready yet:</p>
-                <ul className="m-0 pl-5 text-sf-ink">{test.problems.map(p => <li key={p}>{p}</li>)}</ul>
-              </>
-            )}
+          {test.ok ? (
+            <p className="m-0 text-sf-ink">
+              <span className="font-medium text-sf-green-text">Looks right.</span> Sign in with Google from a private
+              window to finish checking.
+            </p>
+          ) : (
+            <>
+              <p className="m-0 mb-1 font-medium text-sf-red-text">Not ready yet:</p>
+              <ul className="m-0 pl-5 text-sf-ink">
+                {test.problems.map((p) => (
+                  <li key={p}>{p}</li>
+                ))}
+              </ul>
+            </>
+          )}
         </div>
       )}
       <div>
         <label className="flex cursor-pointer items-center gap-2 text-sm text-sf-ink">
-          <input type="checkbox" checked={config.require_totp_for_google} disabled={busy} aria-describedby="google-totp-hint"
+          <input
+            type="checkbox"
+            checked={config.require_totp_for_google}
+            disabled={busy}
+            aria-describedby="google-totp-hint"
             className="accent-sf-accent"
-            onChange={e => void save({ require_totp_for_google: e.target.checked }, e.target.checked
-              ? 'Google sign-ins now ask for the 2FA code too.' : 'Google sign-ins no longer ask for the 2FA code.')} />
+            onChange={(e) =>
+              void save(
+                { require_totp_for_google: e.target.checked },
+                e.target.checked
+                  ? 'Google sign-ins now ask for the 2FA code too.'
+                  : 'Google sign-ins no longer ask for the 2FA code.',
+              )
+            }
+          />
           Ask for the two-factor code after Google too
         </label>
         <p id="google-totp-hint" className="m-0 mt-1 pl-6 text-xs text-sf-ink-dim">
-          Off by default: Springform does not check whether the Google account itself uses 2-step verification.
-          Applies to people who turned on two-factor here.
+          Off by default: Springform does not check whether the Google account itself uses 2-step verification. Applies
+          to people who turned on two-factor here.
         </p>
       </div>
     </div>

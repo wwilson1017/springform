@@ -14,23 +14,30 @@ import { renameContext } from '../api';
  * Escape are off while a write is in flight: closing then would look like calling it off,
  * and the rename (or merge) would still land.
  */
-export function ContextRename({ context, onRenamed }: {
-  context: string;
-  onRenamed: (next: string) => void;
-}) {
+export function ContextRename({ context, onRenamed }: { context: string; onRenamed: (next: string) => void }) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState(context);
   const [busy, setBusy] = useState(false);
   const [confirm, setConfirm] = useState<{ name: string; text: string } | null>(null);
   const [error, setError] = useState('');
 
-  const close = () => { setOpen(false); setConfirm(null); setError(''); };
+  const close = () => {
+    setOpen(false);
+    setConfirm(null);
+    setError('');
+  };
   const confirming = confirm !== null && confirm.name === name.trim();
 
   const submit = async (merge: boolean) => {
     const next = name.trim();
-    if (!next) { setError('A context name is required.'); return; }
-    if (next === context) { close(); return; }
+    if (!next) {
+      setError('A context name is required.');
+      return;
+    }
+    if (next === context) {
+      close();
+      return;
+    }
     setBusy(true);
     setError('');
     try {
@@ -52,7 +59,11 @@ export function ContextRename({ context, onRenamed }: {
     return (
       <button
         type="button"
-        onClick={() => { setName(context); setConfirm(null); setOpen(true); }}
+        onClick={() => {
+          setName(context);
+          setConfirm(null);
+          setOpen(true);
+        }}
         aria-label={`Rename context ${context}`}
         className="rounded px-1.5 py-0.5 text-xs text-sf-ink-dim underline hover:text-sf-ink"
       >
@@ -63,31 +74,51 @@ export function ContextRename({ context, onRenamed }: {
 
   return (
     <form
-      onSubmit={e => { e.preventDefault(); void submit(false); }}
+      onSubmit={(e) => {
+        e.preventDefault();
+        void submit(false);
+      }}
       className="mt-1 flex w-full flex-wrap items-center gap-2 text-sm"
     >
       <input
         autoFocus
         value={name}
         maxLength={500}
-        onChange={e => { setName(e.target.value); setConfirm(null); setError(''); }}
-        onKeyDown={e => { if (e.key === 'Escape' && !busy) close(); }}
+        onChange={(e) => {
+          setName(e.target.value);
+          setConfirm(null);
+          setError('');
+        }}
+        onKeyDown={(e) => {
+          if (e.key === 'Escape' && !busy) close();
+        }}
         aria-label={`New name for context ${context}`}
         className="min-w-0 grow rounded-lg border border-sf-line-strong bg-sf-card px-2 py-1.5 text-sf-ink focus:border-sf-accent focus:outline-none"
       />
       {confirming ? (
-        <button type="button" disabled={busy} onClick={() => void submit(true)}
-                className="rounded-lg bg-sf-accent px-3 py-1.5 font-display text-sf-accent-ink hover:bg-sf-accent-dark disabled:opacity-40">
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => void submit(true)}
+          className="rounded-lg bg-sf-accent px-3 py-1.5 font-display text-sf-accent-ink hover:bg-sf-accent-dark disabled:opacity-40"
+        >
           Merge
         </button>
       ) : (
-        <button type="submit" disabled={busy}
-                className="rounded-lg bg-sf-accent px-3 py-1.5 font-display text-sf-accent-ink hover:bg-sf-accent-dark disabled:opacity-40">
+        <button
+          type="submit"
+          disabled={busy}
+          className="rounded-lg bg-sf-accent px-3 py-1.5 font-display text-sf-accent-ink hover:bg-sf-accent-dark disabled:opacity-40"
+        >
           Save
         </button>
       )}
-      <button type="button" disabled={busy} onClick={close}
-              className="px-2 py-1.5 text-sf-ink-dim hover:text-sf-ink disabled:opacity-40">
+      <button
+        type="button"
+        disabled={busy}
+        onClick={close}
+        className="px-2 py-1.5 text-sf-ink-dim hover:text-sf-ink disabled:opacity-40"
+      >
         Cancel
       </button>
       {(confirming || error) && (

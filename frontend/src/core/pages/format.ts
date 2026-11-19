@@ -6,7 +6,7 @@ export const CORE_LABEL = 'Springform';
 /** An app slug as a person reads it: the installed app's name, "Springform" for core. */
 export function appName(apps: CoreApp[] | null, slug: string | null | undefined): string {
   if (!slug || slug === 'core') return CORE_LABEL;
-  return apps?.find(a => a.slug === slug)?.name ?? slug;
+  return apps?.find((a) => a.slug === slug)?.name ?? slug;
 }
 
 /** A change-log value: JSON of any shape, shown on one line. */

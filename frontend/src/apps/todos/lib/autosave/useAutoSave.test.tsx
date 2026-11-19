@@ -53,8 +53,7 @@ function deferred() {
 }
 
 type Props = { performSave: () => Promise<SaveOutcome>; isDirty: () => boolean };
-const mount = (props: Props) =>
-  renderHook<Props, AutoSave>((p) => useAutoSave(p.performSave, p.isDirty), props);
+const mount = (props: Props) => renderHook<Props, AutoSave>((p) => useAutoSave(p.performSave, p.isDirty), props);
 
 describe('useAutoSave', () => {
   it('does not write when the draft matches the baseline', async () => {

@@ -59,7 +59,12 @@ def status() -> dict:
     """{configured, providers: [{provider, has_key, enabled, model_default, model_light, updated_at}],
     default_model, light_model}. Never carries a key."""
     if fake_enabled():
-        return {"configured": True, "providers": credentials.list_providers(), "default_model": "fake-default", "light_model": "fake-light"}
+        return {
+            "configured": True,
+            "providers": credentials.list_providers(),
+            "default_model": "fake-default",
+            "light_model": "fake-light",
+        }
     row = credentials.usable()
     return {
         "configured": row is not None,

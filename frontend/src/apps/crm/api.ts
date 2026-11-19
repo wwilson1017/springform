@@ -61,11 +61,13 @@ export const createDeal = (body: Partial<DealIn> & Pick<DealIn, 'title'>) => pos
 export const updateDeal = (id: number, body: DealPatch) => patchJson<Deal>(dealUrl(id), body);
 export const bulkMove = (ids: number[], stage: Stage, closedOn?: string) =>
   postJson<BulkMoveOut>(`${BASE}/deals/bulk-move`, { ids, stage, ...(closedOn ? { closed_on: closedOn } : {}) });
-export const markWon = (id: number, closedOn?: string) => postJson<Deal>(`${dealUrl(id)}/won`, closedOn ? { closed_on: closedOn } : {});
+export const markWon = (id: number, closedOn?: string) =>
+  postJson<Deal>(`${dealUrl(id)}/won`, closedOn ? { closed_on: closedOn } : {});
 export const markLost = (id: number, reason: string) => postJson<Deal>(`${dealUrl(id)}/lost`, { reason });
 export const archiveDeal = (id: number, reason: string) => postJson<Deal>(`${dealUrl(id)}/archive`, { reason });
 export const restoreDeal = (id: number) => postJson<Deal>(`${dealUrl(id)}/restore`);
-export const mergeDeal = (targetId: number, sourceId: number) => postJson<Deal>(`${dealUrl(targetId)}/merge`, { source_id: sourceId });
+export const mergeDeal = (targetId: number, sourceId: number) =>
+  postJson<Deal>(`${dealUrl(targetId)}/merge`, { source_id: sourceId });
 export const searchDeals = (q: string) => fetchJson<Deal[]>(searchUrl(q, false));
 
 // ── Activity ────────────────────────────────────────────────────────────────
@@ -97,7 +99,7 @@ export const saveStageCriteria = (stage: Stage, body: { summary: string; checkli
 /** The DELETE answers the standard criteria, but core's `del` drops bodies, so read them back. */
 export async function resetStageCriteria(stage: Stage): Promise<StageCriteria> {
   await del(`${stageCriteriaUrl}/${stage}`);
-  return (await fetchJson<StageCriteria[]>(stageCriteriaUrl)).find(c => c.stage === stage)!;
+  return (await fetchJson<StageCriteria[]>(stageCriteriaUrl)).find((c) => c.stage === stage)!;
 }
 
 export function parseImport(file: File) {
@@ -110,4 +112,3 @@ export const confirmImport = (people: ImportPerson[]) => postJson<ImportResult>(
 export const settingsUrl = `${BASE}/settings`;
 export const saveSettings = (body: Partial<CrmSettings>) => patchJson<CrmSettings>(settingsUrl, body);
 export const resetCrm = () => postJson<{ deals: number; activity: number }>(`${BASE}/reset`, { confirm: 'RESET' });
-

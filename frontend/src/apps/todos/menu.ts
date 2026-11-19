@@ -6,8 +6,7 @@
  * often). `sub` is the path below the app's root ('' = Today); `todoPath` makes it absolute.
  */
 export type ListKey =
-  | 'today' | 'inbox' | 'next' | 'search' | 'projects'
-  | 'areas' | 'waiting' | 'someday' | 'review' | 'done';
+  'today' | 'inbox' | 'next' | 'search' | 'projects' | 'areas' | 'waiting' | 'someday' | 'review' | 'done';
 
 export interface ListItem {
   key: ListKey;
@@ -29,8 +28,8 @@ export const LISTS: ListItem[] = [
   { key: 'done', label: 'Done', sub: '/done', tier: 'secondary' },
 ];
 
-export const PRIMARY = LISTS.filter(l => l.tier === 'primary');
-export const SECONDARY = LISTS.filter(l => l.tier === 'secondary');
+export const PRIMARY = LISTS.filter((l) => l.tier === 'primary');
+export const SECONDARY = LISTS.filter((l) => l.tier === 'secondary');
 
 /** The app's root, as the manifest mounts it (`app.json` path). */
 export const TODOS_ROOT = '/todos';
@@ -50,9 +49,7 @@ export const PHONE_QUERY = '(max-width: 767px)';
  * `widths` are the items' full widths (their own padding included, no gap between
  * them), `available` is the room for the whole run, `moreWidth` the "More" button.
  */
-export function overflowHidden(
-  widths: number[], available: number, moreWidth: number, current: number,
-): number[] {
+export function overflowHidden(widths: number[], available: number, moreWidth: number, current: number): number[] {
   const total = widths.reduce((a, b) => a + b, 0);
   if (total <= available) return [];
   // Something must go, so "More" is showing and takes its share first; then the
@@ -63,7 +60,10 @@ export function overflowHidden(
   widths.forEach((w, i) => {
     if (i === current) return;
     if (!full && used + w <= available) used += w;
-    else { full = true; hidden.push(i); }
+    else {
+      full = true;
+      hidden.push(i);
+    }
   });
   return hidden;
 }

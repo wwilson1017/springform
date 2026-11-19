@@ -2,7 +2,12 @@ import { UserPicker } from '../../../shared/UserPicker';
 import { input } from '../ui';
 
 /** Owner is an assignment and a filter, never a permission; `null` is a real state (unassigned). */
-export function OwnerSelect({ id, value, onChange, currentName }: {
+export function OwnerSelect({
+  id,
+  value,
+  onChange,
+  currentName,
+}: {
   id: string;
   value: number | null;
   onChange: (value: number | null) => void;
@@ -10,7 +15,13 @@ export function OwnerSelect({ id, value, onChange, currentName }: {
   currentName?: string | null;
 }) {
   return (
-    <UserPicker id={id} className={input} value={value === null ? '' : String(value)} valueName={currentName}
-      onChange={v => onChange(v ? Number(v) : null)} options={[['', 'Unassigned']]} />
+    <UserPicker
+      id={id}
+      className={input}
+      value={value === null ? '' : String(value)}
+      valueName={currentName}
+      onChange={(v) => onChange(v ? Number(v) : null)}
+      options={[['', 'Unassigned']]}
+    />
   );
 }

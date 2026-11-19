@@ -49,7 +49,12 @@ def untyped(spec: dict) -> set[str]:
 def test_core_routes_declare_response_models(app):
     spec = app.openapi()
     routes = in_scope(spec)
-    assert {"GET /api/health", "GET /api/core/backups", "GET /api/agent/status", "GET /api/core/mcp/links"} <= routes.keys()
+    assert {
+        "GET /api/health",
+        "GET /api/core/backups",
+        "GET /api/agent/status",
+        "GET /api/core/mcp/links",
+    } <= routes.keys()
     found = untyped(spec)
     assert sorted(found - UNTYPED.keys()) == [], "declare a response_model, or list the route in UNTYPED with a reason"
     assert sorted(UNTYPED.keys() - found) == [], "stale UNTYPED entries: the route is typed now, or gone"

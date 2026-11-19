@@ -25,17 +25,17 @@ export function DonePage() {
   const [editTodo, setEditTodo] = useState<Todo | null>(null);
 
   const visible = useMemo(
-    () => (todos ?? []).filter(
-      t => matchesContexts(t.context, contexts) && matchesPeople(t.people, people)
-        && matchesFilter(t, search),
-    ),
+    () =>
+      (todos ?? []).filter(
+        (t) => matchesContexts(t.context, contexts) && matchesPeople(t.people, people) && matchesFilter(t, search),
+      ),
     [todos, search, contexts, people],
   );
 
   return (
     <TodoShell active="done" onAdded={reload} scoped>
       <div className="mb-4 flex gap-1 border-b border-sf-line">
-        {(['done', 'dropped'] as const).map(m => (
+        {(['done', 'dropped'] as const).map((m) => (
           <button
             key={m}
             type="button"
@@ -56,23 +56,19 @@ export function DonePage() {
         onQueryChange={setSearch}
         placeholder="Search finished todos…"
         groups={[
-          contextGroup(
-            filters?.contexts ?? [],
-            contexts,
-            v => setContexts(prev => toggleValue(prev, v)),
-          ),
-          peopleGroup(
-            filters?.people ?? [],
-            people,
-            v => setPeople(prev => toggleValue(prev, v)),
-          ),
+          contextGroup(filters?.contexts ?? [], contexts, (v) => setContexts((prev) => toggleValue(prev, v))),
+          peopleGroup(filters?.people ?? [], people, (v) => setPeople((prev) => toggleValue(prev, v))),
         ]}
         visibleCount={visible.length}
         totalCount={todos?.length ?? 0}
         countNoun="todo"
         active={search.trim() !== '' || contexts.length + people.length > 0}
         activeFacetCount={contexts.length + people.length}
-        onClear={() => { setSearch(''); setContexts([]); setPeople([]); }}
+        onClear={() => {
+          setSearch('');
+          setContexts([]);
+          setPeople([]);
+        }}
       />
       {failed && <LoadFailed retry={reload} />}
       {!failed && todos === null && <LoadingRows />}
@@ -81,9 +77,8 @@ export function DonePage() {
       )}
       {!failed && todos !== null && todos.length > 0 && visible.length === 0 && <FilterEmptyState />}
       <div className="space-y-2">
-        {visible.map(t => (
-          <TodoRow key={t.id} todo={t} onToggleDone={toggleDone}
-                   onToggleStar={toggleStar} onEdit={setEditTodo} />
+        {visible.map((t) => (
+          <TodoRow key={t.id} todo={t} onToggleDone={toggleDone} onToggleStar={toggleStar} onEdit={setEditTodo} />
         ))}
       </div>
       {editTodo && (

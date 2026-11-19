@@ -35,25 +35,32 @@ export interface SettingsSection {
 
 const CORE_SECTIONS: SettingsSection[] = Object.values(
   import.meta.glob<SettingsSection[]>('../*/settingsCards.ts', { eager: true, import: 'default' }),
-).flat().sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+)
+  .flat()
+  .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 
 /** Every section for the apps this user receives (GET /api/core/apps), before the role filter. */
 export function settingsSections(apps: CoreApp[]): SettingsSection[] {
-  const coreIds = new Set(CORE_SECTIONS.map(s => s.id));
-  const appSections = apps.flatMap(app => {
+  const coreIds = new Set(CORE_SECTIONS.map((s) => s.id));
+  const appSections = apps.flatMap((app) => {
     // simplification: an app slug equal to a core section id ('workspace', 'apps', ...) is shadowed
     // by core; add those ids to the backend's reserved slugs if that ever bites.
     if (coreIds.has(app.slug)) return [];
-    const cards = settingsCardsFor(app.slug).map(c => ({ id: c.id, title: c.title, adminOnly: c.admin_only, Card: c.Card }));
+    const cards = settingsCardsFor(app.slug).map((c) => ({
+      id: c.id,
+      title: c.title,
+      adminOnly: c.admin_only,
+      Card: c.Card,
+    }));
     return cards.length ? [{ id: app.slug, label: app.name, cards }] : [];
   });
   return [...CORE_SECTIONS, ...appSections];
 }
 
 export function visibleCards(section: SettingsSection, isAdmin: boolean): SettingsCardDef[] {
-  return section.cards.filter(c => !c.adminOnly || isAdmin);
+  return section.cards.filter((c) => !c.adminOnly || isAdmin);
 }
 
 export function visibleSections(sections: SettingsSection[], isAdmin: boolean): SettingsSection[] {
-  return sections.filter(s => visibleCards(s, isAdmin).length > 0);
+  return sections.filter((s) => visibleCards(s, isAdmin).length > 0);
 }

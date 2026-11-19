@@ -21,7 +21,9 @@ def _widget(client, **body) -> int:
 
 def _upload(client, entity_id: int, name: str, data: bytes, mime: str | None = None, entity_type: str = W):
     file = (name, data, mime) if mime else (name, data)
-    return client.post("/api/core/files", data={"entity_type": entity_type, "entity_id": str(entity_id)}, files={"file": file})
+    return client.post(
+        "/api/core/files", data={"entity_type": entity_type, "entity_id": str(entity_id)}, files={"file": file}
+    )
 
 
 def _png(size=(40, 30)) -> bytes:
@@ -44,8 +46,14 @@ def test_upload_round_trips_sha256_and_dedupes(login_as):
     assert first.status_code == 201, first.text
     f = first.json()
     assert f == {
-        "id": f["id"], "filename": "notes.txt", "mime_type": "text/plain", "byte_size": len(data), "sha256": sha,
-        "created_at": f["created_at"], "uploaded_by": {"id": member.user["id"], "name": member.user["name"]}, "has_thumb": False,
+        "id": f["id"],
+        "filename": "notes.txt",
+        "mime_type": "text/plain",
+        "byte_size": len(data),
+        "sha256": sha,
+        "created_at": f["created_at"],
+        "uploaded_by": {"id": member.user["id"], "name": member.user["name"]},
+        "has_thumb": False,
     }
     again = _upload(member, w1, "renamed.txt", data, "text/plain")
     assert again.status_code == 200 and again.json() == f  # same bytes on the same record: the existing row
@@ -159,7 +167,9 @@ def test_merge_moves_files_and_the_targets_copy_wins_a_collision(login_as):
         entities.on_entity_merged_in(conn, W, target, source)
     assert sorted(f["id"] for f in files_api.list_for(member.principal, W, target)) == sorted([kept["id"], moved["id"]])
     assert files_api.list_for(member.principal, W, source) == []
-    assert core_db.one("SELECT unreferenced_since FROM core_file_blobs WHERE sha256 = ?", (kept["sha256"],)) == {"unreferenced_since": None}
+    assert core_db.one("SELECT unreferenced_since FROM core_file_blobs WHERE sha256 = ?", (kept["sha256"],)) == {
+        "unreferenced_since": None
+    }
 
 
 def test_published_api_has_in_forms(login_as):

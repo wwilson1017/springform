@@ -34,7 +34,9 @@ class UnsubscribeIn(BaseModel):
 
 
 @router.get("", response_model=list[Notification])
-def list_notifications(unread: bool = False, limit: int | None = None, user: User = Depends(current_user)) -> list[dict]:
+def list_notifications(
+    unread: bool = False, limit: int | None = None, user: User = Depends(current_user)
+) -> list[dict]:
     """The caller's notifications, newest first; rows whose record they can no longer read are hidden."""
     return service.list_for(user, unread=unread, limit=limit)
 

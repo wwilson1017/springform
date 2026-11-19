@@ -50,13 +50,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // The first answer. Inline rather than `refresh()` so the setState lands in a callback.
   useEffect(() => {
-    fetchMe().then(me => { setUser(me); setLoading(false); });
+    fetchMe().then((me) => {
+      setUser(me);
+      setLoading(false);
+    });
   }, []);
 
   const signOut = useCallback(async () => {
     try {
       await fetch('/api/auth/logout', { method: 'POST', credentials: 'same-origin' });
-    } catch { /* the cookie may survive an unreachable server; clearing local state still signs this tab out */ }
+    } catch {
+      /* the cookie may survive an unreachable server; clearing local state still signs this tab out */
+    }
     setUser(null);
   }, []);
 

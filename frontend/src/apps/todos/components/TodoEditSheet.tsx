@@ -42,9 +42,7 @@ export function TodoEditSheet({ todo, defaults, projects, contexts, onClose, onS
   const [title, setTitle] = useState(todo?.title ?? '');
   const [notes, setNotes] = useState(todo?.notes ?? '');
   const [status, setStatus] = useState<TodoStatus>(todo?.status ?? defaults?.status ?? 'inbox');
-  const [projectSel, setProjectSel] = useState<string>(
-    String(todo?.project_id ?? defaults?.project_id ?? ''),
-  );
+  const [projectSel, setProjectSel] = useState<string>(String(todo?.project_id ?? defaults?.project_id ?? ''));
   const [newProject, setNewProject] = useState('');
   const [context, setContext] = useState(todo?.context ?? '');
   // true = the picker has been swapped for the "type a brand new one" input.
@@ -57,9 +55,7 @@ export function TodoEditSheet({ todo, defaults, projects, contexts, onClose, onS
   const [revisit, setRevisit] = useState(todo?.revisit_on ?? '');
   const meta = useListFilters();
   const [repeat, setRepeat] = useState(todo?.repeat ?? '');
-  const [everyN, setEveryN] = useState(
-    todo?.repeat?.startsWith('every:') ? todo.repeat.slice(6) : '3',
-  );
+  const [everyN, setEveryN] = useState(todo?.repeat?.startsWith('every:') ? todo.repeat.slice(6) : '3');
   const [star, setStar] = useState(todo?.star ?? false);
   const [autoStar, setAutoStar] = useState(todo?.auto_star_on_due ?? false);
   // Who sees it and who it is for. A new todo starts at the install's default visibility,
@@ -90,20 +86,21 @@ export function TodoEditSheet({ todo, defaults, projects, contexts, onClose, onS
   // Derived every render from the context STRING rather than held in state: the meta
   // list arrives after the first render, and an index frozen at mount would then point
   // at a different context.
-  const contextSel = addingContext
-    ? NEW_CONTEXT
-    : (context ? String(contextOptions.indexOf(context)) : '');
+  const contextSel = addingContext ? NEW_CONTEXT : context ? String(contextOptions.indexOf(context)) : '';
 
   // Same rule as contexts: the todo's own area always has an option, even once
   // archived (the pickers only list active areas).
   const areaOptions = useMemo(
     () => withOwnArea(meta?.areas ?? [], todo?.area_id, todo?.area_name),
-    [meta?.areas, todo?.area_id, todo?.area_name]);
-  const projectArea = projects.find(p => String(p.id) === projectSel)?.area_name;
+    [meta?.areas, todo?.area_id, todo?.area_name],
+  );
+  const projectArea = projects.find((p) => String(p.id) === projectSel)?.area_name;
 
   useEffect(() => {
     if (asPage) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose, asPage]);
@@ -136,9 +133,14 @@ export function TodoEditSheet({ todo, defaults, projects, contexts, onClose, onS
     try {
       // A new project is made first, with the todo's visibility, so the pair keeps the
       // hierarchy rule by construction.
-      fields.project_id = projectSel === NEW_PROJECT
-        ? (newProject.trim() ? await projectIdFor(newProject.trim(), projects, { visibility }) : null)
-        : (projectSel ? Number(projectSel) : null);
+      fields.project_id =
+        projectSel === NEW_PROJECT
+          ? newProject.trim()
+            ? await projectIdFor(newProject.trim(), projects, { visibility })
+            : null
+          : projectSel
+            ? Number(projectSel)
+            : null;
       if (todo) {
         await updateTodo(todo.id, fields);
         // todo-gtd #2879 — edits only. Creating a todo that is already done has no prior
@@ -174,15 +176,14 @@ export function TodoEditSheet({ todo, defaults, projects, contexts, onClose, onS
         // CONTEXT too, so re-filing the item under a different context here is a
         // later decision that must retire the offer, where the very same edit leaves
         // a mark-done row (which puts back only the status) perfectly valid.
-        else if (
-          status !== todo.status
-          || (hasPendingFiling(todo.id) && context.trim() !== todo.context)
-        ) {
+        else if (status !== todo.status || (hasPendingFiling(todo.id) && context.trim() !== todo.context)) {
           dropUndo(todo.id);
         }
       } else {
-        const link = defaults?.entity_type && defaults.entity_id
-          ? { entity_type: defaults.entity_type, entity_id: defaults.entity_id } : {};
+        const link =
+          defaults?.entity_type && defaults.entity_id
+            ? { entity_type: defaults.entity_type, entity_id: defaults.entity_id }
+            : {};
         await createTodo({ ...fields, ...link } as ItemIn);
       }
       onSaved();
@@ -197,30 +198,40 @@ export function TodoEditSheet({ todo, defaults, projects, contexts, onClose, onS
   // it before saving, and what lands on the clipboard is what is on screen.
   // Lazy (called on click) so the string is only built when it is wanted.
   const copyFields = () => ({
-    title, notes, status,
-    projectName: projectSel === NEW_PROJECT
-      ? newProject.trim() || null
-      : projects.find(p => String(p.id) === projectSel)?.name ?? null,
-    context, tags: parseTags(tags),
-    dueDate: due || null, repeat: effectiveRepeat, star,
+    title,
+    notes,
+    status,
+    projectName:
+      projectSel === NEW_PROJECT
+        ? newProject.trim() || null
+        : (projects.find((p) => String(p.id) === projectSel)?.name ?? null),
+    context,
+    tags: parseTags(tags),
+    dueDate: due || null,
+    repeat: effectiveRepeat,
+    star,
   });
 
   return (
     <div
-      className={asPage ? '' : 'fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-sf-scrim p-0 sm:p-4'}
-      onMouseDown={e => { if (!asPage && e.target === e.currentTarget) onClose(); }}
+      className={
+        asPage ? '' : 'fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-sf-scrim p-0 sm:p-4'
+      }
+      onMouseDown={(e) => {
+        if (!asPage && e.target === e.currentTarget) onClose();
+      }}
     >
-      <div className={asPage
-        ? 'rounded-xl border border-sf-line bg-sf-card p-5'
-        : 'max-h-[92dvh] w-full sm:max-w-lg overflow-y-auto rounded-t-2xl sm:rounded-2xl border border-sf-line bg-sf-card p-5 shadow-lg'}>
+      <div
+        className={
+          asPage
+            ? 'rounded-xl border border-sf-line bg-sf-card p-5'
+            : 'max-h-[92dvh] w-full sm:max-w-lg overflow-y-auto rounded-t-2xl sm:rounded-2xl border border-sf-line bg-sf-card p-5 shadow-lg'
+        }
+      >
         <div className="flex items-center justify-between gap-3">
-          <h2 className="font-display text-lg font-bold text-sf-ink">
-            {todo ? 'Edit todo' : 'New todo'}
-          </h2>
+          <h2 className="font-display text-lg font-bold text-sf-ink">{todo ? 'Edit todo' : 'New todo'}</h2>
           {/* Whole todo — the heading names what this button copies. */}
-          {title.trim() && (
-            <CopyButton text={() => todoCopyText(copyFields())} label="Copy the whole todo" />
-          )}
+          {title.trim() && <CopyButton text={() => todoCopyText(copyFields())} label="Copy the whole todo" />}
         </div>
 
         <div className="mt-4 space-y-3">
@@ -231,138 +242,238 @@ export function TodoEditSheet({ todo, defaults, projects, contexts, onClose, onS
               </label>
               {/* Just this line — the common case is pasting the action itself
                   into a message, without the status/project scaffolding. */}
-              {title.trim() && (
-                <CopyButton text={() => nextActionCopyText(title)} label="Copy just the next action" />
-              )}
+              {title.trim() && <CopyButton text={() => nextActionCopyText(title)} label="Copy just the next action" />}
             </div>
-            <input id="tgtd-title" className={inputCls} value={title} autoFocus={!asPage}
-                   onChange={e => setTitle(e.target.value)} />
+            <input
+              id="tgtd-title"
+              className={inputCls}
+              value={title}
+              autoFocus={!asPage}
+              onChange={(e) => setTitle(e.target.value)}
+            />
           </div>
           <div>
-            <label className={labelCls} htmlFor="tgtd-notes">Notes</label>
-            <textarea id="tgtd-notes" className={`${inputCls} min-h-20`} value={notes}
-                      onChange={e => setNotes(e.target.value)} />
+            <label className={labelCls} htmlFor="tgtd-notes">
+              Notes
+            </label>
+            <textarea
+              id="tgtd-notes"
+              className={`${inputCls} min-h-20`}
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+            />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className={labelCls} htmlFor="tgtd-status">Status</label>
-              <select id="tgtd-status" className={inputCls} value={status}
-                      onChange={e => setStatus(e.target.value as TodoStatus)}>
-                {TODO_STATUS_ORDER.map(s => (
-                  <option key={s} value={s}>{STATUS_META[s].label}</option>
+              <label className={labelCls} htmlFor="tgtd-status">
+                Status
+              </label>
+              <select
+                id="tgtd-status"
+                className={inputCls}
+                value={status}
+                onChange={(e) => setStatus(e.target.value as TodoStatus)}
+              >
+                {TODO_STATUS_ORDER.map((s) => (
+                  <option key={s} value={s}>
+                    {STATUS_META[s].label}
+                  </option>
                 ))}
               </select>
             </div>
             <div>
-              <label className={labelCls} htmlFor="tgtd-due">Due date</label>
-              <input id="tgtd-due" type="date" className={inputCls} value={due}
-                     onChange={e => setDue(e.target.value)} />
+              <label className={labelCls} htmlFor="tgtd-due">
+                Due date
+              </label>
+              <input
+                id="tgtd-due"
+                type="date"
+                className={inputCls}
+                value={due}
+                onChange={(e) => setDue(e.target.value)}
+              />
             </div>
             <div>
-              <label className={labelCls} htmlFor="tgtd-project">Project</label>
-              <select id="tgtd-project" className={inputCls} value={projectSel}
-                      onChange={e => setProjectSel(e.target.value)}>
+              <label className={labelCls} htmlFor="tgtd-project">
+                Project
+              </label>
+              <select
+                id="tgtd-project"
+                className={inputCls}
+                value={projectSel}
+                onChange={(e) => setProjectSel(e.target.value)}
+              >
                 <option value="">No project</option>
-                {projects.map(p => (
-                  <option key={p.id} value={p.id}>{p.name}</option>
+                {projects.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
                 ))}
                 <option value={NEW_PROJECT}>+ New project…</option>
               </select>
               {projectSel === NEW_PROJECT && (
-                <input className={`${inputCls} mt-2`} placeholder="New project name"
-                       value={newProject} onChange={e => setNewProject(e.target.value)} />
+                <input
+                  className={`${inputCls} mt-2`}
+                  placeholder="New project name"
+                  value={newProject}
+                  onChange={(e) => setNewProject(e.target.value)}
+                />
               )}
             </div>
             <div>
-              <label className={labelCls} htmlFor="tgtd-context">Context</label>
+              <label className={labelCls} htmlFor="tgtd-context">
+                Context
+              </label>
               {/* A <select>, not an <input list>/<datalist>: mobile browsers do not
                   reliably render a datalist on a populated text input, so the picker
                   was invisible until the field was cleared (todo-gtd #2352). This is the same
                   select-plus-escape-hatch shape the Inbox triage card already uses,
                   and the shape Status/Project/Repeat use in this very form. */}
-              <select id="tgtd-context" className={inputCls} value={contextSel}
-                      onChange={e => {
-                        const v = e.target.value;
-                        if (v === NEW_CONTEXT) { setAddingContext(true); setContext(''); return; }
-                        setAddingContext(false);
-                        setContext(v ? contextOptions[Number(v)] ?? '' : '');
-                      }}>
+              <select
+                id="tgtd-context"
+                className={inputCls}
+                value={contextSel}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  if (v === NEW_CONTEXT) {
+                    setAddingContext(true);
+                    setContext('');
+                    return;
+                  }
+                  setAddingContext(false);
+                  setContext(v ? (contextOptions[Number(v)] ?? '') : '');
+                }}
+              >
                 <option value="">No context</option>
-                {contextOptions.map((c, i) => <option key={c} value={i}>{c}</option>)}
+                {contextOptions.map((c, i) => (
+                  <option key={c} value={i}>
+                    {c}
+                  </option>
+                ))}
                 <option value={NEW_CONTEXT}>+ New context…</option>
               </select>
               {addingContext && (
-                <input className={`${inputCls} mt-2`} placeholder="@calls"
-                       aria-label="New context" value={context}
-                       onChange={e => setContext(e.target.value)} />
+                <input
+                  className={`${inputCls} mt-2`}
+                  placeholder="@calls"
+                  aria-label="New context"
+                  value={context}
+                  onChange={(e) => setContext(e.target.value)}
+                />
               )}
             </div>
             <div>
-              <label className={labelCls} htmlFor="tgtd-repeat">Repeat</label>
-              <select id="tgtd-repeat" className={inputCls}
-                      value={isEvery ? 'every' : repeat}
-                      onChange={e => setRepeat(e.target.value)}>
-                {REPEAT_OPTIONS.map(o => (
-                  <option key={o.value} value={o.value}>{o.label}</option>
+              <label className={labelCls} htmlFor="tgtd-repeat">
+                Repeat
+              </label>
+              <select
+                id="tgtd-repeat"
+                className={inputCls}
+                value={isEvery ? 'every' : repeat}
+                onChange={(e) => setRepeat(e.target.value)}
+              >
+                {REPEAT_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
                 ))}
                 <option value="every">Every N days…</option>
               </select>
               {isEvery && (
-                <input type="number" min={1} max={9999} value={everyN}
-                       onChange={e => setEveryN(e.target.value)}
-                       className={`${inputCls} mt-2`} placeholder="N days" />
+                <input
+                  type="number"
+                  min={1}
+                  max={9999}
+                  value={everyN}
+                  onChange={(e) => setEveryN(e.target.value)}
+                  className={`${inputCls} mt-2`}
+                  placeholder="N days"
+                />
               )}
             </div>
             <div>
-              <label className={labelCls} htmlFor="tgtd-tags">Tags (comma-separated)</label>
-              <input id="tgtd-tags" className={inputCls} value={tags}
-                     onChange={e => setTags(e.target.value)} />
+              <label className={labelCls} htmlFor="tgtd-tags">
+                Tags (comma-separated)
+              </label>
+              <input id="tgtd-tags" className={inputCls} value={tags} onChange={(e) => setTags(e.target.value)} />
             </div>
             <div>
-              <label className={labelCls} htmlFor="tgtd-people">People (comma-separated)</label>
-              <PeopleInput id="tgtd-people" className={inputCls} value={people}
-                           onChange={setPeople} suggestions={meta?.people ?? []} />
+              <label className={labelCls} htmlFor="tgtd-people">
+                People (comma-separated)
+              </label>
+              <PeopleInput
+                id="tgtd-people"
+                className={inputCls}
+                value={people}
+                onChange={setPeople}
+                suggestions={meta?.people ?? []}
+              />
             </div>
             <div>
-              <label className={labelCls} htmlFor="tgtd-area">Area</label>
-              <select id="tgtd-area" className={inputCls} value={areaSel}
-                      onChange={e => setAreaSel(e.target.value)}>
+              <label className={labelCls} htmlFor="tgtd-area">
+                Area
+              </label>
+              <select id="tgtd-area" className={inputCls} value={areaSel} onChange={(e) => setAreaSel(e.target.value)}>
                 <option value="">{projectArea ? `Same as project (${projectArea})` : 'No area'}</option>
-                {areaOptions.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+                {areaOptions.map((a) => (
+                  <option key={a.id} value={a.id}>
+                    {a.name}
+                  </option>
+                ))}
               </select>
             </div>
             {/* Offered on someday items — and kept visible wherever a date is already
                 set, so it can always be seen and cleared. */}
             {(status === 'someday_maybe' || revisit) && (
               <div>
-                <label className={labelCls} htmlFor="tgtd-revisit">Bring back on…</label>
-                <input id="tgtd-revisit" type="date" className={inputCls} value={revisit}
-                       onChange={e => setRevisit(e.target.value)} />
+                <label className={labelCls} htmlFor="tgtd-revisit">
+                  Bring back on…
+                </label>
+                <input
+                  id="tgtd-revisit"
+                  type="date"
+                  className={inputCls}
+                  value={revisit}
+                  onChange={(e) => setRevisit(e.target.value)}
+                />
               </div>
             )}
-            <SharingFields idPrefix="tgtd" inline visibility={visibility} assignee={assignee}
-                           ownerId={todo?.owner_user_id ?? me.id} members={meta?.members ?? []}
-                           onChange={p => {
-                             if (p.visibility) setVisibility(p.visibility);
-                             if (p.assignee_user_id !== undefined) setAssignee(p.assignee_user_id);
-                           }} />
+            <SharingFields
+              idPrefix="tgtd"
+              inline
+              visibility={visibility}
+              assignee={assignee}
+              ownerId={todo?.owner_user_id ?? me.id}
+              members={meta?.members ?? []}
+              onChange={(p) => {
+                if (p.visibility) setVisibility(p.visibility);
+                if (p.assignee_user_id !== undefined) setAssignee(p.assignee_user_id);
+              }}
+            />
           </div>
           <label className="flex items-center gap-2 text-sm text-sf-ink">
-            <input type="checkbox" checked={star} onChange={e => setStar(e.target.checked)}
-                   className="h-4 w-4 accent-sf-amber" />
+            <input
+              type="checkbox"
+              checked={star}
+              onChange={(e) => setStar(e.target.checked)}
+              className="h-4 w-4 accent-sf-amber"
+            />
             ★ Today priority
           </label>
           {effectiveRepeat && (
             <div>
               <label className="flex items-center gap-2 text-sm text-sf-ink">
-                <input type="checkbox" checked={autoStar}
-                       onChange={e => setAutoStar(e.target.checked)}
-                       className="h-4 w-4 accent-sf-amber" />
+                <input
+                  type="checkbox"
+                  checked={autoStar}
+                  onChange={(e) => setAutoStar(e.target.checked)}
+                  className="h-4 w-4 accent-sf-amber"
+                />
                 ★ Star the next occurrence when it comes due today
               </label>
               <p className="mt-1 pl-6 text-xs text-sf-ink-dim">
-                Applies when completing this makes the next one due today, so a routine
-                finished late lands straight on the Today list.
+                Applies when completing this makes the next one due today, so a routine finished late lands straight on
+                the Today list.
               </p>
             </div>
           )}
@@ -370,25 +481,38 @@ export function TodoEditSheet({ todo, defaults, projects, contexts, onClose, onS
 
         {todo && (
           <p className="mt-3 text-xs text-sf-ink-dim">
-            {todo.visibility === 'team' && `Owner: ${todo.owner_name ?? memberName(meta?.members, todo.owner_user_id)} · `}
+            {todo.visibility === 'team' &&
+              `Owner: ${todo.owner_name ?? memberName(meta?.members, todo.owner_user_id)} · `}
             Source: {SOURCE_LABEL[todo.source]} · Created {new Date(todo.created_at).toLocaleDateString()}
             {todo.completed_at && ` · Completed ${new Date(todo.completed_at).toLocaleDateString()}`}
           </p>
         )}
-        {error && <p role="alert" className="mt-2 text-sm text-sf-red-text">{error}</p>}
+        {error && (
+          <p role="alert" className="mt-2 text-sm text-sf-red-text">
+            {error}
+          </p>
+        )}
 
         <div className="mt-5 flex items-center gap-2">
-          <button type="button" onClick={() => void save()} disabled={!title.trim() || busy}
-                  className="rounded-lg bg-sf-accent px-4 py-2 text-sm font-display text-sf-accent-ink hover:bg-sf-accent-dark disabled:opacity-40">
+          <button
+            type="button"
+            onClick={() => void save()}
+            disabled={!title.trim() || busy}
+            className="rounded-lg bg-sf-accent px-4 py-2 text-sm font-display text-sf-accent-ink hover:bg-sf-accent-dark disabled:opacity-40"
+          >
             {todo ? 'Save' : 'Add'}
           </button>
-          {!asPage && <button type="button" onClick={onClose}
-                  className="rounded-lg border border-sf-line-strong bg-sf-card px-4 py-2 text-sm font-display text-sf-ink hover:bg-sf-hover">
-            Cancel
-          </button>}
+          {!asPage && (
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-lg border border-sf-line-strong bg-sf-card px-4 py-2 text-sm font-display text-sf-ink hover:bg-sf-hover"
+            >
+              Cancel
+            </button>
+          )}
           {todo && !asPage && (
-            <Link to={todoPath(`/items/${todo.id}`)} onClick={onClose}
-                  className="ml-auto text-sm text-sf-accent-text">
+            <Link to={todoPath(`/items/${todo.id}`)} onClick={onClose} className="ml-auto text-sm text-sf-accent-text">
               Open page: notes, files, history
             </Link>
           )}

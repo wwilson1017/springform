@@ -49,7 +49,12 @@ def set_tz(tz):
 
 def test_lead_to_won_to_archive_to_restore_to_merge(me, people, freeze):
     deal = new(me, person_id=people["zoe"], organization_id=people["org"], value_cents=125_000, probability=30)
-    assert (deal["stage"], deal["status"], deal["person_name"], deal["organization_name"]) == ("lead", "open", "Zoë Démo", "Demo Café Group")
+    assert (deal["stage"], deal["status"], deal["person_name"], deal["organization_name"]) == (
+        "lead",
+        "open",
+        "Zoë Démo",
+        "Demo Café Group",
+    )
     assert (deal["currency"], deal["created_at"], deal["closed_on"]) == ("USD", NOW, None)
 
     won = deals.update(me, deal["id"], {"stage": "won"})
@@ -57,7 +62,11 @@ def test_lead_to_won_to_archive_to_restore_to_merge(me, people, freeze):
 
     freeze("2026-10-15T09:00:00Z")
     archived = deals.archive(me, deal["id"], "  Duplicate of another deal  ")
-    assert (archived["archived_at"], archived["archived_by"], archived["archived_reason"]) == ("2026-10-15T09:00:00Z", me.id, "Duplicate of another deal")
+    assert (archived["archived_at"], archived["archived_by"], archived["archived_reason"]) == (
+        "2026-10-15T09:00:00Z",
+        me.id,
+        "Duplicate of another deal",
+    )
     assert archived["updated_at"] == NOW, "archiving is not a touch"
     assert deals.board(me)["deals"] == []
     assert [d["id"] for d in deals.board(me, include_archived=True)["deals"]] == [deal["id"]]
@@ -85,8 +94,13 @@ def test_every_edit_lands_on_the_timeline_and_the_change_log(me):
     deals.update(me, deal["id"], {"stage": "qualified", "value_cents": 50_000})
     entry = timeline.list_for(me, "crm.deal", deal["id"])[0]
     assert entry["kind"] == "field_change"
-    assert {c["field"]: (c["old"], c["new"]) for c in entry["changes"]} == {"stage": ("lead", "qualified"), "value_cents": (0, 50_000)}
-    logged = core_db.rows("SELECT field FROM core_change_log WHERE entity = 'crm.deal' AND entity_id = ? ORDER BY field", (deal["id"],))
+    assert {c["field"]: (c["old"], c["new"]) for c in entry["changes"]} == {
+        "stage": ("lead", "qualified"),
+        "value_cents": (0, 50_000),
+    }
+    logged = core_db.rows(
+        "SELECT field FROM core_change_log WHERE entity = 'crm.deal' AND entity_id = ? ORDER BY field", (deal["id"],)
+    )
     assert [r["field"] for r in logged] == ["stage", "value_cents"]
 
 
@@ -102,10 +116,19 @@ def test_a_no_op_write_changes_nothing(me, freeze):
 
 def test_closing_settles_probability_and_leaving_lost_clears_the_reason(me):
     deal = new(me, probability=40)
-    assert deals.update(me, deal["id"], {"stage": "won", "probability": 30})["probability"] == 100, "the close overrides it"
-    assert deals.update(me, deal["id"], {"probability": 80})["probability"] == 80, "an edit after the close is the caller's"
+    assert deals.update(me, deal["id"], {"stage": "won", "probability": 30})["probability"] == 100, (
+        "the close overrides it"
+    )
+    assert deals.update(me, deal["id"], {"probability": 80})["probability"] == 80, (
+        "an edit after the close is the caller's"
+    )
     lost = deals.mark_lost(me, deal["id"], "  Went with another baker  ")
-    assert (lost["stage"], lost["probability"], lost["lost_reason"], lost["closed_on"]) == ("lost", 0, "Went with another baker", None)
+    assert (lost["stage"], lost["probability"], lost["lost_reason"], lost["closed_on"]) == (
+        "lost",
+        0,
+        "Went with another baker",
+        None,
+    )
     assert deals.mark_lost(me, deal["id"], "x" * 900)["lost_reason"] == "x" * 500
     assert deals.update(me, deal["id"], {"notes": "still lost"})["lost_reason"] == "x" * 500
     reopened = deals.update(me, deal["id"], {"stage": "negotiation"})
@@ -137,7 +160,9 @@ def test_closed_on_rules(me):
     assert deals.mark_won(me, deal["id"])["closed_on"] == "2026-10-01", "re-marking won keeps the day"
     assert deals.mark_won(me, deal["id"], "2026-10-03")["closed_on"] == "2026-10-03", "a day on a won deal edits it"
     assert deals.update(me, deal["id"], {"closed_on": "2026-10-04"})["closed_on"] == "2026-10-04"
-    assert deals.update(me, deal["id"], {"closed_on": None})["closed_on"] == "2026-10-04", "null is 'not given', never a blank"
+    assert deals.update(me, deal["id"], {"closed_on": None})["closed_on"] == "2026-10-04", (
+        "null is 'not given', never a blank"
+    )
     for bad in ("2026-10-15", "2026-02-30", "20261001", "yesterday"):
         with pytest.raises(Invalid):
             deals.mark_won(me, deal["id"], bad)
@@ -180,7 +205,10 @@ def test_bulk_move(me):
     deals.mark_lost(me, b["id"], "Budget")
     out = deals.bulk_move(me, [a["id"], b["id"], a["id"], c["id"], 9999], "won", "2026-10-10")
     assert (out["ok"], out["updated_ids"]) == (True, [a["id"], b["id"]])
-    assert out["errors"] == [f"Deal #{c['id']} is archived; restore it before changing its stage", "Deal 9999 not found"]
+    assert out["errors"] == [
+        f"Deal #{c['id']} is archived; restore it before changing its stage",
+        "Deal 9999 not found",
+    ]
     moved = deals.get(me, b["id"])
     assert (moved["closed_on"], moved["probability"], moved["lost_reason"]) == ("2026-10-10", 100, "")
     out = deals.bulk_move(me, [a["id"]], "proposal", "2026-10-10")
@@ -296,7 +324,9 @@ def test_a_person_merge_repoints_deals_and_keeps_the_higher_score(me, people):
         contacts.merge_people_in(conn, me, people["zoe"], people["ada"])
     assert deals.get(me, deal["id"])["person_id"] == people["zoe"]
     assert activity.list_(me)[0]["person_id"] == people["zoe"]
-    assert scoring.person_scores([people["zoe"], people["ada"]]) == [{"person_id": people["zoe"], "lead_score": 75, "lead_score_at": NOW}]
+    assert scoring.person_scores([people["zoe"], people["ada"]]) == [
+        {"person_id": people["zoe"], "lead_score": 75, "lead_score_at": NOW}
+    ]
 
 
 def test_a_failing_crm_subscriber_rolls_the_core_merge_back(me, people, monkeypatch):
@@ -309,13 +339,18 @@ def test_a_failing_crm_subscriber_rolls_the_core_merge_back(me, people, monkeypa
     with pytest.raises(RuntimeError), core_db.transaction() as conn:
         contacts.merge_people_in(conn, me, people["zoe"], people["ada"])
     assert deals.get(me, deal["id"])["person_id"] == people["ada"]
-    assert core_db.one("SELECT merged_into_id FROM core_people WHERE id = ?", (people["ada"],))["merged_into_id"] is None
+    assert (
+        core_db.one("SELECT merged_into_id FROM core_people WHERE id = ?", (people["ada"],))["merged_into_id"] is None
+    )
 
 
 def test_deleting_a_person_clears_its_score_and_unlinks_its_deals(me, people):
     deal = new(me, person_id=people["ada"])
     with core_db.transaction() as conn:
-        conn.execute("INSERT OR REPLACE INTO crm_person_scores (person_id, lead_score, lead_score_at) VALUES (?, 50, ?)", (people["ada"], NOW))
+        conn.execute(
+            "INSERT OR REPLACE INTO crm_person_scores (person_id, lead_score, lead_score_at) VALUES (?, 50, ?)",
+            (people["ada"], NOW),
+        )
         provenance.record_fields_in(conn, "core.person", people["ada"], ["title"])
         entities.delete_record_in(conn, "core.person", people["ada"])
     assert deals.get(me, deal["id"])["person_id"] is None
@@ -335,4 +370,6 @@ def test_reset_keeps_ids_climbing_and_leaves_nothing_behind(me, people, make_use
     fresh = new(make_user("member"), "A new deal")
     assert fresh["id"] > old["id"]
     assert timeline.list_for(me, "crm.deal", fresh["id"]) == []
-    assert core_db.rows("SELECT * FROM core_timeline WHERE entity_type = 'crm.deal' AND entity_id = ?", (old["id"],)) == []
+    assert (
+        core_db.rows("SELECT * FROM core_timeline WHERE entity_type = 'crm.deal' AND entity_id = ?", (old["id"],)) == []
+    )

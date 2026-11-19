@@ -29,8 +29,16 @@ def _schema(data_dir: Path, app_dirs: list[Path]) -> list[dict]:
         core_db.migrate(app_dirs)
         objects = core_db.rows("SELECT type, name, tbl_name, sql FROM sqlite_master")
         for o in objects:
-            o["fks"] = [r["table"] for r in core_db.rows(f"PRAGMA foreign_key_list('{o['name']}')")] if o["type"] == "table" else []
-            o["columns"] = {r["name"] for r in core_db.rows(f"PRAGMA table_info('{o['name']}')")} if o["type"] == "table" else set()
+            o["fks"] = (
+                [r["table"] for r in core_db.rows(f"PRAGMA foreign_key_list('{o['name']}')")]
+                if o["type"] == "table"
+                else []
+            )
+            o["columns"] = (
+                {r["name"] for r in core_db.rows(f"PRAGMA table_info('{o['name']}')")}
+                if o["type"] == "table"
+                else set()
+            )
         return objects
     finally:
         core_db.close()
@@ -52,7 +60,12 @@ def _cross_app_imports(app_dir: Path, slug: str) -> list[str]:
                 names = [module] if len(module.split(".")) >= 4 else [f"{module}.{a.name}" for a in node.names]
             for name in names:
                 parts = name.split(".")
-                if parts[:2] == ["backend", "apps"] and len(parts) > 2 and parts[2] != slug and parts[3:] not in [[m] for m in allowed]:
+                if (
+                    parts[:2] == ["backend", "apps"]
+                    and len(parts) > 2
+                    and parts[2] != slug
+                    and parts[3:] not in [[m] for m in allowed]
+                ):
                     found.append(f"{rel.as_posix()}: imports {name}; other apps are reachable only through <app>.api")
     return found
 
@@ -93,7 +106,7 @@ def contract_problems(app_dir: Path, tmp_path: Path) -> list[str]:
         if name == "_migrations_applied" or _SQLITE_INTERNAL.match(name):
             return "sqlite"
         for v in virtual:
-            if name.startswith(v) and name[len(v):] in _FTS_SHADOW:
+            if name.startswith(v) and name[len(v) :] in _FTS_SHADOW:
                 return owner(v)
         if name.startswith("core_"):
             return "core"
@@ -119,7 +132,9 @@ def contract_problems(app_dir: Path, tmp_path: Path) -> list[str]:
             owned_tables.add(o["name"])
         for target in o["fks"]:
             if owner(target) not in (slug, "core"):
-                p.append(f"table {o['name']!r} REFERENCES {target!r}; only {slug}_* and core_* tables may be referenced")
+                p.append(
+                    f"table {o['name']!r} REFERENCES {target!r}; only {slug}_* and core_* tables may be referenced"
+                )
     columns = {o["name"]: o["columns"] for o in objects}
 
     entity_types = set()
@@ -218,20 +233,30 @@ def test_cross_app_import_forms(tmp_path):
     (app_dir / "tests").mkdir(parents=True)
     runtime = app_dir / "service.py"
     tests = app_dir / "tests" / "test_x.py"
-    runtime.write_text("\n".join([
-        "from backend.apps.crm import api",
-        "from backend.apps.crm import api as crm",
-        "import backend.apps.crm.api as crm",
-        "import backend.apps.crm.api",
-        "from backend.apps.crm.api import get_deal",
-    ]), encoding="utf-8")
-    tests.write_text("\n".join([
-        "from backend.apps.crm import seed",
-        "import backend.apps.crm.seed",
-        "from backend.apps.crm.seed import sample",
-        "from .. import api",
-        "from .backend.apps.crm import service",
-    ]), encoding="utf-8")
+    runtime.write_text(
+        "\n".join(
+            [
+                "from backend.apps.crm import api",
+                "from backend.apps.crm import api as crm",
+                "import backend.apps.crm.api as crm",
+                "import backend.apps.crm.api",
+                "from backend.apps.crm.api import get_deal",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    tests.write_text(
+        "\n".join(
+            [
+                "from backend.apps.crm import seed",
+                "import backend.apps.crm.seed",
+                "from backend.apps.crm.seed import sample",
+                "from .. import api",
+                "from .backend.apps.crm import service",
+            ]
+        ),
+        encoding="utf-8",
+    )
     assert _cross_app_imports(app_dir, "shop") == []
 
     runtime.write_text("", encoding="utf-8")
@@ -252,28 +277,41 @@ def test_cross_app_import_forms(tmp_path):
         (tests, "from ... import x", None),
     ]:
         path.write_text(source, encoding="utf-8")
-        message = (f"imports {name}; other apps are reachable only through <app>.api"
-                   if name else "relative import leaves the app package")
+        message = (
+            f"imports {name}; other apps are reachable only through <app>.api"
+            if name
+            else "relative import leaves the app package"
+        )
         assert _cross_app_imports(app_dir, "shop") == [f"{path.relative_to(app_dir).as_posix()}: {message}"], source
         path.write_text("", encoding="utf-8")
 
 
 def _manifest(**overrides) -> dict:
-    return {"slug": "widgets", "name": "Widgets", "path": "/widgets", "roles": ["member"],
-            "version": "0.1.0", "requires_core": ">=0.1,<1", **overrides}
+    return {
+        "slug": "widgets",
+        "name": "Widgets",
+        "path": "/widgets",
+        "roles": ["member"],
+        "version": "0.1.0",
+        "requires_core": ">=0.1,<1",
+        **overrides,
+    }
 
 
-@pytest.mark.parametrize("overrides, message", [
-    ({"slug": "Widgets", "path": "/Widgets"}, "pattern"),
-    ({"slug": "auth", "path": "/auth"}, "reserved"),
-    ({"slug": "people", "path": "/people"}, "reserved"),
-    ({"slug": "core_tools", "path": "/core_tools"}, "core_"),
-    ({"path": "/other"}, "path must be '/widgets'"),
-    ({"roles": ["admin", "owner"]}, "roles"),
-    ({"roles": []}, "roles"),
-    ({"requires_core": "0.1"}, "requires_core"),
-    ({"badge": "/api/other/badge"}, "badge"),
-])
+@pytest.mark.parametrize(
+    "overrides, message",
+    [
+        ({"slug": "Widgets", "path": "/Widgets"}, "pattern"),
+        ({"slug": "auth", "path": "/auth"}, "reserved"),
+        ({"slug": "people", "path": "/people"}, "reserved"),
+        ({"slug": "core_tools", "path": "/core_tools"}, "core_"),
+        ({"path": "/other"}, "path must be '/widgets'"),
+        ({"roles": ["admin", "owner"]}, "roles"),
+        ({"roles": []}, "roles"),
+        ({"requires_core": "0.1"}, "requires_core"),
+        ({"badge": "/api/other/badge"}, "badge"),
+    ],
+)
 def test_manifest_rules(overrides, message):
     with pytest.raises(ValidationError, match=message):
         AppManifest.model_validate(_manifest(**overrides))
@@ -296,10 +334,18 @@ def test_core_migrations_reference_only_core(tmp_path):
 # Sign-in flows from the login package; /api/auth/google/stub is out of the schema (PREVIEW_MODE only).
 ALLOW_UNAUTHENTICATED = {
     "GET /api/health",
-    "GET /api/auth/status", "POST /api/auth/setup", "POST /api/auth/login", "POST /api/auth/login/totp",
-    "POST /api/auth/logout", "POST /api/auth/preview",
-    "GET /api/auth/google/start", "GET /api/auth/google/callback",
-    "GET /api/auth/invite/{token}", "POST /api/auth/invite/{token}", "POST /api/auth/forgot", "POST /api/auth/reset",
+    "GET /api/auth/status",
+    "POST /api/auth/setup",
+    "POST /api/auth/login",
+    "POST /api/auth/login/totp",
+    "POST /api/auth/logout",
+    "POST /api/auth/preview",
+    "GET /api/auth/google/start",
+    "GET /api/auth/google/callback",
+    "GET /api/auth/invite/{token}",
+    "POST /api/auth/invite/{token}",
+    "POST /api/auth/forgot",
+    "POST /api/auth/reset",
 }
 
 
@@ -350,7 +396,9 @@ def test_publishes_is_checked_at_boot(tmp_path):
     manifest = AppManifest.model_validate(_manifest(publishes=["get_widget"]))
     api = SimpleNamespace(get_widget=lambda: None)  # no get_widget_in
     with pytest.raises(AppContractError, match="no get_widget_in"):
-        registry.mount_app(FastAPI(), registry.App(manifest, tmp_path, {"router": SimpleNamespace(router=APIRouter()), "api": api}))
+        registry.mount_app(
+            FastAPI(), registry.App(manifest, tmp_path, {"router": SimpleNamespace(router=APIRouter()), "api": api})
+        )
 
 
 def app_models(app_dir: Path) -> dict[str, type[BaseModel]]:
@@ -375,8 +423,10 @@ def model_name_collisions(models_by_app: dict[str, dict[str, type[BaseModel]]]) 
     for slug, models in models_by_app.items():
         for name in models:
             if name in first:
-                problems.append(f"model {name!r} is defined by apps {first[name]} and {slug}; schema names are global, "
-                                f"so prefix one with its app (as scripts/new-app.sh does) or share a core model")
+                problems.append(
+                    f"model {name!r} is defined by apps {first[name]} and {slug}; schema names are global, "
+                    f"so prefix one with its app (as scripts/new-app.sh does) or share a core model"
+                )
             else:
                 first[name] = slug
     return problems
@@ -391,15 +441,23 @@ def test_no_two_apps_share_a_model_name():
 def test_model_name_check_catches_what_openapi_renames():
     def models(slug: str, badge_field: str) -> dict[str, type[BaseModel]]:
         module = f"backend.apps.{slug}.models"
-        return {"Badge": create_model("Badge", __module__=module, **{badge_field: (int, ...)}),
-                "Deleted": create_model("Deleted", __module__=module, deleted=(int, ...))}
+        return {
+            "Badge": create_model("Badge", __module__=module, **{badge_field: (int, ...)}),
+            "Deleted": create_model("Deleted", __module__=module, deleted=(int, ...)),
+        }
 
     by_app = {"alpha": models("alpha", "count"), "beta": models("beta", "total")}
     hint = "schema names are global, so prefix one with its app (as scripts/new-app.sh does) or share a core model"
-    assert model_name_collisions(by_app) == [f"model 'Badge' is defined by apps alpha and beta; {hint}",
-                                             f"model 'Deleted' is defined by apps alpha and beta; {hint}"]
-    assert model_name_collisions({"alpha": {"AlphaBadge": by_app["alpha"]["Badge"]},
-                                  "beta": {"BetaBadge": by_app["beta"]["Badge"]}}) == []
+    assert model_name_collisions(by_app) == [
+        f"model 'Badge' is defined by apps alpha and beta; {hint}",
+        f"model 'Deleted' is defined by apps alpha and beta; {hint}",
+    ]
+    assert (
+        model_name_collisions(
+            {"alpha": {"AlphaBadge": by_app["alpha"]["Badge"]}, "beta": {"BetaBadge": by_app["beta"]["Badge"]}}
+        )
+        == []
+    )
 
     # The harm the rule prevents: FastAPI renames both differing Badges.
     router = APIRouter()

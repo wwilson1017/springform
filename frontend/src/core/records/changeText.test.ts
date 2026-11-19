@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { describeChange, fieldName, holdsUser, humanize, showValue, type FieldInfo } from './changeText';
 
-const fields: FieldInfo = { favourite_cake: { label: 'Favourite cake', type: 'text' }, rep: { label: 'Account rep', type: 'user' } };
-const userName = (id: number) => ({ 2: 'Max Member' }[id] ?? `User #${id}`);
+const fields: FieldInfo = {
+  favourite_cake: { label: 'Favourite cake', type: 'text' },
+  rep: { label: 'Account rep', type: 'user' },
+};
+const userName = (id: number) => ({ 2: 'Max Member' })[id] ?? `User #${id}`;
 
 describe('timeline change text', () => {
   it('humanizes column names', () => {
@@ -30,9 +33,14 @@ describe('timeline change text', () => {
   });
 
   it('reads as a sentence', () => {
-    expect(describeChange({ field: 'value_cents', old: 480000, new: 500000 }, {}, userName)).toBe('Value changed from 4,800.00 to 5,000.00');
-    expect(describeChange({ field: 'field.favourite_cake', old: null, new: 'Lemon' }, fields, userName))
-      .toBe('Favourite cake changed from empty to Lemon');
-    expect(describeChange({ field: 'field.rep', old: null, new: 2 }, fields, userName)).toBe('Account rep changed from empty to Max Member');
+    expect(describeChange({ field: 'value_cents', old: 480000, new: 500000 }, {}, userName)).toBe(
+      'Value changed from 4,800.00 to 5,000.00',
+    );
+    expect(describeChange({ field: 'field.favourite_cake', old: null, new: 'Lemon' }, fields, userName)).toBe(
+      'Favourite cake changed from empty to Lemon',
+    );
+    expect(describeChange({ field: 'field.rep', old: null, new: 2 }, fields, userName)).toBe(
+      'Account rep changed from empty to Max Member',
+    );
   });
 });

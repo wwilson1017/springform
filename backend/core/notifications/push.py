@@ -83,7 +83,9 @@ def is_safe_endpoint(endpoint: str) -> bool:
         ip = ipaddress.ip_address(host)
     except ValueError:
         return True  # a hostname, not an IP literal
-    return not (ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved or ip.is_multicast or ip.is_unspecified)
+    return not (
+        ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved or ip.is_multicast or ip.is_unspecified
+    )
 
 
 def subscribe_in(conn: db.Conn, user: User, endpoint: str, p256dh: str, auth: str) -> None:
@@ -106,7 +108,12 @@ def subscribe(user: User, endpoint: str, p256dh: str, auth: str) -> None:
 
 def unsubscribe_in(conn: db.Conn, user: User, endpoint: str) -> bool:
     """Only the caller's own subscription; another user's endpoint reports False, not 403."""
-    return conn.execute("DELETE FROM core_push_subscriptions WHERE endpoint = ? AND user_id = ?", (endpoint, user.id)).rowcount > 0
+    return (
+        conn.execute(
+            "DELETE FROM core_push_subscriptions WHERE endpoint = ? AND user_id = ?", (endpoint, user.id)
+        ).rowcount
+        > 0
+    )
 
 
 def unsubscribe(user: User, endpoint: str) -> bool:
@@ -145,7 +152,11 @@ def send(p: dict) -> None:
         try:
             webpush(
                 subscription_info={"endpoint": sub["endpoint"], "keys": {"p256dh": sub["p256dh"], "auth": sub["auth"]}},
-                data=data, vapid_private_key=private, vapid_claims={"sub": subject()}, timeout=TIMEOUT, ttl=TTL,
+                data=data,
+                vapid_private_key=private,
+                vapid_claims={"sub": subject()},
+                timeout=TIMEOUT,
+                ttl=TTL,
             )
         except WebPushException as e:
             status = getattr(e.response, "status_code", None)

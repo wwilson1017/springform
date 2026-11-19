@@ -9,13 +9,31 @@ import { Launcher } from './Launcher';
 
 const user = (role: User['role']): User => ({ id: 1, email: 'a@example.com', name: 'A', role, tz: 'UTC' });
 const app = (slug: string, extra: Partial<CoreApp> = {}): CoreApp => ({
-  slug, name: slug[0].toUpperCase() + slug.slice(1), description: `${slug} app`, path: `/${slug}`, icon: 'flask',
-  roles: ['admin', 'member'], order: 1, badge: null, hidden: false, settings_cards: [], version: '0.1.0', ...extra,
+  slug,
+  name: slug[0].toUpperCase() + slug.slice(1),
+  description: `${slug} app`,
+  path: `/${slug}`,
+  icon: 'flask',
+  roles: ['admin', 'member'],
+  order: 1,
+  badge: null,
+  hidden: false,
+  settings_cards: [],
+  version: '0.1.0',
+  ...extra,
 });
 
 function renderLauncher(role: User['role'], apps: CoreApp[], extra = {}) {
   const fetchMock = mockFetch({ 'GET /api/me': { body: user(role) }, 'GET /api/core/apps': { body: apps }, ...extra });
-  render(<MemoryRouter><AuthProvider><CoreAppsProvider><Launcher /></CoreAppsProvider></AuthProvider></MemoryRouter>);
+  render(
+    <MemoryRouter>
+      <AuthProvider>
+        <CoreAppsProvider>
+          <Launcher />
+        </CoreAppsProvider>
+      </AuthProvider>
+    </MemoryRouter>,
+  );
   return fetchMock;
 }
 
@@ -56,12 +74,18 @@ describe('Launcher', () => {
     expect(badgeCalls()).toBe(1);
 
     setVisibility('hidden');
-    await act(async () => { vi.advanceTimersByTime(60_000); });
+    await act(async () => {
+      vi.advanceTimersByTime(60_000);
+    });
     expect(badgeCalls()).toBe(1);
 
-    await act(async () => { setVisibility('visible'); });
+    await act(async () => {
+      setVisibility('visible');
+    });
     expect(badgeCalls()).toBe(2);
-    await act(async () => { vi.advanceTimersByTime(60_000); });
+    await act(async () => {
+      vi.advanceTimersByTime(60_000);
+    });
     expect(badgeCalls()).toBe(3);
   });
 });

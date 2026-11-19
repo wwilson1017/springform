@@ -207,7 +207,7 @@ def dependency_order(apps: list[App]) -> list[App]:
             path = [pending[0].slug]
             while (nxt := next(s for s in by_slug[path[-1]].manifest.requires_apps if s not in placed)) not in path:
                 path.append(nxt)
-            raise AppContractError(f"App requires_apps form a cycle: {' -> '.join([*path[path.index(nxt):], nxt])}")
+            raise AppContractError(f"App requires_apps form a cycle: {' -> '.join([*path[path.index(nxt) :], nxt])}")
         pending.remove(app)
         placed.add(app.slug)
         ordered.append(app)
@@ -325,12 +325,22 @@ def list_for_user(user: User) -> list[dict]:
         hidden = bool(state.get(m.slug, {}).get("hidden"))
         if user.role not in m.roles or (hidden and not user.is_admin):
             continue
-        out.append({
-            "slug": m.slug, "name": m.name, "description": m.description, "path": m.path, "icon": m.icon,
-            "roles": list(m.roles), "order": m.order, "badge": m.badge, "hidden": hidden,
-            "settings_cards": [c.model_dump() for c in m.settings_cards if user.is_admin or not c.admin_only],
-            "version": m.version, "_position": state.get(m.slug, {}).get("position"),
-        })
+        out.append(
+            {
+                "slug": m.slug,
+                "name": m.name,
+                "description": m.description,
+                "path": m.path,
+                "icon": m.icon,
+                "roles": list(m.roles),
+                "order": m.order,
+                "badge": m.badge,
+                "hidden": hidden,
+                "settings_cards": [c.model_dump() for c in m.settings_cards if user.is_admin or not c.admin_only],
+                "version": m.version,
+                "_position": state.get(m.slug, {}).get("position"),
+            }
+        )
     out.sort(key=lambda a: (a["_position"] is None, a["_position"] or 0, a["order"], a["slug"]))
     for a in out:
         del a["_position"]
@@ -348,7 +358,8 @@ def _seed_app_in(conn: db.Conn, app: App) -> None:
     """The app's launcher state on first sight (hidden when its manifest says `hidden_by_default`;
     an existing row is the admin's choice and stays), then its seed."""
     conn.execute(
-        "INSERT OR IGNORE INTO core_apps_state (slug, hidden) VALUES (?, ?)", (app.slug, int(app.manifest.hidden_by_default))
+        "INSERT OR IGNORE INTO core_apps_state (slug, hidden) VALUES (?, ?)",
+        (app.slug, int(app.manifest.hidden_by_default)),
     )
     app.modules["seed"].seed(conn)
 
@@ -392,10 +403,13 @@ def factory_reset_in(conn: db.Conn, caller: User | None = None, *, keep_job_runs
     if not settings.preview_mode() and _holds_data(conn, caller):
         raise Forbidden("Factory reset is only allowed in preview mode or on an install that holds no data.")
     conn.execute("PRAGMA defer_foreign_keys = ON")
-    virtual = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type = 'table' AND sql LIKE 'CREATE VIRTUAL%'")}
+    virtual = {
+        r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type = 'table' AND sql LIKE 'CREATE VIRTUAL%'")
+    }
     shadow = {f"{v}_{s}" for v in virtual for s in ("data", "idx", "content", "docsize", "config")}
     tables = [
-        r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type = 'table'")
+        r[0]
+        for r in conn.execute("SELECT name FROM sqlite_master WHERE type = 'table'")
         if not r[0].startswith("sqlite_") and r[0] != "_migrations_applied" and r[0] not in virtual | shadow
     ]
     for table in tables:  # FTS tables follow through their triggers

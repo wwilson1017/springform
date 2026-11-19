@@ -10,11 +10,14 @@ export function ZeroKeyCard({ isAdmin }: { isAdmin: boolean }) {
       </span>
       <h2 className="m-0 font-display text-lg font-medium text-sf-ink">Whisk needs an AI key</h2>
       <p className="m-0 text-sm text-sf-ink-soft">
-        Whisk answers with a model from Anthropic or OpenAI, and no key is set up yet. Every other part of
-        the app works without one.
+        Whisk answers with a model from Anthropic or OpenAI, and no key is set up yet. Every other part of the app works
+        without one.
       </p>
       {isAdmin ? (
-        <Link to="/settings/ai" className="mt-2 rounded-md bg-sf-accent px-4 py-2 text-sm font-medium text-sf-accent-ink no-underline">
+        <Link
+          to="/settings/ai"
+          className="mt-2 rounded-md bg-sf-accent px-4 py-2 text-sm font-medium text-sf-accent-ink no-underline"
+        >
           Add a key in AI settings
         </Link>
       ) : (

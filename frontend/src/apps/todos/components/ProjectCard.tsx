@@ -34,19 +34,15 @@ export function ProjectCard({ project, stalled, onCloseOut }: Props) {
       {/* `flex-wrap` so in a narrow cell the badge and button drop under the title
           instead of crushing it. */}
       <div className="pointer-events-none relative flex flex-wrap items-start justify-between gap-2">
-        <p className="min-w-0 break-words font-display font-semibold text-sf-ink">
-          {project.name}
-        </p>
+        <p className="min-w-0 break-words font-display font-semibold text-sf-ink">{project.name}</p>
         <div className="flex max-w-full flex-wrap items-center gap-2">
           {project.visibility === 'team' && (
             <span className="rounded-full bg-sf-ai/15 px-2 py-0.5 text-xs text-sf-ai-text">Team</span>
           )}
-          <span className="rounded-full bg-sf-bg px-2 py-0.5 text-xs text-sf-ink-dim">
-            {project.open_count} open
-          </span>
+          <span className="rounded-full bg-sf-bg px-2 py-0.5 text-xs text-sf-ink-dim">{project.open_count} open</span>
           <button
             type="button"
-            onClick={e => onCloseOut(e, project)}
+            onClick={(e) => onCloseOut(e, project)}
             title={closed ? 'Reopen this project' : 'Mark this project completed'}
             className="pointer-events-auto rounded-lg border border-sf-line-strong px-2 py-0.5 text-xs font-display text-sf-ink-dim hover:bg-sf-hover hover:text-sf-ink"
           >
@@ -55,9 +51,7 @@ export function ProjectCard({ project, stalled, onCloseOut }: Props) {
         </div>
       </div>
       {project.notes && (
-        <p className="pointer-events-none relative mt-1 line-clamp-2 text-sm text-sf-ink-dim">
-          {project.notes}
-        </p>
+        <p className="pointer-events-none relative mt-1 line-clamp-2 text-sm text-sf-ink-dim">{project.notes}</p>
       )}
       {stalled && (
         <p className="pointer-events-none relative mt-2 text-xs font-semibold text-sf-red-text">

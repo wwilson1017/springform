@@ -77,12 +77,22 @@ class Entity:
 
 CORE_ENTITIES = [
     Entity(
-        "core.person", "core_people", "Person", "People", lambda i: f"/people/{i}", title_from("core_people"),
+        "core.person",
+        "core_people",
+        "Person",
+        "People",
+        lambda i: f"/people/{i}",
+        title_from("core_people"),
         archived_column="archived_at",
     ),
     Entity(
-        "core.organization", "core_organizations", "Organization", "Organizations",
-        lambda i: f"/organizations/{i}", title_from("core_organizations"), archived_column="archived_at",
+        "core.organization",
+        "core_organizations",
+        "Organization",
+        "Organizations",
+        lambda i: f"/organizations/{i}",
+        title_from("core_organizations"),
+        archived_column="archived_at",
     ),
 ]
 
@@ -183,12 +193,16 @@ def on_entity_merged_in(conn: Conn, entity_type: str, target_id: int, source_id:
         fn(conn, entity_type, target_id, source_id)
 
 
-def on_record_changed_in(conn: Conn, entity_type: str, entity_id: int, changes: list[dict], user_id: int | None) -> None:
+def on_record_changed_in(
+    conn: Conn, entity_type: str, entity_id: int, changes: list[dict], user_id: int | None
+) -> None:
     for fn in _SUBSCRIBERS["on_record_changed"]:
         fn(conn, entity_type, entity_id, changes, user_id)
 
 
-def after_record_changed_in(conn: Conn, entity_type: str, entity_id: int, changes: list[dict], user_id: int | None) -> None:
+def after_record_changed_in(
+    conn: Conn, entity_type: str, entity_id: int, changes: list[dict], user_id: int | None
+) -> None:
     """Queue one durable outbox row per after_record_changed subscriber; they run after COMMIT."""
     payload = {"entity_type": entity_type, "entity_id": entity_id, "changes": changes, "user_id": user_id}
     for hook in _AFTER_HOOKS:

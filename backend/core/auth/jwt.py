@@ -41,5 +41,9 @@ def mint_purpose(purpose: str, claims: dict, seconds: float) -> str:
 def decode_purpose(token: str, purpose: str) -> dict:
     """The claims of a valid, unexpired token minted for `purpose`; raises InvalidToken otherwise."""
     return pyjwt.decode(
-        token, settings.secret_key(), algorithms=[ALGORITHM], audience=f"sf:{purpose}", options={"require": ["aud", "exp"]}
+        token,
+        settings.secret_key(),
+        algorithms=[ALGORITHM],
+        audience=f"sf:{purpose}",
+        options={"require": ["aud", "exp"]},
     )

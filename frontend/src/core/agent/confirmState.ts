@@ -15,7 +15,14 @@ export type Decision = 'approve' | 'deny';
 export type ConfirmState =
   | { phase: 'pending'; failure?: string }
   | { phase: 'sending'; decision: Decision }
-  | { phase: 'resolved'; decision: Decision; outcome: ConfirmOutcome; result?: unknown; error?: string; current?: ToolStatus };
+  | {
+      phase: 'resolved';
+      decision: Decision;
+      outcome: ConfirmOutcome;
+      result?: unknown;
+      error?: string;
+      current?: ToolStatus;
+    };
 
 export type ConfirmEvent =
   | { type: 'decide'; decision: Decision }
@@ -35,7 +42,14 @@ export function confirmReducer(state: ConfirmState, event: ConfirmEvent): Confir
       const { status, result, error, current } = event.body;
       // An answer this client does not know is shown as an error, never as success.
       const outcome = OUTCOMES.includes(status) ? status : 'error';
-      return { phase: 'resolved', decision: state.decision, outcome, result, error: error ?? undefined, current: current ?? undefined };
+      return {
+        phase: 'resolved',
+        decision: state.decision,
+        outcome,
+        result,
+        error: error ?? undefined,
+        current: current ?? undefined,
+      };
     }
   }
 }
@@ -53,19 +67,27 @@ export function runStatusOf(state: ConfirmState): ToolStatus {
  * least one: `already_resolved` everywhere means another tab decided and resumed it.
  */
 export function shouldResume(cards: ConfirmState[]): boolean {
-  return cards.length > 0
-    && cards.every(c => c.phase === 'resolved')
-    && cards.some(c => c.phase === 'resolved' && c.outcome !== 'already_resolved');
+  return (
+    cards.length > 0 &&
+    cards.every((c) => c.phase === 'resolved') &&
+    cards.some((c) => c.phase === 'resolved' && c.outcome !== 'already_resolved')
+  );
 }
 
 /** The one-line explanation each outcome gets on the card. */
 export function outcomeText(state: ConfirmState & { phase: 'resolved' }): string {
   switch (state.outcome) {
-    case 'done': return 'Approved and done.';
-    case 'denied': return 'Denied. Nothing was changed.';
-    case 'error': return `Approved, but it failed${state.error ? `: ${state.error}` : '.'}`;
-    case 'uncertain': return `It may or may not have happened${state.error ? ` (${state.error})` : ''}. Check before asking again.`;
-    case 'stale': return 'This tool changed since it was proposed; ask again.';
-    case 'already_resolved': return `Already handled${state.current ? ` (${state.current})` : ''}.`;
+    case 'done':
+      return 'Approved and done.';
+    case 'denied':
+      return 'Denied. Nothing was changed.';
+    case 'error':
+      return `Approved, but it failed${state.error ? `: ${state.error}` : '.'}`;
+    case 'uncertain':
+      return `It may or may not have happened${state.error ? ` (${state.error})` : ''}. Check before asking again.`;
+    case 'stale':
+      return 'This tool changed since it was proposed; ask again.';
+    case 'already_resolved':
+      return `Already handled${state.current ? ` (${state.current})` : ''}.`;
   }
 }

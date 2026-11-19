@@ -1,7 +1,17 @@
 import type { ReactNode } from 'react';
 
 /** The frame every page here shares: a title, an optional line under it, actions on the right. */
-export function Page({ title, intro, actions, children }: { title: string; intro?: ReactNode; actions?: ReactNode; children: ReactNode }) {
+export function Page({
+  title,
+  intro,
+  actions,
+  children,
+}: {
+  title: string;
+  intro?: ReactNode;
+  actions?: ReactNode;
+  children: ReactNode;
+}) {
   return (
     <div className="mx-auto max-w-5xl px-4 py-8 md:px-8">
       <div className="mb-6 flex flex-wrap items-start gap-3">
@@ -16,14 +26,22 @@ export function Page({ title, intro, actions, children }: { title: string; intro
   );
 }
 
-export function Chip({ children, tone = 'plain' }: { children: ReactNode; tone?: 'plain' | 'green' | 'red' | 'amber' }) {
+export function Chip({
+  children,
+  tone = 'plain',
+}: {
+  children: ReactNode;
+  tone?: 'plain' | 'green' | 'red' | 'amber';
+}) {
   const tones = {
     plain: 'bg-sf-ink/6 text-sf-ink-mute',
     green: 'bg-sf-green/15 text-sf-green-text',
     red: 'bg-sf-red/12 text-sf-red-text',
     amber: 'bg-sf-amber/15 text-sf-amber-text',
   };
-  return <span className={`inline-block rounded px-1.5 py-0.5 text-xs whitespace-nowrap ${tones[tone]}`}>{children}</span>;
+  return (
+    <span className={`inline-block rounded px-1.5 py-0.5 text-xs whitespace-nowrap ${tones[tone]}`}>{children}</span>
+  );
 }
 
 export const inputClass =

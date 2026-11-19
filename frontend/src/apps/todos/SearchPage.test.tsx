@@ -32,11 +32,24 @@ import { SearchPage } from './SearchPage';
 import type { Todo } from './types';
 import { ITEM_EXTRA } from './testFixtures';
 
-const BAKE: Todo = { ...ITEM_EXTRA,
-  id: 1, title: 'Order flour', notes: '', project_id: null, project_name: null,
-  context: '@Baking', tags: [], status: 'next_action', star: false, due_date: null,
-  repeat: '', auto_star_on_due: false, source: 'ui',
-  created_at: '2026-08-06T12:00:00Z', updated_at: '2026-08-06T12:00:00Z', completed_at: null,
+const BAKE: Todo = {
+  ...ITEM_EXTRA,
+  id: 1,
+  title: 'Order flour',
+  notes: '',
+  project_id: null,
+  project_name: null,
+  context: '@Baking',
+  tags: [],
+  status: 'next_action',
+  star: false,
+  due_date: null,
+  repeat: '',
+  auto_star_on_due: false,
+  source: 'ui',
+  created_at: '2026-08-06T12:00:00Z',
+  updated_at: '2026-08-06T12:00:00Z',
+  completed_at: null,
 };
 const filters = (contexts: string[]) => ({ contexts, tags: [], status_counts: {} });
 
@@ -48,9 +61,9 @@ beforeEach(() => {
   container = document.createElement('div');
   document.body.appendChild(container);
   root = createRoot(container);
-  listTodosMock.mockReset().mockImplementation(
-    ({ status }: { status?: string }) => Promise.resolve(status === 'next_action' ? [BAKE] : []),
-  );
+  listTodosMock
+    .mockReset()
+    .mockImplementation(({ status }: { status?: string }) => Promise.resolve(status === 'next_action' ? [BAKE] : []));
   getFiltersMock.mockReset().mockResolvedValue(filters(['@Baking', 'Old']));
   renameContextMock.mockReset().mockResolvedValue({});
 });
@@ -61,14 +74,18 @@ afterEach(() => {
 });
 
 async function render() {
-  await act(async () => { root.render(<MemoryRouter><SearchPage /></MemoryRouter>); });
+  await act(async () => {
+    root.render(
+      <MemoryRouter>
+        <SearchPage />
+      </MemoryRouter>,
+    );
+  });
   await act(async () => {});
 }
 
-const renameButtons = () =>
-  [...container.querySelectorAll('button')].filter(b => b.textContent === 'Rename');
-const filterSelect = () =>
-  container.querySelector<HTMLSelectElement>('select[aria-label="Filter by context"]')!;
+const renameButtons = () => [...container.querySelectorAll('button')].filter((b) => b.textContent === 'Rename');
+const filterSelect = () => container.querySelector<HTMLSelectElement>('select[aria-label="Filter by context"]')!;
 
 function setValue(el: HTMLInputElement | HTMLSelectElement, value: string, event: string) {
   const proto = el instanceof HTMLSelectElement ? HTMLSelectElement : HTMLInputElement;
@@ -79,17 +96,23 @@ function setValue(el: HTMLInputElement | HTMLSelectElement, value: string, event
 describe('SearchPage context rename', () => {
   it('offers Rename on a context group and the filter follows the new name', async () => {
     await render();
-    act(() => { setValue(filterSelect(), '@Baking', 'change'); });
-    expect(renameButtons().map(b => b.getAttribute('aria-label')))
-      .toEqual(['Rename context @Baking']);
+    act(() => {
+      setValue(filterSelect(), '@Baking', 'change');
+    });
+    expect(renameButtons().map((b) => b.getAttribute('aria-label'))).toEqual(['Rename context @Baking']);
 
-    act(() => { renameButtons()[0].click(); });
-    act(() => { setValue(container.querySelector('input[aria-label^="New name"]')!, 'Baking', 'input'); });
+    act(() => {
+      renameButtons()[0].click();
+    });
+    act(() => {
+      setValue(container.querySelector('input[aria-label^="New name"]')!, 'Baking', 'input');
+    });
     getFiltersMock.mockResolvedValue(filters(['Baking', 'Old']));
     listTodosMock.mockImplementation(({ status }: { status?: string }) =>
-      Promise.resolve(status === 'next_action' ? [{ ...BAKE, context: 'Baking' }] : []));
+      Promise.resolve(status === 'next_action' ? [{ ...BAKE, context: 'Baking' }] : []),
+    );
     await act(async () => {
-      [...container.querySelectorAll('button')].find(b => b.textContent === 'Save')!.click();
+      [...container.querySelectorAll('button')].find((b) => b.textContent === 'Save')!.click();
     });
     await act(async () => {});
 
@@ -100,14 +123,16 @@ describe('SearchPage context rename', () => {
 
   it('offers Rename beside the filter for a context no open to-do carries', async () => {
     await render();
-    act(() => { setValue(filterSelect(), 'Old', 'change'); });
-    expect(renameButtons().map(b => b.getAttribute('aria-label')))
-      .toEqual(['Rename context Old']);
+    act(() => {
+      setValue(filterSelect(), 'Old', 'change');
+    });
+    expect(renameButtons().map((b) => b.getAttribute('aria-label'))).toEqual(['Rename context Old']);
   });
 
   it('offers no Rename on the "No context" group', async () => {
     listTodosMock.mockImplementation(({ status }: { status?: string }) =>
-      Promise.resolve(status === 'next_action' ? [{ ...BAKE, context: '' }] : []));
+      Promise.resolve(status === 'next_action' ? [{ ...BAKE, context: '' }] : []),
+    );
     await render();
     expect(container.textContent).toContain('No context');
     expect(renameButtons()).toEqual([]);

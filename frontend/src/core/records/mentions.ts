@@ -27,12 +27,21 @@ export function activeMentionQuery(text: string, caret: number): { start: number
 
 /** `@[Name](user:ID)`, with characters the pattern can't carry dropped from the name. */
 export function mentionMarkup(user: UserRef): string {
-  const name = user.name.replace(/[[\]\n]/g, '').trim().slice(0, 100) || `User ${user.id}`;
+  const name =
+    user.name
+      .replace(/[[\]\n]/g, '')
+      .trim()
+      .slice(0, 100) || `User ${user.id}`;
   return `@[${name}](user:${user.id})`;
 }
 
 /** Replace the `@query` between `start` and `caret` with the markup and a space. */
-export function applyMention(text: string, start: number, caret: number, markup: string): { text: string; caret: number } {
+export function applyMention(
+  text: string,
+  start: number,
+  caret: number,
+  markup: string,
+): { text: string; caret: number } {
   const inserted = `${markup} `;
   return { text: text.slice(0, start) + inserted + text.slice(caret), caret: start + inserted.length };
 }

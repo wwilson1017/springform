@@ -56,7 +56,9 @@ def list_context_files(agent: str = context_files.DEFAULT_AGENT, user: User = De
 
 
 @router.get("/api/core/context-files/{filename}")
-def read_context_file(filename: str, agent: str = context_files.DEFAULT_AGENT, user: User = Depends(current_user)) -> dict:
+def read_context_file(
+    filename: str, agent: str = context_files.DEFAULT_AGENT, user: User = Depends(current_user)
+) -> dict:
     return context_files.read(agent, filename, user)
 
 

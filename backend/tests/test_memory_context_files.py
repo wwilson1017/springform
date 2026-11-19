@@ -26,7 +26,9 @@ def test_routes_list_read_and_refuse_protected_writes(app, login_as):
     assert "business assistant" in admin.get("/api/core/context-files/soul.md").json()["content"]
     assert member.get("/api/core/context-files/business.md").json()["content"].startswith("# Business profile")
 
-    r = admin.put("/api/core/context-files/business.md", json={"content": "# Business profile\n\n- Name: Test Bakery\n"})
+    r = admin.put(
+        "/api/core/context-files/business.md", json={"content": "# Business profile\n\n- Name: Test Bakery\n"}
+    )
     assert r.status_code == 200 and r.json()["updated_by"] == admin.user["id"]
     assert member.put("/api/core/context-files/business.md", json={"content": "x"}).status_code == 403
     for name in ("soul.md", "SOUL.MD", "memory.md"):
@@ -73,11 +75,16 @@ def test_memory_tools_remember_search_and_read(app, login_as):
     assert remember.writes and remember.confirm_tier is None and remember.targets({"text": "x"}) == []
 
     with core_db.transaction() as conn:
-        saved = remember.handler_in(conn, member.principal, {"text": "Deliveries go out on Tuesdays", "tags": ["delivery"]})
+        saved = remember.handler_in(
+            conn, member.principal, {"text": "Deliveries go out on Tuesdays", "tags": ["delivery"]}
+        )
     assert facts.get(saved["id"])["author_user_id"] == member.user["id"]
 
     search = reg.get("core_memory_search").handler
-    assert search(member.principal, {"query": "when do deliveries go out"})["facts"][0]["text"] == "Deliveries go out on Tuesdays"
+    assert (
+        search(member.principal, {"query": "when do deliveries go out"})["facts"][0]["text"]
+        == "Deliveries go out on Tuesdays"
+    )
     assert search(member.principal, {"query": "business profile"})["context_files"][0]["filename"] == "business.md"
     assert search(member.principal, {"query": "assistant install"})["context_files"] == []  # soul.md is admin-only
     assert search(admin.principal, {"query": "assistant install"})["context_files"][0]["filename"] == "soul.md"
@@ -92,8 +99,12 @@ def test_context_for_orders_protected_files_first_and_respects_the_budget(db, ma
     admin = make_user("admin")
     with core_db.transaction() as conn:
         context_files.seed_defaults_in(conn)
-        context_files.write_in(conn, "whisk", "MEMORY.md", "Standing note: quote in dollars.", admin, allow_protected=True)
-        context_files.write_in(conn, "whisk", "a-first.md", "Alphabetically first, still after the protected files.", admin)
+        context_files.write_in(
+            conn, "whisk", "MEMORY.md", "Standing note: quote in dollars.", admin, allow_protected=True
+        )
+        context_files.write_in(
+            conn, "whisk", "a-first.md", "Alphabetically first, still after the protected files.", admin
+        )
     facts.remember("Wholesale price is 30 dollars per cake", author_user_id=admin.id)
     conn = core_db.get_conn()
 
@@ -103,7 +114,9 @@ def test_context_for_orders_protected_files_first_and_respects_the_budget(db, ma
     assert [block.index(s) for s in order] == sorted(block.index(s) for s in order)
     assert memory.FACTS_HEADER not in memory.context_for(conn, admin, "whisk", "")
     instructions = memory.instructions_for(conn, "whisk")
-    assert instructions.startswith("## soul.md") and "## MEMORY.md" in instructions and "business.md" not in instructions
+    assert (
+        instructions.startswith("## soul.md") and "## MEMORY.md" in instructions and "business.md" not in instructions
+    )
     data = memory.context_for(conn, admin, "whisk", "wholesale price", include_protected=False)
     assert data.startswith(memory.FACTS_HEADER) and "## soul.md" not in data and "## business.md" in data
 

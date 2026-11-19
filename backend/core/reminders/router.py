@@ -74,8 +74,11 @@ class SnoozeIn(BaseModel):
 
 @router.get("", response_model=list[Reminder])
 def list_reminders(
-    from_: str | None = Query(None, alias="from", max_length=40), to: str | None = Query(None, max_length=40),
-    status: str | None = None, limit: int | None = None, user: User = Depends(current_user),
+    from_: str | None = Query(None, alias="from", max_length=40),
+    to: str | None = Query(None, max_length=40),
+    status: str | None = None,
+    limit: int | None = None,
+    user: User = Depends(current_user),
 ) -> list[dict]:
     """The caller's reminders with from <= due_at < to, soonest first."""
     return service.list_mine(user, from_=from_, to=to, status=status, limit=limit)

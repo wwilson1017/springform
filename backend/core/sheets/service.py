@@ -143,7 +143,10 @@ def update_sheet_in(conn: db.Conn, sheet_id: int, patch: dict) -> dict:
     if not fields:
         return before
     sets = ", ".join(f"{k} = ?" for k in fields)  # keys are the fixed names above
-    conn.execute(f"UPDATE core_connected_sheets SET {sets}, updated_at = ? WHERE id = ?", (*fields.values(), clock.now_iso(), sheet_id))
+    conn.execute(
+        f"UPDATE core_connected_sheets SET {sets}, updated_at = ? WHERE id = ?",
+        (*fields.values(), clock.now_iso(), sheet_id),
+    )
     if any(k in fields and fields[k] != before[k] for k in ("spreadsheet_id", "range")):
         conn.execute("DELETE FROM core_sheet_cache WHERE sheet_id = ?", (sheet_id,))
         conn.execute(
@@ -162,7 +165,9 @@ def update_sheet(sheet_id: int, patch: dict) -> dict:
 
 
 def cached_in(conn: db.Conn, sheet_id: int) -> dict | None:
-    row = conn.execute("SELECT fetched_at, header, rows FROM core_sheet_cache WHERE sheet_id = ?", (sheet_id,)).fetchone()
+    row = conn.execute(
+        "SELECT fetched_at, header, rows FROM core_sheet_cache WHERE sheet_id = ?", (sheet_id,)
+    ).fetchone()
     if row is None:
         return None
     return {"fetched_at": row["fetched_at"], "header": json.loads(row["header"]), "rows": json.loads(row["rows"])}
@@ -180,8 +185,11 @@ def preview_in(conn: db.Conn, sheet_id: int, limit: int = PREVIEW_ROWS) -> dict:
     sheet = get_sheet_in(conn, sheet_id)
     cache = cached_in(conn, sheet_id) or {"fetched_at": None, "header": [], "rows": []}
     return {
-        "header": cache["header"], "rows": cache["rows"][:limit], "fetched_at": cache["fetched_at"],
-        "row_count": sheet["row_count"], "stale": is_stale(sheet),
+        "header": cache["header"],
+        "rows": cache["rows"][:limit],
+        "fetched_at": cache["fetched_at"],
+        "row_count": sheet["row_count"],
+        "stale": is_stale(sheet),
     }
 
 
@@ -216,7 +224,9 @@ def _claim_attempt(sheet_id: int, manual: bool) -> None:
     now = clock.now_iso()
     with db.transaction() as conn:
         if manual:
-            last = conn.execute("SELECT last_attempt_at FROM core_connected_sheets WHERE id = ?", (sheet_id,)).fetchone()[0]
+            last = conn.execute(
+                "SELECT last_attempt_at FROM core_connected_sheets WHERE id = ?", (sheet_id,)
+            ).fetchone()[0]
             if last and last > clock.ago(THROTTLE_SECONDS):
                 wait = THROTTLE_SECONDS - (clock.now() - clock.parse(last)).total_seconds()
                 raise Throttled(max(1, math.ceil(wait)))

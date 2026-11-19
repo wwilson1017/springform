@@ -6,18 +6,22 @@
 
 self.addEventListener('push', (event) => {
   const data = event.data ? event.data.json() : {};
-  event.waitUntil(self.registration.showNotification(data.title || 'Springform', {
-    body: data.body || '',
-    tag: data.notification_id ? String(data.notification_id) : undefined,
-    data: { url: data.url || '/' },
-  }));
+  event.waitUntil(
+    self.registration.showNotification(data.title || 'Springform', {
+      body: data.body || '',
+      tag: data.notification_id ? String(data.notification_id) : undefined,
+      data: { url: data.url || '/' },
+    }),
+  );
 });
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
   const url = new URL(event.notification.data?.url || '/', self.location.origin).href;
-  event.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windows) => {
-    const same = windows.find((w) => w.url === url);
-    return same ? same.focus() : self.clients.openWindow(url);
-  }));
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windows) => {
+      const same = windows.find((w) => w.url === url);
+      return same ? same.focus() : self.clients.openWindow(url);
+    }),
+  );
 });

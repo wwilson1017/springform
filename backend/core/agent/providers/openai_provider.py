@@ -39,8 +39,12 @@ class OpenAIProvider(AIProvider):
         return "openai"
 
     async def stream_turn(
-        self, messages: list[dict], tools: list[dict], system_prompt: str | tuple[str, str],
-        *, max_tokens: int = DEFAULT_MAX_TOKENS,
+        self,
+        messages: list[dict],
+        tools: list[dict],
+        system_prompt: str | tuple[str, str],
+        *,
+        max_tokens: int = DEFAULT_MAX_TOKENS,
     ) -> AsyncGenerator[dict, None]:
         import openai
 
@@ -60,17 +64,30 @@ class OpenAIProvider(AIProvider):
                     msg["tool_calls"] = m["tool_calls"]
                 api_messages.append(msg)
             elif role == "tool":
-                api_messages.append({"role": "tool", "tool_call_id": m.get("tool_call_id", ""), "content": m.get("content", "")})
+                api_messages.append(
+                    {"role": "tool", "tool_call_id": m.get("tool_call_id", ""), "content": m.get("content", "")}
+                )
 
-        kwargs: dict = {"model": self.model, "messages": api_messages, "stream": True, "stream_options": {"include_usage": True}}
+        kwargs: dict = {
+            "model": self.model,
+            "messages": api_messages,
+            "stream": True,
+            "stream_options": {"include_usage": True},
+        }
         # o-series and gpt-5.x take max_completion_tokens.
-        kwargs["max_completion_tokens" if self.model.startswith(("o1", "o3", "o4", "gpt-5")) else "max_tokens"] = max_tokens
+        kwargs["max_completion_tokens" if self.model.startswith(("o1", "o3", "o4", "gpt-5")) else "max_tokens"] = (
+            max_tokens
+        )
         if tools:
             kwargs["tools"] = [
-                {"type": "function", "function": {
-                    "name": t["name"], "description": t.get("description", ""),
-                    "parameters": _ensure_array_items(t.get("input_schema", {"type": "object", "properties": {}})),
-                }}
+                {
+                    "type": "function",
+                    "function": {
+                        "name": t["name"],
+                        "description": t.get("description", ""),
+                        "parameters": _ensure_array_items(t.get("input_schema", {"type": "object", "properties": {}})),
+                    },
+                }
                 for t in tools
             ]
         tool_calls: list[dict] = []
@@ -78,7 +95,10 @@ class OpenAIProvider(AIProvider):
         try:
             async for chunk in await client.chat.completions.create(**kwargs):
                 if chunk.usage:
-                    usage = {"input_tokens": chunk.usage.prompt_tokens or 0, "output_tokens": chunk.usage.completion_tokens or 0}
+                    usage = {
+                        "input_tokens": chunk.usage.prompt_tokens or 0,
+                        "output_tokens": chunk.usage.completion_tokens or 0,
+                    }
                 delta = chunk.choices[0].delta if chunk.choices else None
                 if not delta:
                     continue
@@ -111,17 +131,28 @@ class OpenAIProvider(AIProvider):
             except ValueError:
                 call["args"] = {}
             yield {"type": "tool_args", "tool": call["name"], "tool_use_id": call["id"], "args": call["args"]}
-        yield {"type": "_turn_complete", "tool_calls": tool_calls, "stop_reason": "tool_use" if tool_calls else "stop", "usage": usage}
+        yield {
+            "type": "_turn_complete",
+            "tool_calls": tool_calls,
+            "stop_reason": "tool_use" if tool_calls else "stop",
+            "usage": usage,
+        }
 
     def add_tool_results(self, messages: list[dict], tool_calls: list[dict], results: list[dict]) -> list[dict]:
         assistant = {
             "role": "assistant",
             "content": None,
             "tool_calls": [
-                {"id": tc["id"], "type": "function", "function": {"name": tc["name"], "arguments": json.dumps(tc.get("args", {}))}}
+                {
+                    "id": tc["id"],
+                    "type": "function",
+                    "function": {"name": tc["name"], "arguments": json.dumps(tc.get("args", {}))},
+                }
                 for tc in tool_calls
             ],
         }
-        return messages + [assistant] + [
-            {"role": "tool", "tool_call_id": r["tool_use_id"], "content": str(r["content"])} for r in results
-        ]
+        return (
+            messages
+            + [assistant]
+            + [{"role": "tool", "tool_call_id": r["tool_use_id"], "content": str(r["content"])} for r in results]
+        )

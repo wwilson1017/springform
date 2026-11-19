@@ -38,8 +38,12 @@ class ItemIn(_TodosIn):
     status: Status = "inbox"
     star: bool = False
     due_date: str | None = Field(default=None, max_length=10, description="YYYY-MM-DD")
-    revisit_on: str | None = Field(default=None, max_length=10, description="YYYY-MM-DD; hidden from the working lists until then")
-    repeat: str = Field(default="", max_length=20, description="'', daily, weekdays, weekly, monthly, yearly or every:N")
+    revisit_on: str | None = Field(
+        default=None, max_length=10, description="YYYY-MM-DD; hidden from the working lists until then"
+    )
+    repeat: str = Field(
+        default="", max_length=20, description="'', daily, weekdays, weekly, monthly, yearly or every:N"
+    )
     auto_star_on_due: bool = False
     visibility: Visibility | None = Field(default=None, description="Defaults to the todos.default_visibility setting")
     owner_user_id: int | None = Field(default=None, description="Defaults to the caller")
@@ -262,7 +266,9 @@ class Filters(BaseModel):
     status_counts: dict[str, int]
     tz: str
     members: list[NamedId]
-    default_visibility: Visibility = Field(description="What a new todo, project or area is when the caller does not say")
+    default_visibility: Visibility = Field(
+        description="What a new todo, project or area is when the caller does not say"
+    )
 
 
 class Moved(BaseModel):

@@ -40,14 +40,20 @@ def test_vcard(me):
     out = smart_import.parse(me, "contacts.vcf", VCF)
     assert out["method"] == "vcf"
     zoe, ada = out["people"]
-    assert (zoe["name"], zoe["email"], zoe["phone"], zoe["organization"], zoe["title"]) == ("Zoë Démo", "zoe@example.com", "555-0103", "Demo Café Group Kitchen", "Manager")
+    assert (zoe["name"], zoe["email"], zoe["phone"], zoe["organization"], zoe["title"]) == (
+        "Zoë Démo",
+        "zoe@example.com",
+        "555-0103",
+        "Demo Café Group Kitchen",
+        "Manager",
+    )
     assert zoe["notes"] == "Met at the fairand liked the scones", "RFC 6350 folding joins the continuation"
     assert (ada["name"], ada["source"]) == ("Ada Example", "vCard")
     assert out["warnings"] == ["1 rows had no name, email or phone and were left out"]
 
 
 def test_csv_with_known_headers(me):
-    data = "First Name,Last Name,E-mail,Company,Tags,\nAda,Example,ada@example.com,Example Bakery Supply,\"vip, wholesale\",stray\n,,,,\n".encode()
+    data = 'First Name,Last Name,E-mail,Company,Tags,\nAda,Example,ada@example.com,Example Bakery Supply,"vip, wholesale",stray\n,,,,\n'.encode()
     out = smart_import.parse(me, "people.CSV", data)
     assert out["method"] == "csv"
     assert out["people"] == [{
@@ -110,7 +116,9 @@ def test_confirm_creates_people_links_organizations_and_skips_a_bad_row(me):
     assert len(out["skipped"]) == 1 and out["skipped"][0].startswith("Row 3 (Bad Tags): ")
     ada = contacts.get_person(me, out["person_ids"][0])
     assert (ada["email"], ada["tags"], ada["owner_user_id"]) == ("ada@example.com", ["vip"], me.id)
-    assert [(o["organization_id"], o["role"]) for o in ada["organizations"]] == [(existing, "Owner")], "matched case-insensitively"
+    assert [(o["organization_id"], o["role"]) for o in ada["organizations"]] == [(existing, "Owner")], (
+        "matched case-insensitively"
+    )
     assert contacts.get_person(me, out["person_ids"][1])["organizations"][0]["name"] == "Demo Café Group"
 
 
@@ -119,7 +127,16 @@ def test_confirm_skips_people_already_in_contacts_and_repeated_rows(me):
         contacts.create_person_in(conn, me, name="Known Person", email="Known@Example.com")
 
     def person(name, email="", organization=""):
-        return {"name": name, "email": email, "phone": "", "organization": organization, "title": "", "source": "", "notes": "", "tags": []}
+        return {
+            "name": name,
+            "email": email,
+            "phone": "",
+            "organization": organization,
+            "title": "",
+            "source": "",
+            "notes": "",
+            "tags": [],
+        }
 
     out = smart_import.confirm(me, [
         person("Ada Example", "ada@example.com"), person("Known Again", " known@example.com", "Orphan Org"),
@@ -129,7 +146,9 @@ def test_confirm_skips_people_already_in_contacts_and_repeated_rows(me):
         "Row 2 (Known Again): already in contacts (same email)", "Row 3 (Ada Twin): the same email as an earlier row",
         "Row 4 (Known Person): already in contacts (same name)", "Row 6 (no email): the same name as an earlier row",
     ]  # fmt: skip
-    assert core_db.one("SELECT count(*) AS n FROM core_organizations WHERE name = 'Orphan Org'")["n"] == 0, "a skipped row creates no organization"
+    assert core_db.one("SELECT count(*) AS n FROM core_organizations WHERE name = 'Orphan Org'")["n"] == 0, (
+        "a skipped row creates no organization"
+    )
 
 
 def test_the_routes(login_as):

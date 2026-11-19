@@ -109,7 +109,7 @@ _SELECT = {
     # open_count counts only the todos this user can see; bind the user's id first.
     "project": f"""SELECT p.*, a.name AS area_name,
                           (SELECT count(*) FROM todos_items t WHERE t.project_id = p.id
-                              AND t.status NOT IN ('done', 'dropped') AND {visible('t')}) AS open_count
+                              AND t.status NOT IN ('done', 'dropped') AND {visible("t")}) AS open_count
                      FROM todos_projects p LEFT JOIN todos_areas a ON a.id = p.area_id""",
     "area": "SELECT a.* FROM todos_areas a",
 }
@@ -173,7 +173,9 @@ def _readable(user: User, row: dict) -> bool:
 
 def _insert_in(conn: db.Conn, table: str, row: dict) -> int:
     cols = ", ".join(row)
-    return conn.execute(f"INSERT INTO {table} ({cols}) VALUES ({', '.join('?' * len(row))})", tuple(row.values())).lastrowid
+    return conn.execute(
+        f"INSERT INTO {table} ({cols}) VALUES ({', '.join('?' * len(row))})", tuple(row.values())
+    ).lastrowid
 
 
 def _save_in(conn: db.Conn, kind: str, row: dict) -> None:
@@ -187,9 +189,12 @@ def _save_in(conn: db.Conn, kind: str, row: dict) -> None:
 def _human_in(conn: db.Conn, user_id, field: str) -> int:
     """An active person: admin or member, never the system principal."""
     uid = ref(user_id, field)
-    if uid is None or not conn.execute(
-        "SELECT 1 FROM core_users WHERE id = ? AND is_active = 1 AND role IN ('admin', 'member')", (uid,)
-    ).fetchone():
+    if (
+        uid is None
+        or not conn.execute(
+            "SELECT 1 FROM core_users WHERE id = ? AND is_active = 1 AND role IN ('admin', 'member')", (uid,)
+        ).fetchone()
+    ):
         raise Invalid(f"{field}: no such active user")
     return uid
 
@@ -238,7 +243,9 @@ def _guard_in(conn: db.Conn, user: User, kind: str, before: dict | None, after: 
                 (after["id"], owner),
             ).fetchone():
                 held = "todos" if kind == "project" else "projects or todos"
-                raise Invalid(f"This {noun} holds team or someone else's {held}; move them out before it goes private or changes hands.")
+                raise Invalid(
+                    f"This {noun} holds team or someone else's {held}; move them out before it goes private or changes hands."
+                )
 
 
 def _check_parent_in(conn: db.Conn, user: User, kind: str, child: dict, field: str, pkind: str) -> None:
@@ -273,7 +280,9 @@ def _stamp_in(conn: db.Conn, kind: str, row_id: int, *states: dict) -> int:
             "INSERT OR REPLACE INTO todos_journal (kind, row_id, audience) VALUES (?, ?, ?)", (kind, row_id, audience)
         ).lastrowid
         # The team row is made by the first stamp after install or an app reset; its floor marks that.
-        conn.execute("INSERT INTO todos_sync (user_id, floor) VALUES (0, ?) ON CONFLICT (user_id) DO NOTHING", (rev - 1,))
+        conn.execute(
+            "INSERT INTO todos_sync (user_id, floor) VALUES (0, ?) ON CONFLICT (user_id) DO NOTHING", (rev - 1,)
+        )
         conn.execute(
             "INSERT INTO todos_sync (user_id, rev) VALUES (?, ?) ON CONFLICT (user_id) DO UPDATE SET rev = excluded.rev",
             (audience, rev),
@@ -602,7 +611,9 @@ def today_view(user: User) -> list[dict]:
     )  # fmt: skip
 
 
-def list_for_record_in(conn: db.Conn, user: User, entity_type: str, entity_id: int, include_done: bool = False) -> list[dict]:
+def list_for_record_in(
+    conn: db.Conn, user: User, entity_type: str, entity_id: int, include_done: bool = False
+) -> list[dict]:
     """Team todos and the user's private ones linked to a record the user may read."""
     entities.authorize(user, conn, entity_type, entity_id, "read")
     done = "" if include_done else " AND t.status NOT IN ('done', 'dropped')"
@@ -617,10 +628,14 @@ def list_for_record(user: User, entity_type: str, entity_id: int, include_done: 
 def badge(user: User) -> dict:
     """The launcher tile: the user's inbox (private, or team assigned to them) plus the team's
     unassigned inbox, leaving out todos deferred to a later day."""
-    n = db.get_conn().execute(
-        f"SELECT count(*) FROM todos_items t WHERE t.status = 'inbox' AND {WORK} AND {NOT_DEFERRED}",
-        (user.id, user.id, today(user).isoformat()),
-    ).fetchone()[0]
+    n = (
+        db.get_conn()
+        .execute(
+            f"SELECT count(*) FROM todos_items t WHERE t.status = 'inbox' AND {WORK} AND {NOT_DEFERRED}",
+            (user.id, user.id, today(user).isoformat()),
+        )
+        .fetchone()[0]
+    )
     return {"count": n, "label": "Inbox"}
 
 
@@ -636,12 +651,17 @@ def rename_context_in(conn: db.Conn, user: User, old: str, new: str, *, merge: b
         raise Invalid("new name cannot be empty")
     if old == new:
         raise Invalid(f'The context is already named "{new}"')
-    rows = conn.execute(f"SELECT * FROM todos_items t WHERE {visible('t')} AND t.context = ?", (user.id, old)).fetchall()
+    rows = conn.execute(
+        f"SELECT * FROM todos_items t WHERE {visible('t')} AND t.context = ?", (user.id, old)
+    ).fetchall()
     if not rows:
         raise NotFound("No todo you can see has that context")
-    merged = conn.execute(
-        f"SELECT 1 FROM todos_items t WHERE {visible('t')} AND t.context = ? LIMIT 1", (user.id, new)
-    ).fetchone() is not None
+    merged = (
+        conn.execute(
+            f"SELECT 1 FROM todos_items t WHERE {visible('t')} AND t.context = ? LIMIT 1", (user.id, new)
+        ).fetchone()
+        is not None
+    )
     if merged and not merge:
         raise Conflict(f'You already have a context named "{new}". Merging moves every "{old}" to-do into it.')
     for row in rows:
@@ -817,7 +837,8 @@ def filters(user: User) -> dict:
     ):  # fmt: skip
         counts[status] = n
     contexts = conn.execute(
-        f"SELECT DISTINCT t.context FROM todos_items t WHERE {vis} AND t.context != '' ORDER BY lower(t.context)", (user.id,)
+        f"SELECT DISTINCT t.context FROM todos_items t WHERE {vis} AND t.context != '' ORDER BY lower(t.context)",
+        (user.id,),
     )
     members = conn.execute(
         "SELECT id, name FROM core_users WHERE is_active = 1 AND role IN ('admin', 'member') ORDER BY lower(name), id"
@@ -843,7 +864,11 @@ def review_status(user: User) -> dict:
     days = None
     if last:
         days = max(0, (today(user) - clock.parse(last).astimezone(zone(user)).date()).days)
-    return {"review_due": since < clock.ago(REVIEW_EVERY_DAYS * 86400), "days_since_review": days, "last_review_at": last}
+    return {
+        "review_due": since < clock.ago(REVIEW_EVERY_DAYS * 86400),
+        "days_since_review": days,
+        "last_review_at": last,
+    }
 
 
 def mark_review_done(user: User) -> dict:
@@ -868,7 +893,9 @@ def review(user: User, limit: int = 100) -> dict:
     def section(where: str, *params) -> dict:
         clause, args = f"{WORK} AND {where}", (user.id, user.id, *params)
         count = conn.execute(f"SELECT count(*) FROM todos_items t WHERE {clause}", args).fetchone()[0]
-        rows = conn.execute(f"{_SELECT['item']} WHERE {clause} ORDER BY t.created_at ASC, t.id ASC LIMIT ?", (*args, cap))
+        rows = conn.execute(
+            f"{_SELECT['item']} WHERE {clause} ORDER BY t.created_at ASC, t.id ASC LIMIT ?", (*args, cap)
+        )
         return {"count": count, "items": [_shape("item", r) for r in rows]}
 
     def working(where: str, *params) -> dict:
@@ -883,18 +910,25 @@ def review(user: User, limit: int = 100) -> dict:
         "completed_last_week": section("t.status = 'done' AND t.completed_at >= ?", clock.ago(7 * 86400)),
         "dated_today_or_overdue": working(
             f"{open_} AND ((t.due_date IS NOT NULL AND t.due_date <= ?) OR (t.revisit_on IS NOT NULL AND t.revisit_on <= ?))",
-            iso, iso,
+            iso,
+            iso,
         ),  # fmt: skip
         "projects_without_next_action": _rows_in(
-            conn, user, "project",
+            conn,
+            user,
+            "project",
             f"p.status = 'active' AND NOT EXISTS (SELECT 1 FROM todos_items n WHERE n.project_id = p.id AND n.status = 'next_action' AND {visible('n')})",
-            (user.id,), "ORDER BY lower(p.name), p.id",
+            (user.id,),
+            "ORDER BY lower(p.name), p.id",
         ),  # fmt: skip
         "waiting_for": working("t.status IN ('waiting_for', 'delegated')"),
         "routines": section(f"{open_} AND t.repeat != ''"),
         "upcoming": section(
             f"{open_} AND ((t.due_date > ? AND t.due_date <= ?) OR (t.revisit_on > ? AND t.revisit_on <= ?))",
-            iso, upcoming_until, iso, upcoming_until,
+            iso,
+            upcoming_until,
+            iso,
+            upcoming_until,
         ),  # fmt: skip
         "stale": working(
             "t.status IN ('next_action', 'waiting_for', 'delegated') AND t.updated_at < ?",
@@ -929,12 +963,16 @@ def changes(user: User, since_rev: int = 0, limit: int = 500, head_only: bool = 
     head = max((r["rev"] for r in heads.values()), default=0)
     team = heads.get(0)
     reset = not head_only and (since_rev > head or (since_rev > 0 and (team is None or since_rev <= team["floor"])))
-    found = [] if head_only else conn.execute(
-        """SELECT kind, row_id, max(rev) AS rev FROM todos_journal
+    found = (
+        []
+        if head_only
+        else conn.execute(
+            """SELECT kind, row_id, max(rev) AS rev FROM todos_journal
             WHERE audience IN (0, ?) AND rev > ? AND rev <= ?
             GROUP BY kind, row_id ORDER BY rev LIMIT ?""",
-        (user.id, 0 if reset else since_rev, head, limit + 1),
-    ).fetchall()
+            (user.id, 0 if reset else since_rev, head, limit + 1),
+        ).fetchall()
+    )
     more = len(found) > limit
     found = found[:limit]
     out: dict = {
@@ -951,7 +989,10 @@ def changes(user: User, since_rev: int = 0, limit: int = 500, head_only: bool = 
         if not entries:
             continue
         ids = json.dumps([e["row_id"] for e in entries])
-        seen = {r["id"]: r for r in _rows_in(conn, user, kind, f"{_ALIAS[kind]}.id IN (SELECT value FROM json_each(?))", (ids,))}
+        seen = {
+            r["id"]: r
+            for r in _rows_in(conn, user, kind, f"{_ALIAS[kind]}.id IN (SELECT value FROM json_each(?))", (ids,))
+        }
         for e in entries:
             if e["row_id"] in seen:
                 out[PLURAL[kind]].append(seen[e["row_id"]])
@@ -966,7 +1007,9 @@ def changes(user: User, since_rev: int = 0, limit: int = 500, head_only: bool = 
 def relink_in(conn: db.Conn, entity_type: str, old_id: int, new_id: int | None) -> None:
     """Point todos linked to one record at another (a merge), or at nothing (None: a delete).
     The todos stay; a sync sees each one change."""
-    rows = conn.execute("SELECT * FROM todos_items WHERE entity_type = ? AND entity_id = ?", (entity_type, old_id)).fetchall()
+    rows = conn.execute(
+        "SELECT * FROM todos_items WHERE entity_type = ? AND entity_id = ?", (entity_type, old_id)
+    ).fetchall()
     for row in rows:
         conn.execute(
             "UPDATE todos_items SET entity_type = ?, entity_id = ?, updated_at = ? WHERE id = ?",
@@ -988,16 +1031,21 @@ def transfer_in(conn: db.Conn, admin: User, from_user_id: int, to_user_id: int) 
     deactivation). Assignments to the old owner follow; team rows stay where they are. Names are
     not re-checked for clashes. The caller has checked that `admin` is one."""
     from_user_id = ref(from_user_id, "from_user_id")
-    if from_user_id is None or not conn.execute(
-        "SELECT 1 FROM core_users WHERE id = ? AND role IN ('admin', 'member')", (from_user_id,)
-    ).fetchone():
+    if (
+        from_user_id is None
+        or not conn.execute(
+            "SELECT 1 FROM core_users WHERE id = ? AND role IN ('admin', 'member')", (from_user_id,)
+        ).fetchone()
+    ):
         raise Invalid("from_user_id: no such user")
     to_user_id = _human_in(conn, to_user_id, "to_user_id")
     if from_user_id == to_user_id:
         raise Invalid("Pick two different people.")
     now, moved = clock.now_iso(), {}
     for kind, table in TABLES.items():
-        rows = conn.execute(f"SELECT * FROM {table} WHERE visibility = 'private' AND owner_user_id = ?", (from_user_id,))
+        rows = conn.execute(
+            f"SELECT * FROM {table} WHERE visibility = 'private' AND owner_user_id = ?", (from_user_id,)
+        )
         rows = [dict(r) for r in rows]
         for before in rows:
             after = {**before, "owner_user_id": to_user_id, "updated_at": now}

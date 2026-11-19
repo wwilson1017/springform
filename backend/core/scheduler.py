@@ -129,7 +129,9 @@ def mark_interrupted() -> int:
 def prune_job_runs(cancel: threading.Event | None = None) -> None:
     """Job core.job_runs_prune: keep 30 days of job history."""
     with db.transaction() as conn:
-        conn.execute("DELETE FROM core_job_runs WHERE started_at < ? AND finished_at IS NOT NULL", (clock.ago(30 * 86400),))
+        conn.execute(
+            "DELETE FROM core_job_runs WHERE started_at < ? AND finished_at IS NOT NULL", (clock.ago(30 * 86400),)
+        )
 
 
 def _insert_run(job: Job, trigger: str, status: str, scheduled_for: str | None) -> int:

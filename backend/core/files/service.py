@@ -138,8 +138,14 @@ def _staged(src: BinaryIO) -> Iterator[tuple[storage.Staged, bytes | None]]:
 
 
 def _publish_in(
-    conn: db.Conn, user: User, entity_type: str, entity_id: int, filename: str | None, mime_type: str | None,
-    staged: storage.Staged, thumb: bytes | None,
+    conn: db.Conn,
+    user: User,
+    entity_type: str,
+    entity_id: int,
+    filename: str | None,
+    mime_type: str | None,
+    staged: storage.Staged,
+    thumb: bytes | None,
 ) -> tuple[dict, bool]:
     entities.authorize(user, conn, entity_type, entity_id, "write")
     now, name = clock.now_iso(), normalize_filename(filename)
@@ -151,11 +157,22 @@ def _publish_in(
     cur = conn.execute(
         """INSERT INTO core_files (entity_type, entity_id, filename, mime_type, byte_size, sha256, thumb, uploaded_by, created_at)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (entity_type, entity_id, sha256) DO NOTHING""",
-        (entity_type, entity_id, name, served_mime(mime_type, name), staged.byte_size, staged.sha256, thumb, user.id, now),
+        (
+            entity_type,
+            entity_id,
+            name,
+            served_mime(mime_type, name),
+            staged.byte_size,
+            staged.sha256,
+            thumb,
+            user.id,
+            now,
+        ),
     )
     storage.publish(staged)  # the rename, under the lock and before COMMIT
     row = conn.execute(
-        f"{_SELECT} WHERE f.entity_type = ? AND f.entity_id = ? AND f.sha256 = ?", (entity_type, entity_id, staged.sha256)
+        f"{_SELECT} WHERE f.entity_type = ? AND f.entity_id = ? AND f.sha256 = ?",
+        (entity_type, entity_id, staged.sha256),
     ).fetchone()
     return _file(row), cur.rowcount == 1
 
@@ -171,7 +188,13 @@ def upload(
 
 
 def upload_in(
-    conn: db.Conn, user: User, entity_type: str, entity_id: int, filename: str | None, mime_type: str | None, src: BinaryIO
+    conn: db.Conn,
+    user: User,
+    entity_type: str,
+    entity_id: int,
+    filename: str | None,
+    mime_type: str | None,
+    src: BinaryIO,
 ) -> tuple[dict, bool]:
     """upload() in the caller's transaction. Staging and the thumbnail then run under the write
     lock, so prefer upload() when not already in one."""
@@ -180,12 +203,20 @@ def upload_in(
         return _publish_in(conn, user, entity_type, entity_id, filename, mime_type, staged, thumb)
 
 
-def attach(user: User, entity_type: str, entity_id: int, filename: str, data: bytes, mime_type: str | None = None) -> dict:
+def attach(
+    user: User, entity_type: str, entity_id: int, filename: str, data: bytes, mime_type: str | None = None
+) -> dict:
     return upload(user, entity_type, entity_id, filename, mime_type, io.BytesIO(data))[0]
 
 
 def attach_in(
-    conn: db.Conn, user: User, entity_type: str, entity_id: int, filename: str, data: bytes, mime_type: str | None = None
+    conn: db.Conn,
+    user: User,
+    entity_type: str,
+    entity_id: int,
+    filename: str,
+    data: bytes,
+    mime_type: str | None = None,
 ) -> dict:
     return upload_in(conn, user, entity_type, entity_id, filename, mime_type, io.BytesIO(data))[0]
 
@@ -256,7 +287,10 @@ def move_to_in(conn: db.Conn, entity_type: str, source_id: int, target_id: int) 
               AND sha256 IN (SELECT sha256 FROM core_files WHERE entity_type = ? AND entity_id = ?)""",
         (entity_type, source_id, entity_type, target_id),
     )
-    conn.execute("UPDATE core_files SET entity_id = ? WHERE entity_type = ? AND entity_id = ?", (target_id, entity_type, source_id))
+    conn.execute(
+        "UPDATE core_files SET entity_id = ? WHERE entity_type = ? AND entity_id = ?",
+        (target_id, entity_type, source_id),
+    )
 
 
 def move_to(entity_type: str, source_id: int, target_id: int) -> None:

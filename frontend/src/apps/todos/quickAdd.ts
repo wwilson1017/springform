@@ -30,24 +30,36 @@ export interface QuickAddParse {
 }
 
 const WEEKDAYS = [
-  ['sunday', 'sun'], ['monday', 'mon'], ['tuesday', 'tue', 'tues'],
-  ['wednesday', 'wed'], ['thursday', 'thu', 'thur', 'thurs'],
-  ['friday', 'fri'], ['saturday', 'sat'],
+  ['sunday', 'sun'],
+  ['monday', 'mon'],
+  ['tuesday', 'tue', 'tues'],
+  ['wednesday', 'wed'],
+  ['thursday', 'thu', 'thur', 'thurs'],
+  ['friday', 'fri'],
+  ['saturday', 'sat'],
 ];
 
 const MONTHS = [
-  ['january', 'jan'], ['february', 'feb'], ['march', 'mar'], ['april', 'apr'],
-  ['may'], ['june', 'jun'], ['july', 'jul'], ['august', 'aug'],
-  ['september', 'sep', 'sept'], ['october', 'oct'], ['november', 'nov'],
+  ['january', 'jan'],
+  ['february', 'feb'],
+  ['march', 'mar'],
+  ['april', 'apr'],
+  ['may'],
+  ['june', 'jun'],
+  ['july', 'jul'],
+  ['august', 'aug'],
+  ['september', 'sep', 'sept'],
+  ['october', 'oct'],
+  ['november', 'nov'],
   ['december', 'dec'],
 ];
 
 function weekdayIndex(word: string): number {
-  return WEEKDAYS.findIndex(names => names.includes(word.toLowerCase()));
+  return WEEKDAYS.findIndex((names) => names.includes(word.toLowerCase()));
 }
 
 function monthIndex(word: string): number {
-  return MONTHS.findIndex(names => names.includes(word.toLowerCase()));
+  return MONTHS.findIndex((names) => names.includes(word.toLowerCase()));
 }
 
 function iso(d: Date): string {
@@ -66,11 +78,15 @@ function addDays(base: Date, days: number): Date {
 /** Next occurrence of `weekday` STRICTLY after today ("friday" on a Friday
  * means next week — you'd say "today" otherwise). */
 function nextWeekday(now: Date, weekday: number): Date {
-  const delta = ((weekday - now.getDay() + 7) % 7) || 7;
+  const delta = (weekday - now.getDay() + 7) % 7 || 7;
   return addDays(now, delta);
 }
 
-interface Span { start: number; end: number; chip: QuickAddChip }
+interface Span {
+  start: number;
+  end: number;
+  chip: QuickAddChip;
+}
 
 const WEEKDAY_ALTS = WEEKDAYS.flat().join('|');
 const MONTH_ALTS = MONTHS.flat().join('|');
@@ -83,8 +99,7 @@ export function parseQuickAdd(
 ): QuickAddParse {
   const spans: Span[] = [];
   const out: QuickAddParse = { title: '', star: false, chips: [] };
-  const used = (start: number, end: number) =>
-    spans.some(s => start < s.end && end > s.start);
+  const used = (start: number, end: number) => spans.some((s) => start < s.end && end > s.start);
 
   const claim = (m: RegExpMatchArray, chip: QuickAddChip) => {
     if (ignore.includes(m[0].trim())) return false;
@@ -95,8 +110,7 @@ export function parseQuickAdd(
   };
 
   // Repeats first — "every monday" must win over the bare-weekday date rule.
-  for (const m of input.matchAll(
-    new RegExp(String.raw`(?<=^|\s)every\s+(${WEEKDAY_ALTS})(?=\s|$)`, 'gi'))) {
+  for (const m of input.matchAll(new RegExp(String.raw`(?<=^|\s)every\s+(${WEEKDAY_ALTS})(?=\s|$)`, 'gi'))) {
     const wd = weekdayIndex(m[1]);
     if (wd >= 0 && claim(m, { kind: 'repeat', label: `every ${WEEKDAYS[wd][0]}`, raw: m[0] })) {
       out.repeat = 'weekly';
@@ -124,7 +138,7 @@ export function parseQuickAdd(
   // Dates. First match wins; later date phrases stay in the title.
   const setDue = (m: RegExpMatchArray, date: Date, label?: string) => {
     if (out.due_date && !out.repeat) return false;
-    if (out.due_date && spans.some(s => s.chip.kind === 'due')) return false;
+    if (out.due_date && spans.some((s) => s.chip.kind === 'due')) return false;
     if (!claim(m, { kind: 'due', label: label ?? iso(date), raw: m[0] })) return false;
     out.due_date = iso(date);
     return true;
@@ -153,13 +167,13 @@ export function parseQuickAdd(
   for (const m of input.matchAll(/(?<=^|\s)in\s+(\d{1,3})\s+days?(?=\s|$)/gi)) {
     setDue(m, addDays(now, parseInt(m[1], 10)), `in ${m[1]} days`);
   }
-  for (const m of input.matchAll(
-    new RegExp(String.raw`(?<=^|\s)(?:on\s+|next\s+)?(${WEEKDAY_ALTS})(?=\s|$)`, 'gi'))) {
+  for (const m of input.matchAll(new RegExp(String.raw`(?<=^|\s)(?:on\s+|next\s+)?(${WEEKDAY_ALTS})(?=\s|$)`, 'gi'))) {
     const wd = weekdayIndex(m[1]);
     if (wd >= 0) setDue(m, nextWeekday(now, wd), WEEKDAYS[wd][0]);
   }
-  for (const m of input.matchAll(new RegExp(
-    String.raw`(?<=^|\s)(${MONTH_ALTS})\s+(\d{1,2})(?:\s+(\d{4}))?(?=\s|$)`, 'gi'))) {
+  for (const m of input.matchAll(
+    new RegExp(String.raw`(?<=^|\s)(${MONTH_ALTS})\s+(\d{1,2})(?:\s+(\d{4}))?(?=\s|$)`, 'gi'),
+  )) {
     const mo = monthIndex(m[1]);
     const day = parseInt(m[2], 10);
     if (mo < 0) continue;
@@ -208,6 +222,6 @@ export function parseQuickAdd(
   }
   title += input.slice(cursor);
   out.title = title.replace(/\s+/g, ' ').trim();
-  out.chips = spans.map(s => s.chip);
+  out.chips = spans.map((s) => s.chip);
   return out;
 }

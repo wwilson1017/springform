@@ -28,7 +28,7 @@ let container: HTMLDivElement | null = null;
 function render(groups: FacetGroup[], onToggle = vi.fn()) {
   container = document.createElement('div');
   document.body.appendChild(container);
-  const withToggle = groups.map(g => ({ ...g, onToggle: g.onToggle ?? onToggle }));
+  const withToggle = groups.map((g) => ({ ...g, onToggle: g.onToggle ?? onToggle }));
   act(() => {
     root = createRoot(container!);
     root.render(
@@ -108,8 +108,8 @@ describe('SearchFilterBar — disabled facet options (todo-gtd #1560)', () => {
   });
 
   const openPanel = (el: HTMLElement) => {
-    const disclosure = Array.from(el.querySelectorAll('button')).find(
-      b => b.textContent?.includes('Filters'),
+    const disclosure = Array.from(el.querySelectorAll('button')).find((b) =>
+      b.textContent?.includes('Filters'),
     ) as HTMLButtonElement;
     act(() => disclosure.click());
   };
@@ -118,7 +118,7 @@ describe('SearchFilterBar — disabled facet options (todo-gtd #1560)', () => {
     const el = render([disabledGroup([])]);
     openPanel(el);
     const closed = Array.from(el.querySelectorAll('button')).find(
-      b => b.textContent === 'Closed',
+      (b) => b.textContent === 'Closed',
     ) as HTMLButtonElement;
     expect(closed.disabled).toBe(true);
     expect(closed.title).toBe('Turn on Show closed');
@@ -129,7 +129,7 @@ describe('SearchFilterBar — disabled facet options (todo-gtd #1560)', () => {
     const el = render([{ ...disabledGroup([2]), onToggle }]);
     openPanel(el);
     const closed = Array.from(el.querySelectorAll('button')).find(
-      b => b.textContent === 'Closed',
+      (b) => b.textContent === 'Closed',
     ) as HTMLButtonElement;
     expect(closed.disabled).toBe(false);
     act(() => closed.click());
@@ -156,7 +156,9 @@ describe('SearchFilterBar — high-cardinality facets', () => {
     expect(el.querySelectorAll('input[type="checkbox"]').length).toBe(0);
 
     // Expand the group — now, and only now, the rows exist.
-    const groupToggle = Array.from(el.querySelectorAll('button')).find(b => b.textContent?.includes('Suppliers')) as HTMLButtonElement;
+    const groupToggle = Array.from(el.querySelectorAll('button')).find((b) =>
+      b.textContent?.includes('Suppliers'),
+    ) as HTMLButtonElement;
     act(() => groupToggle.click());
     expect(el.querySelectorAll('input[type="checkbox"]').length).toBe(200);
   });

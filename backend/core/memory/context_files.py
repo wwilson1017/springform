@@ -79,7 +79,9 @@ def _meta(row, user: User) -> dict:
 
 def list_files_in(conn: db.Conn, agent_slug: str, user: User) -> list[dict]:
     """Every file's metadata (no bodies), in prompt order."""
-    rows = conn.execute(f"SELECT {_META} FROM core_agent_context_files WHERE agent_slug = ? {_ORDER}", (_agent(agent_slug),))
+    rows = conn.execute(
+        f"SELECT {_META} FROM core_agent_context_files WHERE agent_slug = ? {_ORDER}", (_agent(agent_slug),)
+    )
     return [_meta(r, user) for r in rows]
 
 

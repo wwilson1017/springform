@@ -75,7 +75,9 @@ def _repeat(freq: str | None, due_at: str, zone: ZoneInfo) -> str | None:
     if freq not in recurrence.REPEATS:
         raise Invalid(f"repeat.freq must be one of {', '.join(recurrence.REPEATS)}")
     local = clock.parse(due_at).astimezone(zone)
-    return json.dumps({"freq": freq, "anchor": local.date().isoformat(), "time": local.strftime("%H:%M"), "tz": zone.key})
+    return json.dumps(
+        {"freq": freq, "anchor": local.date().isoformat(), "time": local.strftime("%H:%M"), "tz": zone.key}
+    )
 
 
 def _shape_in(conn: db.Conn, user: User, rows: list) -> list[dict]:
@@ -119,8 +121,15 @@ def _editable(row) -> None:
 
 
 def create_in(
-    conn: db.Conn, user: User, *, title: str, due_at: str, note: str = "", repeat: str | None = None,
-    entity_type: str | None = None, entity_id: int | None = None,
+    conn: db.Conn,
+    user: User,
+    *,
+    title: str,
+    due_at: str,
+    note: str = "",
+    repeat: str | None = None,
+    entity_type: str | None = None,
+    entity_id: int | None = None,
 ) -> dict:
     """A reminder owned by `user`. `due_at` is ISO; without an offset it is read in the user's
     zone (else the install's). `repeat` is a freq or None. A record needs `authorize(read)`."""
@@ -147,8 +156,13 @@ def create(user: User, **fields) -> dict:
 
 
 def list_mine_in(
-    conn: db.Conn, user: User, *, from_: str | None = None, to: str | None = None,
-    status: str | None = None, limit: int | None = None,
+    conn: db.Conn,
+    user: User,
+    *,
+    from_: str | None = None,
+    to: str | None = None,
+    status: str | None = None,
+    limit: int | None = None,
 ) -> list[dict]:
     """The caller's reminders with `from_ <= due_at < to`, soonest first. Reminders on records
     the caller can no longer read are left out."""
@@ -168,8 +182,12 @@ def list_mine_in(
     limit, _ = pagination.window(limit)
     # simplification: unreadable rows are dropped after LIMIT, so such a page can come back short;
     # they are rare (fire time voids them). Upgrade path: re-query like notifications' _visible.
-    rows = conn.execute(f"{_SELECT} WHERE {' AND '.join(where)} ORDER BY r.due_at, r.id LIMIT ?", (*params, limit)).fetchall()
-    return _shape_in(conn, user, [r for r in rows if notifications.can_read_in(conn, user, r["entity_type"], r["entity_id"])])
+    rows = conn.execute(
+        f"{_SELECT} WHERE {' AND '.join(where)} ORDER BY r.due_at, r.id LIMIT ?", (*params, limit)
+    ).fetchall()
+    return _shape_in(
+        conn, user, [r for r in rows if notifications.can_read_in(conn, user, r["entity_type"], r["entity_id"])]
+    )
 
 
 def list_mine(user: User, **filters) -> list[dict]:
@@ -212,11 +230,16 @@ def update_in(conn: db.Conn, user: User, reminder_id: int, fields: dict) -> dict
         due = sets["due_at"] = _instant(fields["due_at"], zone, "due_at")
         sets.update(status="open", fired_at=None)
     if "repeat" in fields or "due_at" in fields:
-        freq = fields["repeat"] if "repeat" in fields else (json.loads(row["repeat"])["freq"] if row["repeat"] else None)
+        freq = (
+            fields["repeat"] if "repeat" in fields else (json.loads(row["repeat"])["freq"] if row["repeat"] else None)
+        )
         sets["repeat"] = _repeat(freq, due, zone)
     if sets:
         assignments = ", ".join(f"{k} = ?" for k in sets)  # keys are this function's own
-        conn.execute(f"UPDATE core_reminders SET {assignments}, updated_at = ? WHERE id = ?", (*sets.values(), clock.now_iso(), reminder_id))
+        conn.execute(
+            f"UPDATE core_reminders SET {assignments}, updated_at = ? WHERE id = ?",
+            (*sets.values(), clock.now_iso(), reminder_id),
+        )
     return _get_in(conn, user, reminder_id)
 
 
@@ -250,7 +273,9 @@ def complete_in(conn: db.Conn, user: User, reminder_id: int) -> dict:
     row = _own_in(conn, user, reminder_id)
     if row["status"] != "done":
         _editable(row)
-        conn.execute("UPDATE core_reminders SET status = 'done', updated_at = ? WHERE id = ?", (clock.now_iso(), reminder_id))
+        conn.execute(
+            "UPDATE core_reminders SET status = 'done', updated_at = ? WHERE id = ?", (clock.now_iso(), reminder_id)
+        )
         if row["repeat"]:
             _spawn_next_in(conn, row)
     return _get_in(conn, user, reminder_id)
@@ -277,7 +302,9 @@ def delete(user: User, reminder_id: int) -> None:
 
 def _spawn_next_in(conn: db.Conn, row) -> int:
     """Insert the series' next occurrence after this one, unless a later one exists. Returns 0 or 1."""
-    if conn.execute("SELECT 1 FROM core_reminders WHERE series_id = ? AND id > ?", (row["series_id"], row["id"])).fetchone():
+    if conn.execute(
+        "SELECT 1 FROM core_reminders WHERE series_id = ? AND id > ?", (row["series_id"], row["id"])
+    ).fetchone():
         return 0
     rep = json.loads(row["repeat"])
     _, at = recurrence.next_due(
@@ -313,13 +340,22 @@ def fire_due_in(conn: db.Conn) -> dict:
             reason = "owner can no longer read the record"
         if reason:
             conn.execute(
-                "UPDATE core_reminders SET status = 'voided', void_reason = ?, updated_at = ? WHERE id = ?", (reason, now, row["id"])
+                "UPDATE core_reminders SET status = 'voided', void_reason = ?, updated_at = ? WHERE id = ?",
+                (reason, now, row["id"]),
             )
             counts["voided"] += 1
             continue
-        conn.execute("UPDATE core_reminders SET status = 'open', fired_at = ?, updated_at = ? WHERE id = ?", (now, now, row["id"]))
+        conn.execute(
+            "UPDATE core_reminders SET status = 'open', fired_at = ?, updated_at = ? WHERE id = ?",
+            (now, now, row["id"]),
+        )
         notifications.deliver_in(
-            conn, f"Reminder: {row['title']}", row["note"], user_id=owner.id, entity=entity, link=None if entity else LINK
+            conn,
+            f"Reminder: {row['title']}",
+            row["note"],
+            user_id=owner.id,
+            entity=entity,
+            link=None if entity else LINK,
         )
         counts["fired"] += 1
         if row["repeat"]:
@@ -352,5 +388,6 @@ def on_entity_deleted_in(conn: db.Conn, entity_type: str, entity_id: int) -> Non
 
 def on_entity_merged_in(conn: db.Conn, entity_type: str, target_id: int, source_id: int) -> None:
     conn.execute(
-        "UPDATE core_reminders SET entity_id = ? WHERE entity_type = ? AND entity_id = ?", (target_id, entity_type, source_id)
+        "UPDATE core_reminders SET entity_id = ? WHERE entity_type = ? AND entity_id = ?",
+        (target_id, entity_type, source_id),
     )

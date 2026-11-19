@@ -38,7 +38,8 @@ def _host() -> str:
 
 def _send_invite(inviter: User, row: dict, url: str) -> bool:
     return mail.send(
-        row["email"], f"You're invited to {_host()}",
+        row["email"],
+        f"You're invited to {_host()}",
         f"{inviter.name or inviter.email} invited you to {_host()}.\n\n"
         f"Open this link within an hour to set up your account:\n{url}\n\n"
         "If you weren't expecting this, you can ignore this message.",
@@ -47,7 +48,8 @@ def _send_invite(inviter: User, row: dict, url: str) -> bool:
 
 def _send_reset(address: str, url: str) -> bool:
     return mail.send(
-        address, f"Reset your {_host()} password",
+        address,
+        f"Reset your {_host()} password",
         f"A password reset was requested for {address} on {_host()}.\n\n"
         f"Open this link within an hour to choose a new one:\n{url}\n\n"
         "If you weren't expecting this, ignore this message; your password has not changed.",
@@ -102,10 +104,13 @@ def forgot(email: str, ip: str) -> tuple[str, str] | None:
     email = service.normalize_email(email)
     per_email, per_ip = FORGOT_LIMITS
     with db.transaction() as conn:
-        if service.over_limit_in(conn, f"forgot:{email}", *per_email) or service.over_limit_in(conn, f"forgot-ip:{ip}", *per_ip):
+        if service.over_limit_in(conn, f"forgot:{email}", *per_email) or service.over_limit_in(
+            conn, f"forgot-ip:{ip}", *per_ip
+        ):
             raise service.RateLimited()
         row = conn.execute(
-            "SELECT id, email FROM core_users WHERE lower(trim(email)) = ? AND is_active = 1 AND role != 'system'", (email,)
+            "SELECT id, email FROM core_users WHERE lower(trim(email)) = ? AND is_active = 1 AND role != 'system'",
+            (email,),
         ).fetchone()
         if not row or not mail.configured():
             return None
@@ -213,4 +218,3 @@ def password_change(body: PasswordIn, request: Request, response: Response, user
     except service.RateLimited:
         raise HTTPException(429, detail="rate_limited") from None
     return start_session(request, response, row)
-

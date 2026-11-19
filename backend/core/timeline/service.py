@@ -41,16 +41,28 @@ def _entry(row) -> dict:
         "kind": row["kind"],
         "body": row["body"],
         "changes": json.loads(row["changes"]) if row["changes"] else None,
-        "author": {"id": row["author_user_id"], "name": row["author_name"]} if row["author_user_id"] is not None else None,
+        "author": {"id": row["author_user_id"], "name": row["author_name"]}
+        if row["author_user_id"] is not None
+        else None,
         "created_at": row["created_at"],
     }
 
 
-def _insert_in(conn: db.Conn, entity_type: str, entity_id: int, kind: str, body: str, changes: Any, user_id: int | None) -> dict:
+def _insert_in(
+    conn: db.Conn, entity_type: str, entity_id: int, kind: str, body: str, changes: Any, user_id: int | None
+) -> dict:
     cur = conn.execute(
         """INSERT INTO core_timeline (entity_type, entity_id, kind, body, changes, author_user_id, created_at)
            VALUES (?, ?, ?, ?, ?, ?, ?)""",
-        (entity_type, entity_id, kind, body, json.dumps(changes) if changes is not None else None, user_id, clock.now_iso()),
+        (
+            entity_type,
+            entity_id,
+            kind,
+            body,
+            json.dumps(changes) if changes is not None else None,
+            user_id,
+            clock.now_iso(),
+        ),
     )
     return _entry(conn.execute(f"{_SELECT} WHERE t.id = ?", (cur.lastrowid,)).fetchone())
 
@@ -128,7 +140,9 @@ def add_note(user: User, entity_type: str, entity_id: int, body: str, kind: str 
         return add_note_in(conn, user, entity_type, entity_id, body, kind)
 
 
-def list_for(user: User, entity_type: str, entity_id: int, before: int | None = None, limit: int | None = None) -> list[dict]:
+def list_for(
+    user: User, entity_type: str, entity_id: int, before: int | None = None, limit: int | None = None
+) -> list[dict]:
     """Newest first. Pages back with `before` (the last entry id seen); `limit` 50 by default, at most 200."""
     conn = db.get_conn()
     entities.authorize(user, conn, entity_type, entity_id, "read")

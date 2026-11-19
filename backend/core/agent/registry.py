@@ -50,7 +50,8 @@ class ToolRegistry:
             return [s for s in self._specs.values() if s.mcp_exposed and not s.remote]
         if source == "job":  # unattended: runs as the system principal with nobody to confirm
             return [
-                s for s in self._specs.values()
+                s
+                for s in self._specs.values()
                 if not s.writes and not s.always_confirm and not s.remote and not s.untrusted_source
             ]
         raise ValueError(f"Unknown tool source {source!r}")

@@ -79,13 +79,16 @@ def test_file_download_headers(login_as, scheme):
     _assert_headers(response, scheme)
 
 
-@pytest.mark.parametrize("name,value", [
-    ("X-Frame-Options", "DENY"),
-    ("X-Content-Type-Options", "custom"),
-    ("Content-Security-Policy", "frame-ancestors 'none'"),
-    ("Referrer-Policy", "no-referrer"),
-    ("Strict-Transport-Security", "max-age=60"),
-])
+@pytest.mark.parametrize(
+    "name,value",
+    [
+        ("X-Frame-Options", "DENY"),
+        ("X-Content-Type-Options", "custom"),
+        ("Content-Security-Policy", "frame-ancestors 'none'"),
+        ("Referrer-Policy", "no-referrer"),
+        ("Strict-Transport-Security", "max-age=60"),
+    ],
+)
 @pytest.mark.parametrize("scheme", ["http", "https"])
 def test_route_header_wins(empty_frontend_app, name, value, scheme):
     @empty_frontend_app.get("/api/test-own-header")

@@ -47,7 +47,9 @@ def list_field_entity_types(user: User = Depends(current_user)) -> list[dict]:
 
 
 @router.get("/definitions", response_model=list[models.FieldDefinition])
-def list_field_definitions(entity_type: str, include_archived: bool = False, user: User = Depends(current_user)) -> list[dict]:
+def list_field_definitions(
+    entity_type: str, include_archived: bool = False, user: User = Depends(current_user)
+) -> list[dict]:
     return service.list_definitions(entity_type, include_archived)
 
 

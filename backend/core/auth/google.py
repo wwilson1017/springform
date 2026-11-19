@@ -51,7 +51,11 @@ AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth"
 TOKEN_URL = "https://oauth2.googleapis.com/token"
 ISSUERS = ("accounts.google.com", "https://accounts.google.com")
 AUTHORITATIVE_DOMAINS = ("gmail.com", "googlemail.com")
-CLIENT_ID, CLIENT_SECRET, REQUIRE_TOTP = "auth.google_client_id", "auth.google_client_secret", "auth.require_totp_for_google"
+CLIENT_ID, CLIENT_SECRET, REQUIRE_TOTP = (
+    "auth.google_client_id",
+    "auth.google_client_secret",
+    "auth.require_totp_for_google",
+)
 CLIENT_ID_SHAPE = re.compile(r"^\d+-[0-9a-z]+\.apps\.googleusercontent\.com$")
 COOKIE, COOKIE_PATH, STATE_SECONDS = "sf_google", "/api/auth/google", 600
 TRANSPORT: httpx.BaseTransport | None = None  # tests swap in an httpx.MockTransport
@@ -126,10 +130,17 @@ def identity(code: str, saved: dict) -> dict:
         raise GoogleError("Google sign-in is not configured")
     try:
         with httpx.Client(transport=TRANSPORT, timeout=15) as c:
-            r = c.post(TOKEN_URL, data={
-                "code": code, "client_id": client_id, "client_secret": client_secret, "redirect_uri": redirect_uri(),
-                "grant_type": "authorization_code", "code_verifier": saved["verifier"],
-            })
+            r = c.post(
+                TOKEN_URL,
+                data={
+                    "code": code,
+                    "client_id": client_id,
+                    "client_secret": client_secret,
+                    "redirect_uri": redirect_uri(),
+                    "grant_type": "authorization_code",
+                    "code_verifier": saved["verifier"],
+                },
+            )
         r.raise_for_status()
         claims = id_token.verify_oauth2_token(r.json()["id_token"], _Request(), audience=client_id)
     except (httpx.HTTPError, KeyError, ValueError, GoogleAuthError) as e:
@@ -228,15 +239,32 @@ def google_start(request: Request, link: bool = False, invite: str | None = None
         target = f"/api/auth/google/stub?{urlencode({'state': state})}"
     else:
         challenge = base64.urlsafe_b64encode(hashlib.sha256(verifier.encode()).digest()).rstrip(b"=").decode()
-        target = AUTH_URL + "?" + urlencode({
-            "client_id": client()[0], "redirect_uri": redirect_uri(), "response_type": "code", "scope": "openid email profile",
-            "state": state, "nonce": nonce, "code_challenge": challenge, "code_challenge_method": "S256",
-            "prompt": "select_account",
-        })
+        target = (
+            AUTH_URL
+            + "?"
+            + urlencode(
+                {
+                    "client_id": client()[0],
+                    "redirect_uri": redirect_uri(),
+                    "response_type": "code",
+                    "scope": "openid email profile",
+                    "state": state,
+                    "nonce": nonce,
+                    "code_challenge": challenge,
+                    "code_challenge_method": "S256",
+                    "prompt": "select_account",
+                }
+            )
+        )
     response = RedirectResponse(target, status_code=302)
     response.set_cookie(
-        COOKIE, jwt.mint_purpose("google", {"state": state, "nonce": nonce, "verifier": verifier, **extra}, STATE_SECONDS),
-        max_age=STATE_SECONDS, httponly=True, samesite="lax", secure=request.url.scheme == "https", path=COOKIE_PATH,
+        COOKIE,
+        jwt.mint_purpose("google", {"state": state, "nonce": nonce, "verifier": verifier, **extra}, STATE_SECONDS),
+        max_age=STATE_SECONDS,
+        httponly=True,
+        samesite="lax",
+        secure=request.url.scheme == "https",
+        path=COOKIE_PATH,
     )
     return response
 
@@ -250,7 +278,11 @@ def google_callback(request: Request, state: str = "", code: str = "", error: st
     if not saved or not hmac.compare_digest(str(saved.get("state", "")), state):
         return _go("/login?error=google_failed")
     invite = saved.get("invite")
-    fail = "/settings?google_error=" if saved.get("link") else (f"/invite/{quote(invite, safe='')}?error=" if invite else "/login?error=")
+    fail = (
+        "/settings?google_error="
+        if saved.get("link")
+        else (f"/invite/{quote(invite, safe='')}?error=" if invite else "/login?error=")
+    )
     try:
         if error or not code:
             raise GoogleError(error or "no authorization code")
@@ -293,7 +325,11 @@ def google_stub(state: str = "") -> str:
 @router.get("/api/auth/google")
 def google_status(user: User = Depends(current_user)) -> dict:
     row = service.get_user(user.id)
-    return {"available": available(), "linked": bool(row["google_sub"]), "has_password": service.has_password(row["password_hash"])}
+    return {
+        "available": available(),
+        "linked": bool(row["google_sub"]),
+        "has_password": service.has_password(row["password_hash"]),
+    }
 
 
 @router.post("/api/auth/google/unlink")
@@ -314,7 +350,9 @@ class ConfigIn(BaseModel):
 def _config() -> dict:
     client_id, client_secret = client()
     return {
-        "client_id": client_id, "has_secret": bool(client_secret), "redirect_uri": redirect_uri(),
+        "client_id": client_id,
+        "has_secret": bool(client_secret),
+        "redirect_uri": redirect_uri(),
         "require_totp_for_google": bool(settings.get_setting(REQUIRE_TOTP, False)),
     }
 
@@ -346,8 +384,13 @@ def google_test(admin: User = Depends(require_admin)) -> dict:
     if not client_secret:
         problems.append("No client secret is saved.")
     if not uri.startswith("https://") and urlparse(uri).hostname not in ("localhost", "127.0.0.1"):
-        problems.append("Google only accepts an https redirect URI (except on localhost): set PUBLIC_URL to the https address.")
+        problems.append(
+            "Google only accepts an https redirect URI (except on localhost): set PUBLIC_URL to the https address."
+        )
     return {
-        "redirect_uri": uri, "client_id_valid": bool(CLIENT_ID_SHAPE.match(client_id)), "has_secret": bool(client_secret),
-        "ok": not problems, "problems": problems,
+        "redirect_uri": uri,
+        "client_id_valid": bool(CLIENT_ID_SHAPE.match(client_id)),
+        "has_secret": bool(client_secret),
+        "ok": not problems,
+        "problems": problems,
     }

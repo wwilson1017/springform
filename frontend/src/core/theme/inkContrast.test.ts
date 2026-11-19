@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import {
-  AA_NORMAL_TEXT, BASES, DARK_TOKENS, LIGHT_TOKENS, contrast, hexToRgb, luminance, over, type Rgb,
+  AA_NORMAL_TEXT,
+  BASES,
+  DARK_TOKENS,
+  LIGHT_TOKENS,
+  contrast,
+  hexToRgb,
+  luminance,
+  over,
+  type Rgb,
 } from './palette.testutil';
 
 /**
@@ -48,8 +56,9 @@ describe.each([
 ])('%s theme neutral ink ramp', (themeName, tokens) => {
   it('parsed a complete palette out of index.css', () => {
     for (const k of [...INK_TOKENS, ...BASES]) {
-      expect(tokens[k], `${themeName}: --color-sf-${k} missing, or not a literal hex`)
-        .toMatch(/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/);
+      expect(tokens[k], `${themeName}: --color-sf-${k} missing, or not a literal hex`).toMatch(
+        /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/,
+      );
     }
   });
 
@@ -75,7 +84,10 @@ describe.each([
     };
     const steps = INK_TOKENS.map((t) => lstar(tokens[t]));
     const sign = themeName === 'light' ? 1 : -1;
-    for (const [i, g] of steps.slice(1).map((v, j) => v - steps[j]).entries()) {
+    for (const [i, g] of steps
+      .slice(1)
+      .map((v, j) => v - steps[j])
+      .entries()) {
       expect(g * sign, `${INK_TOKENS[i]}->${INK_TOKENS[i + 1]} runs the wrong way`).toBeGreaterThan(0);
       expect(Math.abs(g), `${INK_TOKENS[i]}->${INK_TOKENS[i + 1]} too close`).toBeGreaterThan(4);
     }

@@ -10,20 +10,51 @@ import type { ChangeRow } from './types';
 
 const user = (role: User['role']): User => ({ id: 1, email: 'a@example.com', name: 'A', role, tz: 'UTC' });
 const exampleApp = {
-  slug: 'example', name: 'Example', description: '', path: '/example', icon: 'flask', roles: ['admin', 'member'],
-  order: 1, badge: null, hidden: false, settings_cards: [], version: '0.1.0',
+  slug: 'example',
+  name: 'Example',
+  description: '',
+  path: '/example',
+  icon: 'flask',
+  roles: ['admin', 'member'],
+  order: 1,
+  badge: null,
+  hidden: false,
+  settings_cards: [],
+  version: '0.1.0',
 };
 const row = (id: number, extra: Partial<ChangeRow> = {}): ChangeRow => ({
-  id, at: '2026-10-24T03:43:00Z', user: { id: 2, name: 'Pat' }, app: 'example', entity_type: 'example.widget',
-  entity_id: 3, title: 'Blue crate', url: '/example/3', field: 'name', old: 'Old', new: `New ${id}`, reason: null,
-  deleted_at: null, ...extra,
+  id,
+  at: '2026-10-24T03:43:00Z',
+  user: { id: 2, name: 'Pat' },
+  app: 'example',
+  entity_type: 'example.widget',
+  entity_id: 3,
+  title: 'Blue crate',
+  url: '/example/3',
+  field: 'name',
+  old: 'Old',
+  new: `New ${id}`,
+  reason: null,
+  deleted_at: null,
+  ...extra,
 });
 
 function renderAt(url: string, role: User['role'], routes: Record<string, Reply>) {
   const fetchMock = mockFetch({
-    'GET /api/me': { body: user(role) }, 'GET /api/core/apps': { body: [exampleApp] }, 'GET /api/auth/users': { body: [] }, ...routes,
+    'GET /api/me': { body: user(role) },
+    'GET /api/core/apps': { body: [exampleApp] },
+    'GET /api/auth/users': { body: [] },
+    ...routes,
   });
-  render(<MemoryRouter initialEntries={[url]}><AuthProvider><CoreAppsProvider><ChangeLogPage /></CoreAppsProvider></AuthProvider></MemoryRouter>);
+  render(
+    <MemoryRouter initialEntries={[url]}>
+      <AuthProvider>
+        <CoreAppsProvider>
+          <ChangeLogPage />
+        </CoreAppsProvider>
+      </AuthProvider>
+    </MemoryRouter>,
+  );
   return fetchMock;
 }
 
@@ -65,7 +96,9 @@ describe('ChangeLogPage', () => {
 
   it('marks a row about a deleted record and does not link it', async () => {
     renderAt('/changelog', 'admin', {
-      'GET /api/core/changelog?limit=50': { body: [row(4, { title: null, url: null, deleted_at: '2026-10-24T04:00:00Z' })] },
+      'GET /api/core/changelog?limit=50': {
+        body: [row(4, { title: null, url: null, deleted_at: '2026-10-24T04:00:00Z' })],
+      },
     });
     expect(await screen.findByText('deleted')).toBeTruthy();
     expect(screen.getByText('example.widget #3').tagName).toBe('SPAN');

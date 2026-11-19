@@ -51,14 +51,23 @@ def test_invite_with_a_copyable_link_end_to_end(login_as, app):
     guest = make_client(app)
     for guess in ("!", "", PASSWORD):  # the '!' hash never authenticates
         assert guest.post("/api/auth/login", json={"email": "new@example.com", "password": guess}).status_code == 401
-    assert guest.get(f"/api/auth/invite/{token}").json() == {"email": "new@example.com", "name": "New Person", "google": False}
+    assert guest.get(f"/api/auth/invite/{token}").json() == {
+        "email": "new@example.com",
+        "name": "New Person",
+        "google": False,
+    }
     assert guest.post(f"/api/auth/invite/{token}", json={"password": "short"}).status_code == 422
     r = guest.post(f"/api/auth/invite/{token}", json={"password": NEW_PASSWORD})
     assert r.status_code == 200 and r.json()["user"]["email"] == "new@example.com" and COOKIE in guest.cookies
     assert guest.get("/api/me").status_code == 200
     assert guest.get(f"/api/auth/invite/{token}").status_code == 404  # single use
     assert guest.post(f"/api/auth/invite/{token}", json={"password": "another-password"}).status_code == 404
-    assert make_client(app).post("/api/auth/login", json={"email": "new@example.com", "password": NEW_PASSWORD}).status_code == 200
+    assert (
+        make_client(app)
+        .post("/api/auth/login", json={"email": "new@example.com", "password": NEW_PASSWORD})
+        .status_code
+        == 200
+    )
     assert admin.post(f"/api/auth/users/{r.json()['user']['id']}/resend-invite").json() == {"detail": "invite_accepted"}
 
 
@@ -117,7 +126,9 @@ def test_forgot_and_reset(login_as, app, outbox):
     token = _token(url)
     assert guest.post("/api/auth/reset", json={"token": token, "password": "short"}).status_code == 422
     r = guest.post("/api/auth/reset", json={"token": token, "password": NEW_PASSWORD})
-    assert r.status_code == 200 and r.json()["user"]["id"] == member.user["id"] and guest.get("/api/me").status_code == 200
+    assert (
+        r.status_code == 200 and r.json()["user"]["id"] == member.user["id"] and guest.get("/api/me").status_code == 200
+    )
     assert member.get("/api/me").status_code == 401  # every older session ended
     assert other_session.get("/api/me").status_code == 200
     assert guest.post("/api/auth/reset", json={"token": token, "password": "yet-another-one"}).status_code == 404
@@ -133,13 +144,21 @@ def test_an_admin_issues_a_reset_link(login_as, app, outbox, monkeypatch):
     assert r.status_code == 200 and r.json()["mailed"] is False and outbox == []
     first = r.json()["reset_url"]
     assert first.startswith("http://localhost:8000/reset-password/")
-    assert core_db.one("SELECT created_by FROM core_login_tokens WHERE purpose = 'reset'")["created_by"] == admin.user["id"]
+    assert (
+        core_db.one("SELECT created_by FROM core_login_tokens WHERE purpose = 'reset'")["created_by"]
+        == admin.user["id"]
+    )
     monkeypatch.setenv("RESEND_API_KEY", "re_test")
     r = admin.post(f"/api/auth/users/{member.user['id']}/reset-link").json()
     assert r["mailed"] is True and outbox[0]["to"] == [member.user["email"]] and r["reset_url"] in outbox[0]["text"]
     guest = make_client(app)
-    assert guest.post("/api/auth/reset", json={"token": _token(first), "password": NEW_PASSWORD}).status_code == 404  # replaced
-    assert guest.post("/api/auth/reset", json={"token": _token(r["reset_url"]), "password": NEW_PASSWORD}).status_code == 200
+    assert (
+        guest.post("/api/auth/reset", json={"token": _token(first), "password": NEW_PASSWORD}).status_code == 404
+    )  # replaced
+    assert (
+        guest.post("/api/auth/reset", json={"token": _token(r["reset_url"]), "password": NEW_PASSWORD}).status_code
+        == 200
+    )
     assert member.get("/api/me").status_code == 401 and guest.get("/api/me").json()["id"] == member.user["id"]
     assert login_as("member").post(f"/api/auth/users/{admin.user['id']}/reset-link").status_code == 403
     admin.post(f"/api/auth/users/{member.user['id']}/deactivate")
@@ -185,4 +204,9 @@ def test_password_change_ends_other_sessions_and_keeps_this_one(login_as, app):
     assert r.status_code == 200 and r.json()["user"]["id"] == member.user["id"]
     assert member.get("/api/me").status_code == 200 and elsewhere.get("/api/me").status_code == 401
     assert core_db.one("SELECT count(*) AS n FROM core_trusted_devices")["n"] == 0
-    assert make_client(app).post("/api/auth/login", json={"email": member.user["email"], "password": NEW_PASSWORD}).status_code == 200
+    assert (
+        make_client(app)
+        .post("/api/auth/login", json={"email": member.user["email"], "password": NEW_PASSWORD})
+        .status_code
+        == 200
+    )

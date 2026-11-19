@@ -18,9 +18,7 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const {
-  updateTodoMock, refreshMetaMock, listTodosMock, listProjectsMock,
-} = vi.hoisted(() => ({
+const { updateTodoMock, refreshMetaMock, listTodosMock, listProjectsMock } = vi.hoisted(() => ({
   updateTodoMock: vi.fn(),
   refreshMetaMock: vi.fn(),
   listTodosMock: vi.fn(),
@@ -58,11 +56,24 @@ import type { Todo } from './types';
 import { UNDO_WINDOW_MS, queueUndo, resetUndoQueue } from './undoQueue';
 import { ITEM_EXTRA } from './testFixtures';
 
-const BASE: Todo = { ...ITEM_EXTRA,
-  id: 1, title: 'water the plants', notes: '', project_id: null, project_name: null,
-  context: '', tags: [], status: 'someday_maybe', star: false, due_date: null,
-  repeat: '', auto_star_on_due: false, source: 'ui',
-  created_at: '2026-09-14T12:00:00Z', updated_at: '2026-09-14T12:00:00Z', completed_at: null,
+const BASE: Todo = {
+  ...ITEM_EXTRA,
+  id: 1,
+  title: 'water the plants',
+  notes: '',
+  project_id: null,
+  project_name: null,
+  context: '',
+  tags: [],
+  status: 'someday_maybe',
+  star: false,
+  due_date: null,
+  repeat: '',
+  auto_star_on_due: false,
+  source: 'ui',
+  created_at: '2026-09-14T12:00:00Z',
+  updated_at: '2026-09-14T12:00:00Z',
+  completed_at: null,
 };
 const todo = (over: Partial<Todo> = {}): Todo => ({ ...BASE, ...over });
 
@@ -97,28 +108,23 @@ const pill = () => container.querySelector('[aria-label="Recent changes you can 
 const headerCount = () => pill()?.querySelector('span')?.textContent?.trim() ?? null;
 
 function button(label: string): HTMLButtonElement {
-  const found = [...container.querySelectorAll('button')]
-    .find(b => b.textContent?.trim() === label);
+  const found = [...container.querySelectorAll('button')].find((b) => b.textContent?.trim() === label);
   if (!found) throw new Error(`no button labelled "${label}"`);
   return found;
 }
 const findButton = (label: string) =>
-  [...container.querySelectorAll('button')].find(b => b.textContent?.trim() === label);
+  [...container.querySelectorAll('button')].find((b) => b.textContent?.trim() === label);
 
 /** Undo buttons all read "Undo?", so rows are addressed by their accessible name —
  *  which is also what pins the two kinds apart: a filing and a completion undo
  *  different things and must not claim to undo the same one. */
 function undoFor(title: string): HTMLButtonElement {
-  const found = container.querySelector<HTMLButtonElement>(
-    `button[aria-label="Undo marking “${title}” done"]`,
-  );
+  const found = container.querySelector<HTMLButtonElement>(`button[aria-label="Undo marking “${title}” done"]`);
   if (!found) throw new Error(`no undo button for "${title}"`);
   return found;
 }
 function undoFiledFor(title: string): HTMLButtonElement {
-  const found = container.querySelector<HTMLButtonElement>(
-    `button[aria-label="Undo filing “${title}”"]`,
-  );
+  const found = container.querySelector<HTMLButtonElement>(`button[aria-label="Undo filing “${title}”"]`);
   if (!found) throw new Error(`no filing-undo button for "${title}"`);
   return found;
 }
@@ -133,10 +139,18 @@ function setValue(el: HTMLSelectElement | HTMLInputElement, value: string) {
   });
 }
 
-const renderPill = () => act(() => { root.render(<UndoPill />); });
-const advance = (ms: number) => act(() => { vi.advanceTimersByTime(ms); });
+const renderPill = () =>
+  act(() => {
+    root.render(<UndoPill />);
+  });
+const advance = (ms: number) =>
+  act(() => {
+    vi.advanceTimersByTime(ms);
+  });
 const clickAsync = async (el: Element) => {
-  await act(async () => { (el as HTMLElement).click(); });
+  await act(async () => {
+    (el as HTMLElement).click();
+  });
 };
 
 describe('UndoPill', () => {
@@ -144,7 +158,9 @@ describe('UndoPill', () => {
     renderPill();
     expect(pill()).toBeNull();
 
-    act(() => { queueUndo(todo({ id: 7, title: 'call the vet' })); });
+    act(() => {
+      queueUndo(todo({ id: 7, title: 'call the vet' }));
+    });
 
     expect(pill()).not.toBeNull();
     expect(rows()).toHaveLength(1);
@@ -154,10 +170,14 @@ describe('UndoPill', () => {
 
   it('shows Undo all only once a second row is queued', () => {
     renderPill();
-    act(() => { queueUndo(todo({ id: 1, title: 'one' })); });
+    act(() => {
+      queueUndo(todo({ id: 1, title: 'one' }));
+    });
     expect(findButton('Undo all')).toBeUndefined();
 
-    act(() => { queueUndo(todo({ id: 2, title: 'two' })); });
+    act(() => {
+      queueUndo(todo({ id: 2, title: 'two' }));
+    });
 
     expect(headerCount()).toBe('2 marked done');
     expect(findButton('Undo all')).toBeDefined();
@@ -165,16 +185,20 @@ describe('UndoPill', () => {
 
   it('gives each row its own timer — a later completion never extends an earlier one', () => {
     renderPill();
-    act(() => { queueUndo(todo({ id: 1, title: 'first' })); });
+    act(() => {
+      queueUndo(todo({ id: 1, title: 'first' }));
+    });
     advance(3000);
-    act(() => { queueUndo(todo({ id: 2, title: 'second' })); });
+    act(() => {
+      queueUndo(todo({ id: 2, title: 'second' }));
+    });
 
     // t = 3s: both alive.
     expect(rows()).toHaveLength(2);
 
     // t = 7s: the first row's window is up; the second still has 3s left.
     advance(UNDO_WINDOW_MS - 3000);
-    expect(rows().map(r => r.textContent)).toHaveLength(1);
+    expect(rows().map((r) => r.textContent)).toHaveLength(1);
     expect(rows()[0].textContent).toContain('second');
 
     // t = 10s: the second row's own 7s elapses and the block disappears.
@@ -213,7 +237,9 @@ describe('UndoPill', () => {
 
   it('ignores a second click on a row whose undo is already in flight', async () => {
     renderPill();
-    act(() => { queueUndo(todo({ id: 31, title: 'double' })); });
+    act(() => {
+      queueUndo(todo({ id: 31, title: 'double' }));
+    });
     const btn = undoFor('double');
 
     await clickAsync(btn);
@@ -228,7 +254,10 @@ describe('UndoPill', () => {
 
     // What a double-tapped checkbox does: the list has not reloaded, so the
     // second onChange arrives carrying the same pre-write row.
-    act(() => { queueUndo(item); queueUndo(item); });
+    act(() => {
+      queueUndo(item);
+      queueUndo(item);
+    });
 
     expect(rows()).toHaveLength(1);
     expect(headerCount()).toBe('1 marked done');
@@ -236,7 +265,9 @@ describe('UndoPill', () => {
 
   it('drops the row when its 7s elapses, leaving the todo done', () => {
     renderPill();
-    act(() => { queueUndo(todo({ id: 41, title: 'expire me' })); });
+    act(() => {
+      queueUndo(todo({ id: 41, title: 'expire me' }));
+    });
 
     advance(UNDO_WINDOW_MS);
 
@@ -251,7 +282,9 @@ function ToggleHarness({ item }: { item: Todo }) {
   const { toggleDone } = useRowActions(() => {});
   return (
     <>
-      <button type="button" onClick={() => void toggleDone(item)}>toggle</button>
+      <button type="button" onClick={() => void toggleDone(item)}>
+        toggle
+      </button>
       <UndoPill />
     </>
   );
@@ -260,7 +293,9 @@ function ToggleHarness({ item }: { item: Todo }) {
 describe('toggleDone ↔ the undo queue', () => {
   it('queues a row when marking done, carrying the prior status', async () => {
     const item = todo({ id: 51, title: 'mow the lawn', status: 'someday_maybe' });
-    await act(async () => { root.render(<ToggleHarness item={item} />); });
+    await act(async () => {
+      root.render(<ToggleHarness item={item} />);
+    });
 
     await clickAsync(button('toggle'));
 
@@ -272,13 +307,17 @@ describe('toggleDone ↔ the undo queue', () => {
 
   it('drops the queued row when the user un-checks the box themselves', async () => {
     const item = todo({ id: 52, title: 'stale offer', status: 'next_action' });
-    await act(async () => { root.render(<ToggleHarness item={item} />); });
+    await act(async () => {
+      root.render(<ToggleHarness item={item} />);
+    });
     await clickAsync(button('toggle'));
     expect(rows()).toHaveLength(1);
 
     // Re-render as the DONE row the list would now show, and un-check it.
     const done = todo({ id: 52, title: 'stale offer', status: 'done' });
-    await act(async () => { root.render(<ToggleHarness item={done} />); });
+    await act(async () => {
+      root.render(<ToggleHarness item={done} />);
+    });
     await clickAsync(button('toggle'));
 
     expect(pill()).toBeNull();
@@ -297,8 +336,14 @@ describe('the other two mark-done surfaces', () => {
     await act(async () => {
       root.render(
         <>
-          <TriageCard todo={item} projects={[]} contexts={[]}
-                      onProcessed={() => {}} onChanged={() => {}} onEdit={() => {}} />
+          <TriageCard
+            todo={item}
+            projects={[]}
+            contexts={[]}
+            onProcessed={() => {}}
+            onChanged={() => {}}
+            onEdit={() => {}}
+          />
           <UndoPill />
         </>,
       );
@@ -319,8 +364,7 @@ describe('the other two mark-done surfaces', () => {
     await act(async () => {
       root.render(
         <MemoryRouter>
-          <TodoEditSheet todo={item} projects={[]} contexts={[]}
-                         onClose={() => {}} onSaved={() => {}} />
+          <TodoEditSheet todo={item} projects={[]} contexts={[]} onClose={() => {}} onSaved={() => {}} />
           <UndoPill />
         </MemoryRouter>,
       );
@@ -347,14 +391,21 @@ describe('a pending undo is invalidated by any later status write', () => {
     updateTodoMock.mockResolvedValue({ ...item, status: 'done' });
 
     // Completed from a list a moment ago...
-    act(() => { queueUndo(item) });
+    act(() => {
+      queueUndo(item);
+    });
 
     // ...then deliberately refiled through the sheet, still inside the window.
     await act(async () => {
       root.render(
         <MemoryRouter>
-          <TodoEditSheet todo={{ ...item, status: 'done' }} projects={[]} contexts={[]}
-                         onClose={() => {}} onSaved={() => {}} />
+          <TodoEditSheet
+            todo={{ ...item, status: 'done' }}
+            projects={[]}
+            contexts={[]}
+            onClose={() => {}}
+            onSaved={() => {}}
+          />
           <UndoPill />
         </MemoryRouter>,
       );
@@ -370,8 +421,12 @@ describe('a pending undo is invalidated by any later status write', () => {
 
   it('setStatus drops a pending undo for the same todo', async () => {
     const item = todo({ id: 74, title: 'reactivated', status: 'someday_maybe' });
-    await act(async () => { root.render(<SetStatusHarness item={item} />); });
-    act(() => { queueUndo(item); });
+    await act(async () => {
+      root.render(<SetStatusHarness item={item} />);
+    });
+    act(() => {
+      queueUndo(item);
+    });
     expect(rows()).toHaveLength(1);
 
     await clickAsync(button('to next'));
@@ -385,7 +440,9 @@ function SetStatusHarness({ item }: { item: Todo }) {
   const { setStatus } = useRowActions(() => {});
   return (
     <>
-      <button type="button" onClick={() => void setStatus(item, 'next_action')}>to next</button>
+      <button type="button" onClick={() => void setStatus(item, 'next_action')}>
+        to next
+      </button>
       <UndoPill />
     </>
   );
@@ -394,12 +451,18 @@ function SetStatusHarness({ item }: { item: Todo }) {
 describe('settle-stage fixes', () => {
   it('Review takes the undo broadcast too, despite owning its own fetch', async () => {
     await act(async () => {
-      root.render(<MemoryRouter><ReviewPage /></MemoryRouter>);
+      root.render(
+        <MemoryRouter>
+          <ReviewPage />
+        </MemoryRouter>,
+      );
     });
     const initial = listTodosMock.mock.calls.length;
     expect(initial).toBeGreaterThan(0);
 
-    act(() => { queueUndo(todo({ id: 91, title: 'a next action' })); });
+    act(() => {
+      queueUndo(todo({ id: 91, title: 'a next action' }));
+    });
     await clickAsync(undoFor('a next action'));
 
     // Undone from Review, the project it belonged to must stop being listed as
@@ -415,8 +478,7 @@ describe('settle-stage fixes', () => {
     await act(async () => {
       root.render(
         <MemoryRouter>
-          <TodoEditSheet todo={item} projects={[]} contexts={[]}
-                         onClose={() => {}} onSaved={() => {}} />
+          <TodoEditSheet todo={item} projects={[]} contexts={[]} onClose={() => {}} onSaved={() => {}} />
           <BroadcastHarness onReload={() => {}} />
         </MemoryRouter>,
       );
@@ -446,7 +508,9 @@ function BroadcastHarness({ onReload }: { onReload: () => void }) {
   return (
     <>
       <UndoPill />
-      {toasts.map(t => <p key={t.id}>{t.text}</p>)}
+      {toasts.map((t) => (
+        <p key={t.id}>{t.text}</p>
+      ))}
     </>
   );
 }
@@ -454,8 +518,12 @@ function BroadcastHarness({ onReload }: { onReload: () => void }) {
 describe('undo side effects', () => {
   it('tells every mounted list to reload, so the todo reappears where it belongs', async () => {
     const reload = vi.fn();
-    await act(async () => { root.render(<BroadcastHarness onReload={reload} />); });
-    act(() => { queueUndo(todo({ id: 81, title: 'reappear' })); });
+    await act(async () => {
+      root.render(<BroadcastHarness onReload={reload} />);
+    });
+    act(() => {
+      queueUndo(todo({ id: 81, title: 'reappear' }));
+    });
     expect(reload).not.toHaveBeenCalled();
 
     await clickAsync(undoFor('reappear'));
@@ -466,8 +534,12 @@ describe('undo side effects', () => {
 
   it('says so and refreshes nothing when the revert is rejected', async () => {
     const reload = vi.fn();
-    await act(async () => { root.render(<BroadcastHarness onReload={reload} />); });
-    act(() => { queueUndo(todo({ id: 82, title: 'server says no' })); });
+    await act(async () => {
+      root.render(<BroadcastHarness onReload={reload} />);
+    });
+    act(() => {
+      queueUndo(todo({ id: 82, title: 'server says no' }));
+    });
     updateTodoMock.mockRejectedValueOnce(new Error('500'));
 
     await clickAsync(undoFor('server says no'));
@@ -499,9 +571,7 @@ describe('undo side effects', () => {
 
 /** Step 3's picker keys its options by INDEX into the card's context list. */
 async function pickContext(index: number) {
-  const select = container.querySelector<HTMLSelectElement>(
-    'select[aria-label="Set context and file this todo"]',
-  );
+  const select = container.querySelector<HTMLSelectElement>('select[aria-label="Set context and file this todo"]');
   if (!select) throw new Error('no context picker');
   setValue(select, String(index));
   await act(async () => {});
@@ -513,17 +583,27 @@ function TriageHarness({ item, contexts }: { item: Todo; contexts: string[] }) {
   const toasts = useToasts();
   return (
     <>
-      <TriageCard todo={item} projects={[]} contexts={contexts}
-                  onProcessed={() => {}} onChanged={() => {}} onEdit={() => {}} />
+      <TriageCard
+        todo={item}
+        projects={[]}
+        contexts={contexts}
+        onProcessed={() => {}}
+        onChanged={() => {}}
+        onEdit={() => {}}
+      />
       <UndoPill />
-      {toasts.map(t => <p key={t.id}>{t.text}</p>)}
+      {toasts.map((t) => (
+        <p key={t.id}>{t.text}</p>
+      ))}
     </>
   );
 }
 
 describe('todo-gtd #2925 — filing an inbox item under a context', () => {
   const renderTriage = async (item: Todo, contexts: string[]) => {
-    await act(async () => { root.render(<TriageHarness item={item} contexts={contexts} />); });
+    await act(async () => {
+      root.render(<TriageHarness item={item} contexts={contexts} />);
+    });
   };
 
   it('queues a row saying what happened, and undoes the whole filing write', async () => {
@@ -591,8 +671,12 @@ describe('todo-gtd #2925 — filing an inbox item under a context', () => {
     // the todo is still where the write put it. Clicking it after the user has
     // moved the item on would re-file it against a decision made later.
     const item = todo({ id: 95, title: 'refiled again', status: 'inbox', context: '@home' });
-    await act(async () => { root.render(<SetStatusHarness item={item} />); });
-    act(() => { queueUndo(item, 'filed'); });
+    await act(async () => {
+      root.render(<SetStatusHarness item={item} />);
+    });
+    act(() => {
+      queueUndo(item, 'filed');
+    });
     expect(rows()).toHaveLength(1);
 
     await clickAsync(button('to next'));
@@ -607,11 +691,15 @@ describe('todo-gtd #2925 — one block, two kinds of undo', () => {
 
   it('names the action while the queue is one kind, and stops naming it when it is two', () => {
     renderPill();
-    act(() => { queueUndo(done); });
+    act(() => {
+      queueUndo(done);
+    });
     // todo-gtd #2879's wording, unchanged, for the case it was locked for.
     expect(headerCount()).toBe('1 marked done');
 
-    act(() => { queueUndo(filed, 'filed'); });
+    act(() => {
+      queueUndo(filed, 'filed');
+    });
     // Two actions, so the header cannot name one — the rows carry it instead.
     expect(headerCount()).toBe('2 recent changes');
     expect(rows()[0].textContent).toContain('Marked done');
@@ -620,7 +708,10 @@ describe('todo-gtd #2925 — one block, two kinds of undo', () => {
 
   it('Undo all puts a completion and a filing each back its own way', async () => {
     renderPill();
-    act(() => { queueUndo(done); queueUndo(filed, 'filed'); });
+    act(() => {
+      queueUndo(done);
+      queueUndo(filed, 'filed');
+    });
 
     await clickAsync(button('Undo all'));
 
@@ -637,10 +728,11 @@ function SheetHarness({ item, contexts = [] }: { item: Todo; contexts?: string[]
   const toasts = useToasts();
   return (
     <MemoryRouter>
-      <TodoEditSheet todo={item} projects={[]} contexts={contexts}
-                     onClose={() => {}} onSaved={() => {}} />
+      <TodoEditSheet todo={item} projects={[]} contexts={contexts} onClose={() => {}} onSaved={() => {}} />
       <UndoPill />
-      {toasts.map(t => <p key={t.id}>{t.text}</p>)}
+      {toasts.map((t) => (
+        <p key={t.id}>{t.text}</p>
+      ))}
     </MemoryRouter>
   );
 }
@@ -658,8 +750,12 @@ describe('the edit sheet and a pending filing undo', () => {
   // window matched it and silently cancelled an undo still on screen.
   it('survives an unrelated edit that resubmits the same status', async () => {
     const item = todo({ id: 101, title: 'sweep the dock', status: 'next_action', context: '@work' });
-    await act(async () => { root.render(<SheetHarness item={item} />); });
-    act(() => { queueUndo(item, 'filed'); });
+    await act(async () => {
+      root.render(<SheetHarness item={item} />);
+    });
+    act(() => {
+      queueUndo(item, 'filed');
+    });
     expect(rows()).toHaveLength(1);
 
     // Touch something that is not the status at all.
@@ -667,9 +763,13 @@ describe('the edit sheet and a pending filing undo', () => {
     setValue(title, 'sweep the dock properly');
     await clickAsync(button('Save'));
 
-    expect(updateTodoMock).toHaveBeenLastCalledWith(101, expect.objectContaining({
-      title: 'sweep the dock properly', status: 'next_action',
-    }));
+    expect(updateTodoMock).toHaveBeenLastCalledWith(
+      101,
+      expect.objectContaining({
+        title: 'sweep the dock properly',
+        status: 'next_action',
+      }),
+    );
     // Still offered, and still offering to put the filing back.
     expect(rows()).toHaveLength(1);
     await clickAsync(undoFiledFor('sweep the dock'));
@@ -680,8 +780,12 @@ describe('the edit sheet and a pending filing undo', () => {
     // The half the guard exists for: undoing after this would overwrite the
     // destination the user has just deliberately chosen.
     const item = todo({ id: 102, title: 'chase the invoice', status: 'next_action', context: '@calls' });
-    await act(async () => { root.render(<SheetHarness item={item} />); });
-    act(() => { queueUndo(item, 'filed'); });
+    await act(async () => {
+      root.render(<SheetHarness item={item} />);
+    });
+    act(() => {
+      queueUndo(item, 'filed');
+    });
     expect(rows()).toHaveLength(1);
 
     setValue(statusSelect(), 'waiting_for');
@@ -694,7 +798,9 @@ describe('the edit sheet and a pending filing undo', () => {
     // TriageCard's Edit button opens THIS sheet on the item being triaged, so it
     // is the second way out of the inbox and carries the same mis-click.
     const item = todo({ id: 103, title: 'book the dentist', status: 'inbox', context: '' });
-    await act(async () => { root.render(<SheetHarness item={item} contexts={['@calls']} />); });
+    await act(async () => {
+      root.render(<SheetHarness item={item} contexts={['@calls']} />);
+    });
 
     const ctx = container.querySelector<HTMLSelectElement>('#tgtd-context')!;
     setValue(ctx, '0'); // @calls
@@ -711,11 +817,15 @@ describe('the edit sheet and a pending filing undo', () => {
 /** Records every triage focus the undo path asks for, in order. */
 function FocusHarness({ seen }: { seen: number[] }) {
   const toasts = useToasts();
-  useInboxFocus(id => { seen.push(id); });
+  useInboxFocus((id) => {
+    seen.push(id);
+  });
   return (
     <>
       <UndoPill />
-      {toasts.map(t => <p key={t.id}>{t.text}</p>)}
+      {toasts.map((t) => (
+        <p key={t.id}>{t.text}</p>
+      ))}
     </>
   );
 }
@@ -728,13 +838,16 @@ describe('Undo all when only some reverts land', () => {
 
   it('points the triage card at the filing that actually came back', async () => {
     const seen: number[] = [];
-    await act(async () => { root.render(<FocusHarness seen={seen} />); });
-    act(() => { queueUndo(filedA, 'filed'); queueUndo(filedB, 'filed'); });
+    await act(async () => {
+      root.render(<FocusHarness seen={seen} />);
+    });
+    act(() => {
+      queueUndo(filedA, 'filed');
+      queueUndo(filedB, 'filed');
+    });
     // The LAST row is the one whose revert fails, so the naive "take the last
     // entry" answer and the correct one differ.
-    updateTodoMock
-      .mockResolvedValueOnce(BASE)
-      .mockRejectedValueOnce(new Error('500'));
+    updateTodoMock.mockResolvedValueOnce(BASE).mockRejectedValueOnce(new Error('500'));
 
     await clickAsync(button('Undo all'));
 
@@ -743,8 +856,13 @@ describe('Undo all when only some reverts land', () => {
 
   it('reloads nothing when every revert in the batch fails', async () => {
     const seen: number[] = [];
-    await act(async () => { root.render(<FocusHarness seen={seen} />); });
-    act(() => { queueUndo(filedA, 'filed'); queueUndo(filedB, 'filed'); });
+    await act(async () => {
+      root.render(<FocusHarness seen={seen} />);
+    });
+    act(() => {
+      queueUndo(filedA, 'filed');
+      queueUndo(filedB, 'filed');
+    });
     updateTodoMock.mockRejectedValue(new Error('500'));
 
     await clickAsync(button('Undo all'));
@@ -758,8 +876,13 @@ describe('Undo all when only some reverts land', () => {
   it('counts only completions when it warns about respawned occurrences', async () => {
     const repeatingFiled = todo({ id: 113, title: 'weekly report', status: 'inbox', repeat: 'weekly' });
     const repeatingDone = todo({ id: 114, title: 'weekly review', status: 'next_action', repeat: 'weekly' });
-    await act(async () => { root.render(<FocusHarness seen={[]} />); });
-    act(() => { queueUndo(repeatingFiled, 'filed'); queueUndo(repeatingDone); });
+    await act(async () => {
+      root.render(<FocusHarness seen={[]} />);
+    });
+    act(() => {
+      queueUndo(repeatingFiled, 'filed');
+      queueUndo(repeatingDone);
+    });
 
     await clickAsync(button('Undo all'));
 
@@ -778,8 +901,12 @@ describe('a later context choice and a pending row (todo-gtd #2925, Codex stage 
     // The sheet sees the row AFTER the filing; the queued entry was built from the
     // row before it, which is what undo would put back.
     const item = todo({ id: 121, title: 'order the belts', status: 'next_action', context: '@calls' });
-    await act(async () => { root.render(<SheetHarness item={item} contexts={['@calls', '@errands']} />); });
-    act(() => { queueUndo({ ...item, status: 'inbox', context: '' }, 'filed'); });
+    await act(async () => {
+      root.render(<SheetHarness item={item} contexts={['@calls', '@errands']} />);
+    });
+    act(() => {
+      queueUndo({ ...item, status: 'inbox', context: '' }, 'filed');
+    });
     expect(rows()).toHaveLength(1);
 
     // Status untouched; only the context moves.
@@ -787,9 +914,13 @@ describe('a later context choice and a pending row (todo-gtd #2925, Codex stage 
     setValue(ctx, '1'); // @errands
     await clickAsync(button('Save'));
 
-    expect(updateTodoMock).toHaveBeenLastCalledWith(121, expect.objectContaining({
-      context: '@errands', status: 'next_action',
-    }));
+    expect(updateTodoMock).toHaveBeenLastCalledWith(
+      121,
+      expect.objectContaining({
+        context: '@errands',
+        status: 'next_action',
+      }),
+    );
     // Undoing now would overwrite the context the user just chose.
     expect(pill()).toBeNull();
   });
@@ -798,8 +929,12 @@ describe('a later context choice and a pending row (todo-gtd #2925, Codex stage 
     // A completion row puts back the status and nothing else, so a context edit
     // does not move the todo off where marking it done left it.
     const item = todo({ id: 122, title: 'shred the box', status: 'done', context: '@home' });
-    await act(async () => { root.render(<SheetHarness item={item} contexts={['@home', '@work']} />); });
-    act(() => { queueUndo({ ...item, status: 'next_action' }); });
+    await act(async () => {
+      root.render(<SheetHarness item={item} contexts={['@home', '@work']} />);
+    });
+    act(() => {
+      queueUndo({ ...item, status: 'next_action' });
+    });
     expect(rows()).toHaveLength(1);
 
     const ctx = container.querySelector<HTMLSelectElement>('#tgtd-context')!;
@@ -818,7 +953,9 @@ describe('an undo that lands an item back in the inbox', () => {
     // 'inbox' exactly as a filing's does. Keying the focus on the kind left that item
     // wherever `items[0]` put it; keying it on where the revert lands does not.
     const seen: number[] = [];
-    await act(async () => { root.render(<FocusHarness seen={seen} />); });
+    await act(async () => {
+      root.render(<FocusHarness seen={seen} />);
+    });
     act(() => {
       queueUndo(todo({ id: 131, title: 'two-minute job', status: 'inbox' }));
       queueUndo(todo({ id: 132, title: 'off a list', status: 'next_action' }));

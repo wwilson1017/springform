@@ -53,7 +53,11 @@ def check_params(key: str, spec: dict | None) -> None:
 
     if spec is None:
         return
-    if not isinstance(spec, dict) or spec.get("type") != "object" or not set(spec) <= {"type", "properties", "required"}:
+    if (
+        not isinstance(spec, dict)
+        or spec.get("type") != "object"
+        or not set(spec) <= {"type", "properties", "required"}
+    ):
         fail('must be {"type": "object", "properties": {...}, "required": [...]}')
     props = spec.get("properties", {})
     if not isinstance(props, dict) or not set(spec.get("required", [])) <= set(props):

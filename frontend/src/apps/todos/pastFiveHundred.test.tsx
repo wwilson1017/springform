@@ -18,18 +18,45 @@ import { ReviewPage } from './ReviewPage';
 import { ITEM_EXTRA, PROJECT_EXTRA } from './testFixtures';
 
 const AT = '2026-09-01T12:00:00Z';
-const project = (id: number, name: string) =>
-  ({ ...PROJECT_EXTRA, id, name, notes: '', status: 'active', open_count: 1, created_at: AT, updated_at: AT });
+const project = (id: number, name: string) => ({
+  ...PROJECT_EXTRA,
+  id,
+  name,
+  notes: '',
+  status: 'active',
+  open_count: 1,
+  created_at: AT,
+  updated_at: AT,
+});
 // 501 next actions, every one in the first project: the second has none.
-const NEXT = Array.from({ length: 501 }, (_, i) => ({ ...ITEM_EXTRA,
-  id: i + 1, title: `step ${i + 1}`, notes: '', project_id: 1, project_name: 'Busy', context: '',
-  tags: [], status: 'next_action', star: false, due_date: null, repeat: '',
-  auto_star_on_due: false, source: 'ui', created_at: AT, updated_at: new Date().toISOString(),
+const NEXT = Array.from({ length: 501 }, (_, i) => ({
+  ...ITEM_EXTRA,
+  id: i + 1,
+  title: `step ${i + 1}`,
+  notes: '',
+  project_id: 1,
+  project_name: 'Busy',
+  context: '',
+  tags: [],
+  status: 'next_action',
+  star: false,
+  due_date: null,
+  repeat: '',
+  auto_star_on_due: false,
+  source: 'ui',
+  created_at: AT,
+  updated_at: new Date().toISOString(),
   completed_at: null,
 }));
 
 const COUNTS = {
-  inbox: 0, next_action: 501, waiting_for: 0, delegated: 0, someday_maybe: 0, done: 0, dropped: 0,
+  inbox: 0,
+  next_action: 501,
+  waiting_for: 0,
+  delegated: 0,
+  someday_maybe: 0,
+  done: 0,
+  dropped: 0,
 };
 
 let container: HTMLDivElement;
@@ -42,21 +69,24 @@ beforeEach(() => {
   document.body.appendChild(container);
   root = createRoot(container);
   asked = [];
-  vi.stubGlobal('fetch', vi.fn(async (url: string) => {
-    const { pathname, searchParams: q } = new URL(url, 'http://x');
-    let body: unknown = {};
-    if (pathname.endsWith('/projects')) body = [project(1, 'Busy'), project(2, 'Stalled')];
-    else if (pathname.endsWith('/today')) body = [];
-    else if (pathname.endsWith('/filters')) body = { contexts: [], tags: [], status_counts: COUNTS };
-    else if (pathname.endsWith('/review')) body = { review_due: false, days_since_review: 0, last_review_at: null };
-    else if (pathname.endsWith('/items')) {
-      asked.push(`${q.get('status')}@${q.get('offset')}`);
-      const from = Number(q.get('offset') ?? 0);
-      const rows = q.get('status') === 'next_action' ? NEXT : [];
-      body = rows.slice(from, from + Number(q.get('limit')));
-    }
-    return { ok: true, status: 200, json: async () => body };
-  }));
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async (url: string) => {
+      const { pathname, searchParams: q } = new URL(url, 'http://x');
+      let body: unknown = {};
+      if (pathname.endsWith('/projects')) body = [project(1, 'Busy'), project(2, 'Stalled')];
+      else if (pathname.endsWith('/today')) body = [];
+      else if (pathname.endsWith('/filters')) body = { contexts: [], tags: [], status_counts: COUNTS };
+      else if (pathname.endsWith('/review')) body = { review_due: false, days_since_review: 0, last_review_at: null };
+      else if (pathname.endsWith('/items')) {
+        asked.push(`${q.get('status')}@${q.get('offset')}`);
+        const from = Number(q.get('offset') ?? 0);
+        const rows = q.get('status') === 'next_action' ? NEXT : [];
+        body = rows.slice(from, from + Number(q.get('limit')));
+      }
+      return { ok: true, status: 200, json: async () => body };
+    }),
+  );
 });
 
 afterEach(() => {

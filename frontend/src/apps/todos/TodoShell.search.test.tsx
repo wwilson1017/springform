@@ -35,7 +35,9 @@ async function boxAt(url: string, active: TodoTab): Promise<string> {
   await act(async () => {
     root.render(
       <MemoryRouter initialEntries={[url]}>
-        <TodoShell active={active} hideQuickAdd>{null}</TodoShell>
+        <TodoShell active={active} hideQuickAdd>
+          {null}
+        </TodoShell>
       </MemoryRouter>,
     );
   });

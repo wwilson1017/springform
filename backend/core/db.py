@@ -183,9 +183,7 @@ def transaction() -> Iterator[Conn]:
     SQLite itself, since BEGIN IMMEDIATE waits up to busy_timeout for the other writer."""
     conn = get_conn()
     if conn.in_transaction:
-        raise NestedTransaction(
-            "transaction() is already open on this thread; pass conn to an _in function instead"
-        )
+        raise NestedTransaction("transaction() is already open on this thread; pass conn to an _in function instead")
     with _write_lock:
         _local.outbox_pending = False
         conn.execute("BEGIN IMMEDIATE")
@@ -303,11 +301,15 @@ def migrate(app_dirs_: list[Path] | None = None, core_dir: Path = CORE_MIGRATION
             digest = hashlib.sha256(sql.encode()).hexdigest()
             if f.name in applied:
                 if applied[f.name] != digest:
-                    raise MigrationError(f"Migration {f.name} changed after it was applied; add a new migration instead")
+                    raise MigrationError(
+                        f"Migration {f.name} changed after it was applied; add a new migration instead"
+                    )
                 continue
             is_core = f.parent.resolve() == core_dir.resolve()
             if is_core and not f.name.endswith("_baseline.sql") and (found := lint_core_migration(sql)):
-                raise MigrationError(f"Core migration {f.name} uses {', '.join(found)}; core schema changes are additive")
+                raise MigrationError(
+                    f"Core migration {f.name} uses {', '.join(found)}; core schema changes are additive"
+                )
             logger.info("Applying migration %s", f.name)
             try:
                 conn.executescript(

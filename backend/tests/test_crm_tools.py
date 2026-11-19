@@ -55,7 +55,11 @@ def test_create_update_and_close_through_the_write_path(me):
     with pytest.raises(Refused, match="crm_mark_deal_won"):
         call(me, "crm_update_deal_stage", deal_id=deal["id"], stage="won")
     won = call(me, "crm_mark_deal_won", deal_id=deal["id"], closed_on="2026-10-10")
-    assert (won["stage"], won["closed_on"], won["url"].endswith(f"/crm/deals/{deal['id']}")) == ("won", "2026-10-10", True)
+    assert (won["stage"], won["closed_on"], won["url"].endswith(f"/crm/deals/{deal['id']}")) == (
+        "won",
+        "2026-10-10",
+        True,
+    )
     lost = call(me, "crm_mark_deal_lost", deal_id=deal["id"], lost_reason="Budget cut")
     assert lost["lost_reason"] == "Budget cut" and "lost_reason" in provenance.get(me, "crm.deal", deal["id"])["fields"]
 
@@ -78,7 +82,10 @@ def test_archive_restore_and_merge(me):
     archived = call(me, "crm_archive_deal", deal_id=keep, reason="Test record")
     assert archived["archived_reason"] == "Test record"
     assert call(me, "crm_search_deals", q="wedding") == []
-    assert [d["id"] for d in call(me, "crm_search_deals", q="wedding", include_archived=True, bogus="ignored")] == [dup, keep]
+    assert [d["id"] for d in call(me, "crm_search_deals", q="wedding", include_archived=True, bogus="ignored")] == [
+        dup,
+        keep,
+    ]
     assert call(me, "crm_restore_deal", deal_id=keep)["archived_at"] is None
 
 
@@ -87,7 +94,9 @@ def test_reads_carry_links_and_lean_analytics(me):
     pipeline = call(me, "crm_get_pipeline", limit_per_stage=5)
     assert pipeline["deals"][0]["url"].endswith(f"/crm/deals/{deal['id']}")
     stats = call(me, "crm_analytics", days=30)
-    assert "daily" not in str(stats.keys()) and stats["open_deals"] == 1 and stats["total_pipeline_value_cents"] == 50_000
+    assert (
+        "daily" not in str(stats.keys()) and stats["open_deals"] == 1 and stats["total_pipeline_value_cents"] == 50_000
+    )
     detail = call(me, "crm_get_deal", deal_id=deal["id"])
     assert detail["url"].endswith(f"/crm/deals/{deal['id']}") and detail["stage_events"][0]["new_stage"] == "proposal"
     health = call(me, "crm_get_deal_health", deal_id=deal["id"])
@@ -104,7 +113,9 @@ def test_the_write_path_authorizes_its_targets(me):
     with pytest.raises(Refused, match="not_found"):
         call(me, "crm_update_deal", deal_id=9999, title="x")
     deal = call(me, "crm_create_deal", title="Wedding cakes")
-    with pytest.raises(Refused, match="forbidden"):  # the system principal never writes (core refuses before the handler)
+    with pytest.raises(
+        Refused, match="forbidden"
+    ):  # the system principal never writes (core refuses before the handler)
         call(system_user(), "crm_update_deal", deal_id=deal["id"], title="x")
     assert call(system_user(), "crm_get_deal", deal_id=deal["id"])["title"] == "Wedding cakes"
 

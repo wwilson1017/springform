@@ -20,7 +20,16 @@ const schema: ReportParamsSchema = {
 
 function Host({ onValues }: { onValues: (v: ParamValues) => void }) {
   const [values, setValues] = useState(() => initialParams(schema));
-  return <ReportParamsForm schema={schema} values={values} onChange={v => { setValues(v); onValues(v); }} />;
+  return (
+    <ReportParamsForm
+      schema={schema}
+      values={values}
+      onChange={(v) => {
+        setValues(v);
+        onValues(v);
+      }}
+    />
+  );
 }
 
 describe('report params', () => {
@@ -36,7 +45,13 @@ describe('report params', () => {
 describe('ReportParamsForm', () => {
   it('renders one input per param, by type, and marks the required one', () => {
     let latest: ParamValues = {};
-    render(<Host onValues={v => { latest = v; }} />);
+    render(
+      <Host
+        onValues={(v) => {
+          latest = v;
+        }}
+      />,
+    );
     expect((screen.getByLabelText('Since *') as HTMLInputElement).type).toBe('date');
     expect((screen.getByLabelText('Minimum') as HTMLInputElement).step).toBe('1');
     expect((screen.getByLabelText('ratio') as HTMLInputElement).step).toBe('any');
@@ -45,9 +60,9 @@ describe('ReportParamsForm', () => {
 
     const stage = screen.getByLabelText('Stage') as HTMLSelectElement;
     expect(stage.value).toBe('lead');
-    expect([...stage.options].map(o => o.value)).toEqual(['', 'lead', 'won']);
+    expect([...stage.options].map((o) => o.value)).toEqual(['', 'lead', 'won']);
     const archived = screen.getByLabelText('Include archived') as HTMLSelectElement;
-    expect([...archived.options].map(o => o.textContent)).toEqual(['—', 'Yes', 'No']);
+    expect([...archived.options].map((o) => o.textContent)).toEqual(['—', 'Yes', 'No']);
 
     fireEvent.change(archived, { target: { value: 'true' } });
     fireEvent.change(screen.getByLabelText('Since *'), { target: { value: '2026-10-01' } });

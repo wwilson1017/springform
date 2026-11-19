@@ -1,6 +1,9 @@
 import { expect, test, unique } from './fixtures';
 
-test("the example app's panel on a person lists its widgets, private ones only to their owner", async ({ admin, member }) => {
+test("the example app's panel on a person lists its widgets, private ones only to their owner", async ({
+  admin,
+  member,
+}) => {
   const person = await admin.api.post<{ id: number }>('/api/core/contacts/people', { name: unique('Wren Example') });
   const shared = unique('Blue widget');
   const secret = unique('Private widget');
@@ -21,5 +24,5 @@ test("the example app's panel on a person lists its widgets, private ones only t
   await expect(member.page.getByRole('region', { name: 'CRM' })).toBeVisible();
   await expect(member.page.getByRole('region', { name: 'Example' })).toHaveCount(0);
   const seen = await member.api.get<Array<{ name: string }>>(`/api/example/widgets?person_id=${person.id}`);
-  expect(seen.map(w => w.name)).toEqual([shared]);
+  expect(seen.map((w) => w.name)).toEqual([shared]);
 });

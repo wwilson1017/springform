@@ -53,8 +53,9 @@ def due_instant(due_date: date, due_time: time | None, zone: ZoneInfo) -> dateti
     return local.astimezone(timezone.utc)
 
 
-def next_due(repeat: str, anchor: date, due_time: time | None, *, after: datetime,
-             zone: ZoneInfo) -> tuple[date, datetime]:
+def next_due(
+    repeat: str, anchor: date, due_time: time | None, *, after: datetime, zone: ZoneInfo
+) -> tuple[date, datetime]:
     """The first occurrence of the series whose instant is STRICTLY after ``after``.
 
     A series found late (the server was down) therefore skips its backlog and resumes

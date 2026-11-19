@@ -24,7 +24,11 @@ export interface MentionPickerState {
   track: (el: HTMLTextAreaElement) => void;
 }
 
-export function useMentionPicker(text: string, setText: (next: string) => void, ref: RefObject<HTMLTextAreaElement | null>): MentionPickerState {
+export function useMentionPicker(
+  text: string,
+  setText: (next: string) => void,
+  ref: RefObject<HTMLTextAreaElement | null>,
+): MentionPickerState {
   const [caret, setCaret] = useState<number | null>(null);
   const [dismissedAt, setDismissedAt] = useState<number | null>(null);
   const [found, setFound] = useState<{ query: string; users: UserRef[] } | null>(null);
@@ -40,8 +44,10 @@ export function useMentionPicker(text: string, setText: (next: string) => void, 
   useEffect(() => {
     if (query === null) return;
     const ctrl = new AbortController();
-    fetchJson<UserRef[]>(`/api/core/timeline/mentionable?${new URLSearchParams({ q: query })}`, ctrl.signal)
-      .then(list => setFound({ query, users: list }), () => {});
+    fetchJson<UserRef[]>(`/api/core/timeline/mentionable?${new URLSearchParams({ q: query })}`, ctrl.signal).then(
+      (list) => setFound({ query, users: list }),
+      () => {},
+    );
     return () => ctrl.abort();
   }, [query]);
 

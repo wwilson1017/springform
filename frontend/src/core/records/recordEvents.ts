@@ -10,9 +10,11 @@ const listeners = new Set<Listener>();
 /** Subscribe; returns the unsubscribe (an effect's cleanup). */
 export function onRecordChanged(listener: Listener): () => void {
   listeners.add(listener);
-  return () => { listeners.delete(listener); };
+  return () => {
+    listeners.delete(listener);
+  };
 }
 
 export function recordChanged(entityType: string, entityId: number): void {
-  listeners.forEach(l => l(entityType, entityId));
+  listeners.forEach((l) => l(entityType, entityId));
 }

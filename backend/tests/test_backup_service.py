@@ -22,7 +22,8 @@ def add_file(content: bytes, entity_id: int = 1) -> str:
     now = clock.now_iso()
     with core_db.transaction() as conn:
         conn.execute(
-            "INSERT OR IGNORE INTO core_file_blobs (sha256, byte_size, created_at) VALUES (?, ?, ?)", (sha, len(content), now)
+            "INSERT OR IGNORE INTO core_file_blobs (sha256, byte_size, created_at) VALUES (?, ?, ?)",
+            (sha, len(content), now),
         )
         conn.execute(
             """INSERT INTO core_files (entity_type, entity_id, filename, mime_type, byte_size, sha256, created_at)
@@ -48,7 +49,11 @@ def test_a_backup_is_a_complete_recovery_set(db):
         "version": 1,
         "springform_version": VERSION,
         "created_at": row["started_at"],
-        "snapshot": {"filename": snapshot.name, "sha256": service.sha256_file(snapshot), "byte_size": snapshot.stat().st_size},
+        "snapshot": {
+            "filename": snapshot.name,
+            "sha256": service.sha256_file(snapshot),
+            "byte_size": snapshot.stat().st_size,
+        },
         "blobs": sorted([a, b]),
         "key_fingerprint": secrets.key_fingerprint(),
         "key_source": "file",
@@ -57,16 +62,24 @@ def test_a_backup_is_a_complete_recovery_set(db):
     copy = core_db.sqlite3.connect(snapshot)
     assert copy.execute("SELECT count(*) FROM core_files").fetchone()[0] == 3
     copy.close()
-    assert service.list_sets() == [{
-        "stamp": stamp, "created_at": row["started_at"], "snapshot_bytes": snapshot.stat().st_size,
-        "blob_count": 2, "status": "ok", "manifest_ok": True,
-    }]
+    assert service.list_sets() == [
+        {
+            "stamp": stamp,
+            "created_at": row["started_at"],
+            "snapshot_bytes": snapshot.stat().st_size,
+            "blob_count": 2,
+            "status": "ok",
+            "manifest_ok": True,
+        }
+    ]
 
 
 def test_keeps_the_newest_seven_sets_and_clears_abandoned_files(db, freeze):
     _out().mkdir()
     hour_ago = time.time() - 3700
-    old_orphan, fresh_orphan, old_tmp = (_out() / n for n in ("20200101T000000Z.sqlite", "20200101T000001Z.sqlite", "x.sqlite.tmp"))
+    old_orphan, fresh_orphan, old_tmp = (
+        _out() / n for n in ("20200101T000000Z.sqlite", "20200101T000001Z.sqlite", "x.sqlite.tmp")
+    )
     for p in (old_orphan, fresh_orphan, old_tmp):
         p.write_bytes(b"partial")
     os.utime(old_orphan, (hour_ago, hour_ago))
@@ -86,10 +99,17 @@ def test_runs_in_the_same_second_each_get_a_complete_set(db, freeze):
     freeze("2026-11-02T15:00:00Z")  # SPRINGFORM_FREEZE_CLOCK, or a double click on "Back up now"
     first, second = service.run("manual"), service.run("manual")
     assert (first["status"], first["snapshot"]) == ("ok", "20261102T150000Z.sqlite")
-    assert (second["status"], second["snapshot"], second["manifest"]) == ("ok", "20261102T150000Z-2.sqlite", "20261102T150000Z-2.manifest.json")
+    assert (second["status"], second["snapshot"], second["manifest"]) == (
+        "ok",
+        "20261102T150000Z-2.sqlite",
+        "20261102T150000Z-2.manifest.json",
+    )
     assert service.read_manifest("20261102T150000Z-2")["snapshot"]["filename"] == second["snapshot"]
     assert service.snapshot_path("20261102T150000Z-2").name == second["snapshot"]
-    assert [(s["stamp"], s["manifest_ok"]) for s in service.list_sets()] == [("20261102T150000Z-2", True), ("20261102T150000Z", True)]
+    assert [(s["stamp"], s["manifest_ok"]) for s in service.list_sets()] == [
+        ("20261102T150000Z-2", True),
+        ("20261102T150000Z", True),
+    ]
     for _ in range(9):  # -3 … -11: retention counts -10 after -9, not after the plain stamp
         assert service.run()["status"] == "ok"
     kept = [f"20261102T150000Z-{n}" for n in range(11, 4, -1)]
@@ -135,8 +155,11 @@ def test_health_reports_the_newest_complete_set_and_the_job_is_scheduled(client,
 def test_backup_routes_are_admin_only(client, login_as):
     member = login_as("member")
     for method, path in [
-        ("get", "/api/core/backups"), ("post", "/api/core/backups/run"), ("post", "/api/core/backups/key"),
-        ("get", "/api/core/backups/20261101T030000Z/download"), ("get", "/api/core/backups/20261101T030000Z/manifest"),
+        ("get", "/api/core/backups"),
+        ("post", "/api/core/backups/run"),
+        ("post", "/api/core/backups/key"),
+        ("get", "/api/core/backups/20261101T030000Z/download"),
+        ("get", "/api/core/backups/20261101T030000Z/manifest"),
     ]:
         assert getattr(member, method)(path).status_code == 403, path
         assert getattr(client, method)(path).status_code == 401, path
@@ -148,7 +171,9 @@ def test_back_up_now_then_list_download_and_read_the_manifest(login_as):
     assert r.status_code == 202 and r.json()["status"] == "ok"
     stamp = r.json()["snapshot"].removesuffix(".sqlite")
     body = admin.get("/api/core/backups").json()
-    assert [(s["stamp"], s["status"], s["manifest_ok"], s["blob_count"]) for s in body["sets"]] == [(stamp, "ok", True, 0)]
+    assert [(s["stamp"], s["status"], s["manifest_ok"], s["blob_count"]) for s in body["sets"]] == [
+        (stamp, "ok", True, 0)
+    ]
     assert body["last_backup_at"] == r.json()["started_at"] and body["last_run"]["id"] == r.json()["id"]
     assert (body["key_source"], body["key_shown"]) == ("file", False)
 
@@ -158,8 +183,11 @@ def test_back_up_now_then_list_download_and_read_the_manifest(login_as):
     assert download.content == (_out() / f"{stamp}.sqlite").read_bytes()
     manifest = admin.get(f"/api/core/backups/{stamp}/manifest")
     assert manifest.json() == json.loads((_out() / f"{stamp}.manifest.json").read_text())
-    for path in ("/api/core/backups/nope/download", "/api/core/backups/20990101T000000Z/download",
-                 "/api/core/backups/20990101T000000Z/manifest"):
+    for path in (
+        "/api/core/backups/nope/download",
+        "/api/core/backups/20990101T000000Z/download",
+        "/api/core/backups/20990101T000000Z/manifest",
+    ):
         assert admin.get(path).status_code == 404, path
 
     with service._running:  # the nightly job holds the guard

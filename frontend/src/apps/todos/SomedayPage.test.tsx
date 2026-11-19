@@ -27,11 +27,22 @@ import type { Todo } from './types';
 import { queueUndo, resetUndoQueue } from './undoQueue';
 import { ITEM_EXTRA } from './testFixtures';
 
-const base: Omit<Todo, 'id' | 'title'> = { ...ITEM_EXTRA,
-  notes: '', project_id: null, project_name: null, context: '', tags: [],
-  status: 'someday_maybe', star: false, due_date: null, repeat: '',
-  auto_star_on_due: false, source: 'ui',
-  created_at: '2026-08-06T12:00:00Z', updated_at: '2026-08-06T12:00:00Z', completed_at: null,
+const base: Omit<Todo, 'id' | 'title'> = {
+  ...ITEM_EXTRA,
+  notes: '',
+  project_id: null,
+  project_name: null,
+  context: '',
+  tags: [],
+  status: 'someday_maybe',
+  star: false,
+  due_date: null,
+  repeat: '',
+  auto_star_on_due: false,
+  source: 'ui',
+  created_at: '2026-08-06T12:00:00Z',
+  updated_at: '2026-08-06T12:00:00Z',
+  completed_at: null,
 };
 const ROW: Todo = { ...base, id: 1, title: 'learn to row', context: '@home' };
 const CALL: Todo = { ...base, id: 2, title: 'call the boat club', context: '@calls' };
@@ -59,17 +70,26 @@ afterEach(() => {
 
 async function render() {
   await act(async () => {
-    root.render(<MemoryRouter><SomedayPage /></MemoryRouter>);
+    root.render(
+      <MemoryRouter>
+        <SomedayPage />
+      </MemoryRouter>,
+    );
   });
-  await act(async () => { await Promise.resolve(); });
+  await act(async () => {
+    await Promise.resolve();
+  });
 }
 
-const titles = () => [...container.querySelectorAll('p.break-words')].map(p => p.textContent);
+const titles = () => [...container.querySelectorAll('p.break-words')].map((p) => p.textContent);
 const button = (label: string) =>
-  [...container.querySelectorAll<HTMLButtonElement>('button')].find(b => b.textContent?.trim() === label);
+  [...container.querySelectorAll<HTMLButtonElement>('button')].find((b) => b.textContent?.trim() === label);
 const nextButtons = () =>
-  [...container.querySelectorAll<HTMLButtonElement>('button')].filter(b => b.textContent?.trim() === '→ Next');
-const click = (el: Element) => act(async () => { (el as HTMLElement).click(); });
+  [...container.querySelectorAll<HTMLButtonElement>('button')].filter((b) => b.textContent?.trim() === '→ Next');
+const click = (el: Element) =>
+  act(async () => {
+    (el as HTMLElement).click();
+  });
 
 describe('SomedayPage — context filter', () => {
   it('narrows the list to the chosen context, whatever case it was typed in', async () => {
@@ -96,8 +116,9 @@ describe('SomedayPage — → Next', () => {
   it('moves the idea to next actions and drops it from the list', async () => {
     await render();
     listTodosMock.mockResolvedValue([CALL, BACK]); // the server's list once the move lands
-    const row = [...container.querySelectorAll('div.flex.items-start.gap-2')]
-      .find(d => d.textContent?.includes('learn to row'))!;
+    const row = [...container.querySelectorAll('div.flex.items-start.gap-2')].find((d) =>
+      d.textContent?.includes('learn to row'),
+    )!;
     await click(row.querySelector<HTMLButtonElement>('button[title^="Commit to this"]')!);
 
     expect(updateTodoMock).toHaveBeenCalledTimes(1);
@@ -107,7 +128,9 @@ describe('SomedayPage — → Next', () => {
 
   it('retires a pending undo for that todo, which would otherwise put it back', async () => {
     await render();
-    act(() => { queueUndo({ ...ROW, status: 'inbox' }, 'filed'); });
+    act(() => {
+      queueUndo({ ...ROW, status: 'inbox' }, 'filed');
+    });
     expect(container.querySelector('[aria-label="Recent changes you can undo"]')).not.toBeNull();
 
     await click(nextButtons()[1]); // "learn to row": the first row after the revisit section

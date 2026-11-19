@@ -24,7 +24,11 @@ def default_currency() -> str:
 
 
 def current() -> dict:
-    return {"stale_days": stale_days(), "touch_count_enabled": touch_count_enabled(), "default_currency": default_currency()}
+    return {
+        "stale_days": stale_days(),
+        "touch_count_enabled": touch_count_enabled(),
+        "default_currency": default_currency(),
+    }
 
 
 def update(user, fields: dict) -> dict:

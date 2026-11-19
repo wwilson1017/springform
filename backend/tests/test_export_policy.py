@@ -16,11 +16,24 @@ from backend.testing.fixtures import make_client
 # ── The CSV writer ──────────────────────────────────────────────────────────────────
 
 
-@pytest.mark.parametrize("value, expected", [
-    ("=1+1", "'=1+1"), ("+1 615 555 0100", "'+1 615 555 0100"), ("-5", "'-5"), ("@SUM(A1)", "'@SUM(A1)"),
-    ("\tx", "'\tx"), ("\rx", "'\rx"), ("a=b", "a=b"), ("", ""), (-5, -5), (3.5, 3.5), (None, None),
-    ({"a": 1}, '{"a": 1}'), (["=x"], '["=x"]'),
-])
+@pytest.mark.parametrize(
+    "value, expected",
+    [
+        ("=1+1", "'=1+1"),
+        ("+1 615 555 0100", "'+1 615 555 0100"),
+        ("-5", "'-5"),
+        ("@SUM(A1)", "'@SUM(A1)"),
+        ("\tx", "'\tx"),
+        ("\rx", "'\rx"),
+        ("a=b", "a=b"),
+        ("", ""),
+        (-5, -5),
+        (3.5, 3.5),
+        (None, None),
+        ({"a": 1}, '{"a": 1}'),
+        (["=x"], '["=x"]'),
+    ],
+)
 def test_cell_guard(value, expected):
     assert csv_export._cell(value) == expected
 
@@ -41,7 +54,9 @@ def test_stream_csv_is_a_utf8_bom_attachment():
     assert r.headers["content-type"].startswith("text/csv")
     assert r.content.startswith("﻿".encode())
     assert list(csv.reader(io.StringIO(r.content.decode("utf-8-sig")))) == [
-        ["name", "'=note"], ["Zoë", "'=HYPERLINK(1)"], ["Bob", ""],
+        ["name", "'=note"],
+        ["Zoë", "'=HYPERLINK(1)"],
+        ["Bob", ""],
     ]
 
 
@@ -52,24 +67,40 @@ def test_report_csv_respects_admin_only_and_app_roles(app, login_as):
     echo = lambda params, user: (["param", "value"], sorted(params.items()))  # noqa: E731
     reports.register(Report(key="example.secret", label="Secret", app="example", run=echo, admin_only=True))
     reports.register(Report(key="example.admins", label="Admins", app="example", run=echo, roles=("admin",)))
-    params = {"type": "object", "properties": {
-        "since": {"type": "string", "format": "date"}, "q": {"type": "string"}, "limit": {"type": "integer", "default": 10},
-    }}
-    reports.register(Report(key="example.echo", label="Echo", app="example", run=echo, roles=("admin", "member"), params=params))
+    params = {
+        "type": "object",
+        "properties": {
+            "since": {"type": "string", "format": "date"},
+            "q": {"type": "string"},
+            "limit": {"type": "integer", "default": 10},
+        },
+    }
+    reports.register(
+        Report(key="example.echo", label="Echo", app="example", run=echo, roles=("admin", "member"), params=params)
+    )
     admin, member = login_as("admin"), login_as("member")
     member.post("/api/example/widgets", json={"name": "Cog", "color": "teal"})
 
     r = member.get("/api/core/reports/example.widgets_by_color/csv")
     assert r.status_code == 200 and r.content.decode("utf-8-sig").splitlines() == ["color,widgets", "teal,1"]
     assert r.headers["content-disposition"] == 'attachment; filename="example.widgets_by_color.csv"'
-    assert member.get("/api/core/reports/example.echo/csv?since=2026-01-01&q==x").content.decode("utf-8-sig").splitlines() == [
-        "param,value", "limit,10", "q,'=x", "since,2026-01-01",
+    assert member.get("/api/core/reports/example.echo/csv?since=2026-01-01&q==x").content.decode(
+        "utf-8-sig"
+    ).splitlines() == [
+        "param,value",
+        "limit,10",
+        "q,'=x",
+        "since,2026-01-01",
     ]  # params parsed like the JSON route: the default applied
     assert member.get("/api/core/reports/example.echo/csv?limit=3").content.decode("utf-8-sig").splitlines() == [
-        "param,value", "limit,3",
+        "param,value",
+        "limit,3",
     ]
-    for bad, detail in (("since=2026-02-30", "since: expected a date (YYYY-MM-DD)"),
-                        ("limit=many", "limit: expected an integer"), ("format=xlsx", "unknown param: format")):
+    for bad, detail in (
+        ("since=2026-02-30", "since: expected a date (YYYY-MM-DD)"),
+        ("limit=many", "limit: expected an integer"),
+        ("format=xlsx", "unknown param: format"),
+    ):
         r = member.get(f"/api/core/reports/example.echo/csv?{bad}")
         assert (r.status_code, r.json()) == (422, {"detail": detail}), bad
     assert member.get("/api/core/reports/example.secret/csv").json() == {"detail": "admin_only"}
@@ -101,17 +132,101 @@ def _header(z: zipfile.ZipFile, table: str) -> list[str]:
 
 PINNED = {  # the core tables on master today, and exactly the columns they export
     "core_users": ["id", "email", "name", "role"],
-    "core_people": ["id", "name", "given_name", "family_name", "email", "phone", "title", "source", "status", "tags",
-                    "notes", "owner_user_id", "archived_at", "merged_into_id", "created_at", "updated_at"],
-    "core_organizations": ["id", "name", "domain", "website", "industry", "email", "phone", "notes", "source", "status",
-                           "tags", "owner_user_id", "archived_at", "merged_into_id", "created_at", "updated_at"],
-    "core_person_organizations": ["id", "person_id", "organization_id", "role", "is_primary", "started_on", "ended_on", "created_at"],
-    "core_addresses": ["id", "owner_type", "owner_id", "kind", "line1", "line2", "city", "region", "postal_code", "country",
-                       "is_primary", "created_at", "updated_at"],
-    "core_contact_channels": ["id", "owner_type", "owner_id", "kind", "value", "label", "is_primary", "created_at", "updated_at"],
-    "core_timeline": ["id", "entity_type", "entity_id", "kind", "body", "author_user_id", "created_at", "updated_at", "archived_at"],
-    "core_files": ["id", "entity_type", "entity_id", "timeline_id", "filename", "mime_type", "byte_size", "sha256",
-                   "uploaded_by", "created_at"],
+    "core_people": [
+        "id",
+        "name",
+        "given_name",
+        "family_name",
+        "email",
+        "phone",
+        "title",
+        "source",
+        "status",
+        "tags",
+        "notes",
+        "owner_user_id",
+        "archived_at",
+        "merged_into_id",
+        "created_at",
+        "updated_at",
+    ],
+    "core_organizations": [
+        "id",
+        "name",
+        "domain",
+        "website",
+        "industry",
+        "email",
+        "phone",
+        "notes",
+        "source",
+        "status",
+        "tags",
+        "owner_user_id",
+        "archived_at",
+        "merged_into_id",
+        "created_at",
+        "updated_at",
+    ],
+    "core_person_organizations": [
+        "id",
+        "person_id",
+        "organization_id",
+        "role",
+        "is_primary",
+        "started_on",
+        "ended_on",
+        "created_at",
+    ],
+    "core_addresses": [
+        "id",
+        "owner_type",
+        "owner_id",
+        "kind",
+        "line1",
+        "line2",
+        "city",
+        "region",
+        "postal_code",
+        "country",
+        "is_primary",
+        "created_at",
+        "updated_at",
+    ],
+    "core_contact_channels": [
+        "id",
+        "owner_type",
+        "owner_id",
+        "kind",
+        "value",
+        "label",
+        "is_primary",
+        "created_at",
+        "updated_at",
+    ],
+    "core_timeline": [
+        "id",
+        "entity_type",
+        "entity_id",
+        "kind",
+        "body",
+        "author_user_id",
+        "created_at",
+        "updated_at",
+        "archived_at",
+    ],
+    "core_files": [
+        "id",
+        "entity_type",
+        "entity_id",
+        "timeline_id",
+        "filename",
+        "mime_type",
+        "byte_size",
+        "sha256",
+        "uploaded_by",
+        "created_at",
+    ],
     "example_widgets": ["id", "name", "color", "owner_user_id", "person_id", "is_private", "created_at", "updated_at"],
 }
 
@@ -121,20 +236,36 @@ def test_export_pins_columns_omits_secrets_and_carries_a_manifest(app, login_as,
     admin = login_as("admin")
     now = clock.now_iso()
     with core_db.transaction() as conn:
-        conn.execute("INSERT INTO core_people (name, notes, created_at, updated_at) VALUES ('Ada', '=cmd|calc', ?, ?)", (now, now))
+        conn.execute(
+            "INSERT INTO core_people (name, notes, created_at, updated_at) VALUES ('Ada', '=cmd|calc', ?, ?)",
+            (now, now),
+        )
         conn.execute(
             "INSERT INTO core_contact_channels (owner_type, owner_id, kind, value, created_at, updated_at) VALUES ('person', 1, 'phone', '+1 615', ?, ?)",
             (now, now),
         )
-        conn.execute("INSERT INTO core_settings (key, value, is_secret, updated_at) VALUES ('ai.key', 'enc:v1:zzz', 1, ?)", (now,))
+        conn.execute(
+            "INSERT INTO core_settings (key, value, is_secret, updated_at) VALUES ('ai.key', 'enc:v1:zzz', 1, ?)",
+            (now,),
+        )
     z = _zip(admin)
 
     names = set(z.namelist())
     assert {f"{t}.csv" for t in PINNED} | {"manifest.json"} <= names
     for table, columns in PINNED.items():
         assert _header(z, table) == columns, table
-    for never in ("core_settings", "core_totp", "core_trusted_devices", "core_login_tokens", "core_login_attempts",
-                  "core_outbox", "core_backups", "core_sheet_cache", "core_job_runs", "core_change_log"):
+    for never in (
+        "core_settings",
+        "core_totp",
+        "core_trusted_devices",
+        "core_login_tokens",
+        "core_login_attempts",
+        "core_outbox",
+        "core_backups",
+        "core_sheet_cache",
+        "core_job_runs",
+        "core_change_log",
+    ):
         assert f"{never}.csv" not in names
     everything = b"".join(z.read(n) for n in names)
     assert b"password_hash" not in everything and b"$2b$" not in everything and b"enc:v1:" not in everything
@@ -143,7 +274,11 @@ def test_export_pins_columns_omits_secrets_and_carries_a_manifest(app, login_as,
     assert [u["role"] for u in _csv(z, "core_users")] == ["system", "admin"]
 
     manifest = json.loads(z.read("manifest.json"))
-    assert (manifest["version"], manifest["created_at"], manifest["exported_by"]) == (core_db.VERSION, "2026-11-02T09:00:00Z", admin.user["id"])
+    assert (manifest["version"], manifest["created_at"], manifest["exported_by"]) == (
+        core_db.VERSION,
+        "2026-11-02T09:00:00Z",
+        admin.user["id"],
+    )
     counts = {t["name"]: t["rows"] for t in manifest["tables"]}
     assert counts["core_people"] == 1 and counts["core_users"] == 2 and counts["example_widgets"] == 0
     assert set(counts) == {n.removesuffix(".csv") for n in names if n.endswith(".csv")}
@@ -154,8 +289,14 @@ def test_export_rows_follow_the_screen_a_members_private_widget_and_its_notes_ar
     private = member.post("/api/example/widgets", json={"name": "Secret gear", "is_private": True}).json()
     public = member.post("/api/example/widgets", json={"name": "Sprocket"}).json()
     mine = admin.post("/api/example/widgets", json={"name": "Admin's own", "is_private": True}).json()
-    for client, widget, body in ((member, private, "private note"), (member, public, "public note"), (admin, mine, "admin note")):
-        r = client.post("/api/core/timeline", json={"entity_type": "example.widget", "entity_id": widget["id"], "body": body})
+    for client, widget, body in (
+        (member, private, "private note"),
+        (member, public, "public note"),
+        (admin, mine, "admin note"),
+    ):
+        r = client.post(
+            "/api/core/timeline", json={"entity_type": "example.widget", "entity_id": widget["id"], "body": body}
+        )
         assert r.status_code == 200, r.text
     admin.patch(f"/api/example/widgets/{mine['id']}", json={"color": "red"})  # a field_change row: never exported
 
@@ -169,7 +310,11 @@ def test_export_rows_follow_the_screen_a_members_private_widget_and_its_notes_ar
 
     preview = admin.get("/api/core/export/preview").json()["tables"]
     by_name = {t["name"]: t for t in preview}
-    assert by_name["example_widgets"] == {"name": "example_widgets", "columns": PINNED["example_widgets"], "estimated_rows": 3}
+    assert by_name["example_widgets"] == {
+        "name": "example_widgets",
+        "columns": PINNED["example_widgets"],
+        "estimated_rows": 3,
+    }
     assert by_name["core_timeline"]["estimated_rows"] == 3  # notes only, before row checks
     assert member.get("/api/core/export").status_code == 403
     assert member.get("/api/core/export/preview").status_code == 403
@@ -194,8 +339,12 @@ def test_sibling_tables_follow_the_screen_reminders_and_field_values(app, login_
             conn.execute(ddl)
         conn.executemany(
             "INSERT INTO core_reminders (owner_user_id, entity_type, entity_id, title, due_at, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
-            [(a, None, None, "admin's own", now, now, now), (m, None, None, "member's own", now, now, now),
-             (m, "example.widget", private, "on private", now, now, now), (m, "example.widget", public, "on public", now, now, now)],
+            [
+                (a, None, None, "admin's own", now, now, now),
+                (m, None, None, "member's own", now, now, now),
+                (m, "example.widget", private, "on private", now, now, now),
+                (m, "example.widget", public, "on public", now, now, now),
+            ],
         )
         definition = conn.execute(
             "INSERT INTO core_field_definitions (entity_type, key, label, type, created_at, updated_at) VALUES ('example.widget', 'size', 'Size', 'text', ?, ?)",

@@ -51,18 +51,26 @@ def test_password_login_becomes_two_step_and_codes_never_replay(login_as, app, f
     secret, _ = enrol(member)  # spends the current step
     browser = make_client(app)
     r = password_login(browser, member.user["email"])
-    assert r.status_code == 200 and r.json()["totp_required"] is True and set(r.json()) == {"totp_required", "challenge"}
+    assert (
+        r.status_code == 200 and r.json()["totp_required"] is True and set(r.json()) == {"totp_required", "challenge"}
+    )
     assert COOKIE not in browser.cookies and browser.get("/api/me").status_code == 401
     challenge = r.json()["challenge"]
     step = {"challenge": challenge}
-    assert browser.post("/api/auth/login/totp", json={**step, "code": code(secret)}).json() == {"detail": "invalid_code"}
+    assert browser.post("/api/auth/login/totp", json={**step, "code": code(secret)}).json() == {
+        "detail": "invalid_code"
+    }
     r = browser.post("/api/auth/login/totp", json={**step, "code": code(secret, 1)})
     assert r.status_code == 200 and r.json()["user"]["email"] == member.user["email"]
     assert browser.get("/api/me").status_code == 200
     again = make_client(app)
     challenge2 = password_login(again, member.user["email"]).json()["challenge"]
-    assert again.post("/api/auth/login/totp", json={"challenge": challenge2, "code": code(secret, 1)}).status_code == 401
-    assert again.post("/api/auth/login/totp", json={"challenge": challenge2, "code": code(secret, -1)}).status_code == 401
+    assert (
+        again.post("/api/auth/login/totp", json={"challenge": challenge2, "code": code(secret, 1)}).status_code == 401
+    )
+    assert (
+        again.post("/api/auth/login/totp", json={"challenge": challenge2, "code": code(secret, -1)}).status_code == 401
+    )
 
 
 def test_backup_code_works_once(login_as, app, freeze):
@@ -71,11 +79,18 @@ def test_backup_code_works_once(login_as, app, freeze):
     _, backups = enrol(member)
     browser = make_client(app)
     challenge = password_login(browser, member.user["email"]).json()["challenge"]
-    r = browser.post("/api/auth/login/totp", json={"challenge": challenge, "backup_code": backups[0].lower().replace("-", "")})
+    r = browser.post(
+        "/api/auth/login/totp", json={"challenge": challenge, "backup_code": backups[0].lower().replace("-", "")}
+    )
     assert r.status_code == 200
     assert browser.get("/api/auth/totp").json() == {"enabled": True, "backup_codes_left": 9}
-    assert browser.post("/api/auth/login/totp", json={"challenge": challenge, "backup_code": backups[0]}).status_code == 401
-    assert browser.post("/api/auth/login/totp", json={"challenge": challenge, "code": backups[1]}).status_code == 401  # a code field takes TOTP only
+    assert (
+        browser.post("/api/auth/login/totp", json={"challenge": challenge, "backup_code": backups[0]}).status_code
+        == 401
+    )
+    assert (
+        browser.post("/api/auth/login/totp", json={"challenge": challenge, "code": backups[1]}).status_code == 401
+    )  # a code field takes TOTP only
 
 
 def test_trusted_device_skips_the_step_for_that_user_only(login_as, app, freeze):
@@ -84,7 +99,9 @@ def test_trusted_device_skips_the_step_for_that_user_only(login_as, app, freeze)
     secret, _ = enrol(member)
     browser = make_client(app, **{"User-Agent": "Test Browser"})
     challenge = password_login(browser, member.user["email"]).json()["challenge"]
-    r = browser.post("/api/auth/login/totp", json={"challenge": challenge, "code": code(secret, 1), "trust_device": True})
+    r = browser.post(
+        "/api/auth/login/totp", json={"challenge": challenge, "code": code(secret, 1), "trust_device": True}
+    )
     assert "sf_trusted=" in r.headers["set-cookie"] and "Path=/api/auth" in r.headers["set-cookie"]
     assert browser.get("/api/auth/trusted-devices").json() == [
         {"label": "Test Browser", "created_at": T0, "expires_at": clock.later(30 * 86400), "current": True}
@@ -127,7 +144,9 @@ def test_disable_needs_a_code_and_forgets_devices(login_as, app, freeze):
     assert member.post("/api/auth/totp/disable", json={"backup_code": backups[2]}).json() == {"enabled": False}
     assert core_db.one("SELECT count(*) AS n FROM core_trusted_devices")["n"] == 0
     assert member.get("/api/auth/totp").json() == {"enabled": False, "backup_codes_left": 0}
-    assert member.post("/api/auth/totp/disable", json={"code": code(secret, 1)}).json() == {"detail": "totp_not_enabled"}
+    assert member.post("/api/auth/totp/disable", json={"code": code(secret, 1)}).json() == {
+        "detail": "totp_not_enabled"
+    }
     assert "user" in password_login(make_client(app), member.user["email"]).json()
 
 
@@ -143,7 +162,9 @@ def test_challenge_expires_and_never_stands_in_for_a_session(login_as, app, free
     assert r.json() == {"detail": "challenge_expired"}
     with core_db.transaction() as conn:  # a password change between the steps voids the challenge
         service.bump_token_epoch_in(conn, member.user["id"])
-    assert browser.post("/api/auth/login/totp", json={"challenge": challenge, "code": code(secret, 1)}).status_code == 401
+    assert (
+        browser.post("/api/auth/login/totp", json={"challenge": challenge, "code": code(secret, 1)}).status_code == 401
+    )
     monkeypatch.setattr(totp, "CHALLENGE_SECONDS", -1)
     expired = password_login(browser, member.user["email"]).json()["challenge"]
     assert browser.post("/api/auth/login/totp", json={"challenge": expired, "code": code(secret, 1)}).json() == {
@@ -159,7 +180,9 @@ def test_second_factor_rate_limit(login_as, app, freeze):
     challenge = password_login(browser, member.user["email"]).json()["challenge"]
     for _ in range(4):
         assert browser.post("/api/auth/login/totp", json={"challenge": challenge, "code": "123456"}).status_code == 401
-    assert browser.post("/api/auth/login/totp", json={"challenge": challenge, "code": code(secret, 1)}).status_code == 429
+    assert (
+        browser.post("/api/auth/login/totp", json={"challenge": challenge, "code": code(secret, 1)}).status_code == 429
+    )
     freeze("2026-11-02T09:05:11Z")
     challenge = password_login(browser, member.user["email"]).json()["challenge"]
     assert browser.post("/api/auth/login/totp", json={"challenge": challenge, "code": code(secret)}).status_code == 200

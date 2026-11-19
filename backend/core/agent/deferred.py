@@ -23,7 +23,12 @@ FIND_TOOLS_DEF = {
     ),
     "input_schema": {
         "type": "object",
-        "properties": {"query": {"type": "string", "description": "A keyword (e.g. 'invoice'), an app slug, or an exact tool name."}},
+        "properties": {
+            "query": {
+                "type": "string",
+                "description": "A keyword (e.g. 'invoice'), an app slug, or an exact tool name.",
+            }
+        },
         "required": ["query"],
     },
 }

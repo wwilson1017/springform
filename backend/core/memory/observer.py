@@ -144,13 +144,16 @@ def observe(complete: Callable[[str, str], str], cancel: threading.Event | None 
             with db.transaction() as tx:  # deleted or private: drop the mark, read nothing
                 tx.execute("UPDATE core_agent_observations SET pending = 0 WHERE conversation_id = ?", (cid,))
             continue
-        rows = [dict(r) for r in conn.execute(
-            """SELECT m.id, coalesce(json_extract(m.content, '$.text'), '') AS content
+        rows = [
+            dict(r)
+            for r in conn.execute(
+                """SELECT m.id, coalesce(json_extract(m.content, '$.text'), '') AS content
                FROM core_agent_messages m JOIN core_agent_conversations c ON c.id = m.conversation_id
                WHERE m.conversation_id = ? AND c.is_private = 0 AND m.role = 'user' AND m.id > ?
                ORDER BY m.id LIMIT ?""",
-            (cid, cand["through_message_id"], MAX_ROWS),
-        )]
+                (cid, cand["through_message_id"], MAX_ROWS),
+            )
+        ]
         transcript, through = build_transcript(rows)
         found: list[str] = []
         if len(transcript) >= MIN_TRANSCRIPT_CHARS:

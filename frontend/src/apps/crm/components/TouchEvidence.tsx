@@ -15,7 +15,11 @@ export function TouchEvidence({ dealId }: { dealId: number }) {
   if (error) return <LoadError label="Couldn't load the touch evidence" onRetry={reload} compact />;
   if (!data) return <p className={muted}>Loading…</p>;
   if (data.ai_touch_count == null && data.events.length === 0) {
-    return <p className={muted}>No touch count yet. The AI works it out from notes and activity once a provider is set up.</p>;
+    return (
+      <p className={muted}>
+        No touch count yet. The AI works it out from notes and activity once a provider is set up.
+      </p>
+    );
   }
   // The banner explains a count; with no count yet there is nothing for it to explain.
   const banner = data.ai_touch_count == null ? null : bannerCopy(data.verdict_state, data.open);
@@ -23,19 +27,33 @@ export function TouchEvidence({ dealId }: { dealId: number }) {
   return (
     <div className="flex flex-col gap-2 text-sm">
       <div className="flex items-center gap-2">
-        {data.ai_touch_count == null ? <span className="text-sf-ink-dim">Not counted yet</span> : <TouchCountPill count={data.ai_touch_count} />}
-        <button type="button" onClick={reload} className="ml-auto cursor-pointer border-0 bg-transparent p-0 text-xs text-sf-ink-dim">Refresh</button>
+        {data.ai_touch_count == null ? (
+          <span className="text-sf-ink-dim">Not counted yet</span>
+        ) : (
+          <TouchCountPill count={data.ai_touch_count} />
+        )}
+        <button
+          type="button"
+          onClick={reload}
+          className="ml-auto cursor-pointer border-0 bg-transparent p-0 text-xs text-sf-ink-dim"
+        >
+          Refresh
+        </button>
       </div>
       {banner && <p className="m-0 rounded bg-sf-raised px-2.5 py-2 text-xs text-sf-ink">{banner}</p>}
       {coverage && <p className="m-0 text-xs text-sf-ink-mute">{coverage}</p>}
-      {data.events.length === 0 ? <p className={muted}>No notes or activity on this deal.</p> : (
+      {data.events.length === 0 ? (
+        <p className={muted}>No notes or activity on this deal.</p>
+      ) : (
         <ul className="m-0 list-none divide-y divide-sf-line p-0">
           {data.events.map((e, i) => (
             <li key={`${e.source}-${e.source_id ?? i}`} className="py-2">
               <div className="flex items-baseline gap-2">
                 {/* Customer-written text: rendered as text, never as HTML. */}
                 <span className="min-w-0 flex-1 break-words text-sf-ink">{e.line}</span>
-                <span className={`shrink-0 text-xs ${e.state === 'touch' ? 'font-medium text-sf-green-text' : 'text-sf-ink-dim'}`}>
+                <span
+                  className={`shrink-0 text-xs ${e.state === 'touch' ? 'font-medium text-sf-green-text' : 'text-sf-ink-dim'}`}
+                >
                   {stateLabel(e.state, data.open)}
                 </span>
               </div>

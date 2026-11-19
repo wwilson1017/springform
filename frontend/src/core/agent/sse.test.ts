@@ -23,7 +23,9 @@ describe('createSseParser', () => {
 
   it('skips malformed frames, comments and other fields without stopping', () => {
     const p = createSseParser();
-    const events = p.push(': keep-alive\n\ndata: {not json\n\nevent: x\ndata: {"no":"type"}\n\nid: 7\ndata: {"type":"compacted"}\n\n');
+    const events = p.push(
+      ': keep-alive\n\ndata: {not json\n\nevent: x\ndata: {"no":"type"}\n\nid: 7\ndata: {"type":"compacted"}\n\n',
+    );
     expect(events).toEqual([{ type: 'compacted' }]);
   });
 
@@ -41,21 +43,34 @@ describe('createSseParser', () => {
 
 describe('readEvents', () => {
   it('reads a byte stream to its end, multi-byte characters split across chunks included', async () => {
-    const bytes = new TextEncoder().encode(frame({ type: 'text', text: 'café ✓' }) + frame({ type: 'done', model: 'm' }));
+    const bytes = new TextEncoder().encode(
+      frame({ type: 'text', text: 'café ✓' }) + frame({ type: 'done', model: 'm' }),
+    );
     const split = bytes.indexOf(0xc3) + 1; // inside the two-byte "é"
     const body = new ReadableStream<Uint8Array>({
-      start(c) { c.enqueue(bytes.slice(0, split)); c.enqueue(bytes.slice(split)); c.close(); },
+      start(c) {
+        c.enqueue(bytes.slice(0, split));
+        c.enqueue(bytes.slice(split));
+        c.close();
+      },
     });
     const seen: unknown[] = [];
-    await readEvents(body, events => seen.push(...events));
-    expect(seen).toEqual([{ type: 'text', text: 'café ✓' }, { type: 'done', model: 'm' }]);
+    await readEvents(body, (events) => seen.push(...events));
+    expect(seen).toEqual([
+      { type: 'text', text: 'café ✓' },
+      { type: 'done', model: 'm' },
+    ]);
   });
 
   it('rejects when the connection drops, after handing over what arrived', async () => {
     let controller!: ReadableStreamDefaultController<Uint8Array>;
-    const body = new ReadableStream<Uint8Array>({ start(c) { controller = c; } });
+    const body = new ReadableStream<Uint8Array>({
+      start(c) {
+        controller = c;
+      },
+    });
     const seen: unknown[] = [];
-    const reading = readEvents(body, events => seen.push(...events));
+    const reading = readEvents(body, (events) => seen.push(...events));
     controller.enqueue(new TextEncoder().encode(frame({ type: 'text', text: 'partial' })));
     await Promise.resolve();
     controller.error(new TypeError('network error'));

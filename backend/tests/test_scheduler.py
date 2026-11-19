@@ -13,12 +13,17 @@ from backend.core.scheduler import Job, Scheduler
 
 
 def _runs(job: str) -> list[dict]:
-    return core_db.rows("SELECT trigger, status, scheduled_for, finished_at, error FROM core_job_runs WHERE job = ? ORDER BY id", (job,))
+    return core_db.rows(
+        "SELECT trigger, status, scheduled_for, finished_at, error FROM core_job_runs WHERE job = ? ORDER BY id", (job,)
+    )
 
 
 def test_run_now_records_ok_and_error(db):
     ran = []
-    jobs = {"core.ok": Job("core.ok", lambda cancel: ran.append(1), every=60), "core.bad": Job("core.bad", lambda cancel: 1 / 0, every=60)}
+    jobs = {
+        "core.ok": Job("core.ok", lambda cancel: ran.append(1), every=60),
+        "core.bad": Job("core.bad", lambda cancel: 1 / 0, every=60),
+    }
 
     async def go():
         s = Scheduler(jobs)
@@ -103,7 +108,9 @@ def test_stale_running_rows_become_interrupted_on_start(db):
 
 def _chicago():
     with core_db.transaction() as conn:
-        conn.execute("INSERT INTO core_settings (key, value, updated_at) VALUES ('timezone', '\"America/Chicago\"', 'x')")
+        conn.execute(
+            "INSERT INTO core_settings (key, value, updated_at) VALUES ('timezone', '\"America/Chicago\"', 'x')"
+        )
 
 
 def test_at_jobs_run_once_per_local_day_with_one_catch_up(db, freeze):
@@ -145,7 +152,9 @@ def test_a_never_run_at_job_waits_for_its_next_slot(db, freeze):
         await s.tick_once()  # ran for today already
 
     asyncio.run(go())
-    assert [(r["trigger"], r["status"], r["scheduled_for"]) for r in _runs(job.name)] == [("schedule", "ok", "2026-11-06")]
+    assert [(r["trigger"], r["status"], r["scheduled_for"]) for r in _runs(job.name)] == [
+        ("schedule", "ok", "2026-11-06")
+    ]
 
 
 def test_a_manual_run_after_the_slot_is_not_followed_by_a_catch_up(db, freeze):
@@ -252,7 +261,10 @@ def test_a_run_still_queued_at_shutdown_never_starts(db):
         started.set()
         cancel.wait(5)
 
-    jobs = {"core.first": Job("core.first", first, every=3600), "core.queued": Job("core.queued", lambda cancel: ran.append(1), every=3600)}
+    jobs = {
+        "core.first": Job("core.first", first, every=3600),
+        "core.queued": Job("core.queued", lambda cancel: ran.append(1), every=3600),
+    }
 
     async def go():
         s = Scheduler(jobs, concurrency=1)
@@ -299,7 +311,12 @@ def test_core_and_apps_start_no_threads_of_their_own():
     assert RAW_THREAD.search("threading.Thread(target=refresh_all, daemon=True).start()")
     assert RAW_THREAD.search("Timer(5, tick).start()")
     assert not RAW_THREAD.search("ThreadPoolExecutor(max_workers=1); asyncio.to_thread(fn); threading.Event()")
-    files = [p for root in (registry.CORE_DIR, core_db.APPS_DIR) for p in root.rglob("*.py") if "tests" not in p.relative_to(root).parts]
+    files = [
+        p
+        for root in (registry.CORE_DIR, core_db.APPS_DIR)
+        for p in root.rglob("*.py")
+        if "tests" not in p.relative_to(root).parts
+    ]
     assert registry.CORE_DIR / "scheduler.py" in files  # it reached the real code
     assert [str(p.relative_to(REPO_ROOT)) for p in files if RAW_THREAD.search(p.read_text())] == []
 

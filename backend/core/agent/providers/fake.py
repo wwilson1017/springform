@@ -52,8 +52,12 @@ class FakeProvider(AIProvider):
         return CONTEXT_WINDOW
 
     async def stream_turn(
-        self, messages: list[dict], tools: list[dict], system_prompt: str | tuple[str, str],
-        *, max_tokens: int = DEFAULT_MAX_TOKENS,
+        self,
+        messages: list[dict],
+        tools: list[dict],
+        system_prompt: str | tuple[str, str],
+        *,
+        max_tokens: int = DEFAULT_MAX_TOKENS,
     ) -> AsyncGenerator[dict, None]:
         turn = _script.popleft() if _script else _unscripted(messages)
         if isinstance(turn, dict) and "error" in turn:
@@ -79,6 +83,8 @@ class FakeProvider(AIProvider):
         }
 
     def add_tool_results(self, messages: list[dict], tool_calls: list[dict], results: list[dict]) -> list[dict]:
-        assistant = [{"type": "tool_use", "id": tc["id"], "name": tc["name"], "input": tc.get("args", {})} for tc in tool_calls]
+        assistant = [
+            {"type": "tool_use", "id": tc["id"], "name": tc["name"], "input": tc.get("args", {})} for tc in tool_calls
+        ]
         user = [{"type": "tool_result", "tool_use_id": r["tool_use_id"], "content": str(r["content"])} for r in results]
         return messages + [{"role": "assistant", "content": assistant}, {"role": "user", "content": user}]

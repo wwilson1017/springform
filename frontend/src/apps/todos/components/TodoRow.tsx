@@ -33,11 +33,7 @@ export function TodoRow({ todo, onToggleDone, onToggleStar, onEdit, showStatus }
         className="mt-1 h-5 w-5 shrink-0 accent-sf-green cursor-pointer"
         aria-label={todo.status === 'done' ? 'Mark not done' : 'Mark done'}
       />
-      <button
-        type="button"
-        onClick={() => onEdit(todo)}
-        className="min-w-0 flex-1 text-left"
-      >
+      <button type="button" onClick={() => onEdit(todo)} className="min-w-0 flex-1 text-left">
         {/* A todo you can only half-read is a todo you have to open to triage,
             so the title wraps to as many lines as it needs. `break-words`
             covers the pasted-URL case, which has no break opportunity to wrap
@@ -45,18 +41,20 @@ export function TodoRow({ todo, onToggleDone, onToggleStar, onEdit, showStatus }
         <p className={`text-sm break-words text-sf-ink ${finished ? 'line-through text-sf-ink-dim' : ''}`}>
           {todo.title}
           {todo.repeat && (
-            <span
-              role="img"
-              className="ml-1 text-sf-ai-text"
-              title="Recurring"
-              aria-label="Recurring"
-            >
+            <span role="img" className="ml-1 text-sf-ai-text" title="Recurring" aria-label="Recurring">
               ↻
             </span>
           )}
         </p>
-        {(todo.context || todo.project_name || todo.source === 'agent' || todo.tags.length > 0
-          || people.length > 0 || revisit || due || showStatus || todo.visibility === 'team') && (
+        {(todo.context ||
+          todo.project_name ||
+          todo.source === 'agent' ||
+          todo.tags.length > 0 ||
+          people.length > 0 ||
+          revisit ||
+          due ||
+          showStatus ||
+          todo.visibility === 'team') && (
           <p className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs">
             {showStatus && (
               <span className={`rounded-full px-2 py-0.5 ${STATUS_META[todo.status].chip}`}>
@@ -64,37 +62,33 @@ export function TodoRow({ todo, onToggleDone, onToggleStar, onEdit, showStatus }
               </span>
             )}
             {due && (
-              <span className={due.overdue && !finished
-                ? 'font-bold text-sf-red-text'
-                : 'text-sf-ink-dim'}>
+              <span className={due.overdue && !finished ? 'font-bold text-sf-red-text' : 'text-sf-ink-dim'}>
                 {due.text}
               </span>
             )}
-            {revisit && (revisit <= today ? (
-              <span className={`rounded-full px-2 py-0.5 ${STATUS_META.someday_maybe.chip}`}
-                    title="Its bring-back date has arrived">
-                revisit
-              </span>
-            ) : (
-              <span className="text-sf-ink-dim">back {dueLabel(revisit, today).text}</span>
-            ))}
-            {todo.context && (
-              <span className="rounded-full bg-sf-bg px-2 py-0.5 text-sf-ink-dim">{todo.context}</span>
-            )}
-            {people.map(person => (
-              <span key={person} data-person
-                    className={`rounded-full px-2 py-0.5 ${STATUS_META.delegated.chip}`}>
+            {revisit &&
+              (revisit <= today ? (
+                <span
+                  className={`rounded-full px-2 py-0.5 ${STATUS_META.someday_maybe.chip}`}
+                  title="Its bring-back date has arrived"
+                >
+                  revisit
+                </span>
+              ) : (
+                <span className="text-sf-ink-dim">back {dueLabel(revisit, today).text}</span>
+              ))}
+            {todo.context && <span className="rounded-full bg-sf-bg px-2 py-0.5 text-sf-ink-dim">{todo.context}</span>}
+            {people.map((person) => (
+              <span key={person} data-person className={`rounded-full px-2 py-0.5 ${STATUS_META.delegated.chip}`}>
                 {person}
               </span>
             ))}
             {todo.project_name && (
-              <span className="rounded-full bg-sf-bg px-2 py-0.5 text-sf-ink-dim">
-                {todo.project_name}
-              </span>
+              <span className="rounded-full bg-sf-bg px-2 py-0.5 text-sf-ink-dim">{todo.project_name}</span>
             )}
             <TeamChip visibility={todo.visibility} ownerName={todo.owner_name} assigneeName={todo.assignee_name} />
             <SourceLabel todo={todo} />
-            {todo.tags.slice(0, 3).map(tag => (
+            {todo.tags.slice(0, 3).map((tag) => (
               <span key={tag} className="rounded-full bg-sf-bg px-2 py-0.5 text-sf-ink-dim">
                 #{tag}
               </span>

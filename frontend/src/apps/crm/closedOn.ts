@@ -18,7 +18,9 @@ export function closedOnIsValid(value: string, today: string): boolean {
  *  and only leaving Won clears the date, so a blanked date is refused visibly rather than
  *  silently dropped from the patch. Only checked while the form's stage is Won. */
 export function closedOnEditError(
-  form: { stage: string; closed_on: string }, baseline: { closed_on: string }, today: string,
+  form: { stage: string; closed_on: string },
+  baseline: { closed_on: string },
+  today: string,
 ): string {
   if (form.stage !== 'won') return '';
   if (!form.closed_on) {

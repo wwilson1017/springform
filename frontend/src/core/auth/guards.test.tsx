@@ -15,7 +15,16 @@ function renderAs(role: User['role']) {
       <AuthProvider>
         <Routes>
           {/* As in Root: the role is known before RequireAdmin decides. */}
-          <Route path="/jobs" element={<RequireAuth><RequireAdmin><h1>Jobs</h1></RequireAdmin></RequireAuth>} />
+          <Route
+            path="/jobs"
+            element={
+              <RequireAuth>
+                <RequireAdmin>
+                  <h1>Jobs</h1>
+                </RequireAdmin>
+              </RequireAuth>
+            }
+          />
           <Route path="/" element={<h1>Launcher</h1>} />
         </Routes>
       </AuthProvider>

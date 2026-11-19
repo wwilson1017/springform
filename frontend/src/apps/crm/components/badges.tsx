@@ -7,8 +7,11 @@ export function TouchCountPill({ count }: { count?: number | null }) {
   if (count == null) return null;
   const c = TOUCH_COLORS[touchBand(count)];
   return (
-    <span className={pill} style={{ background: c.bg, color: c.text }}
-      title="AI-estimated touches, from recent notes and activity. Most deals close between touch 5 and 12.">
+    <span
+      className={pill}
+      style={{ background: c.bg, color: c.text }}
+      title="AI-estimated touches, from recent notes and activity. Most deals close between touch 5 and 12."
+    >
       {count === 1 ? '1 touch' : `${count} touches`}
     </span>
   );
@@ -25,8 +28,11 @@ export function ScorePill({ score, compact }: { score?: number | null; compact?:
   if (score == null) return null;
   const c = SCORE_COLORS[scoreBand(score)];
   return (
-    <span className={pill} style={{ background: c.bg, color: c.text }}
-      title="Lead score (0-100) from stage, engagement, value, links and recency.">
+    <span
+      className={pill}
+      style={{ background: c.bg, color: c.text }}
+      title="Lead score (0-100) from stage, engagement, value, links and recency."
+    >
       {compact ? score : `Score ${score}`}
     </span>
   );
@@ -35,8 +41,10 @@ export function ScorePill({ score, compact }: { score?: number | null; compact?:
 export function StageBadge({ stage }: { stage: string }) {
   const c = STAGE_COLORS[stage];
   return (
-    <span className="inline-flex items-center gap-1.5 rounded px-2 py-0.5 text-xs font-medium"
-      style={{ background: c?.bg, color: c?.text }}>
+    <span
+      className="inline-flex items-center gap-1.5 rounded px-2 py-0.5 text-xs font-medium"
+      style={{ background: c?.bg, color: c?.text }}
+    >
       <span aria-hidden className="h-2 w-2 rounded-full" style={{ background: c?.fill }} />
       {stageLabel(stage)}
     </span>
@@ -44,5 +52,11 @@ export function StageBadge({ stage }: { stage: string }) {
 }
 
 export function StageDot({ stage }: { stage: string }) {
-  return <span aria-hidden className="inline-block h-2 w-2 shrink-0 rounded-full" style={{ background: STAGE_COLORS[stage]?.fill }} />;
+  return (
+    <span
+      aria-hidden
+      className="inline-block h-2 w-2 shrink-0 rounded-full"
+      style={{ background: STAGE_COLORS[stage]?.fill }}
+    />
+  );
 }

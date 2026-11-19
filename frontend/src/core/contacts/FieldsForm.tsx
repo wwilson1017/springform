@@ -20,7 +20,15 @@ export interface FieldSpec {
   valueName?: string | null;
 }
 
-export function FieldsForm({ fields, initial, submitLabel, onSubmit, onCancel, columns = 2, label }: {
+export function FieldsForm({
+  fields,
+  initial,
+  submitLabel,
+  onSubmit,
+  onCancel,
+  columns = 2,
+  label,
+}: {
   fields: FieldSpec[];
   initial: Record<string, string>;
   submitLabel: string;
@@ -44,33 +52,61 @@ export function FieldsForm({ fields, initial, submitLabel, onSubmit, onCancel, c
   }
 
   return (
-    <form aria-label={label} onSubmit={e => void submit(e)}
-      className={`grid gap-2 ${columns === 2 ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1'}`}>
-      {fields.map(f => {
+    <form
+      aria-label={label}
+      onSubmit={(e) => void submit(e)}
+      className={`grid gap-2 ${columns === 2 ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1'}`}
+    >
+      {fields.map((f) => {
         const id = `${uid}-${f.key}`;
         const common = { id, value: values[f.key] ?? '', className: ui.input };
-        const change = (v: string) => setValues(s => ({ ...s, [f.key]: v }));
+        const change = (v: string) => setValues((s) => ({ ...s, [f.key]: v }));
         return (
           <div key={f.key} className={`min-w-0 ${f.wide || f.type === 'textarea' ? 'sm:col-span-2' : ''}`}>
-            <label htmlFor={id} className={ui.label}>{f.label}</label>
-            {f.type === 'textarea' ? <textarea {...common} rows={3} onChange={e => change(e.target.value)} />
-              : f.type === 'select' ? (
-                <select {...common} onChange={e => change(e.target.value)}>
-                  {f.options!.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-                </select>
-              ) : f.type === 'user' ? <UserPicker {...common} onChange={change} options={f.options} valueName={f.valueName} />
-              : (
-                <>
-                  <input {...common} type={f.type ?? 'text'} list={f.suggest ? `${id}-list` : undefined} onChange={e => change(e.target.value)} />
-                  {f.suggest && <datalist id={`${id}-list`}>{f.suggest.map(s => <option key={s} value={s} />)}</datalist>}
-                </>
-              )}
+            <label htmlFor={id} className={ui.label}>
+              {f.label}
+            </label>
+            {f.type === 'textarea' ? (
+              <textarea {...common} rows={3} onChange={(e) => change(e.target.value)} />
+            ) : f.type === 'select' ? (
+              <select {...common} onChange={(e) => change(e.target.value)}>
+                {f.options!.map(([v, l]) => (
+                  <option key={v} value={v}>
+                    {l}
+                  </option>
+                ))}
+              </select>
+            ) : f.type === 'user' ? (
+              <UserPicker {...common} onChange={change} options={f.options} valueName={f.valueName} />
+            ) : (
+              <>
+                <input
+                  {...common}
+                  type={f.type ?? 'text'}
+                  list={f.suggest ? `${id}-list` : undefined}
+                  onChange={(e) => change(e.target.value)}
+                />
+                {f.suggest && (
+                  <datalist id={`${id}-list`}>
+                    {f.suggest.map((s) => (
+                      <option key={s} value={s} />
+                    ))}
+                  </datalist>
+                )}
+              </>
+            )}
           </div>
         );
       })}
       <div className={`flex gap-2 ${columns === 2 ? 'sm:col-span-2' : ''}`}>
-        <button type="submit" disabled={busy} className={ui.btnPrimary}>{busy ? 'Saving…' : submitLabel}</button>
-        {onCancel && <button type="button" onClick={onCancel} className={ui.btnSecondary}>Cancel</button>}
+        <button type="submit" disabled={busy} className={ui.btnPrimary}>
+          {busy ? 'Saving…' : submitLabel}
+        </button>
+        {onCancel && (
+          <button type="button" onClick={onCancel} className={ui.btnSecondary}>
+            Cancel
+          </button>
+        )}
       </div>
     </form>
   );

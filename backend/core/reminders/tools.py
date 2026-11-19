@@ -14,7 +14,11 @@ _WAITING = {"open": ("open", "snoozed"), "done": ("done",)}
 def _shape(r: dict) -> dict:
     keep = ("id", "title", "note", "due_at", "status", "entity_type", "entity_id", "entity_title")
     due_local = clock.parse(r["due_at"]).astimezone(localtime.tz()).isoformat()
-    return {**{k: r[k] for k in keep}, "due_local": due_local, "url": settings.public_url() + (r["link"] or reminders.LINK)}
+    return {
+        **{k: r[k] for k in keep},
+        "due_local": due_local,
+        "url": settings.public_url() + (r["link"] or reminders.LINK),
+    }
 
 
 def _set(conn, user, args: dict) -> dict:
@@ -23,7 +27,10 @@ def _set(conn, user, args: dict) -> dict:
         due_at = clock.normalize(str(args.get("due_at") or ""), localtime.tz())
     except ValueError:
         raise Invalid("due_at must be an ISO date-time such as 2026-11-02T09:00") from None
-    title = entities.titles_for(user, conn, entity_type, [entity_id]).get(entity_id) or f"{entities.get(entity_type).label} #{entity_id}"
+    title = (
+        entities.titles_for(user, conn, entity_type, [entity_id]).get(entity_id)
+        or f"{entities.get(entity_type).label} #{entity_id}"
+    )
     return _shape(reminders.create_in(
         conn, user, title=title[: reminders.TITLE_MAX], due_at=due_at, note=args.get("note") or "", entity_type=entity_type, entity_id=entity_id,
     ))  # fmt: skip
@@ -49,7 +56,10 @@ def get_tools() -> list[ToolSpec]:
                 "type": "object",
                 "properties": {
                     **RECORD,
-                    "due_at": {"type": "string", "description": "When, ISO 8601 (2026-11-02T09:00); without an offset it is local time"},
+                    "due_at": {
+                        "type": "string",
+                        "description": "When, ISO 8601 (2026-11-02T09:00); without an offset it is local time",
+                    },
                     "note": {"type": "string", "description": "What to do, e.g. 'Call about the spring order'"},
                 },
                 "required": ["entity_type", "entity_id", "due_at"],

@@ -56,13 +56,23 @@ def usable(prefer: str | None = None) -> dict | None:
         key = secrets.decrypt(row["api_key_enc"])
         if key:
             public = _public(name, row)
-            return {"provider": name, "api_key": key, "model_default": public["model_default"], "model_light": public["model_light"]}
+            return {
+                "provider": name,
+                "api_key": key,
+                "model_default": public["model_default"],
+                "model_light": public["model_light"],
+            }
     return None
 
 
 def update_in(
-    conn: db.Conn, provider: str, *, api_key: str | None = None, model_default: str | None = None,
-    model_light: str | None = None, enabled: bool | None = None,
+    conn: db.Conn,
+    provider: str,
+    *,
+    api_key: str | None = None,
+    model_default: str | None = None,
+    model_light: str | None = None,
+    enabled: bool | None = None,
 ) -> None:
     """Upsert one provider row. `api_key=""` removes the key; None leaves a field as it is."""
     if provider not in PROVIDERS:
@@ -78,7 +88,10 @@ def update_in(
     if enabled is not None:
         fields["enabled"] = int(enabled)
     sets = "".join(f"{k} = ?, " for k in fields)  # keys are the literals above
-    conn.execute(f"UPDATE core_agent_providers SET {sets}updated_at = ? WHERE provider = ?", (*fields.values(), now_iso(), provider))
+    conn.execute(
+        f"UPDATE core_agent_providers SET {sets}updated_at = ? WHERE provider = ?",
+        (*fields.values(), now_iso(), provider),
+    )
 
 
 def update(provider: str, **fields) -> dict:

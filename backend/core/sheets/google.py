@@ -65,7 +65,11 @@ class GoogleSheets:
         claims = {"iss": self.info["client_email"], "scope": SCOPE, "aud": token_uri, "iat": now, "exp": now + 3600}
         headers = {"kid": self.info["private_key_id"]} if self.info.get("private_key_id") else None
         assertion = pyjwt.encode(claims, self.info["private_key"], algorithm="RS256", headers=headers)
-        body = self._call("POST", token_uri, data={"grant_type": "urn:ietf:params:oauth:grant-type:jwt-bearer", "assertion": assertion})
+        body = self._call(
+            "POST",
+            token_uri,
+            data={"grant_type": "urn:ietf:params:oauth:grant-type:jwt-bearer", "assertion": assertion},
+        )
         self._token, self._expires = body["access_token"], now + int(body.get("expires_in", 3600))
         return self._token
 
@@ -100,7 +104,10 @@ class GoogleSheets:
         url = self._values_url(spreadsheet_id, a1)
         self._call("POST", f"{url}:clear", headers=auth, json={})
         body = self._call(
-            "PUT", url, headers=auth, params={"valueInputOption": "USER_ENTERED"},
+            "PUT",
+            url,
+            headers=auth,
+            params={"valueInputOption": "USER_ENTERED"},
             json={"range": a1, "majorDimension": "ROWS", "values": rows},
         )
         return int(body.get("updatedRows", len(rows)))
@@ -186,7 +193,7 @@ def unquote_tab(title: str) -> str:
 
 
 def split_a1(a1: str) -> tuple[str, str]:
-    """"'Tab Name'!A1:F200" -> ("Tab Name", "A1:F200"). Tab is "" when absent."""
+    """ "'Tab Name'!A1:F200" -> ("Tab Name", "A1:F200"). Tab is "" when absent."""
     match = _A1_SPLIT_RE.match(str(a1 or ""))
     if not match:
         return "", str(a1 or "")

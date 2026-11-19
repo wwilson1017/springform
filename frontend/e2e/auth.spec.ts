@@ -14,7 +14,11 @@ test('the password form renders and refuses a wrong password', async ({ page }) 
 test('an invited user sets a password, turns on 2FA, and then signs in with a code', async ({ admin, page }) => {
   const email = `${unique('totp').replace(/\W+/g, '-')}@example.com`;
   const password = 'correct horse battery';
-  const { invite_url } = await admin.api.post<{ invite_url: string }>('/api/auth/users', { email, name: 'Totp Tester', role: 'member' });
+  const { invite_url } = await admin.api.post<{ invite_url: string }>('/api/auth/users', {
+    email,
+    name: 'Totp Tester',
+    role: 'member',
+  });
 
   await page.goto(new URL(invite_url).pathname);
   await expect(page.getByText(email)).toBeVisible();
@@ -44,7 +48,7 @@ test('an invited user sets a password, turns on 2FA, and then signs in with a co
   await page.getByLabel('Authentication code').fill(totp(secret, serverNow()));
   await page.getByRole('button', { name: 'Verify' }).click();
   await expect(page.getByRole('heading', { name: 'Apps' })).toBeVisible();
-  expect((await (await page.request.get('/api/me')).json() as User).email).toBe(email);
+  expect(((await (await page.request.get('/api/me')).json()) as User).email).toBe(email);
   expect(await (await page.request.get('/api/auth/totp')).json()).toMatchObject({ enabled: true });
 });
 
@@ -54,5 +58,8 @@ test('Continue with Google signs in through the preview stub', async ({ page }) 
   await expect(page.getByRole('heading', { name: 'Choose an account' })).toBeVisible();
   await page.getByRole('link', { name: 'preview-member@example.com' }).click();
   await expect(page.getByRole('heading', { name: 'Apps' })).toBeVisible();
-  expect(await (await page.request.get('/api/me')).json()).toMatchObject({ email: 'preview-member@example.com', role: 'member' });
+  expect(await (await page.request.get('/api/me')).json()).toMatchObject({
+    email: 'preview-member@example.com',
+    role: 'member',
+  });
 });

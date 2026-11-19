@@ -74,7 +74,9 @@ def compose_deal(deal: dict, engagement: int, last_touch: str | None, now: datet
         "engagement": 0.6 if engagement <= 0 else _band(engagement, [(2, 0.9), (5, 1.05), (10, 1.15)], 1.25),
         "value": 0.7 if cents <= 0 else _band(cents, [(999_999, 0.9), (4_999_999, 1.05), (9_999_999, 1.15)], 1.2),
         "relationships": {2: 1.15, 1: 1.0, 0: 0.6}[bool(deal["person_id"]) + bool(deal["organization_id"])],
-        "recency": 0.7 if recency is None else _band(recency, [(7, 1.1), (14, 1.05), (30, 1.0), (60, 0.85), (90, 0.7)], 0.5),
+        "recency": 0.7
+        if recency is None
+        else _band(recency, [(7, 1.1), (14, 1.05), (30, 1.0), (60, 0.85), (90, 0.7)], 0.5),
         "age": 1.0 if age is None else (1.05 if age < 30 else _band(age, [(90, 1.0), (180, 0.9), (365, 0.75)], 0.6)),
         "temperature": TEMPERATURE.get(deal["deal_temperature"] or "", 1.0),
     }
@@ -84,7 +86,9 @@ def compose_deal(deal: dict, engagement: int, last_touch: str | None, now: datet
     return {"score": int(max(1, min(99, round(score)))), "factors": factors}
 
 
-def compose_person(person: dict, interactions: int, last_touch: str | None, stages: list[str], has_org: bool, now: datetime) -> dict:
+def compose_person(
+    person: dict, interactions: int, last_touch: str | None, stages: list[str], has_org: bool, now: datetime
+) -> dict:
     """Pure: a person's score and factors."""
     recency = _days(last_touch, now)
     if recency is None:
@@ -122,8 +126,14 @@ def _person_breakdown_in(conn: db.Conn, person_id: int, now: datetime) -> dict |
     if row is None:
         return None
     count, newest = _engagement(conn, "core.person", person_id, "person_id")
-    stages = [r[0] for r in conn.execute("SELECT stage FROM crm_deals WHERE person_id = ? AND archived_at IS NULL", (person_id,))]
-    has_org = conn.execute("SELECT 1 FROM core_person_organizations WHERE person_id = ? LIMIT 1", (person_id,)).fetchone() is not None
+    stages = [
+        r[0]
+        for r in conn.execute("SELECT stage FROM crm_deals WHERE person_id = ? AND archived_at IS NULL", (person_id,))
+    ]
+    has_org = (
+        conn.execute("SELECT 1 FROM core_person_organizations WHERE person_id = ? LIMIT 1", (person_id,)).fetchone()
+        is not None
+    )
     return compose_person(dict(row), count, newest, stages, has_org, now)
 
 
@@ -140,7 +150,9 @@ def refresh_in(conn: db.Conn, deal_ids: Iterable[int | None] = (), person_ids: I
     ).fetchall()
     for deal_id in deal_ids:
         if (result := deal_breakdown_in(conn, deal_id, now)) is not None:
-            conn.execute("UPDATE crm_deals SET lead_score = ?, lead_score_at = ? WHERE id = ?", (result["score"], stamp, deal_id))
+            conn.execute(
+                "UPDATE crm_deals SET lead_score = ?, lead_score_at = ? WHERE id = ?", (result["score"], stamp, deal_id)
+            )
     for person_id in _unique([*person_ids, *(r[0] for r in linked)]):
         if (result := _person_breakdown_in(conn, person_id, now)) is not None:
             conn.execute(
@@ -178,7 +190,10 @@ def refresh(cancel: threading.Event | None = None) -> dict:
 def backfill() -> dict:
     with db.transaction() as conn:
         deal_ids = [r[0] for r in conn.execute("SELECT id FROM crm_deals WHERE archived_at IS NULL")]
-        person_ids = [r[0] for r in conn.execute("SELECT id FROM core_people WHERE merged_into_id IS NULL AND archived_at IS NULL")]
+        person_ids = [
+            r[0]
+            for r in conn.execute("SELECT id FROM core_people WHERE merged_into_id IS NULL AND archived_at IS NULL")
+        ]
         refresh_in(conn, deal_ids, person_ids)
     return {"deals": len(deal_ids), "people": len(person_ids)}
 

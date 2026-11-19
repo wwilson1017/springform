@@ -11,9 +11,15 @@ def can_read(user, conn, item_id: int) -> bool:
 
 ENTITIES = [
     Entity(
-        type="todos.item", table="todos_items", label="Todo", label_plural="Todos",
-        url_fn=lambda item_id: f"/todos/items/{item_id}", title_fn=title_from("todos_items", "title"),
+        type="todos.item",
+        table="todos_items",
+        label="Todo",
+        label_plural="Todos",
+        url_fn=lambda item_id: f"/todos/items/{item_id}",
+        title_fn=title_from("todos_items", "title"),
         # Whoever may read a todo may write it; the registry's role check keeps the system principal read-only.
-        can_read=can_read, can_write=can_read, searchable=("title", "notes"),
+        can_read=can_read,
+        can_write=can_read,
+        searchable=("title", "notes"),
     ),
 ]

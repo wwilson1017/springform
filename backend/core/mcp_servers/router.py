@@ -86,7 +86,11 @@ def mcp_servers_create(body: ServerIn) -> dict:
 
 @router.patch("/{server_id}", response_model=models.McpServer)
 def mcp_servers_update(server_id: int, body: ServerPatch) -> dict:
-    fields = {k: v.strip() if isinstance(v, str) else v for k, v in body.model_dump(exclude_unset=True).items() if v is not None}
+    fields = {
+        k: v.strip() if isinstance(v, str) else v
+        for k, v in body.model_dump(exclude_unset=True).items()
+        if v is not None
+    }
     if fields:
         service.update(server_id, **fields)
     client.refresh(_row(server_id)["id"])

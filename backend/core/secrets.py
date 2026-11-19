@@ -65,7 +65,9 @@ def _is_fernet_key(value: str) -> bool:
 
 @functools.cache
 def _key(data_dir: str, env_value: str) -> bytes:
-    return persisted("ENCRYPTION_KEY", ".encryption-key", lambda: Fernet.generate_key().decode(), _is_fernet_key).encode()
+    return persisted(
+        "ENCRYPTION_KEY", ".encryption-key", lambda: Fernet.generate_key().decode(), _is_fernet_key
+    ).encode()
 
 
 def key() -> bytes:
@@ -88,7 +90,7 @@ def decrypt(stored: str) -> str:
     if not stored or not stored.startswith(PREFIX):
         return stored
     try:
-        return Fernet(key()).decrypt(stored[len(PREFIX):].encode()).decode()
+        return Fernet(key()).decrypt(stored[len(PREFIX) :].encode()).decode()
     except InvalidToken:
         logger.warning("Could not decrypt a stored value (tampered, or the wrong ENCRYPTION_KEY)")
         return ""

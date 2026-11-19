@@ -22,7 +22,9 @@ async def acomplete(system: str, prompt: str, *, tier: str = "light", max_tokens
     provider = await asyncio.to_thread(get_provider, tier=tier)
     if provider is None:
         raise NoProviderConfigured("No AI provider is configured; add a key in Settings → AI.")
-    return await collect_text(provider.stream_turn([{"role": "user", "content": prompt}], [], system, max_tokens=max_tokens))
+    return await collect_text(
+        provider.stream_turn([{"role": "user", "content": prompt}], [], system, max_tokens=max_tokens)
+    )
 
 
 def complete(system: str, prompt: str, *, tier: str = "light", max_tokens: int = 1024) -> str:

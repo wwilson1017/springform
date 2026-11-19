@@ -37,13 +37,17 @@ def tools_for(user: User) -> list[ToolSpec]:
 
 
 async def _list_tools(ctx, params) -> types.ListToolsResult:
-    return types.ListToolsResult(tools=[
-        types.Tool(
-            name=s.name, description=s.description, input_schema=s.input_schema,
-            annotations=types.ToolAnnotations(read_only_hint=not s.writes),
-        )
-        for s in tools_for(link_user.get())
-    ])
+    return types.ListToolsResult(
+        tools=[
+            types.Tool(
+                name=s.name,
+                description=s.description,
+                input_schema=s.input_schema,
+                annotations=types.ToolAnnotations(read_only_hint=not s.writes),
+            )
+            for s in tools_for(link_user.get())
+        ]
+    )
 
 
 def _text(text: str, is_error: bool = False) -> types.CallToolResult:
@@ -62,9 +66,11 @@ async def _call_tool(ctx, params: types.CallToolRequestParams) -> types.CallTool
 
 
 _server = Server(
-    "Springform", version=VERSION,
+    "Springform",
+    version=VERSION,
     instructions="This install's records and tools. Every call acts as the person who made this link.",
-    on_list_tools=_list_tools, on_call_tool=_call_tool,
+    on_list_tools=_list_tools,
+    on_call_tool=_call_tool,
 )
 
 
@@ -73,7 +79,10 @@ async def handle(scope: Scope, receive: Receive, send: Send) -> None:
     # simplification: a fresh stateless manager per request, so nothing has to start it from the app
     # lifespan; one long-lived manager run from a router lifespan if per-request setup ever shows in profiles
     manager = StreamableHTTPSessionManager(
-        _server, json_response=True, stateless=True, max_request_body_size=MAX_BODY_BYTES,
+        _server,
+        json_response=True,
+        stateless=True,
+        max_request_body_size=MAX_BODY_BYTES,
     )
     async with manager.run():
         await manager.handle_request(scope, receive, send)

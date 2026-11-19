@@ -24,14 +24,36 @@ def test_people_organizations_links_and_channels_over_http(login_as):
     link = {"person_id": ada["id"], "organization_id": acme["id"], "role": "Buyer"}
     _ok(member.post(f"{BASE}/links", json={**link, "started_on": "2026-01-05"}))
     _ok(member.post(f"{BASE}/links", json={"person_id": ada["id"], "organization_id": globex["id"], "role": "Advisor"}))
-    patched = _ok(member.patch(f"{BASE}/links", json={
-        "person_id": ada["id"], "organization_id": globex["id"], "role": "Advisor", "new_role": "Partner", "is_primary": True,
-    }))
+    patched = _ok(
+        member.patch(
+            f"{BASE}/links",
+            json={
+                "person_id": ada["id"],
+                "organization_id": globex["id"],
+                "role": "Advisor",
+                "new_role": "Partner",
+                "is_primary": True,
+            },
+        )
+    )
     assert (patched["role"], patched["is_primary"]) == ("Partner", True)
-    work = _ok(member.post(f"{BASE}/channels", json={
-        "owner_type": "person", "owner_id": ada["id"], "kind": "email", "value": "ada@work.example.com", "is_primary": True,
-    }))
-    address = _ok(member.post(f"{BASE}/addresses", json={"owner_type": "person", "owner_id": ada["id"], "line1": "1 Sample Street"}))
+    work = _ok(
+        member.post(
+            f"{BASE}/channels",
+            json={
+                "owner_type": "person",
+                "owner_id": ada["id"],
+                "kind": "email",
+                "value": "ada@work.example.com",
+                "is_primary": True,
+            },
+        )
+    )
+    address = _ok(
+        member.post(
+            f"{BASE}/addresses", json={"owner_type": "person", "owner_id": ada["id"], "line1": "1 Sample Street"}
+        )
+    )
     assert address["is_primary"] is True
     _ok(member.patch(f"{BASE}/addresses/{address['id']}", json={"city": "Exampleville"}))
 
@@ -39,10 +61,13 @@ def test_people_organizations_links_and_channels_over_http(login_as):
     assert detail["email"] == "ada@work.example.com" and detail["tags"] == ["vip"]
     assert (detail["owner_name"], acme["owner_name"]) == (member.user["name"], None)
     assert [(o["name"], o["role"], o["is_primary"], o["started_on"]) for o in detail["organizations"]] == [
-        ("Globex Sample", "Partner", True, None), ("Acme Example", "Buyer", False, "2026-01-05"),
+        ("Globex Sample", "Partner", True, None),
+        ("Acme Example", "Buyer", False, "2026-01-05"),
     ]
     assert [(c["kind"], c["value"], c["is_primary"]) for c in detail["channels"]] == [
-        ("email", "ada@work.example.com", True), ("email", "ada@example.com", False), ("phone", "555-0101", True),
+        ("email", "ada@work.example.com", True),
+        ("email", "ada@example.com", False),
+        ("phone", "555-0101", True),
     ]
     assert [(a["line1"], a["city"]) for a in detail["addresses"]] == [("1 Sample Street", "Exampleville")]
     org = _ok(member.get(f"{BASE}/organizations/{acme['id']}"))
@@ -59,14 +84,21 @@ def test_people_organizations_links_and_channels_over_http(login_as):
         (ada["id"], "Globex Sample", member.user["name"]),
     ]
     assert member.patch(f"{BASE}/people/{ada['id']}", json={"nickname": "x"}).status_code == 422
-    assert member.post(f"{BASE}/channels", json={"owner_type": "person", "owner_id": ada["id"], "kind": "fax", "value": "1"}).status_code == 422
+    assert (
+        member.post(
+            f"{BASE}/channels", json={"owner_type": "person", "owner_id": ada["id"], "kind": "fax", "value": "1"}
+        ).status_code
+        == 422
+    )
     assert member.get(f"{BASE}/people/9999").status_code == 404
 
 
 def test_archive_hides_from_lists_and_pages_are_bounded(login_as):
     member = login_as("member")
     ids = [
-        _ok(member.post(f"{BASE}/people", json={"name": f"Person {n:02d}", "tags": ["even"] if n % 2 == 0 else []}))["id"]
+        _ok(member.post(f"{BASE}/people", json={"name": f"Person {n:02d}", "tags": ["even"] if n % 2 == 0 else []}))[
+            "id"
+        ]
         for n in range(1, 8)
     ]
     page = _ok(member.get(f"{BASE}/people", params={"page": 2, "page_size": 3}))
@@ -80,7 +112,9 @@ def test_archive_hides_from_lists_and_pages_are_bounded(login_as):
     live = _ok(member.get(f"{BASE}/people"))
     assert live["total"] == 6 and ids[0] not in [p["id"] for p in live["items"]]
     assert [p["id"] for p in _ok(member.get(f"{BASE}/people", params={"archived": True}))["items"]] == [ids[0]]
-    assert _ok(member.get(f"{BASE}/people/{ids[0]}"))["archived_at"] == archived["archived_at"]  # the detail still loads
+    assert (
+        _ok(member.get(f"{BASE}/people/{ids[0]}"))["archived_at"] == archived["archived_at"]
+    )  # the detail still loads
     assert _ok(member.get(f"{BASE}/search", params={"q": "Person 01"})) == []
     restored = _ok(member.post(f"{BASE}/people/{ids[0]}/restore"))
     assert restored["archived_at"] is None and _ok(member.get(f"{BASE}/people"))["total"] == 7
@@ -114,6 +148,9 @@ def test_two_members_share_the_directory_but_not_private_widgets(login_as):
     assert _ok(alice.get(f"{BASE}/people/{person['id']}"))["title"] == "Buyer"
     _ok(bob.post("/api/example/widgets", json={"name": "Private gear", "is_private": True, "person_id": person["id"]}))
     _ok(bob.post("/api/example/widgets", json={"name": "Open gear", "person_id": person["id"]}))
-    panel = lambda client: [w["name"] for w in _ok(client.get("/api/example/widgets", params={"person_id": person["id"]}))]  # noqa: E731
+
+    def panel(client):
+        return [w["name"] for w in _ok(client.get("/api/example/widgets", params={"person_id": person["id"]}))]
+
     assert panel(alice) == ["Open gear"]  # the widget's own rule, not the directory's
     assert panel(bob) == ["Private gear", "Open gear"]

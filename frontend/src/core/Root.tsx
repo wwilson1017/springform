@@ -35,14 +35,28 @@ export default function Root() {
             <Routes>
               <Route path="/login" element={<LoginPage />} />
               <Route path="/setup" element={<SetupPage />} />
-              {coreRoutes('public').map(r => <Route key={r.path} path={r.path} element={r.element} />)}
-              <Route element={<RequireAuth><CoreAppsProvider><Layout /></CoreAppsProvider></RequireAuth>}>
+              {coreRoutes('public').map((r) => (
+                <Route key={r.path} path={r.path} element={r.element} />
+              ))}
+              <Route
+                element={
+                  <RequireAuth>
+                    <CoreAppsProvider>
+                      <Layout />
+                    </CoreAppsProvider>
+                  </RequireAuth>
+                }
+              >
                 <Route index element={<Launcher />} />
                 <Route path="settings/*" element={<SettingsPage />} />
-                {coreRoutes('shell').map(r => (
-                  <Route key={r.path} path={r.path} element={r.admin ? <RequireAdmin>{r.element}</RequireAdmin> : r.element} />
+                {coreRoutes('shell').map((r) => (
+                  <Route
+                    key={r.path}
+                    path={r.path}
+                    element={r.admin ? <RequireAdmin>{r.element}</RequireAdmin> : r.element}
+                  />
                 ))}
-                {apps.map(app => (
+                {apps.map((app) => (
                   <Route key={app.slug} path={`${app.manifest.path}/*`} element={<AppRoute app={app} />} />
                 ))}
                 <Route path="*" element={<NotFound />} />

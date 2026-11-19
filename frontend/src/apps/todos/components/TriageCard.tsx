@@ -47,8 +47,7 @@ const NEW_PROJECT = 'new';
 // The step heading's own type — todo-gtd #2508 settled its size and contrast. The bottom margin moved
 // to `StepBar` below, which is now what the headings are wrapped in.
 const stepCls = 'text-sm font-display font-bold uppercase tracking-wide text-sf-ink';
-const destCls =
-  'rounded-lg border px-3 py-2 text-sm font-display transition-colors disabled:opacity-50';
+const destCls = 'rounded-lg border px-3 py-2 text-sm font-display transition-colors disabled:opacity-50';
 const inputCls =
   'rounded-lg border border-sf-line-strong bg-sf-card px-2 py-1.5 text-sm text-sf-ink focus:border-sf-accent focus:outline-none disabled:opacity-50';
 const linkCls = 'text-sm underline disabled:opacity-50';
@@ -68,11 +67,7 @@ const fieldCls = 'mb-1 block text-xs font-semibold text-sf-ink';
  * accessible name of step 3's heading is still "Step 3: Last step — set context (required)" —
  * exactly what the visible text said before the number and the word moved into glyphs.
  */
-function StepBar({ n, required = false, children }: {
-  n: number;
-  required?: boolean;
-  children: ReactNode;
-}) {
+function StepBar({ n, required = false, children }: { n: number; required?: boolean; children: ReactNode }) {
   return (
     <div className="mb-2 flex items-center gap-2 rounded-lg bg-sf-bg px-2.5 py-1.5">
       <span
@@ -85,7 +80,9 @@ function StepBar({ n, required = false, children }: {
         <span className="sr-only">Step {n}: </span>
         {children}
         {required && (
-          <span className="ml-1 text-sf-accent-text" aria-hidden="true">★</span>
+          <span className="ml-1 text-sf-accent-text" aria-hidden="true">
+            ★
+          </span>
         )}
         {required && <span className="sr-only"> (required)</span>}
       </h3>
@@ -124,7 +121,10 @@ export function TriageCard({ todo, projects, contexts, onProcessed, onChanged, o
   const [pendingDue, setPendingDue] = useState<string | null>(null);
   // The same value, live: the due-date save outlives the render that started it.
   const dueLive = useRef<string | null>(null);
-  const setDue = (value: string | null) => { dueLive.current = value; setPendingDue(value); };
+  const setDue = (value: string | null) => {
+    dueLive.current = value;
+    setPendingDue(value);
+  };
   // People, typed the way tags are. Re-seeded during render whenever the row's own
   // list changes (this card's save echoing back, or an edit made in the sheet).
   const savedPeople = (todo.people ?? []).join(', ');
@@ -147,7 +147,7 @@ export function TriageCard({ todo, projects, contexts, onProcessed, onChanged, o
   const knownTags = listFilters?.tags ?? [];
   const areas = listFilters?.areas ?? [];
   // The project this item is filed under — its fields open up below the picker.
-  const project = projects.find(p => p.id === todo.project_id);
+  const project = projects.find((p) => p.id === todo.project_id);
   // THE ROW, as this card best knows it — not the `todo` prop.
   //
   // The prop lags: the parent refetches asynchronously, so between a write being sent and
@@ -180,7 +180,7 @@ export function TriageCard({ todo, projects, contexts, onProcessed, onChanged, o
   const notesInFlight = useRef<Promise<unknown> | null>(null);
   // Set once the row is gone: a parting write to a deleted todo is a pointless 404.
   const goneRef = useRef(false);
-  const dest = DESTINATIONS.find(d => d.status === destination) ?? DESTINATIONS[0];
+  const dest = DESTINATIONS.find((d) => d.status === destination) ?? DESTINATIONS[0];
 
   // An inbox item can already carry a context (Quick Add parses "@ctx" while
   // keeping status: inbox), and the shared meta can still be empty while it
@@ -221,15 +221,19 @@ export function TriageCard({ todo, projects, contexts, onProcessed, onChanged, o
   // the server's old notes back over it) nor which rows have arrived since (it would take an
   // older row for a newer one and rewind the date).
   const adoptRef = useRef(adopt);
-  useLayoutEffect(() => { adoptRef.current = adopt; });
+  useLayoutEffect(() => {
+    adoptRef.current = adopt;
+  });
   const adoptAnswer = (r: Parameters<typeof adopt>[0]) => adoptRef.current(r);
   // The last rename's answer: the row as stored, or null when it was refused. Set before the
   // request's first await, so a click that blurred the title already sees it.
   const titleSent = useRef<Promise<Todo | null>>(Promise.resolve(null));
   // The last tags and people saves, for the same reason: a filing click blurs the field, and
   // the save it starts must land first, or a repeat's next occurrence copies the old list.
-  const listsSent = useRef<{ tags: Promise<void>; people: Promise<void> }>(
-    { tags: Promise.resolve(), people: Promise.resolve() });
+  const listsSent = useRef<{ tags: Promise<void>; people: Promise<void> }>({
+    tags: Promise.resolve(),
+    people: Promise.resolve(),
+  });
 
   const dueValue = pendingDue ?? row.due;
 
@@ -328,7 +332,11 @@ export function TriageCard({ todo, projects, contexts, onProcessed, onChanged, o
         // …and tell the parent, or its cached list keeps the pre-rescue notes: promote back
         // to this item and the box would seed from that stale copy and overwrite the text
         // this write just saved.
-        const send = () => { void updateTodo(id, { notes: draft }).then(() => reload()).catch(() => {}); };
+        const send = () => {
+          void updateTodo(id, { notes: draft })
+            .then(() => reload())
+            .catch(() => {});
+        };
         const running = notesInFlight.current;
         if (running) void running.then(send, send);
         else send();
@@ -488,7 +496,7 @@ export function TriageCard({ todo, projects, contexts, onProcessed, onChanged, o
       // text under its version would leave no later reload able to correct it. The text stays
       // in the box, unsaved, and the next blur sends it.
       const at = saved.rev;
-      setRow(r => (at < r.at || r.notes === value ? r : { ...r, notes: value }));
+      setRow((r) => (at < r.at || r.notes === value ? r : { ...r, notes: value }));
       onChanged();
       return 'saved';
     },
@@ -514,7 +522,9 @@ export function TriageCard({ todo, projects, contexts, onProcessed, onChanged, o
       if (value === null) return 'nothing-to-save';
       // Released only while the box still holds what was sent: a date typed during this
       // write is the trailing run's to send.
-      const release = () => { if (dueLive.current === value) setDue(null); };
+      const release = () => {
+        if (dueLive.current === value) setDue(null);
+      };
       setError('');
       let saved;
       try {
@@ -532,7 +542,7 @@ export function TriageCard({ todo, projects, contexts, onProcessed, onChanged, o
       // and putting this one under its version would leave no later reload able to correct it.
       // A tie goes to this answer: an equal `rev` is this same write.
       const at = saved.rev;
-      setRow(r => (at < r.at || r.due === value ? r : { ...r, due: value }));
+      setRow((r) => (at < r.at || r.due === value ? r : { ...r, due: value }));
       release();
       onChanged();
       return 'saved';
@@ -561,7 +571,9 @@ export function TriageCard({ todo, projects, contexts, onProcessed, onChanged, o
   // answered, and the card stays editable meanwhile — so the sheet is handed what is on the
   // card when it opens, not what was there at the click.
   const currentRef = useRef(current);
-  useLayoutEffect(() => { currentRef.current = current; });
+  useLayoutEffect(() => {
+    currentRef.current = current;
+  });
 
   return (
     <div className="rounded-xl border border-sf-line-strong bg-sf-card p-4 sm:p-5 shadow-sm">
@@ -594,7 +606,7 @@ export function TriageCard({ todo, projects, contexts, onProcessed, onChanged, o
       <div className="mt-5">
         <StepBar n={1}>What kind of action?</StepBar>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-          {DESTINATIONS.map(d => {
+          {DESTINATIONS.map((d) => {
             const on = d.status === destination;
             return (
               <button
@@ -603,9 +615,11 @@ export function TriageCard({ todo, projects, contexts, onProcessed, onChanged, o
                 disabled={busy}
                 aria-pressed={on}
                 onClick={() => setDestination(d.status)}
-                className={`${destCls} ${on
-                  ? 'border-sf-accent bg-sf-accent-soft font-semibold text-sf-ink'
-                  : 'border-sf-line-strong bg-sf-card text-sf-ink-dim hover:bg-sf-hover'}`}
+                className={`${destCls} ${
+                  on
+                    ? 'border-sf-accent bg-sf-accent-soft font-semibold text-sf-ink'
+                    : 'border-sf-line-strong bg-sf-card text-sf-ink-dim hover:bg-sf-hover'
+                }`}
               >
                 {d.label}
               </button>
@@ -629,31 +643,41 @@ export function TriageCard({ todo, projects, contexts, onProcessed, onChanged, o
         <div className="flex flex-wrap items-end gap-2">
           {newProject === null ? (
             <div>
-            <span className={fieldCls}>Project</span>
-            <select
-              value={todo.project_id ?? ''}
-              disabled={busy}
-              onChange={e => {
-                const v = e.target.value;
-                if (v === NEW_PROJECT) { setNewProject(''); return; }
-                void patch({ project_id: v ? Number(v) : null }, false);
-              }}
-              className={inputCls}
-              aria-label="Project"
-            >
-              <option value="">No project</option>
-              {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-              <option value={NEW_PROJECT}>+ New project…</option>
-            </select>
+              <span className={fieldCls}>Project</span>
+              <select
+                value={todo.project_id ?? ''}
+                disabled={busy}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  if (v === NEW_PROJECT) {
+                    setNewProject('');
+                    return;
+                  }
+                  void patch({ project_id: v ? Number(v) : null }, false);
+                }}
+                className={inputCls}
+                aria-label="Project"
+              >
+                <option value="">No project</option>
+                {projects.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+                <option value={NEW_PROJECT}>+ New project…</option>
+              </select>
             </div>
           ) : (
             <form
-              onSubmit={e => { e.preventDefault(); void createAndAssign(newProject); }}
+              onSubmit={(e) => {
+                e.preventDefault();
+                void createAndAssign(newProject);
+              }}
               className="flex w-full flex-wrap items-center gap-2"
             >
               <input
                 value={newProject}
-                onChange={e => setNewProject(e.target.value)}
+                onChange={(e) => setNewProject(e.target.value)}
                 placeholder="New project name"
                 autoFocus
                 disabled={busy}
@@ -674,13 +698,16 @@ export function TriageCard({ todo, projects, contexts, onProcessed, onChanged, o
               <button
                 type="button"
                 disabled={busy}
-                onClick={() => { setNewProject(null); setNewProjectFields(EMPTY_PROJECT_FIELDS); setError(''); }}
+                onClick={() => {
+                  setNewProject(null);
+                  setNewProjectFields(EMPTY_PROJECT_FIELDS);
+                  setError('');
+                }}
                 className={`${linkCls} text-sf-ink-dim hover:text-sf-ink`}
               >
                 Cancel
               </button>
-              <ProjectFields values={newProjectFields} areas={areas} disabled={busy}
-                             onChange={setNewProjectFields} />
+              <ProjectFields values={newProjectFields} areas={areas} disabled={busy} onChange={setNewProjectFields} />
             </form>
           )}
           {/* A native date input ignores `placeholder` — browsers render their own
@@ -696,39 +723,39 @@ export function TriageCard({ todo, projects, contexts, onProcessed, onChanged, o
               "…026" peeking out and the cue wrapped onto two lines. Hence `inset-px`
               (cover all of it, in every engine) and the width floor. */}
           <div>
-          <span className={fieldCls}>Due date</span>
-          <span className="relative flex">
-            <input
-              type="date"
-              value={dueValue}
-              disabled={busy}
-              onFocus={() => setDueFocused(true)}
-              onBlur={() => {
-                setDueFocused(false);
-                // Typed back to the date the row already holds: nothing to write, so stop
-                // shadowing the row. Not while a save is in flight — the row is about to move.
-                if (pendingDue === row.due && dueSave.status !== 'saving') setDue(null);
-                else dueSave.commit();
-              }}
-              // Shown at once, written on blur — `dueSave` says why. Nothing here disables
-              // the input, so the user can finish typing the date.
-              onChange={e => setDue(e.target.value)}
-              className={`${inputCls} min-w-40`}
-              aria-label="Due date"
-            />
-            {/* Keyed off `dueValue`, not the raw prop: without the optimistic value the field
+            <span className={fieldCls}>Due date</span>
+            <span className="relative flex">
+              <input
+                type="date"
+                value={dueValue}
+                disabled={busy}
+                onFocus={() => setDueFocused(true)}
+                onBlur={() => {
+                  setDueFocused(false);
+                  // Typed back to the date the row already holds: nothing to write, so stop
+                  // shadowing the row. Not while a save is in flight — the row is about to move.
+                  if (pendingDue === row.due && dueSave.status !== 'saving') setDue(null);
+                  else dueSave.commit();
+                }}
+                // Shown at once, written on blur — `dueSave` says why. Nothing here disables
+                // the input, so the user can finish typing the date.
+                onChange={(e) => setDue(e.target.value)}
+                className={`${inputCls} min-w-40`}
+                aria-label="Due date"
+              />
+              {/* Keyed off `dueValue`, not the raw prop: without the optimistic value the field
                 blanks the instant the write is sent and the cue flashes back over the date
                 just chosen, for the whole length of the refetch. `dueFocused` is the second
                 half — it keeps the cue off the native editor mid-pick. */}
-            {!dueValue && !dueFocused && (
-              <span
-                aria-hidden="true"
-                className="pointer-events-none absolute inset-px flex items-center whitespace-nowrap rounded-lg bg-sf-card pl-2 text-sm text-sf-ink-dim"
-              >
-                Add due date
-              </span>
-            )}
-          </span>
+              {!dueValue && !dueFocused && (
+                <span
+                  aria-hidden="true"
+                  className="pointer-events-none absolute inset-px flex items-center whitespace-nowrap rounded-lg bg-sf-card pl-2 text-sm text-sf-ink-dim"
+                >
+                  Add due date
+                </span>
+              )}
+            </span>
           </div>
           <button
             type="button"
@@ -772,8 +799,7 @@ export function TriageCard({ todo, projects, contexts, onProcessed, onChanged, o
             named (they are created with it). No project, no fields. */}
         {project && newProject === null && (
           <div className="mt-2">
-            <ProjectDetails key={project.id} project={project} areas={areas} disabled={busy}
-                            onSaved={onChanged} />
+            <ProjectDetails key={project.id} project={project} areas={areas} disabled={busy} onSaved={onChanged} />
           </div>
         )}
         {/* Notes belong to clarifying, not only to the full editor (todo-gtd #2402) — jot the
@@ -784,7 +810,7 @@ export function TriageCard({ todo, projects, contexts, onProcessed, onChanged, o
         <textarea
           value={notesDraft}
           disabled={busy}
-          onChange={e => setNotesDraft(e.target.value)}
+          onChange={(e) => setNotesDraft(e.target.value)}
           onBlur={notesSave.commit}
           placeholder="Links, numbers, anything you'll want when you do it"
           className={`${inputCls} block min-h-16 w-full`}
@@ -802,7 +828,7 @@ export function TriageCard({ todo, projects, contexts, onProcessed, onChanged, o
           onChange={setTagsDraft}
           suggestions={knownTags}
           onBlur={() => void saveTags(tagsDraft)}
-          onPick={value => void saveTags(value)}
+          onPick={(value) => void saveTags(value)}
         />
         <span className={`${fieldCls} mt-3`}>People</span>
         <PeopleInput
@@ -813,28 +839,32 @@ export function TriageCard({ todo, projects, contexts, onProcessed, onChanged, o
           onChange={setPeopleDraft}
           suggestions={knownPeople}
           onBlur={() => void savePeople(peopleDraft)}
-          onPick={value => void savePeople(value)}
+          onPick={(value) => void savePeople(value)}
         />
       </div>
 
       {/* Step 3 — the last step. Picking a context files it and clears the inbox. */}
       <div className="mt-5 border-t border-sf-line pt-4">
-        <StepBar n={3} required>Last step — set context</StepBar>
+        <StepBar n={3} required>
+          Last step — set context
+        </StepBar>
         <p className="mb-2 text-sm text-sf-ink-dim">
-          Where can you actually do this? Every item needs a context before it leaves the
-          inbox. Choosing one files it under{' '}
-          <span className="font-semibold text-sf-ink">{dest.list}</span> and clears it out of
-          your inbox — do it last.
+          Where can you actually do this? Every item needs a context before it leaves the inbox. Choosing one files it
+          under <span className="font-semibold text-sf-ink">{dest.list}</span> and clears it out of your inbox — do it
+          last.
         </p>
         {newContext === null ? (
           <div className="flex flex-wrap items-center gap-2">
             <select
               value=""
               disabled={busy}
-              onChange={e => {
+              onChange={(e) => {
                 const v = e.target.value;
                 if (!v) return;
-                if (v === NEW_CONTEXT) { setNewContext(''); return; }
+                if (v === NEW_CONTEXT) {
+                  setNewContext('');
+                  return;
+                }
                 const picked = options[Number(v)];
                 if (picked) void fileUnder(picked);
               }}
@@ -842,19 +872,26 @@ export function TriageCard({ todo, projects, contexts, onProcessed, onChanged, o
               aria-label="Set context and file this todo"
             >
               <option value="">Set context…</option>
-              {options.map((c, i) => <option key={c} value={i}>{c}</option>)}
+              {options.map((c, i) => (
+                <option key={c} value={i}>
+                  {c}
+                </option>
+              ))}
               <option value={NEW_CONTEXT}>+ New context…</option>
             </select>
             {todo.context && <span className="text-xs text-sf-ink-dim">currently {todo.context}</span>}
           </div>
         ) : (
           <form
-            onSubmit={e => { e.preventDefault(); void fileUnder(newContext); }}
+            onSubmit={(e) => {
+              e.preventDefault();
+              void fileUnder(newContext);
+            }}
             className="flex flex-wrap items-center gap-2"
           >
             <input
               value={newContext}
-              onChange={e => setNewContext(e.target.value)}
+              onChange={(e) => setNewContext(e.target.value)}
               placeholder="@home, @calls, @errands…"
               autoFocus
               disabled={busy}
@@ -871,7 +908,10 @@ export function TriageCard({ todo, projects, contexts, onProcessed, onChanged, o
             <button
               type="button"
               disabled={busy}
-              onClick={() => { setNewContext(null); setError(''); }}
+              onClick={() => {
+                setNewContext(null);
+                setError('');
+              }}
               className={`${linkCls} text-sf-ink-dim hover:text-sf-ink`}
             >
               Cancel

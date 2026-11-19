@@ -33,11 +33,16 @@ def test_signed_out_is_401(client):
 
 def test_deal_routes(member):
     person = a_person(member)
-    deal = ok(member.post("/api/crm/deals", json={"title": "Wedding cakes", "value_cents": 125_000, "person_id": person}))
+    deal = ok(
+        member.post("/api/crm/deals", json={"title": "Wedding cakes", "value_cents": 125_000, "person_id": person})
+    )
     assert (deal["status"], deal["person_name"], deal["value_cents"]) == ("open", "Zoë Démo", 125_000)
     did = deal["id"]
 
-    assert ok(member.patch(f"/api/crm/deals/{did}", json={"stage": "proposal", "deal_temperature": "hot"}))["stage"] == "proposal"
+    assert (
+        ok(member.patch(f"/api/crm/deals/{did}", json={"stage": "proposal", "deal_temperature": "hot"}))["stage"]
+        == "proposal"
+    )
     detail = ok(member.get(f"/api/crm/deals/{did}"))
     assert [e["new_stage"] for e in detail["stage_events"]] == ["lead", "proposal"] and detail["activity"] == []
     assert ok(member.post(f"/api/crm/deals/{did}/won", json={"closed_on": "2026-10-01"}))["closed_on"] == "2026-10-01"
@@ -49,7 +54,12 @@ def test_deal_routes(member):
     other = ok(member.post("/api/crm/deals", json={"title": "Second"}))["id"]
     assert ok(member.post(f"/api/crm/deals/{did}/merge", json={"source_id": other}))["id"] == did
     assert ok(member.get(f"/api/crm/deals/{other}"))["archived_reason"] == f"Merged into deal #{did}"
-    assert [e["new_stage"] for e in ok(member.get(f"/api/crm/deals/{did}/stage-events"))] == ["lead", "proposal", "won", "lost"]
+    assert [e["new_stage"] for e in ok(member.get(f"/api/crm/deals/{did}/stage-events"))] == [
+        "lead",
+        "proposal",
+        "won",
+        "lost",
+    ]
     assert [d["id"] for d in ok(member.get(f"/api/crm/people/{person}/deals"))] == [did]
     assert ok(member.get(f"/api/crm/deals/{did}/touch-evidence"))["verdict_state"] == "none"
     assert "missing_organization" in ok(member.get(f"/api/crm/deals/{did}/health"))["flags"]
@@ -85,7 +95,11 @@ def test_missing_records_are_404(member):
 def test_activity_routes(member):
     deal = ok(member.post("/api/crm/deals", json={"title": "Wedding cakes"}))["id"]
     row = ok(member.post("/api/crm/activity", json={"activity": "call", "note": "Left a message", "deal_id": deal}))
-    assert (row["deal_title"], row["actor_user_id"], row["created_at"]) == ("Wedding cakes", member.user["id"], "2026-10-14T15:00:00Z")
+    assert (row["deal_title"], row["actor_user_id"], row["created_at"]) == (
+        "Wedding cakes",
+        member.user["id"],
+        "2026-10-14T15:00:00Z",
+    )
     assert ok(member.patch(f"/api/crm/activity/{row['id']}", json={"note": "Spoke to them"}))["note"] == "Spoke to them"
     assert [a["id"] for a in ok(member.get("/api/crm/activity", params={"deal_id": deal}))] == [row["id"]]
     assert ok(member.get(f"/api/crm/deals/{deal}"))["last_activity_at"] == "2026-10-14T15:00:00Z"
@@ -96,7 +110,11 @@ def test_activity_routes(member):
 def test_settings_are_admin_only(admin, member):
     assert member.get("/api/crm/settings").status_code == 403
     assert member.patch("/api/crm/settings", json={"stale_days": 3}).status_code == 403
-    assert ok(admin.get("/api/crm/settings")) == {"stale_days": 14, "touch_count_enabled": True, "default_currency": "USD"}
+    assert ok(admin.get("/api/crm/settings")) == {
+        "stale_days": 14,
+        "touch_count_enabled": True,
+        "default_currency": "USD",
+    }
     assert ok(admin.patch("/api/crm/settings", json={"stale_days": 3, "default_currency": "EUR"}))["stale_days"] == 3
     assert admin.patch("/api/crm/settings", json={"stale_days": 0}).status_code == 422
     assert ok(member.post("/api/crm/deals", json={"title": "Euro deal"}))["currency"] == "EUR"
@@ -122,7 +140,9 @@ def test_provenance_badge_lives_until_a_person_edits_or_confirms(member):
     badges = ok(member.get(f"/api/crm/provenance/crm.deal/{deal}"))["fields"]
     assert set(badges) == {"value_cents", "notes"} and badges["value_cents"]["value_snapshot"] == "5000"
     member.patch(f"/api/crm/deals/{deal}", json={"value_cents": 6000})
-    assert set(ok(member.get(f"/api/crm/provenance/crm.deal/{deal}"))["fields"]) == {"notes"}, "an edit retires the badge"
+    assert set(ok(member.get(f"/api/crm/provenance/crm.deal/{deal}"))["fields"]) == {"notes"}, (
+        "an edit retires the badge"
+    )
     assert ok(member.post(f"/api/crm/provenance/crm.deal/{deal}/confirm", json={}))["fields"] == {}
     assert member.get("/api/crm/provenance/todos.item/1").status_code == 422
 
@@ -147,10 +167,18 @@ def test_badge_counts_my_quiet_open_deals(member, freeze):
 
 def test_dashboard_meta_and_reports(member):
     org = ok(member.post("/api/core/contacts/organizations", json={"name": "Demo Café Group"}))["id"]
-    ok(member.post("/api/crm/deals", json={"title": "Big", "value_cents": 900_000, "stage": "proposal", "organization_id": org}))
+    ok(
+        member.post(
+            "/api/crm/deals", json={"title": "Big", "value_cents": 900_000, "stage": "proposal", "organization_id": org}
+        )
+    )
     ok(member.post("/api/crm/deals", json={"title": "Won", "value_cents": 100_000, "stage": "won"}))
     dash = ok(member.get("/api/crm/dashboard"))
-    assert (dash["total_pipeline_value_cents"], dash["won_this_month_cents"], dash["total_organizations"]) == (900_000, 100_000, 1)
+    assert (dash["total_pipeline_value_cents"], dash["won_this_month_cents"], dash["total_organizations"]) == (
+        900_000,
+        100_000,
+        1,
+    )
     assert [d["title"] for d in dash["top_deals"]] == ["Big"]
     assert ok(member.get("/api/crm/meta"))["empty"] is False
     assert ok(member.post("/api/crm/meta/dismiss-onboarding"))["onboarding_dismissed"] is True

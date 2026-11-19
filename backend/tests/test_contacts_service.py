@@ -25,10 +25,21 @@ def test_person_with_two_organizations_keeps_one_primary(user):
     contacts.link(user, ada["id"], acme, "Buyer")  # a first link is primary
     contacts.link(user, ada["id"], acme, "Owner")  # same organization, second role
     contacts.link(user, ada["id"], globex, "Advisor")
-    assert _links(user, ada["id"]) == [("Acme Example", "Buyer", True), ("Acme Example", "Owner", False), ("Globex Sample", "Advisor", False)]
+    assert _links(user, ada["id"]) == [
+        ("Acme Example", "Buyer", True),
+        ("Acme Example", "Owner", False),
+        ("Globex Sample", "Advisor", False),
+    ]
     contacts.link(user, ada["id"], globex, "Advisor", is_primary=True)  # idempotent; promoting demotes the old primary
-    assert _links(user, ada["id"]) == [("Globex Sample", "Advisor", True), ("Acme Example", "Buyer", False), ("Acme Example", "Owner", False)]
-    assert [(p["name"], p["role"]) for p in contacts.people_for(user, acme)] == [("Ada Example", "Buyer"), ("Ada Example", "Owner")]
+    assert _links(user, ada["id"]) == [
+        ("Globex Sample", "Advisor", True),
+        ("Acme Example", "Buyer", False),
+        ("Acme Example", "Owner", False),
+    ]
+    assert [(p["name"], p["role"]) for p in contacts.people_for(user, acme)] == [
+        ("Ada Example", "Buyer"),
+        ("Ada Example", "Owner"),
+    ]
     with pytest.raises(sqlite3.IntegrityError), core_db.transaction() as conn:  # the index refuses two primaries
         conn.execute("UPDATE core_person_organizations SET is_primary = 1 WHERE person_id = ?", (ada["id"],))
 
@@ -36,7 +47,9 @@ def test_person_with_two_organizations_keeps_one_primary(user):
     assert _links(user, ada["id"])[0] == ("Acme Example", "Buyer", True)
     with pytest.raises(NotFound):
         contacts.unlink(user, ada["id"], globex, "Advisor")
-    link = service.update_link(user, ada["id"], acme, "Owner", new_role="Partner", is_primary=True, started_on="2026-01-02")
+    link = service.update_link(
+        user, ada["id"], acme, "Owner", new_role="Partner", is_primary=True, started_on="2026-01-02"
+    )
     assert (link["role"], link["is_primary"], link["started_on"]) == ("Partner", True, "2026-01-02")
     assert _links(user, ada["id"]) == [("Acme Example", "Partner", True), ("Acme Example", "Buyer", False)]
     with pytest.raises(Conflict):
@@ -56,7 +69,9 @@ def test_channel_changes_rewrite_the_email_and_phone_mirror(user):
     contacts.update_person(user, p["id"], email="grace@new.example.com", phone="")
     got = contacts.get_person(user, p["id"])
     assert (got["email"], got["phone"]) == ("grace@new.example.com", None)
-    assert [(c["kind"], c["value"], c["is_primary"]) for c in got["channels"]] == [("email", "grace@new.example.com", True)]
+    assert [(c["kind"], c["value"], c["is_primary"]) for c in got["channels"]] == [
+        ("email", "grace@new.example.com", True)
+    ]
     service.update_part(user, "channel", got["channels"][0]["id"], kind="url")  # moved out of the email slot
     assert contacts.get_person(user, p["id"])["email"] is None
     changed = [c["field"] for e in timeline.list_for(user, "core.person", p["id"]) for c in e["changes"] or []]
@@ -90,7 +105,9 @@ def test_find_duplicates_by_email_phone_and_name(user):
     service.archive(user, "person", gone)  # archived records are not duplicates
     groups = contacts.find_duplicates(user, "person")
     assert [(g["match_on"], g["value"], g["count"], [r["id"] for r in g["records"]]) for g in groups] == [
-        ("email", "ada@example.com", 2, [a, b]), ("phone", "5550100101", 2, [a, c]), ("name", "ada example", 2, [a, b]),
+        ("email", "ada@example.com", 2, [a, b]),
+        ("phone", "5550100101", 2, [a, c]),
+        ("name", "ada example", 2, [a, b]),
     ]
     assert groups[0]["records"][1] == {"id": b, "label": "ada example"}
     contacts.create_organization(user, name="Acme Example", domain="acme.example.com")
@@ -102,7 +119,9 @@ def test_find_duplicates_by_email_phone_and_name(user):
 
 def test_resolve_or_create_organizations(user):
     acme = contacts.create_organization(user, name="Acme Example")["id"]
-    got = contacts.resolve_or_create_organizations(user, ["acme example", "  ACME EXAMPLE ", "Globex Sample", "", "Globex Sample"])
+    got = contacts.resolve_or_create_organizations(
+        user, ["acme example", "  ACME EXAMPLE ", "Globex Sample", "", "Globex Sample"]
+    )
     assert got["acme example"] == got["  ACME EXAMPLE "] == acme and "" not in got
     assert contacts.get_organization(user, got["Globex Sample"])["name"] == "Globex Sample"
     assert core_db.one("SELECT count(*) AS n FROM core_organizations")["n"] == 2
@@ -112,7 +131,9 @@ def test_resolve_or_create_organizations(user):
         contacts.update_organization(user, got["Globex Sample"], name="Acme EXAMPLE")
     old = contacts.create_organization(user, name="Acme Old Name")["id"]
     contacts.merge_organizations(user, acme, old)
-    assert contacts.resolve_or_create_organizations(user, ["acme old name"]) == {"acme old name": acme}  # alias -> survivor
+    assert contacts.resolve_or_create_organizations(user, ["acme old name"]) == {
+        "acme old name": acme
+    }  # alias -> survivor
 
 
 def test_names_match_beyond_ascii(user):
@@ -125,9 +146,9 @@ def test_names_match_beyond_ascii(user):
     assert contacts.resolve_or_create_organizations(user, ["CAFÉ ñandú"]) == {"CAFÉ ñandú": cafe}
     a = contacts.create_person(user, name="Zoë Démo")["id"]
     b = contacts.create_person(user, name="ZOË DÉMO")["id"]
-    assert [(g["match_on"], g["value"], [r["id"] for r in g["records"]]) for g in contacts.find_duplicates(user, "person")] == [
-        ("name", "zoë démo", [a, b])
-    ]
+    assert [
+        (g["match_on"], g["value"], [r["id"] for r in g["records"]]) for g in contacts.find_duplicates(user, "person")
+    ] == [("name", "zoë démo", [a, b])]
 
 
 def test_validation_and_the_system_principal(user):

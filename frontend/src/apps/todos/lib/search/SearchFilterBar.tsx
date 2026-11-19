@@ -126,7 +126,7 @@ export default function SearchFilterBar({
         {hasPanel && (
           <button
             type="button"
-            onClick={() => setShowFacets(o => !o)}
+            onClick={() => setShowFacets((o) => !o)}
             aria-expanded={showFacets}
             className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm border transition-colors shrink-0 ${
               activeFacetCount > 0
@@ -136,20 +136,28 @@ export default function SearchFilterBar({
           >
             <SlidersHorizontal className="w-4 h-4" aria-hidden="true" />
             Filters{activeFacetCount > 0 ? ` (${activeFacetCount})` : ''}
-            <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showFacets ? 'rotate-180' : ''}`} aria-hidden="true" />
+            <ChevronDown
+              className={`w-3.5 h-3.5 transition-transform ${showFacets ? 'rotate-180' : ''}`}
+              aria-hidden="true"
+            />
           </button>
         )}
 
         {showCount && (
           <span className="text-xs text-sf-ink-dim shrink-0">
-            {visibleCount} of {totalCount}{countNoun ? ` ${countNoun}` : ''}{countNote ? ` ${countNote}` : ''}
+            {visibleCount} of {totalCount}
+            {countNoun ? ` ${countNoun}` : ''}
+            {countNote ? ` ${countNote}` : ''}
           </span>
         )}
 
         {active && (
           <button
             type="button"
-            onClick={() => { setResetNonce(n => n + 1); onClear(); }}
+            onClick={() => {
+              setResetNonce((n) => n + 1);
+              onClear();
+            }}
             className="text-xs text-sf-ink-dim hover:text-sf-ink underline shrink-0"
           >
             Clear filters
@@ -159,11 +167,11 @@ export default function SearchFilterBar({
         {trailing}
       </div>
 
-      {!showFacets && (groups.some(g => g.selected.length > 0) || !!extraChips) && (
+      {!showFacets && (groups.some((g) => g.selected.length > 0) || !!extraChips) && (
         <div className="flex flex-wrap items-center gap-1.5">
           {extraChips}
-          {groups.flatMap(group =>
-            group.selected.map(value => (
+          {groups.flatMap((group) =>
+            group.selected.map((value) => (
               <SelectedChip
                 key={`${group.key}:${value}`}
                 label={optionLabel(group.options, value)}
@@ -177,7 +185,9 @@ export default function SearchFilterBar({
 
       {showFacets && hasPanel && (
         <div className="p-3 bg-sf-card border border-sf-line-strong rounded-lg flex flex-col gap-3">
-          {groups.map(group => <FacetRow key={group.key} group={group} />)}
+          {groups.map((group) => (
+            <FacetRow key={group.key} group={group} />
+          ))}
           {extraFacets}
         </div>
       )}
@@ -187,7 +197,7 @@ export default function SearchFilterBar({
 
 /** A selected value's label, falling back to the raw value when no option matches it. */
 function optionLabel(options: FacetOption[], value: string | number): string {
-  return options.find(o => o.value === value)?.label ?? String(value);
+  return options.find((o) => o.value === value)?.label ?? String(value);
 }
 
 export function ChipButton({
@@ -259,7 +269,7 @@ function FacetRow({ group }: { group: FacetGroup }) {
       <div>
         <button
           type="button"
-          onClick={() => setOpen(o => !o)}
+          onClick={() => setOpen((o) => !o)}
           aria-expanded={open}
           className="flex items-center gap-1.5 text-xs font-medium text-sf-ink hover:text-sf-accent-text transition-colors"
         >
@@ -281,7 +291,7 @@ function FacetRow({ group }: { group: FacetGroup }) {
       </div>
       {group.hint && <p className="-mt-1 mb-1.5 text-xs text-sf-ink-dim">{group.hint}</p>}
       <div className="flex flex-wrap gap-1.5">
-        {group.options.map(o => {
+        {group.options.map((o) => {
           const isSelected = group.selected.includes(o.value);
           // A SELECTED chip is never disabled — it must stay clickable so a filter that became
           // un-choosable (a Maintenance stage that was hidden/closed AFTER it was selected) can
@@ -299,8 +309,8 @@ function FacetRow({ group }: { group: FacetGroup }) {
           );
         })}
         {group.selected
-          .filter(v => !group.options.some(o => o.value === v))
-          .map(v => (
+          .filter((v) => !group.options.some((o) => o.value === v))
+          .map((v) => (
             <ChipButton key={`orphan:${v}`} label={String(v)} active onClick={() => group.onToggle(v)} />
           ))}
       </div>
@@ -316,24 +326,27 @@ function CheckList({ group }: { group: FacetGroup }) {
   // load) is prepended rather than dropped — otherwise the group reads "(1)" with nothing to
   // untick, which is the same invisible-filter trap the collapsed chip row exists to close.
   const orphans = group.selected
-    .filter(v => !group.options.some(o => o.value === v))
-    .map(v => ({ value: v, label: String(v) }));
+    .filter((v) => !group.options.some((o) => o.value === v))
+    .map((v) => ({ value: v, label: String(v) }));
   const all = [...orphans, ...group.options];
-  const shown = needle ? all.filter(o => o.label.toLowerCase().includes(needle)) : all;
+  const shown = needle ? all.filter((o) => o.label.toLowerCase().includes(needle)) : all;
 
   return (
     <div className="mt-1.5">
       <input
         type="text"
         value={filter}
-        onChange={e => setFilter(e.target.value)}
+        onChange={(e) => setFilter(e.target.value)}
         placeholder={`Filter ${group.label.toLowerCase()}...`}
         aria-label={`Filter ${group.label} options`}
         className="w-full max-w-xs px-2 py-1 mb-1.5 bg-sf-card border border-sf-line-strong rounded text-xs text-sf-ink placeholder:text-sf-ink-dim focus:outline-none focus:ring-2 focus:ring-sf-accent/30"
       />
       <div className="max-h-56 overflow-y-auto space-y-0.5 pr-1">
-        {shown.map(o => (
-          <label key={o.value} className="flex items-center gap-2 px-2 py-1 rounded hover:bg-sf-hover cursor-pointer text-sm text-sf-ink">
+        {shown.map((o) => (
+          <label
+            key={o.value}
+            className="flex items-center gap-2 px-2 py-1 rounded hover:bg-sf-hover cursor-pointer text-sm text-sf-ink"
+          >
             <input
               type="checkbox"
               checked={group.selected.includes(o.value)}

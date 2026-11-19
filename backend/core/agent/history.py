@@ -75,18 +75,25 @@ def list_conversations(user_id: int, q: str | None = None, limit: int = 50, offs
     return [_conversation(r) for r in db.rows(sql, params)]
 
 
-def update_conversation(conversation_id: int, user_id: int, *, title: str | None = None, is_private: bool | None = None) -> dict | None:
+def update_conversation(
+    conversation_id: int, user_id: int, *, title: str | None = None, is_private: bool | None = None
+) -> dict | None:
     fields: dict = {}
     if title is not None:
         fields["title"] = " ".join(title.split())[:200]
     if is_private is not None:
         fields["is_private"] = int(is_private)
     with db.transaction() as conn:
-        if not conn.execute("SELECT 1 FROM core_agent_conversations WHERE id = ? AND user_id = ?", (conversation_id, user_id)).fetchone():
+        if not conn.execute(
+            "SELECT 1 FROM core_agent_conversations WHERE id = ? AND user_id = ?", (conversation_id, user_id)
+        ).fetchone():
             return None
         if fields:
             sets = ", ".join(f"{k} = ?" for k in fields)  # keys are the literals above
-            conn.execute(f"UPDATE core_agent_conversations SET {sets}, updated_at = ? WHERE id = ?", (*fields.values(), now_iso(), conversation_id))
+            conn.execute(
+                f"UPDATE core_agent_conversations SET {sets}, updated_at = ? WHERE id = ?",
+                (*fields.values(), now_iso(), conversation_id),
+            )
     return get_conversation(conversation_id, user_id)
 
 
@@ -95,7 +102,9 @@ def delete_conversation(conversation_id: int, user_id: int) -> bool:
     are recorded as denied, since nobody can approve them any more."""
     now = now_iso()
     with db.transaction() as conn:
-        if not conn.execute("SELECT 1 FROM core_agent_conversations WHERE id = ? AND user_id = ?", (conversation_id, user_id)).fetchone():
+        if not conn.execute(
+            "SELECT 1 FROM core_agent_conversations WHERE id = ? AND user_id = ?", (conversation_id, user_id)
+        ).fetchone():
             return False
         conn.execute(
             """UPDATE core_agent_tool_runs SET status = 'denied', resolved_at = ?, resolved_by = ?
@@ -113,7 +122,9 @@ def auto_title_in(conn: db.Conn, conversation_id: int, text: str) -> str | None:
     if len(title) > _TITLE_MAX:
         title = title[: _TITLE_MAX - 3].rstrip() + "..."
     title = title or "New conversation"
-    cur = conn.execute("UPDATE core_agent_conversations SET title = ? WHERE id = ? AND title = ''", (title, conversation_id))
+    cur = conn.execute(
+        "UPDATE core_agent_conversations SET title = ? WHERE id = ? AND title = ''", (title, conversation_id)
+    )
     return title if cur.rowcount else None
 
 
@@ -129,8 +140,13 @@ def messages(conversation_id: int) -> list[dict]:
 
 
 def save_message_in(
-    conn: db.Conn, conversation_id: int, role: str, content: dict, *,
-    tokens_in: int | None = None, tokens_out: int | None = None,
+    conn: db.Conn,
+    conversation_id: int,
+    role: str,
+    content: dict,
+    *,
+    tokens_in: int | None = None,
+    tokens_out: int | None = None,
 ) -> int:
     """Insert one message and bump the thread. `tokens_in` (the cache-inclusive input the model
     read) also becomes the thread's fullness reading for compaction."""
@@ -167,12 +183,15 @@ def set_compaction(conversation_id: int, summary: str, first_kept_id: int) -> bo
     """Store a gist + boundary; only ever moves the boundary forward (a racing turn loses).
     Clears the fullness reading, which described the context this just made smaller."""
     with db.transaction() as conn:
-        return conn.execute(
-            """UPDATE core_agent_conversations
+        return (
+            conn.execute(
+                """UPDATE core_agent_conversations
                   SET summary = ?, summary_first_kept_id = ?, last_context_tokens = NULL, compacted_at = ?
                 WHERE id = ? AND (summary_first_kept_id IS NULL OR summary_first_kept_id < ?)""",
-            (summary, first_kept_id, now_iso(), conversation_id, first_kept_id),
-        ).rowcount > 0
+                (summary, first_kept_id, now_iso(), conversation_id, first_kept_id),
+            ).rowcount
+            > 0
+        )
 
 
 def mark_tainted(conversation_id: int) -> None:
@@ -185,9 +204,19 @@ def mark_tainted(conversation_id: int) -> None:
 
 
 def insert_tool_run_in(
-    conn: db.Conn, *, tool: str, args: dict, status: str, user_id: int, source: str = "chat",
-    conversation_id: int | None = None, message_id: int | None = None, tool_use_id: str | None = None,
-    tool_def_sha256: str = "", result: str | None = None, error: str | None = None,
+    conn: db.Conn,
+    *,
+    tool: str,
+    args: dict,
+    status: str,
+    user_id: int,
+    source: str = "chat",
+    conversation_id: int | None = None,
+    message_id: int | None = None,
+    tool_use_id: str | None = None,
+    tool_def_sha256: str = "",
+    result: str | None = None,
+    error: str | None = None,
 ) -> int:
     """`result` is already serialized (JSON text)."""
     now = now_iso()
@@ -196,8 +225,22 @@ def insert_tool_run_in(
         """INSERT INTO core_agent_tool_runs (conversation_id, message_id, tool_use_id, tool, tool_def_sha256, args,
                                              status, result, error, user_id, source, requested_at, resolved_at, resolved_by)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-        (conversation_id, message_id, tool_use_id, tool, tool_def_sha256, json.dumps(args, default=str), status,
-         result, error, user_id, source, now, now if terminal else None, user_id if terminal else None),
+        (
+            conversation_id,
+            message_id,
+            tool_use_id,
+            tool,
+            tool_def_sha256,
+            json.dumps(args, default=str),
+            status,
+            result,
+            error,
+            user_id,
+            source,
+            now,
+            now if terminal else None,
+            user_id if terminal else None,
+        ),
     ).lastrowid
 
 
@@ -216,21 +259,33 @@ def tool_runs_for(conversation_id: int) -> list[dict]:
 
 def claim_in(conn: db.Conn, run_id: int) -> bool:
     """pending -> executing; False when someone else resolved or claimed it first."""
-    return conn.execute(
-        "UPDATE core_agent_tool_runs SET status = 'executing' WHERE id = ? AND status = 'pending'", (run_id,)
-    ).rowcount > 0
+    return (
+        conn.execute(
+            "UPDATE core_agent_tool_runs SET status = 'executing' WHERE id = ? AND status = 'pending'", (run_id,)
+        ).rowcount
+        > 0
+    )
 
 
 def resolve_in(
-    conn: db.Conn, run_id: int, status: str, *, result: str | None = None, error: str | None = None,
-    resolved_by: int | None = None, expect: str = "pending",
+    conn: db.Conn,
+    run_id: int,
+    status: str,
+    *,
+    result: str | None = None,
+    error: str | None = None,
+    resolved_by: int | None = None,
+    expect: str = "pending",
 ) -> bool:
     """Move a run from `expect` to a final status; False when it was not in `expect`."""
-    return conn.execute(
-        """UPDATE core_agent_tool_runs SET status = ?, result = ?, error = ?, resolved_at = ?, resolved_by = ?
+    return (
+        conn.execute(
+            """UPDATE core_agent_tool_runs SET status = ?, result = ?, error = ?, resolved_at = ?, resolved_by = ?
             WHERE id = ? AND status = ?""",
-        (status, result, error, now_iso(), resolved_by, run_id, expect),
-    ).rowcount > 0
+            (status, result, error, now_iso(), resolved_by, run_id, expect),
+        ).rowcount
+        > 0
+    )
 
 
 def resolve(run_id: int, status: str, **kw) -> bool:
@@ -254,7 +309,10 @@ _STATUS_FOR_MODEL = {
     "executing": {"status": "executing"},
     "denied": {"status": "denied_by_user"},
     "stale": {"status": "stale", "error": "The tool changed after it was proposed, so it was not run."},
-    "interrupted": {"status": "interrupted", "error": "The server restarted while this ran; it may or may not have taken effect."},
+    "interrupted": {
+        "status": "interrupted",
+        "error": "The server restarted while this ran; it may or may not have taken effect.",
+    },
 }
 
 

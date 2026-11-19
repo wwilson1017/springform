@@ -24,22 +24,25 @@ const listeners = new Set<Listener>();
 
 export function subscribeFeed(listener: Listener): () => void {
   listeners.add(listener);
-  return () => { listeners.delete(listener); };
+  return () => {
+    listeners.delete(listener);
+  };
 }
 
 /** Hand a batch to every page listening. Exported for tests. */
 export function publishFeed(batch: FeedBatch) {
-  listeners.forEach(l => l(batch));
+  listeners.forEach((l) => l(batch));
 }
 
 /** Fold one page of the feed into a batch. */
 export function toBatch(pages: Changes[]): FeedBatch {
   return {
-    reset: pages.some(p => p.reset),
-    items: pages.flatMap(p => p.items),
-    removed: pages.flatMap(p => p.removed.items.map(r => r.id)),
-    containers: pages.some(p => p.projects.length + p.areas.length
-      + p.removed.projects.length + p.removed.areas.length > 0),
+    reset: pages.some((p) => p.reset),
+    items: pages.flatMap((p) => p.items),
+    removed: pages.flatMap((p) => p.removed.items.map((r) => r.id)),
+    containers: pages.some(
+      (p) => p.projects.length + p.areas.length + p.removed.projects.length + p.removed.areas.length > 0,
+    ),
   };
 }
 
@@ -55,15 +58,21 @@ export const byCreated = (a: Todo, b: Todo) =>
  * might belong in it, asks for a refetch.
  */
 export function applyChanges(
-  rows: Todo[], batch: FeedBatch, matches?: (t: Todo) => boolean, order: (a: Todo, b: Todo) => number = byCreated,
+  rows: Todo[],
+  batch: FeedBatch,
+  matches?: (t: Todo) => boolean,
+  order: (a: Todo, b: Todo) => number = byCreated,
 ): Todo[] | null {
   const gone = new Set(batch.removed);
-  if (!matches) return batch.items.length > 0 ? null : rows.filter(r => !gone.has(r.id));
-  const fresh = new Map(batch.items.map(t => [t.id, t]));
-  const kept = rows.filter(r => !gone.has(r.id) && !fresh.has(r.id));
-  const touched = rows.filter(r => fresh.has(r.id)).map(r => fresh.get(r.id)!).filter(matches);
-  const known = new Set(rows.map(r => r.id));
-  const joined = batch.items.filter(t => !known.has(t.id) && !gone.has(t.id) && matches(t));
+  if (!matches) return batch.items.length > 0 ? null : rows.filter((r) => !gone.has(r.id));
+  const fresh = new Map(batch.items.map((t) => [t.id, t]));
+  const kept = rows.filter((r) => !gone.has(r.id) && !fresh.has(r.id));
+  const touched = rows
+    .filter((r) => fresh.has(r.id))
+    .map((r) => fresh.get(r.id)!)
+    .filter(matches);
+  const known = new Set(rows.map((r) => r.id));
+  const joined = batch.items.filter((t) => !known.has(t.id) && !gone.has(t.id) && matches(t));
   if (touched.length === 0 && joined.length === 0) {
     return kept.length === rows.length ? rows : kept; // unchanged keeps its identity: no re-render
   }
@@ -81,7 +90,10 @@ let cursorOwner = '';
 export function useChangeFeed(owner: string, onBatch?: (batch: FeedBatch) => void) {
   useEffect(() => {
     if (!owner) return;
-    if (cursorOwner !== owner) { cursor = null; cursorOwner = owner; }
+    if (cursorOwner !== owner) {
+      cursor = null;
+      cursorOwner = owner;
+    }
     let cancelled = false;
     let running = false;
     const tick = async () => {
@@ -104,7 +116,7 @@ export function useChangeFeed(owner: string, onBatch?: (batch: FeedBatch) => voi
         }
         cursor = since;
         const batch = toBatch(pages);
-        if (batch.reset || pages.some(p => p.changed)) {
+        if (batch.reset || pages.some((p) => p.changed)) {
           publishFeed(batch);
           onBatch?.(batch);
         }

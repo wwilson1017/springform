@@ -96,7 +96,9 @@ def test_extracts_business_facts_as_the_system_user_and_never_reads_private(llm,
         ("assistant", "ASSISTANT-ROW tool output from an email"),
         ("user", "Also the farmers market stall runs every Saturday morning."),
     ])  # fmt: skip
-    private_c = conversation(bob.id, [("user", "PRIVATE-ROW my hearing is on Friday; the flour supplier changed")], private=True)
+    private_c = conversation(
+        bob.id, [("user", "PRIVATE-ROW my hearing is on Friday; the flour supplier changed")], private=True
+    )
     llm.reply = '```json\n{"facts": ["Wholesale price is 30 dollars per cake.", "The market stall runs every Saturday.", 7, "ok"]}\n```'
 
     result = jobs.nightly()

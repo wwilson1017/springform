@@ -91,7 +91,9 @@ def test_the_specs_validate_and_reach_active_humans_only(app, make_user):
     assert [p for s in specs.values() for p in registry._problems(s)] == []
     assert {n for n, s in specs.items() if s.writes} == WRITES
     assert {n for n in WRITES if engine.needs_confirmation(specs[n], {}, tainted=False)} == CONFIRMED
-    assert all(engine.needs_confirmation(specs[n], {}, tainted=True) for n in WRITES), "a tainted turn confirms every write"
+    assert all(engine.needs_confirmation(specs[n], {}, tainted=True) for n in WRITES), (
+        "a tainted turn confirms every write"
+    )
     for user in (member, admin):
         assert READS | WRITES <= {s.name for s in registry.for_user(user)}
     assert not {s.name for s in registry.for_user(system_user())} & (READS | WRITES)
@@ -114,12 +116,20 @@ def test_reads_as_a_member_and_an_admin(app, make_user):
         person = call(user, "core_get_person", id=jane)
         assert (person["title"], person["url"]) == ("Buyer", f"http://localhost:8000/people/{jane}")
         assert person["organizations"] == [
-            {"id": org, "name": "Acme Bakery Supply", "role": "buyer", "is_primary": True, "url": f"http://localhost:8000/organizations/{org}"}
+            {
+                "id": org,
+                "name": "Acme Bakery Supply",
+                "role": "buyer",
+                "is_primary": True,
+                "url": f"http://localhost:8000/organizations/{org}",
+            }
         ]
         assert [(c["kind"], c["value"]) for c in person["channels"]] == [("email", "jane@example.com")]
         organization = call(user, "core_get_organization", id=org)
         assert organization["domain"] == "example.com" and organization["url"].endswith(f"/organizations/{org}")
-        assert [(p["id"], p["role"], p["url"]) for p in organization["people"]] == [(jane, "buyer", f"http://localhost:8000/people/{jane}")]
+        assert [(p["id"], p["role"], p["url"]) for p in organization["people"]] == [
+            (jane, "buyer", f"http://localhost:8000/people/{jane}")
+        ]
         with pytest.raises(Refused, match="not_found"):
             call(user, "core_get_person", id=9999)
 
@@ -140,7 +150,15 @@ def test_writes_wait_for_the_owner_s_approval(login_as, chat):
     org = made["result"]["id"]
     assert made["result"]["url"] == f"http://localhost:8000/organizations/{org}"
 
-    jane = chat_write(member, "core_create_person", name="Jane Example", email="jane@example.com", title="Buyer", organization_id=org, role="buyer")
+    jane = chat_write(
+        member,
+        "core_create_person",
+        name="Jane Example",
+        email="jane@example.com",
+        title="Buyer",
+        organization_id=org,
+        role="buyer",
+    )
     assert jane["created"] is True and jane["url"].endswith(f"/people/{jane['id']}")
     assert [(o["id"], o["role"]) for o in jane["organizations"]] == [(org, "buyer")]
 
@@ -150,7 +168,14 @@ def test_writes_wait_for_the_owner_s_approval(login_as, chat):
     namesake = chat_write(member, "core_create_person", name="Jane Example", allow_duplicate=True)
     assert namesake["created"] is True and namesake["id"] != jane["id"]
 
-    link = chat_write(member, "core_link_person_organization", person_id=namesake["id"], organization_id=org, role="owner", primary=True)
+    link = chat_write(
+        member,
+        "core_link_person_organization",
+        person_id=namesake["id"],
+        organization_id=org,
+        role="owner",
+        primary=True,
+    )
     assert (link["role"], link["is_primary"], link["organization"]["name"]) == ("owner", True, "Acme Bakery Supply")
     assert link["person"]["url"].endswith(f"/people/{namesake['id']}")
     people = contacts.people_for(member.principal, org)

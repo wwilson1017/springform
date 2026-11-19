@@ -12,13 +12,21 @@ const TONE: Record<string, string> = {
 };
 
 const OUTCOME_TEXT_COLOR: Record<string, string> = {
-  done: 'text-sf-green-text', error: 'text-sf-red-text', uncertain: 'text-sf-amber-text', stale: 'text-sf-amber-text',
-  denied: 'text-sf-ink-soft', already_resolved: 'text-sf-ink-soft',
+  done: 'text-sf-green-text',
+  error: 'text-sf-red-text',
+  uncertain: 'text-sf-amber-text',
+  stale: 'text-sf-amber-text',
+  denied: 'text-sf-ink-soft',
+  already_resolved: 'text-sf-ink-soft',
 };
 
 const TITLE: Record<string, string> = {
-  done: 'Done', error: 'Failed', uncertain: 'Outcome unknown', stale: 'Not run: out of date',
-  denied: 'Denied', already_resolved: 'Already handled',
+  done: 'Done',
+  error: 'Failed',
+  uncertain: 'Outcome unknown',
+  stale: 'Not run: out of date',
+  denied: 'Denied',
+  already_resolved: 'Already handled',
 };
 
 /**
@@ -26,7 +34,11 @@ const TITLE: Record<string, string> = {
  * thread). Shows the tool, summary and full args; Approve and Deny go to POST /api/agent/confirm, and the
  * server's answer is what the card shows.
  */
-export function ToolConfirmCard({ part, disabled, onDecide }: {
+export function ToolConfirmCard({
+  part,
+  disabled,
+  onDecide,
+}: {
   part: ToolPart & { confirm: ConfirmState };
   disabled?: boolean;
   onDecide: (decision: Decision) => void;
@@ -36,7 +48,9 @@ export function ToolConfirmCard({ part, disabled, onDecide }: {
   return (
     <div className={`rounded-md border border-solid p-3 ${TONE[key]}`} data-testid="tool-confirm-card">
       <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-        <span className={`text-xs font-semibold uppercase tracking-wider ${state.phase === 'resolved' ? OUTCOME_TEXT_COLOR[key] : 'text-sf-amber-text'}`}>
+        <span
+          className={`text-xs font-semibold uppercase tracking-wider ${state.phase === 'resolved' ? OUTCOME_TEXT_COLOR[key] : 'text-sf-amber-text'}`}
+        >
           {state.phase === 'resolved' ? TITLE[key] : 'Needs your approval'}
         </span>
         <code className="break-all font-mono text-xs text-sf-ink-soft">{part.tool}</code>
@@ -49,15 +63,25 @@ export function ToolConfirmCard({ part, disabled, onDecide }: {
       {state.phase !== 'resolved' && (
         <>
           {state.phase === 'pending' && state.failure && (
-            <p role="alert" className="mb-0 mt-2 text-sm text-sf-red-text">{state.failure}</p>
+            <p role="alert" className="mb-0 mt-2 text-sm text-sf-red-text">
+              {state.failure}
+            </p>
           )}
           <div className="mt-3 flex gap-2">
-            <button type="button" disabled={disabled || state.phase === 'sending'} onClick={() => onDecide('approve')}
-              className="cursor-pointer rounded border-0 bg-sf-accent px-3.5 py-1.5 text-sm font-medium text-sf-accent-ink disabled:cursor-default disabled:opacity-60">
+            <button
+              type="button"
+              disabled={disabled || state.phase === 'sending'}
+              onClick={() => onDecide('approve')}
+              className="cursor-pointer rounded border-0 bg-sf-accent px-3.5 py-1.5 text-sm font-medium text-sf-accent-ink disabled:cursor-default disabled:opacity-60"
+            >
               {state.phase === 'sending' && state.decision === 'approve' ? 'Approving…' : 'Approve'}
             </button>
-            <button type="button" disabled={disabled || state.phase === 'sending'} onClick={() => onDecide('deny')}
-              className="cursor-pointer rounded border border-solid border-sf-line-strong bg-transparent px-3.5 py-1.5 text-sm text-sf-ink-mute disabled:cursor-default disabled:opacity-60">
+            <button
+              type="button"
+              disabled={disabled || state.phase === 'sending'}
+              onClick={() => onDecide('deny')}
+              className="cursor-pointer rounded border border-solid border-sf-line-strong bg-transparent px-3.5 py-1.5 text-sm text-sf-ink-mute disabled:cursor-default disabled:opacity-60"
+            >
               {state.phase === 'sending' && state.decision === 'deny' ? 'Denying…' : 'Deny'}
             </button>
           </div>

@@ -1,7 +1,19 @@
-import { test as base, expect, type APIRequestContext, type APIResponse, type Browser, type Page } from '@playwright/test';
+import {
+  test as base,
+  expect,
+  type APIRequestContext,
+  type APIResponse,
+  type Browser,
+  type Page,
+} from '@playwright/test';
 
 export type Role = 'admin' | 'member';
-export interface User { id: number; email: string; name: string; role: Role }
+export interface User {
+  id: number;
+  email: string;
+  name: string;
+  role: Role;
+}
 
 /** A browser's fetch sends this itself; a cookie-authenticated call without it is refused as cross-site. */
 export const SAME_ORIGIN = { 'Sec-Fetch-Site': 'same-origin' };
@@ -14,21 +26,29 @@ async function body<T>(res: APIResponse, what: string): Promise<T> {
 /** JSON calls with a context's session cookie, for setup data and for checking API state. */
 export class Api {
   constructor(readonly request: APIRequestContext) {}
-  get<T>(path: string) { return this.request.get(path).then(r => body<T>(r, `GET ${path}`)); }
+  get<T>(path: string) {
+    return this.request.get(path).then((r) => body<T>(r, `GET ${path}`));
+  }
   post<T>(path: string, data?: unknown) {
-    return this.request.post(path, { data, headers: SAME_ORIGIN }).then(r => body<T>(r, `POST ${path}`));
+    return this.request.post(path, { data, headers: SAME_ORIGIN }).then((r) => body<T>(r, `POST ${path}`));
   }
   patch<T>(path: string, data: unknown) {
-    return this.request.patch(path, { data, headers: SAME_ORIGIN }).then(r => body<T>(r, `PATCH ${path}`));
+    return this.request.patch(path, { data, headers: SAME_ORIGIN }).then((r) => body<T>(r, `PATCH ${path}`));
   }
 }
 
 /** A signed-in browser context: its page, its API and who it is. */
-export interface Session { page: Page; api: Api; user: User }
+export interface Session {
+  page: Page;
+  api: Api;
+  user: User;
+}
 
 /** The preview role picker's call (`POST /api/auth/preview`); the cookie lands in the page's context. */
 export async function signIn(page: Page, role: Role): Promise<User> {
-  return (await body<{ user: User }>(await page.request.post('/api/auth/preview', { data: { role } }), 'preview sign-in')).user;
+  return (
+    await body<{ user: User }>(await page.request.post('/api/auth/preview', { data: { role } }), 'preview sign-in')
+  ).user;
 }
 
 /** Opens the menu pages (Guide, Backups, …): the drawer on a phone, the user menu on a desktop.
@@ -39,7 +59,9 @@ export async function openMenu(page: Page) {
   await expect(drawer.or(userMenu)).toBeVisible();
   if (await drawer.isVisible()) {
     await drawer.click();
-    return { entry: (name: string) => page.getByRole('dialog', { name: 'Menu' }).getByRole('link', { name, exact: true }) };
+    return {
+      entry: (name: string) => page.getByRole('dialog', { name: 'Menu' }).getByRole('link', { name, exact: true }),
+    };
   }
   await userMenu.click();
   return { entry: (name: string) => page.getByRole('menuitem', { name, exact: true }) };
@@ -53,7 +75,7 @@ export function unique(label: string) {
 /** Uncaught exceptions in the page; every fixture fails its test on any. */
 function pageErrors(page: Page) {
   const errors: string[] = [];
-  page.on('pageerror', e => errors.push(`${page.url()}: ${e.message}`));
+  page.on('pageerror', (e) => errors.push(`${page.url()}: ${e.message}`));
   return errors;
 }
 

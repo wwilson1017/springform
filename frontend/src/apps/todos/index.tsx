@@ -23,7 +23,9 @@ import { WaitingPage } from './WaitingPage';
  *  Today is the app's home. The change feed runs here, once, rather than in the per-page shell. */
 function App() {
   const { user, isAdmin } = useAuth();
-  const onBatch = useCallback(() => { void refreshMeta(); }, []);
+  const onBatch = useCallback(() => {
+    void refreshMeta();
+  }, []);
   useChangeFeed(String(user?.id ?? ''), onBatch);
   return (
     <MeContext.Provider value={{ id: user?.id ?? null, isAdmin }}>

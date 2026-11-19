@@ -45,7 +45,12 @@ class TestCreate:
         assert (todo["title"], todo["status"], todo["source"]) == ("Call the bank", "inbox", "ui")
         assert (todo["visibility"], todo["owner_user_id"], todo["assignee_user_id"]) == ("private", me.id, None)
         assert (todo["tags"], todo["people"], todo["star"], todo["auto_star_on_due"]) == ([], [], False, False)
-        assert (todo["project_id"], todo["project_name"], todo["due_date"], todo["completed_at"]) == (None, None, None, None)
+        assert (todo["project_id"], todo["project_name"], todo["due_date"], todo["completed_at"]) == (
+            None,
+            None,
+            None,
+            None,
+        )
         assert todo["owner_name"] == me.name and todo["rev"] > 0
         assert todo["created_at"].endswith("Z") and todo["updated_at"].endswith("Z")
 
@@ -193,7 +198,10 @@ class TestBulkUpdate:
             service.bulk_update(me, [], {"status": "done"})
 
     def test_bulk_complete_spawns_each_repeating_todo(self, me):
-        ids = [add(me, t, status="next_action", repeat=r)["id"] for t, r in (("water", "daily"), ("stretch", "weekly"), ("one-off", ""))]
+        ids = [
+            add(me, t, status="next_action", repeat=r)["id"]
+            for t, r in (("water", "daily"), ("stretch", "weekly"), ("one-off", ""))
+        ]
         service.bulk_update(me, ids, {"status": "done"})
         assert sorted(titles(service.list_items(me, status="next_action"))) == ["stretch", "water"]
 
@@ -257,8 +265,12 @@ class TestListItems:
         a, b = add(me, "first"), add(me, "second")
         assert titles(service.list_items(me)) == ["first", "second"]
         with core_db.transaction() as conn:
-            conn.execute("UPDATE todos_items SET status='done', completed_at='2026-01-01T10:00:00Z' WHERE id=?", (a["id"],))
-            conn.execute("UPDATE todos_items SET status='done', completed_at='2026-06-01T10:00:00Z' WHERE id=?", (b["id"],))
+            conn.execute(
+                "UPDATE todos_items SET status='done', completed_at='2026-01-01T10:00:00Z' WHERE id=?", (a["id"],)
+            )
+            conn.execute(
+                "UPDATE todos_items SET status='done', completed_at='2026-06-01T10:00:00Z' WHERE id=?", (b["id"],)
+            )
         assert titles(service.list_items(me, status="done")) == ["second", "first"]
         add(me, "third")
         assert len(service.list_items(me, limit=2)) == 2
@@ -297,7 +309,12 @@ class TestRecurrence:
         [nxt] = service.list_items(me, status="next_action")
         assert nxt["id"] != a["id"]
         assert (nxt["title"], nxt["notes"], nxt["context"], nxt["tags"], nxt["people"]) == (
-            "Water the plants", "both rooms", "@home", ["chore"], ["Ana"])
+            "Water the plants",
+            "both rooms",
+            "@home",
+            ["chore"],
+            ["Ana"],
+        )
         assert (nxt["due_date"], nxt["repeat"], nxt["project_name"]) == ("2099-06-08", "weekly", "House")
         assert (nxt["star"], nxt["completed_at"]) == (False, None)  # today's priority doesn't carry over
         assert [t["id"] for t in service.list_items(me, status="done")] == [a["id"]]
@@ -391,7 +408,9 @@ def _person() -> int:
 
     now = clock.now_iso()
     with core_db.transaction() as conn:
-        return conn.execute("INSERT INTO core_people (name, created_at, updated_at) VALUES ('Ada', ?, ?)", (now, now)).lastrowid
+        return conn.execute(
+            "INSERT INTO core_people (name, created_at, updated_at) VALUES ('Ada', ?, ?)", (now, now)
+        ).lastrowid
 
 
 class TestAutoStar:
@@ -425,7 +444,7 @@ class TestAutoStar:
 
 
 class TestEachUsersToday:
-    """"Today" is each user's own calendar date."""
+    """ "Today" is each user's own calendar date."""
 
     def test_today_view_across_a_timezone_boundary(self, app, make_user, freeze):
         freeze("2026-08-08T01:00:00Z")  # Aug 7 8pm in Chicago, Aug 8 1pm in Auckland
@@ -562,7 +581,12 @@ class TestProjects:
     def test_create_validate_and_rename(self, me):
         p = service.create_project(me, "Launch", purpose="grow revenue", outcome="live by Q4")
         assert (p["purpose"], p["outcome"], p["status"], p["visibility"], p["open_count"]) == (
-            "grow revenue", "live by Q4", "active", "private", 0)
+            "grow revenue",
+            "live by Q4",
+            "active",
+            "private",
+            0,
+        )
         with pytest.raises(Invalid, match='Project "launch" already exists'):
             service.create_project(me, "launch")
         with pytest.raises(Invalid, match="name is required"):
@@ -633,7 +657,11 @@ class TestAreas:
         project = service.create_project(me, "Launch", area_id=work["id"])
         assert (project["area_id"], project["area_name"]) == (work["id"], "Work")
         inherited = add(me, "inherits", project_id=project["id"])
-        assert (inherited["area_id"], inherited["effective_area_id"], inherited["area_name"]) == (None, work["id"], "Work")
+        assert (inherited["area_id"], inherited["effective_area_id"], inherited["area_name"]) == (
+            None,
+            work["id"],
+            "Work",
+        )
         own = add(me, "has its own", project_id=project["id"], area_id=home["id"])
         assert (own["effective_area_id"], own["area_name"]) == (home["id"], "Home")
         add(me, "loose", area_id=home["id"])
@@ -667,7 +695,12 @@ class TestRenameContext:
         open_one = add(me, "bake", context="@Baking", status="next_action")
         add(me, "bake", context="@Baking", status="done")
         office = add(me, "bake", context="TK Office")
-        assert service.rename_context(me, "@Baking", " Baking ") == {"old": "@Baking", "new": "Baking", "updated": 2, "merged": False}
+        assert service.rename_context(me, "@Baking", " Baking ") == {
+            "old": "@Baking",
+            "new": "Baking",
+            "updated": 2,
+            "merged": False,
+        }
         assert service.filters(me)["contexts"] == ["Baking", "TK Office"]
         after = service.get_item(me, open_one["id"])
         assert after["context"] == "Baking" and after["updated_at"] == open_one["updated_at"]  # a rename is not an edit
@@ -755,7 +788,11 @@ class TestReview:
         freeze("2026-08-20T12:00:00Z")
         assert service.review_status(me)["review_due"] is True  # a week past the account's creation
         freeze("2026-08-21T04:50:00Z")  # 23:50 on the 20th in Chicago
-        assert service.mark_review_done(me) == {"review_due": False, "days_since_review": 0, "last_review_at": "2026-08-21T04:50:00Z"}
+        assert service.mark_review_done(me) == {
+            "review_due": False,
+            "days_since_review": 0,
+            "last_review_at": "2026-08-21T04:50:00Z",
+        }
         freeze("2026-08-21T05:00:00Z")  # ten minutes later it is "yesterday"
         assert service.review_status(me)["days_since_review"] == 1
 
@@ -811,4 +848,8 @@ def test_validate_due_rejects(value):
 
 
 def test_validate_due_accepts_real_dates_and_none():
-    assert (common.validate_due("2026-08-15"), common.validate_due(None), common.validate_due("")) == ("2026-08-15", None, None)
+    assert (common.validate_due("2026-08-15"), common.validate_due(None), common.validate_due("")) == (
+        "2026-08-15",
+        None,
+        None,
+    )

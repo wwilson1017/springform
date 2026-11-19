@@ -48,7 +48,9 @@ describe('InvitePage', () => {
       [INVITE]: { body: { email: invitee.email, name: invitee.name, google: true } },
     });
     expect(await screen.findByText(invitee.email)).toBeTruthy();
-    expect(screen.getByRole('link', { name: 'Continue with Google' }).getAttribute('href')).toBe('/api/auth/google/start?invite=tok-1');
+    expect(screen.getByRole('link', { name: 'Continue with Google' }).getAttribute('href')).toBe(
+      '/api/auth/google/start?invite=tok-1',
+    );
     fillPasswords('Choose a password', 'Confirm password');
     mockFetch({ 'POST /api/auth/invite/tok-1': { body: { user: invitee } }, 'GET /api/me': { body: invitee } });
     fireEvent.click(screen.getByRole('button', { name: 'Set password and sign in' }));
@@ -57,7 +59,9 @@ describe('InvitePage', () => {
   });
 
   it('shows the Google error the callback came back with, and hides Google when it is off', async () => {
-    renderAt('/invite/tok-1?error=google_in_use', { [INVITE]: { body: { email: invitee.email, name: '', google: false } } });
+    renderAt('/invite/tok-1?error=google_in_use', {
+      [INVITE]: { body: { email: invitee.email, name: '', google: false } },
+    });
     expect((await screen.findByRole('alert')).textContent).toMatch(/already linked to another user/);
     expect(screen.queryByRole('link', { name: 'Continue with Google' })).toBeNull();
   });
@@ -76,7 +80,10 @@ describe('ResetPasswordPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Verify' }));
     // A wrong code on a public page is an answer, not a redirect to /login.
     expect((await screen.findByRole('alert')).textContent).toMatch(/That code didn't work/);
-    expect(JSON.parse(callsTo(next, 'POST', '/api/auth/reset')[0][1]!.body as string)).toEqual({ token: 'r-1', password: 'a-long-password' });
+    expect(JSON.parse(callsTo(next, 'POST', '/api/auth/reset')[0][1]!.body as string)).toEqual({
+      token: 'r-1',
+      password: 'a-long-password',
+    });
   });
 
   it('explains a used or expired link', async () => {

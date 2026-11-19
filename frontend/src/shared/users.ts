@@ -11,7 +11,7 @@ const names = new Map<number, string>();
 let directory: Promise<void> | null = null;
 
 export function searchUsers(q: string, signal?: AbortSignal): Promise<UserRef[]> {
-  return fetchJson<UserRef[]>(`/api/core/timeline/mentionable?${new URLSearchParams({ q })}`, signal).then(list => {
+  return fetchJson<UserRef[]>(`/api/core/timeline/mentionable?${new URLSearchParams({ q })}`, signal).then((list) => {
     for (const u of list) names.set(u.id, u.name);
     return list;
   });
@@ -29,15 +29,24 @@ export const knownName = (id: number): string | undefined => names.get(id);
  */
 export function useUserNames(ids: ReadonlyArray<number | null | undefined>): (id: number) => string {
   const [, setLoaded] = useState(0);
-  const missing = ids.some(id => id != null && !names.has(id));
+  const missing = ids.some((id) => id != null && !names.has(id));
   useEffect(() => {
     if (!missing) return;
     let live = true;
-    directory ??= searchUsers('').then(() => {}, () => { directory = null; });
-    void directory.then(() => { if (live) setLoaded(n => n + 1); });
-    return () => { live = false; };
+    directory ??= searchUsers('').then(
+      () => {},
+      () => {
+        directory = null;
+      },
+    );
+    void directory.then(() => {
+      if (live) setLoaded((n) => n + 1);
+    });
+    return () => {
+      live = false;
+    };
   }, [missing]);
-  return id => names.get(id) ?? `User #${id}`;
+  return (id) => names.get(id) ?? `User #${id}`;
 }
 
 /** Forget every cached name. For tests: the cache is module state that outlives a render. */

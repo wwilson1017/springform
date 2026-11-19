@@ -115,8 +115,13 @@ def search(q: str, kind: OwnerType | None = None, limit: int = 20, user: User = 
 
 @router.get("/people", response_model=models.PersonPage)
 def list_people(
-    q: str | None = None, archived: bool = False, organization_id: int | None = None, tag: str | None = None,
-    page: int = 1, page_size: int | None = None, user: User = Depends(current_user),
+    q: str | None = None,
+    archived: bool = False,
+    organization_id: int | None = None,
+    tag: str | None = None,
+    page: int = 1,
+    page_size: int | None = None,
+    user: User = Depends(current_user),
 ) -> dict:
     """{items: [person + primary_organization_id, primary_organization_name], total, page, page_size}"""
     return service.list_records(
@@ -126,7 +131,11 @@ def list_people(
 
 @router.get("/organizations", response_model=models.OrganizationPage)
 def list_organizations(
-    q: str | None = None, archived: bool = False, tag: str | None = None, page: int = 1, page_size: int | None = None,
+    q: str | None = None,
+    archived: bool = False,
+    tag: str | None = None,
+    page: int = 1,
+    page_size: int | None = None,
     user: User = Depends(current_user),
 ) -> dict:
     """{items: [organization], total, page, page_size}"""

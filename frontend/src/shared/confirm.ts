@@ -32,7 +32,7 @@ function emit() {
 export function subscribeConfirms(onChange: () => void): () => void {
   listeners.push(onChange);
   return () => {
-    listeners = listeners.filter(l => l !== onChange);
+    listeners = listeners.filter((l) => l !== onChange);
   };
 }
 
@@ -56,7 +56,7 @@ export function confirmDialog(options: ConfirmOptions): Promise<boolean> {
   if (head && head.options.title === options.title && head.options.message === options.message) {
     return Promise.resolve(false);
   }
-  return new Promise<boolean>(resolve => {
+  return new Promise<boolean>((resolve) => {
     queue = [...queue, { id: nextId++, options, resolve }];
     emit();
   });

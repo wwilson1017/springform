@@ -23,10 +23,14 @@ export function normalizeTemperature(value: string | null | undefined): DealTemp
  */
 export function nextTemperature(value: string | null | undefined): DealTemperature | null {
   switch (normalizeTemperature(value)) {
-    case null: return 'hot';
-    case 'hot': return 'warm';
-    case 'warm': return 'cold';
-    case 'cold': return null;
+    case null:
+      return 'hot';
+    case 'hot':
+      return 'warm';
+    case 'warm':
+      return 'cold';
+    case 'cold':
+      return null;
   }
 }
 

@@ -12,14 +12,19 @@ from backend.apps.crm.common import STAGES
 from backend.core import clock, db
 from backend.core.errors import NotFound
 
-STANDARD: dict[str, dict] = json.loads(Path(__file__).with_name("stage_criteria_standard.json").read_text(encoding="utf-8"))
+STANDARD: dict[str, dict] = json.loads(
+    Path(__file__).with_name("stage_criteria_standard.json").read_text(encoding="utf-8")
+)
 
 
 def _entry(row) -> dict:
     checklist = json.loads(row["checklist"])
     std = STANDARD[row["stage"]]
     return {
-        "stage": row["stage"], "summary": row["summary"], "checklist": checklist, "updated_at": row["updated_at"],
+        "stage": row["stage"],
+        "summary": row["summary"],
+        "checklist": checklist,
+        "updated_at": row["updated_at"],
         "is_default": row["summary"] == std["summary"] and checklist == std["checklist"],
     }
 
@@ -40,7 +45,10 @@ def seed_in(conn: db.Conn) -> None:
 def list_criteria() -> list[dict]:
     """Every stage in pipeline order; a stage with no row (before the first seed) reads as standard."""
     rows = {r["stage"]: r for r in db.get_conn().execute("SELECT * FROM crm_stage_criteria")}
-    standard = {s: {"stage": s, "summary": v["summary"], "checklist": json.dumps(v["checklist"]), "updated_at": None} for s, v in STANDARD.items()}
+    standard = {
+        s: {"stage": s, "summary": v["summary"], "checklist": json.dumps(v["checklist"]), "updated_at": None}
+        for s, v in STANDARD.items()
+    }
     return [_entry(rows.get(s) or standard[s]) for s in STAGES]
 
 

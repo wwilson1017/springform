@@ -19,9 +19,7 @@ describe('parseQuickAdd', () => {
     expect(p.project).toBe('Bakery');
     expect(p.context).toBe('@calls');
     expect(p.star).toBe(true);
-    expect(p.chips.map(c => c.kind).sort()).toEqual(
-      ['context', 'due', 'project', 'star'],
-    );
+    expect(p.chips.map((c) => c.kind).sort()).toEqual(['context', 'due', 'project', 'star']);
   });
 
   it('today and explicit ISO dates', () => {
@@ -74,7 +72,7 @@ describe('parseQuickAdd', () => {
     expect(p.due_date).toBe('2026-08-03');
     expect(p.title).toBe('submit payroll');
     // The weekday inside the repeat phrase must NOT also match as a date chip.
-    expect(p.chips.filter(c => c.kind === 'due')).toHaveLength(0);
+    expect(p.chips.filter((c) => c.kind === 'due')).toHaveLength(0);
   });
 
   it('explicit date beats the repeat anchor', () => {

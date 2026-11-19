@@ -7,8 +7,19 @@ import { useEffect, useRef, useSyncExternalStore } from 'react';
 import { subscribeConfirms, getCurrentConfirm, settleConfirm } from './confirm';
 import type { ConfirmOptions } from './confirm';
 import {
-  BG_CARD, LINE_STRONG, INK, INK_MUTE, INK_SOFT, ACCENT, ACCENT_INK, CORAL_FILL, ON_STATUS,
-  FONT_DISPLAY, FONT_SANS, SCRIM, SHADOW,
+  BG_CARD,
+  LINE_STRONG,
+  INK,
+  INK_MUTE,
+  INK_SOFT,
+  ACCENT,
+  ACCENT_INK,
+  CORAL_FILL,
+  ON_STATUS,
+  FONT_DISPLAY,
+  FONT_SANS,
+  SCRIM,
+  SHADOW,
 } from './styles';
 
 export function ConfirmHost() {
@@ -53,9 +64,14 @@ function ConfirmCard({ options }: { options: ConfirmOptions }) {
     <div
       onClick={() => settleConfirm(false)}
       style={{
-        position: 'fixed', inset: 0, background: SCRIM,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        zIndex: 150, padding: 16,
+        position: 'fixed',
+        inset: 0,
+        background: SCRIM,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 150,
+        padding: 16,
       }}
     >
       <div
@@ -63,11 +79,14 @@ function ConfirmCard({ options }: { options: ConfirmOptions }) {
         aria-modal="true"
         aria-labelledby="sf-confirm-title"
         aria-describedby="sf-confirm-message"
-        onClick={e => e.stopPropagation()}
+        onClick={(e) => e.stopPropagation()}
         style={{
-          background: BG_CARD, borderRadius: 6,
+          background: BG_CARD,
+          borderRadius: 6,
           border: `1px solid ${LINE_STRONG}`,
-          padding: 28, width: '100%', maxWidth: 420,
+          padding: 28,
+          width: '100%',
+          maxWidth: 420,
           boxShadow: `0 8px 40px ${SHADOW}`,
         }}
       >
@@ -89,10 +108,15 @@ function ConfirmCard({ options }: { options: ConfirmOptions }) {
             type="button"
             onClick={() => settleConfirm(false)}
             style={{
-              flex: 1, padding: '9px 16px', borderRadius: 4,
+              flex: 1,
+              padding: '9px 16px',
+              borderRadius: 4,
               border: `1px solid ${LINE_STRONG}`,
-              background: 'transparent', color: INK_MUTE,
-              cursor: 'pointer', fontSize: 13, fontFamily: FONT_SANS,
+              background: 'transparent',
+              color: INK_MUTE,
+              cursor: 'pointer',
+              fontSize: 13,
+              fontFamily: FONT_SANS,
             }}
           >
             {cancelLabel}
@@ -102,12 +126,17 @@ function ConfirmCard({ options }: { options: ConfirmOptions }) {
             type="button"
             onClick={() => settleConfirm(true)}
             style={{
-              flex: 1, padding: '9px 16px', borderRadius: 4,
+              flex: 1,
+              padding: '9px 16px',
+              borderRadius: 4,
               // ON_STATUS on the danger branch: white is too faint on dark mode's lighter red.
               background: danger ? CORAL_FILL : ACCENT,
               color: danger ? ON_STATUS : ACCENT_INK,
-              border: 'none', fontWeight: 500, cursor: 'pointer',
-              fontSize: 13, fontFamily: FONT_SANS,
+              border: 'none',
+              fontWeight: 500,
+              cursor: 'pointer',
+              fontSize: 13,
+              fontFamily: FONT_SANS,
             }}
           >
             {confirmLabel}
