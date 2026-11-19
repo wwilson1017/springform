@@ -69,9 +69,7 @@ check() {
       expected.build = { ...expected.build, builder: "DOCKERFILE", dockerfilePath: "Dockerfile" };
       expected.deploy = {
         ...expected.deploy,
-        healthcheckPath: "/up", healthcheckTimeout: 60,
-        restartPolicyType: "ON_FAILURE", restartPolicyMaxRetries: 3,
-        requiredMountPath: "/data",
+        healthcheckPath: "/up", healthcheckTimeout: 60, restartPolicyMaxRetries: 3,
       };
       assert.deepEqual(result, {
         name: "springform", resources: [expected, live.resources[2]],

@@ -81,7 +81,7 @@ The script reads the first `upstream: <tag-or-sha>` line of `FORK.md`, fetching 
 1. Any `v*` tag triggers `release.yml`, a fork's tags included. After CI passes on the tag and the tag matches `springform-version`, it builds the amd64 image and pushes `ghcr.io/<repository, lowercased>:<tag>`. Upstream tags are `v<springform-version>` and move `:latest` unless they carry a hyphen (a pre-release). **Fork tags are `v<springform-version>-<fork>.N`** (`v0.1.1-acme.3`: core is pinned, so the fork cannot bump the version file) and every fork tag moves the fork image's `:latest` (`deploy.md` §9).
 2. Upstream therefore publishes `ghcr.io/wwilson1017/springform`.
 3. **A fork publishes its own (private) image containing its apps**, under its own org, with no workflow change.
-4. `deploy/compose.yml` takes the image from `IMAGE=` in `.env`, default the upstream image, so a fork's install sets `IMAGE` (`setup.sh` accepts `IMAGE=`). `railway.json` and `.railway/railway.ts` build the repo's own `Dockerfile` and never read `IMAGE`. Both are core and carried unchanged; `SPRINGFORM_SERVICE` selects the fork's own service when applying `.railway/railway.ts` (`deploy.md`).
+4. `deploy/compose.yml` takes the image from `IMAGE=` in `.env`, default the upstream image, so a fork's install sets `IMAGE` (`setup.sh` accepts `IMAGE=`). `.railway/railway.ts` builds the repo's own `Dockerfile` and never reads `IMAGE`. It is core and carried unchanged; `SPRINGFORM_SERVICE` selects the fork's own service when applying `.railway/railway.ts` (`deploy.md`).
 5. `springform-version` is read by `/api/health`.
 
 ## 7. `CHANGELOG.md`
