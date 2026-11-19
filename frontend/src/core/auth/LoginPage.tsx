@@ -41,7 +41,9 @@ export function LoginPage() {
   const [busy, setBusy] = useState(false);
   const errorCode = params.get('error');
   const [notice, setNotice] = useState<string>(
-    errorCode ? GOOGLE_ERRORS[errorCode] ?? "Sign-in didn't finish. Try again." : (location.state as { notice?: string } | null)?.notice ?? '',
+    errorCode
+      ? (GOOGLE_ERRORS[errorCode] ?? "Sign-in didn't finish. Try again.")
+      : ((location.state as { notice?: string } | null)?.notice ?? ''),
   );
 
   useEffect(() => {
@@ -77,8 +79,15 @@ export function LoginPage() {
   if (challenge) {
     return (
       <AuthLayout subtitle="One more step.">
-        <ChallengeStep challenge={challenge} onSignedIn={enter}
-          onRestart={message => { setChallenge(null); setPassword(''); setError(message); }} />
+        <ChallengeStep
+          challenge={challenge}
+          onSignedIn={enter}
+          onRestart={(message) => {
+            setChallenge(null);
+            setPassword('');
+            setError(message);
+          }}
+        />
       </AuthLayout>
     );
   }
@@ -93,15 +102,23 @@ export function LoginPage() {
 
   return (
     <AuthLayout subtitle="Sign in to continue.">
-      {notice && <p role="alert" className="mb-6 mt-0 text-sm text-sf-red-text">{notice}</p>}
+      {notice && (
+        <p role="alert" className="mb-6 mt-0 text-sm text-sf-red-text">
+          {notice}
+        </p>
+      )}
       {status?.preview && (
         <div className="mb-8 rounded-md border border-sf-line-strong bg-sf-card p-4">
           <p className="m-0 mb-3 text-sm text-sf-ink-mute">Preview mode: explore the sample data as</p>
           <div className="flex gap-2">
-            {(['admin', 'member'] as Role[]).map(role => (
-              <button key={role} type="button" disabled={busy}
+            {(['admin', 'member'] as Role[]).map((role) => (
+              <button
+                key={role}
+                type="button"
+                disabled={busy}
                 onClick={() => void signIn('/api/auth/preview', { role })}
-                className="flex-1 cursor-pointer rounded-md border border-sf-line-strong bg-transparent px-3 py-2 text-sm text-sf-ink hover:bg-sf-hover disabled:opacity-50">
+                className="flex-1 cursor-pointer rounded-md border border-sf-line-strong bg-transparent px-3 py-2 text-sm text-sf-ink hover:bg-sf-hover disabled:opacity-50"
+              >
                 {role === 'admin' ? 'Admin' : 'Member'}
               </button>
             ))}
@@ -111,18 +128,49 @@ export function LoginPage() {
       )}
 
       <form onSubmit={onSubmit}>
-        <label htmlFor="login-email" className={labelClass}>Email</label>
-        <input id="login-email" type="email" autoComplete="username" value={email}
-          onChange={e => setEmail(e.target.value)} placeholder="you@example.com" autoFocus className={inputClass} />
+        <label htmlFor="login-email" className={labelClass}>
+          Email
+        </label>
+        <input
+          id="login-email"
+          type="email"
+          autoComplete="username"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="you@example.com"
+          autoFocus
+          className={inputClass}
+        />
         <div className="mt-4 flex items-baseline justify-between">
-          <label htmlFor="login-password" className={labelClass}>Password</label>
-          <button type="button" className={`${btnLink} text-xs`} onClick={() => { setError(''); setNotice(''); setMode('forgot'); }}>
+          <label htmlFor="login-password" className={labelClass}>
+            Password
+          </label>
+          <button
+            type="button"
+            className={`${btnLink} text-xs`}
+            onClick={() => {
+              setError('');
+              setNotice('');
+              setMode('forgot');
+            }}
+          >
             Forgot password?
           </button>
         </div>
-        <input id="login-password" type="password" autoComplete="current-password" value={password}
-          onChange={e => setPassword(e.target.value)} placeholder="Enter your password" className={inputClass} />
-        {error && <p role="alert" className="mb-0 mt-3 text-sm text-sf-red-text">{error}</p>}
+        <input
+          id="login-password"
+          type="password"
+          autoComplete="current-password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          placeholder="Enter your password"
+          className={inputClass}
+        />
+        {error && (
+          <p role="alert" className="mb-0 mt-3 text-sm text-sf-red-text">
+            {error}
+          </p>
+        )}
         <button type="submit" disabled={busy || !email || !password} className={`${buttonClass} mt-5`}>
           {busy ? 'Signing in…' : 'Sign in'}
         </button>
@@ -142,8 +190,10 @@ export function LoginPage() {
 /** A top-level navigation, not fetch: the server answers with a redirect to Google. */
 export function GoogleButton({ href }: { href: string }) {
   return (
-    <a href={href}
-      className="mt-3 box-border block w-full rounded-md border border-sf-line-strong bg-sf-card px-4 py-3 text-center text-sm font-medium text-sf-ink no-underline hover:bg-sf-hover">
+    <a
+      href={href}
+      className="mt-3 box-border block w-full rounded-md border border-sf-line-strong bg-sf-card px-4 py-3 text-center text-sm font-medium text-sf-ink no-underline hover:bg-sf-hover"
+    >
       Continue with Google
     </a>
   );
@@ -179,18 +229,36 @@ function ForgotForm({ initialEmail, onBack }: { initialEmail: string; onBack: ()
         </p>
       ) : (
         <form onSubmit={onSubmit}>
-          <p className="mb-5 mt-0 text-sm text-sf-ink-mute">Enter your email and we'll send you a link to choose a new password.</p>
-          <label htmlFor="forgot-email" className={labelClass}>Email</label>
-          <input id="forgot-email" type="email" autoComplete="username" value={email} autoFocus
-            onChange={e => setEmail(e.target.value)} placeholder="you@example.com" className={inputClass} />
-          {error && <p role="alert" className="mb-0 mt-3 text-sm text-sf-red-text">{error}</p>}
+          <p className="mb-5 mt-0 text-sm text-sf-ink-mute">
+            Enter your email and we'll send you a link to choose a new password.
+          </p>
+          <label htmlFor="forgot-email" className={labelClass}>
+            Email
+          </label>
+          <input
+            id="forgot-email"
+            type="email"
+            autoComplete="username"
+            value={email}
+            autoFocus
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="you@example.com"
+            className={inputClass}
+          />
+          {error && (
+            <p role="alert" className="mb-0 mt-3 text-sm text-sf-red-text">
+              {error}
+            </p>
+          )}
           <button type="submit" disabled={busy || !email.trim()} className={`${buttonClass} mt-5`}>
             {busy ? 'Sending…' : 'Send reset link'}
           </button>
         </form>
       )}
       <p className="mb-0 mt-6 text-center text-sm">
-        <button type="button" className={btnLink} onClick={onBack}>Back to sign in</button>
+        <button type="button" className={btnLink} onClick={onBack}>
+          Back to sign in
+        </button>
       </p>
     </div>
   );

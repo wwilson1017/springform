@@ -26,7 +26,11 @@ _ID = {"id": {"type": "integer", "description": "The todo's id"}}
 
 def _schema(model, **extra) -> dict:
     schema = model.model_json_schema()
-    return {"type": "object", "properties": {**extra, **schema["properties"]}, "required": [*extra, *schema.get("required", [])]}
+    return {
+        "type": "object",
+        "properties": {**extra, **schema["properties"]},
+        "required": [*extra, *schema.get("required", [])],
+    }
 
 
 def _list(user, args: dict) -> list[dict]:

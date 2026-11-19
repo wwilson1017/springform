@@ -30,7 +30,16 @@ export interface UserPickerProps {
 
 const SEARCH_DELAY_MS = 200;
 
-export function UserPicker({ id, value, onChange, options = [], valueName, 'aria-label': ariaLabel, disabled, className }: UserPickerProps) {
+export function UserPicker({
+  id,
+  value,
+  onChange,
+  options = [],
+  valueName,
+  'aria-label': ariaLabel,
+  disabled,
+  className,
+}: UserPickerProps) {
   const listId = useId();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
@@ -41,14 +50,16 @@ export function UserPicker({ id, value, onChange, options = [], valueName, 'aria
   const fixed = options.find(([v]) => v === value);
   const userId = !fixed && /^\d+$/.test(value) ? Number(value) : null;
   const nameOf = useUserNames(valueName ? [] : [userId]);
-  const current = fixed ? fixed[1] : userId === null ? '' : knownName(userId) ?? (valueName || nameOf(userId));
+  const current = fixed ? fixed[1] : userId === null ? '' : (knownName(userId) ?? (valueName || nameOf(userId)));
 
   const q = query.trim();
   const fresh = found !== null && found.query === q;
   const taken = new Set(options.map(([v]) => v));
   const rows: Array<[string, string]> = [
     ...options.filter(([, label]) => label.toLowerCase().includes(q.toLowerCase())),
-    ...(fresh ? found.users.filter(u => !taken.has(String(u.id))).map(u => [String(u.id), u.name] as [string, string]) : []),
+    ...(fresh
+      ? found.users.filter((u) => !taken.has(String(u.id))).map((u) => [String(u.id), u.name] as [string, string])
+      : []),
   ];
   const at = (v: string | null) => rows.findIndex(([rv]) => rv === v);
   const index = Math.max(at(active) >= 0 ? at(active) : q === '' ? at(value) : 0, 0);
@@ -56,13 +67,21 @@ export function UserPicker({ id, value, onChange, options = [], valueName, 'aria
   useEffect(() => {
     if (!open) return;
     const ctrl = new AbortController();
-    const timer = setTimeout(() => {
-      searchUsers(q, ctrl.signal).then(
-        users => setFound({ query: q, users, failed: false }),
-        () => { if (!ctrl.signal.aborted) setFound({ query: q, users: [], failed: true }); },
-      );
-    }, q === '' ? 0 : SEARCH_DELAY_MS);
-    return () => { clearTimeout(timer); ctrl.abort(); };
+    const timer = setTimeout(
+      () => {
+        searchUsers(q, ctrl.signal).then(
+          (users) => setFound({ query: q, users, failed: false }),
+          () => {
+            if (!ctrl.signal.aborted) setFound({ query: q, users: [], failed: true });
+          },
+        );
+      },
+      q === '' ? 0 : SEARCH_DELAY_MS,
+    );
+    return () => {
+      clearTimeout(timer);
+      ctrl.abort();
+    };
   }, [open, q]);
 
   // Focus stays in the input (only aria-activedescendant moves), so scroll the active row.
@@ -87,7 +106,10 @@ export function UserPicker({ id, value, onChange, options = [], valueName, 'aria
     if (e.nativeEvent.isComposing) return;
     if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
       e.preventDefault();
-      if (!open) { openList(); return; }
+      if (!open) {
+        openList();
+        return;
+      }
       if (rows.length) setActive(rows[(index + (e.key === 'ArrowDown' ? 1 : -1) + rows.length) % rows.length][0]);
     } else if (e.key === 'Enter') {
       // Swallowed while open: the picker usually sits in a form.
@@ -95,7 +117,11 @@ export function UserPicker({ id, value, onChange, options = [], valueName, 'aria
       e.preventDefault();
       if (rows[index]) choose(rows[index][0]);
     } else if (e.key === 'Escape') {
-      if (open) { e.preventDefault(); e.stopPropagation(); setOpen(false); }
+      if (open) {
+        e.preventDefault();
+        e.stopPropagation();
+        setOpen(false);
+      }
     }
   }
 
@@ -120,27 +146,43 @@ export function UserPicker({ id, value, onChange, options = [], valueName, 'aria
         disabled={disabled}
         value={open ? query : current}
         placeholder={open ? current || 'Search people…' : 'Search people…'}
-        onChange={e => { setQuery(e.target.value); setActive(null); }}
+        onChange={(e) => {
+          setQuery(e.target.value);
+          setActive(null);
+        }}
         onFocus={openList}
         onClick={openList}
         onBlur={() => setOpen(false)}
         onKeyDown={onKeyDown}
-        className={className ?? 'box-border w-full rounded-md border border-sf-line-strong bg-sf-card px-3 py-2 text-sm text-sf-ink placeholder:text-sf-ink-dim disabled:opacity-60'}
+        className={
+          className ??
+          'box-border w-full rounded-md border border-sf-line-strong bg-sf-card px-3 py-2 text-sm text-sf-ink placeholder:text-sf-ink-dim disabled:opacity-60'
+        }
       />
       {open && (
         // mousedown would blur the input (and close the list) before a row's click lands.
-        <div onMouseDown={e => e.preventDefault()}
-          className="absolute top-full right-0 left-0 z-40 mt-1 max-h-60 min-w-48 overflow-y-auto rounded-md border border-sf-line-strong bg-sf-raised p-1 shadow-lg">
+        <div
+          onMouseDown={(e) => e.preventDefault()}
+          className="absolute top-full right-0 left-0 z-40 mt-1 max-h-60 min-w-48 overflow-y-auto rounded-md border border-sf-line-strong bg-sf-raised p-1 shadow-lg"
+        >
           <ul id={listId} role="listbox" aria-label={ariaLabel ?? 'People'} className="m-0 list-none p-0">
             {rows.map(([v, label], i) => (
-              <li key={v} id={`${listId}-${i}`} role="option" aria-selected={i === index}
-                onMouseMove={onHover(i)} onClick={() => choose(v)}
-                className={`cursor-pointer rounded px-2.5 py-1.5 text-sm ${taken.has(v) ? 'text-sf-ink-mute' : 'text-sf-ink'} ${v === value ? 'font-medium' : ''} ${i === index ? 'bg-sf-hover' : ''}`}>
+              <li
+                key={v}
+                id={`${listId}-${i}`}
+                role="option"
+                aria-selected={i === index}
+                onMouseMove={onHover(i)}
+                onClick={() => choose(v)}
+                className={`cursor-pointer rounded px-2.5 py-1.5 text-sm ${taken.has(v) ? 'text-sf-ink-mute' : 'text-sf-ink'} ${v === value ? 'font-medium' : ''} ${i === index ? 'bg-sf-hover' : ''}`}
+              >
                 {label}
               </li>
             ))}
           </ul>
-          {fresh && found.failed && <p className="m-0 px-2.5 py-1.5 text-xs text-sf-red-text">Couldn't search people. Type to try again.</p>}
+          {fresh && found.failed && (
+            <p className="m-0 px-2.5 py-1.5 text-xs text-sf-red-text">Couldn't search people. Type to try again.</p>
+          )}
           {rows.length === 0 && !(fresh && found.failed) && (
             <p className="m-0 px-2.5 py-1.5 text-xs text-sf-ink-dim">{searching ? 'Searching…' : 'No one matches'}</p>
           )}

@@ -61,7 +61,11 @@ def test_migrations_order_core_first_then_timestamp(tmp_path):
     core = _core_migration_names()
     assert names[: len(core)] == core  # every core migration first, in stamp order
     assert all(n.startswith("20261020") and "_core_" in n for n in core)
-    assert names[len(core):] == ["20261101000000_aaa_init.sql", "20261101000000_bbb_init.sql", "20261102000000_aaa_init.sql"]
+    assert names[len(core) :] == [
+        "20261101000000_aaa_init.sql",
+        "20261101000000_bbb_init.sql",
+        "20261102000000_aaa_init.sql",
+    ]
 
 
 def _core_migration_names() -> list[str]:
@@ -75,7 +79,9 @@ def _shared_stamps(names: list[str]) -> list[str]:
 
 def test_no_two_core_migrations_share_a_stamp():
     """Core files sort by name, so a shared stamp orders by the rest of the name, by accident."""
-    assert _shared_stamps(["20261020000100_core_a.sql", "20261020000100_core_b.sql", "20261020000200_core_c.sql"]) == ["20261020000100"]
+    assert _shared_stamps(["20261020000100_core_a.sql", "20261020000100_core_b.sql", "20261020000200_core_c.sql"]) == [
+        "20261020000100"
+    ]
     assert _shared_stamps(["20261020000100_core_a.sql", "20261020000200_core_b.sql"]) == []
     names = _core_migration_names()
     assert "20261020000100_core_init.sql" in names  # reached the real files
@@ -93,9 +99,13 @@ def test_changed_applied_migration_fails_startup(tmp_path):
 
 
 def test_failing_migration_leaves_no_partial_ddl(tmp_path):
-    app_dir = _app(tmp_path / "apps", "fx", {
-        "20261101000000_fx_init.sql": "CREATE TABLE fx_a (id INTEGER); INSERT INTO fx_missing VALUES (1);",
-    })
+    app_dir = _app(
+        tmp_path / "apps",
+        "fx",
+        {
+            "20261101000000_fx_init.sql": "CREATE TABLE fx_a (id INTEGER); INSERT INTO fx_missing VALUES (1);",
+        },
+    )
     core_db.init(tmp_path / "data")
     with pytest.raises(MigrationError, match="fx_init.sql failed"):
         core_db.migrate([app_dir])
@@ -106,7 +116,9 @@ def test_failing_migration_leaves_no_partial_ddl(tmp_path):
 
 
 def test_requires_core_refusal_names_the_app_before_applying_anything(tmp_path):
-    app_dir = _app(tmp_path / "apps", "oldapp", {"20261101000000_oldapp_init.sql": "CREATE TABLE oldapp_a (id INTEGER);"}, "<0.1")
+    app_dir = _app(
+        tmp_path / "apps", "oldapp", {"20261101000000_oldapp_init.sql": "CREATE TABLE oldapp_a (id INTEGER);"}, "<0.1"
+    )
     core_db.init(tmp_path / "data")
     with pytest.raises(MigrationError, match="App 'oldapp' requires core '<0.1'"):
         core_db.migrate([app_dir])
@@ -140,10 +152,13 @@ def test_core_migration_may_not_drop_or_rename(tmp_path):
 
 
 def test_no_sql_reads_the_database_clock():
-    pattern = re.compile(r"CURRENT_(TIMESTAMP|DATE|TIME)\b|\b(datetime|date|time|julianday|strftime|unixepoch)\([^)]*'now'", re.I)
+    pattern = re.compile(
+        r"CURRENT_(TIMESTAMP|DATE|TIME)\b|\b(datetime|date|time|julianday|strftime|unixepoch)\([^)]*'now'", re.I
+    )
     this_file = Path(__file__).resolve()
     offenders = [
-        str(p.relative_to(REPO_ROOT)) for p in (REPO_ROOT / "backend").rglob("*")
+        str(p.relative_to(REPO_ROOT))
+        for p in (REPO_ROOT / "backend").rglob("*")
         if p.suffix in (".sql", ".py") and p.resolve() != this_file and pattern.search(p.read_text(encoding="utf-8"))
     ]
     assert offenders == [], "timestamps come from core.clock.now_iso(), never SQL"
@@ -200,7 +215,11 @@ def test_freeze_clock_env_is_honoured_only_in_preview_mode(preview):
     env = {**os.environ, "SPRINGFORM_FREEZE_CLOCK": "2026-11-02T09:00:00Z"} | ({"PREVIEW_MODE": "1"} if preview else {})
     out = subprocess.run(
         [sys.executable, "-c", "from backend.core import clock; print(clock.now_iso())"],
-        cwd=REPO_ROOT, env=env, capture_output=True, text=True, check=True,
+        cwd=REPO_ROOT,
+        env=env,
+        capture_output=True,
+        text=True,
+        check=True,
     )
     assert (out.stdout.strip() == "2026-11-02T09:00:00Z") is preview
     assert ("ignored outside PREVIEW_MODE" in out.stderr) is not preview

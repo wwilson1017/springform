@@ -13,7 +13,8 @@ def export_zip(user: User = Depends(require_admin)) -> StreamingResponse:
     """The business-data export: one CSV per allowed table plus manifest.json, in a ZIP."""
     buf, filename = service.export(user)
     return StreamingResponse(
-        iter(lambda: buf.read(65536), b""), media_type="application/zip",
+        iter(lambda: buf.read(65536), b""),
+        media_type="application/zip",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
 

@@ -79,9 +79,13 @@ def _last_user_text(messages: list[dict]) -> str | None:
         if m.get("role") != "user":
             continue
         content = m.get("content")
-        texts = [content] if isinstance(content, str) else [
-            b.get("text") for b in content if isinstance(b, dict) and b.get("type") == "text"
-        ] if isinstance(content, list) else []
+        texts = (
+            [content]
+            if isinstance(content, str)
+            else [b.get("text") for b in content if isinstance(b, dict) and b.get("type") == "text"]
+            if isinstance(content, list)
+            else []
+        )
         for text in reversed(texts):
             text = delimiters.strip_conversation_summary(text or "").strip()
             if text and text != CONTINUATION_ACK and delimiters.UNTRUSTED_EXTERNAL_MARKER not in text:
@@ -93,8 +97,12 @@ def _last_user_text(messages: list[dict]) -> str | None:
 
 
 async def chat(
-    provider: AIProvider, user: User, message: str | None, *,
-    conversation_id: int | None = None, agent_slug: str | None = None,
+    provider: AIProvider,
+    user: User,
+    message: str | None,
+    *,
+    conversation_id: int | None = None,
+    agent_slug: str | None = None,
 ) -> AsyncGenerator[str, None]:
     """Stream one turn as SSE lines. No message plus a conversation id is a continuation (resume
     after an approval). The response has already started, so any crash still ends with `error`."""
@@ -117,7 +125,11 @@ def _start(user: User, message: str | None, conversation_id: int | None, agent_s
         agent = agents.get(agent_slug)
     title = None
     with db.transaction() as conn:
-        cid = conversation_id if conversation_id is not None else history.create_conversation_in(conn, user.id, agent["id"])
+        cid = (
+            conversation_id
+            if conversation_id is not None
+            else history.create_conversation_in(conn, user.id, agent["id"])
+        )
         if message:
             history.save_message_in(conn, cid, "user", {"text": message})
             title = history.auto_title_in(conn, cid, message)
@@ -174,10 +186,15 @@ async def _chat(provider, user, message, conversation_id, agent_slug) -> AsyncGe
                 yield sse({"type": "tool_start", "tool": event["tool"], "tool_use_id": event["tool_use_id"]})
             elif etype == "tool_args":
                 spec = by_name.get(event["tool"])
-                yield sse({
-                    "type": "tool_args", "tool": event["tool"], "tool_use_id": event["tool_use_id"],
-                    "args": event.get("args", {}), "description": spec.description if spec else "",
-                })
+                yield sse(
+                    {
+                        "type": "tool_args",
+                        "tool": event["tool"],
+                        "tool_use_id": event["tool_use_id"],
+                        "args": event.get("args", {}),
+                        "description": spec.description if spec else "",
+                    }
+                )
             elif etype == "error":
                 yield sse({"type": "error", "error": str(event.get("error") or "Provider error")[:500]})
                 return
@@ -197,8 +214,12 @@ async def _chat(provider, user, message, conversation_id, agent_slug) -> AsyncGe
             content = {"text": text, "model": provider.model, **({"tool_calls": persisted} if persisted else {})}
             try:
                 message_id = await asyncio.to_thread(
-                    history.save_message, cid, "assistant", content,
-                    tokens_in=cache_inclusive_input_tokens(usage), tokens_out=usage.get("output_tokens"),
+                    history.save_message,
+                    cid,
+                    "assistant",
+                    content,
+                    tokens_in=cache_inclusive_input_tokens(usage),
+                    tokens_out=usage.get("output_tokens"),
                 )
             except Exception:
                 logger.warning("could not save the assistant iteration", exc_info=True)
@@ -215,8 +236,14 @@ async def _chat(provider, user, message, conversation_id, agent_slug) -> AsyncGe
         pending = terminated = False
         for call in calls:
             name, tool_use_id, args = call["name"], call["id"], call.get("args") or {}
-            record = {"conversation_id": cid, "message_id": message_id, "tool_use_id": tool_use_id,
-                      "tool": name, "args": args, "user_id": user.id}
+            record = {
+                "conversation_id": cid,
+                "message_id": message_id,
+                "tool_use_id": tool_use_id,
+                "tool": name,
+                "args": args,
+                "user_id": user.id,
+            }
             spec = by_name.get(name)
             elapsed = 0  # (run_id, status, result for the UI, content for the model) goes in outcome
 
@@ -225,46 +252,85 @@ async def _chat(provider, user, message, conversation_id, agent_slug) -> AsyncGe
             elif name == deferred.FIND_TOOLS and deferred_specs:
                 found = [s for s in deferred.find(args.get("query", ""), deferred_specs) if s.name not in loaded]
                 loaded |= {s.name for s in found}
-                result = {"loaded": [s.name for s in found]} if found else {"loaded": [], "note": "No tools matched; try another keyword."}
+                result = (
+                    {"loaded": [s.name for s in found]}
+                    if found
+                    else {"loaded": [], "note": "No tools matched; try another keyword."}
+                )
                 stored = json.dumps(result)
                 run_id = await asyncio.to_thread(history.insert_tool_run, **record, status="done", result=stored)
                 outcome = (run_id, "done", result, stored)
             elif spec is None or name not in loaded:
-                error = f"Tool {name!r} is not loaded; call {deferred.FIND_TOOLS} first." if spec else f"Unknown tool {name!r}."
+                error = (
+                    f"Tool {name!r} is not loaded; call {deferred.FIND_TOOLS} first."
+                    if spec
+                    else f"Unknown tool {name!r}."
+                )
                 outcome = await _refuse(record, error)
             elif spec.writes and (action := budget.check_write()) != BudgetAction.ALLOW:
                 terminated = action == BudgetAction.TERMINATE
                 outcome = await _refuse(record, "Write budget exceeded for this turn; not run.")
             elif needs_confirmation(spec, args, tainted):
                 run_id = await asyncio.to_thread(
-                    history.insert_tool_run, **record, tool_def_sha256=tool_def_sha256(spec), status="pending",
+                    history.insert_tool_run,
+                    **record,
+                    tool_def_sha256=tool_def_sha256(spec),
+                    status="pending",
                 )
-                results.append({"tool_use_id": tool_use_id, "tool_name": name, "content": history.model_content({"status": "pending"})})
+                results.append(
+                    {
+                        "tool_use_id": tool_use_id,
+                        "tool_name": name,
+                        "content": history.model_content({"status": "pending"}),
+                    }
+                )
                 pending = True
-                yield sse({
-                    "type": "confirm", "tool_run_id": run_id, "tool": name, "tool_use_id": tool_use_id,
-                    "msg_id": message_id, "args": args, "summary": spec.summary,
-                })
+                yield sse(
+                    {
+                        "type": "confirm",
+                        "tool_run_id": run_id,
+                        "tool": name,
+                        "tool_use_id": tool_use_id,
+                        "msg_id": message_id,
+                        "args": args,
+                        "summary": spec.summary,
+                    }
+                )
                 continue
             else:
                 t0 = time.monotonic()
                 run = await asyncio.to_thread(
-                    execute.run_tool, user, spec, args, source="chat",
-                    conversation_id=cid, message_id=message_id, tool_use_id=tool_use_id,
+                    execute.run_tool,
+                    user,
+                    spec,
+                    args,
+                    source="chat",
+                    conversation_id=cid,
+                    message_id=message_id,
+                    tool_use_id=tool_use_id,
                 )
                 if run["tainted"] and not tainted:
                     tainted = True
                     await asyncio.to_thread(history.mark_tainted, cid)
-                content = history.model_content({"status": run["status"], "result": run["stored"], "error": run["error"]})
+                content = history.model_content(
+                    {"status": run["status"], "result": run["stored"], "error": run["error"]}
+                )
                 outcome = (run["id"], run["status"], run["result"], content)
                 elapsed = int((time.monotonic() - t0) * 1000)
 
             run_id, status, result, content = outcome
             results.append({"tool_use_id": tool_use_id, "tool_name": name, "content": content})
-            yield sse({
-                "type": "tool_end", "tool": name, "tool_use_id": tool_use_id, "tool_run_id": run_id,
-                "status": status, "result": result, "elapsed_ms": elapsed,
-            })
+            yield sse(
+                {
+                    "type": "tool_end",
+                    "tool": name,
+                    "tool_use_id": tool_use_id,
+                    "tool_run_id": run_id,
+                    "status": status,
+                    "result": result,
+                    "elapsed_ms": elapsed,
+                }
+            )
 
         msgs = msgs + provider.build_tool_turn(text, calls, results, native=native)
         if terminated:
@@ -301,7 +367,10 @@ async def _wrap_up(provider, cid: int, msgs: list[dict], tools: list[dict], syst
                 yield sse(meter)
             if text.strip():
                 await asyncio.to_thread(
-                    history.save_message, cid, "assistant", {"text": text, "model": provider.model},
+                    history.save_message,
+                    cid,
+                    "assistant",
+                    {"text": text, "model": provider.model},
                     tokens_in=cache_inclusive_input_tokens(usage),
                 )
             yield sse({"type": "done", "model": provider.model})

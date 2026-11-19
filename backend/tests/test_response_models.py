@@ -32,10 +32,12 @@ SETTINGS_ROUTES = ("/api/core/settings", "/api/core/settings/{key}")  # bodies k
 def core_only(label, body):
     """Keep core's envelope, without pinning app-owned settings or report schemas."""
     if label.split()[1] in SETTINGS_ROUTES:
-        return {**body, **{
-            field: {k: v for k, v in body[field].items() if k in keys.CORE_KEYS}
-            for field in ("defaults", "values")
-        }}
+        return {
+            **body,
+            **{
+                field: {k: v for k, v in body[field].items() if k in keys.CORE_KEYS} for field in ("defaults", "values")
+            },
+        }
     if label.startswith("GET /api/core/reports "):
         return [{**report, "params": None} for report in body]
     return body
@@ -85,7 +87,9 @@ def _github() -> httpx.MockTransport:
 def _service_account() -> str:
     key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
     pem = key.private_bytes(serialization.Encoding.PEM, serialization.PrivateFormat.PKCS8, serialization.NoEncryption())
-    return json.dumps({"type": "service_account", "client_email": "sheets@demo.iam.gserviceaccount.com", "private_key": pem.decode()})
+    return json.dumps(
+        {"type": "service_account", "client_email": "sheets@demo.iam.gserviceaccount.com", "private_key": pem.decode()}
+    )
 
 
 async def _started(name: str) -> bool:
@@ -106,11 +110,17 @@ def exercise(app, login_as, monkeypatch) -> dict[str, httpx.Response]:
     sheets_startup.on_startup()
     admin, member = login_as("admin"), login_as("member")
     monkeypatch.setitem(settings.DEFAULTS, "zz_fork.color", "teal")
-    monkeypatch.setitem(registry._REPORTS, "zz_fork.sales", Report(
-        key="zz_fork.sales", label="Fork sales", app="zz_fork",
-        params={"type": "object", "properties": {"region": {"type": "string"}}, "required": ["region"]},
-        run=lambda params, user: (["region"], [[params["region"]]]),
-    ))
+    monkeypatch.setitem(
+        registry._REPORTS,
+        "zz_fork.sales",
+        Report(
+            key="zz_fork.sales",
+            label="Fork sales",
+            app="zz_fork",
+            params={"type": "object", "properties": {"region": {"type": "string"}}, "required": ["region"]},
+            run=lambda params, user: (["region"], [[params["region"]]]),
+        ),
+    )
     both, hit = (admin, member), Recorder()
 
     # ── Platform: health, apps, workspace, settings, jobs ──
@@ -161,7 +171,13 @@ def exercise(app, login_as, monkeypatch) -> dict[str, httpx.Response]:
     hit(admin, "PUT", "/api/core/sheets/credentials", json={"service_account_json": _service_account()})
     hit(admin, "GET", "/api/core/sheets/credentials")
     sheet_id = hit(admin, "GET", "/api/core/sheets")[0]["id"]
-    hit(admin, "PATCH", "/api/core/sheets/{sheet_id}", sheet_id=sheet_id, json={"spreadsheet_id": "abc123", "range": "A1:B"})
+    hit(
+        admin,
+        "PATCH",
+        "/api/core/sheets/{sheet_id}",
+        sheet_id=sheet_id,
+        json={"spreadsheet_id": "abc123", "range": "A1:B"},
+    )
     hit(admin, "POST", "/api/core/sheets/{sheet_id}/refresh", sheet_id=sheet_id)
     hit(admin, "GET", "/api/core/sheets/{sheet_id}/preview", sheet_id=sheet_id)
 
@@ -169,15 +185,41 @@ def exercise(app, login_as, monkeypatch) -> dict[str, httpx.Response]:
     people = {}
     for c in both:
         role = c.user["role"]
-        pid = hit(c, "POST", "/api/core/contacts/people", json={"name": f"Pat {role}", "email": f"pat.{role}@example.com", "tags": ["vip"]})["id"]
-        oid = hit(c, "POST", "/api/core/contacts/organizations", json={"name": f"Acme {role}", "domain": f"{role}.example.com"})["id"]
+        pid = hit(
+            c,
+            "POST",
+            "/api/core/contacts/people",
+            json={"name": f"Pat {role}", "email": f"pat.{role}@example.com", "tags": ["vip"]},
+        )["id"]
+        oid = hit(
+            c,
+            "POST",
+            "/api/core/contacts/organizations",
+            json={"name": f"Acme {role}", "domain": f"{role}.example.com"},
+        )["id"]
         people[role] = pid
         link = {"person_id": pid, "organization_id": oid, "role": "Owner"}
         hit(c, "POST", "/api/core/contacts/links", json={**link, "is_primary": True, "started_on": "2026-01-05"})
         hit(c, "PATCH", "/api/core/contacts/links", json={**link, "new_role": "Founder"})
-        channel = hit(c, "POST", "/api/core/contacts/channels", json={"owner_type": "person", "owner_id": pid, "kind": "url", "value": "https://example.com/pat"})
+        channel = hit(
+            c,
+            "POST",
+            "/api/core/contacts/channels",
+            json={"owner_type": "person", "owner_id": pid, "kind": "url", "value": "https://example.com/pat"},
+        )
         hit(c, "PATCH", "/api/core/contacts/channels/{part_id}", part_id=channel["id"], json={"label": "Site"})
-        address = hit(c, "POST", "/api/core/contacts/addresses", json={"owner_type": "organization", "owner_id": oid, "kind": "office", "line1": "1 Main St", "city": "Springfield"})
+        address = hit(
+            c,
+            "POST",
+            "/api/core/contacts/addresses",
+            json={
+                "owner_type": "organization",
+                "owner_id": oid,
+                "kind": "office",
+                "line1": "1 Main St",
+                "city": "Springfield",
+            },
+        )
         hit(c, "PATCH", "/api/core/contacts/addresses/{part_id}", part_id=address["id"], json={"postal_code": "00000"})
         hit(c, "PATCH", "/api/core/contacts/people/{record_id}", record_id=pid, json={"title": "Baker"})
         hit(c, "PATCH", "/api/core/contacts/organizations/{record_id}", record_id=oid, json={"industry": "Food"})
@@ -187,7 +229,13 @@ def exercise(app, login_as, monkeypatch) -> dict[str, httpx.Response]:
         hit(c, "GET", "/api/core/contacts/organizations")
         hit(c, "GET", "/api/core/contacts/search", params={"q": "pat"})
         twin = hit(c, "POST", "/api/core/contacts/people", "twin", json={"name": f"Pat {role}"})["id"]
-        org_twin = hit(c, "POST", "/api/core/contacts/organizations", "twin", json={"name": f"Acme {role} Two", "domain": f"{role}.example.com"})["id"]
+        org_twin = hit(
+            c,
+            "POST",
+            "/api/core/contacts/organizations",
+            "twin",
+            json={"name": f"Acme {role} Two", "domain": f"{role}.example.com"},
+        )["id"]
         hit(c, "GET", "/api/core/contacts/people/duplicates")
         hit(c, "GET", "/api/core/contacts/organizations/duplicates")
         hit(c, "POST", "/api/core/contacts/people/merge", json={"target_id": pid, "source_id": twin})
@@ -211,11 +259,26 @@ def exercise(app, login_as, monkeypatch) -> dict[str, httpx.Response]:
     definition = hit(admin, "POST", "/api/core/fields/definitions", json={
         "entity_type": "core.person", "label": "Shoe size", "type": "select", "options": ["S", "M"],
     })  # fmt: skip
-    hit(admin, "PATCH", "/api/core/fields/definitions/{definition_id}", definition_id=definition["id"], json={"label": "Size"})
+    hit(
+        admin,
+        "PATCH",
+        "/api/core/fields/definitions/{definition_id}",
+        definition_id=definition["id"],
+        json={"label": "Size"},
+    )
     for c in both:
         hit(c, "GET", "/api/core/fields/entity-types")
         hit(c, "GET", "/api/core/fields/definitions", params={"entity_type": "core.person"})
-        view = hit(c, "POST", "/api/core/views", json={"surface": "core.people", "name": f"Mine {c.user['role']}", "payload": {"q": "pat", "sort": ["name"]}})
+        view = hit(
+            c,
+            "POST",
+            "/api/core/views",
+            json={
+                "surface": "core.people",
+                "name": f"Mine {c.user['role']}",
+                "payload": {"q": "pat", "sort": ["name"]},
+            },
+        )
         hit(c, "PATCH", "/api/core/views/{view_id}", view_id=view["id"], json={"version": 1, "name": "Renamed"})
         hit(c, "POST", "/api/core/views/{view_id}/share", view_id=view["id"], json={"is_shared": True})
         hit(c, "GET", "/api/core/views", params={"surface": "core.people"})
@@ -226,7 +289,12 @@ def exercise(app, login_as, monkeypatch) -> dict[str, httpx.Response]:
         hit(c, "POST", "/api/core/notifications/read-all")
         hit(c, "GET", "/api/core/notifications/push/public-key")
         endpoint = f"https://push.example.com/{c.user['role']}"
-        hit(c, "POST", "/api/core/notifications/push/subscribe", json={"endpoint": endpoint, "keys": {"p256dh": "k", "auth": "a"}})
+        hit(
+            c,
+            "POST",
+            "/api/core/notifications/push/subscribe",
+            json={"endpoint": endpoint, "keys": {"p256dh": "k", "auth": "a"}},
+        )
         hit(c, "DELETE", "/api/core/notifications/push/subscribe", json={"endpoint": endpoint})
         hit(c, "GET", "/api/core/changelog")
 
@@ -241,7 +309,9 @@ def exercise(app, login_as, monkeypatch) -> dict[str, httpx.Response]:
     for c, decision in ((admin, "approve"), (member, "deny")):
         cid = hit(c, "POST", "/api/agent/conversations", json={})["id"]
         hit(c, "PATCH", "/api/agent/conversations/{conversation_id}", conversation_id=cid, json={"title": "Widgets"})
-        fake.script({"tool": "example_create_widget", "args": {"name": f"Gizmo {decision}"}}, "I'd like to create that widget.")
+        fake.script(
+            {"tool": "example_create_widget", "args": {"name": f"Gizmo {decision}"}}, "I'd like to create that widget."
+        )
         stream = c.post("/api/agent/chat", json={"conversation_id": cid, "message": "make a widget"}).text
         events = [json.loads(line[6:]) for line in stream.splitlines() if line.startswith("data: ")]
         run_id = next(e["tool_run_id"] for e in events if e["type"] == "confirm")
@@ -260,7 +330,12 @@ def exercise(app, login_as, monkeypatch) -> dict[str, httpx.Response]:
     with mcp_stub.serve("stub-token") as (url, _):
         before = tool_registry.current()
         try:
-            server_id = hit(admin, "POST", "/api/core/mcp/servers", json={"name": "Stub", "url": url, "token": "stub-token", "prefix": "stub"})["id"]
+            server_id = hit(
+                admin,
+                "POST",
+                "/api/core/mcp/servers",
+                json={"name": "Stub", "url": url, "token": "stub-token", "prefix": "stub"},
+            )["id"]
             hit(admin, "GET", "/api/core/mcp/servers")
             hit(admin, "PATCH", "/api/core/mcp/servers/{server_id}", server_id=server_id, json={"name": "Stub todos"})
             hit(admin, "POST", "/api/core/mcp/servers/{server_id}/refresh", server_id=server_id)

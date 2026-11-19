@@ -47,11 +47,20 @@ export default function TodosSettingsCard() {
       </p>
       {isAdmin ? (
         <div role="radiogroup" aria-label="Default visibility" className="flex flex-wrap gap-2">
-          {(['private', 'team'] as const).map(v => (
-            <button key={v} type="button" role="radio" aria-checked={current === v} disabled={busy}
+          {(['private', 'team'] as const).map((v) => (
+            <button
+              key={v}
+              type="button"
+              role="radio"
+              aria-checked={current === v}
+              disabled={busy}
               onClick={() => void choose(v)}
               className={`cursor-pointer rounded-md border px-3 py-1.5 text-sm disabled:opacity-50 ${
-                current === v ? 'border-sf-accent bg-sf-accent-soft text-sf-ink' : 'border-sf-line-strong bg-sf-card text-sf-ink-soft hover:bg-sf-hover'}`}>
+                current === v
+                  ? 'border-sf-accent bg-sf-accent-soft text-sf-ink'
+                  : 'border-sf-line-strong bg-sf-card text-sf-ink-soft hover:bg-sf-hover'
+              }`}
+            >
               {LABEL[v]}
             </button>
           ))}

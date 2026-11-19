@@ -70,8 +70,12 @@ class AnthropicProvider(AIProvider):
         return [*messages[:-1], {"role": "user", "content": content}]
 
     async def stream_turn(
-        self, messages: list[dict], tools: list[dict], system_prompt: str | tuple[str, str],
-        *, max_tokens: int = DEFAULT_MAX_TOKENS,
+        self,
+        messages: list[dict],
+        tools: list[dict],
+        system_prompt: str | tuple[str, str],
+        *,
+        max_tokens: int = DEFAULT_MAX_TOKENS,
     ) -> AsyncGenerator[dict, None]:
         import anthropic
 
@@ -107,7 +111,12 @@ class AnthropicProvider(AIProvider):
                             last["args"] = json.loads(last["input_json"] or "{}")
                         except ValueError:
                             last["args"] = {}
-                        yield {"type": "tool_args", "tool": last["name"], "tool_use_id": last["id"], "args": last["args"]}
+                        yield {
+                            "type": "tool_args",
+                            "tool": last["name"],
+                            "tool_use_id": last["id"],
+                            "args": last["args"],
+                        }
                 final = await stream.get_final_message()
         except anthropic.RateLimitError:
             yield {"type": "error", "error": "Claude is rate-limited. Please try again in a moment."}
@@ -138,7 +147,9 @@ class AnthropicProvider(AIProvider):
         }
 
     def add_tool_results(self, messages: list[dict], tool_calls: list[dict], results: list[dict]) -> list[dict]:
-        assistant = [{"type": "tool_use", "id": tc["id"], "name": tc["name"], "input": tc.get("args", {})} for tc in tool_calls]
+        assistant = [
+            {"type": "tool_use", "id": tc["id"], "name": tc["name"], "input": tc.get("args", {})} for tc in tool_calls
+        ]
         user = [{"type": "tool_result", "tool_use_id": r["tool_use_id"], "content": str(r["content"])} for r in results]
         return messages + [{"role": "assistant", "content": assistant}, {"role": "user", "content": user}]
 

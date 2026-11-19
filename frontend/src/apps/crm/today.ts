@@ -26,12 +26,17 @@ export interface TodayCollapse {
 
 /** Collapsed: the first ranked rows. Expanded: everything, unranked rows included. */
 export function collapseToday(items: TodayItem[], expanded: boolean): TodayCollapse {
-  const ranked = items.filter(i => i.rank !== null).slice(0, TODAY_COLLAPSED);
+  const ranked = items.filter((i) => i.rank !== null).slice(0, TODAY_COLLAPSED);
   return { visible: expanded ? items : ranked, hiddenCount: items.length - ranked.length };
 }
 
 /** "idle 12d · $4,800" for a deal row. */
-export function dealEvidence(lastActivityAt: string | null, valueCents: number, currency: string, now = Date.now()): string {
+export function dealEvidence(
+  lastActivityAt: string | null,
+  valueCents: number,
+  currency: string,
+  now = Date.now(),
+): string {
   const money = formatCents(valueCents, currency);
   if (!lastActivityAt) return `no contact logged · ${money}`;
   const days = Math.max(0, Math.floor((now - Date.parse(lastActivityAt)) / 86_400_000));

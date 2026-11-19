@@ -9,9 +9,17 @@ const BASE = '/api/core/mcp/servers';
 const ok = { name: 'Team to-dos', url: 'https://todos.example.com/mcp', token: '', prefix: 'todos_team' };
 
 const server = (over: Partial<McpServer> = {}): McpServer => ({
-  id: 1, name: 'Team to-dos', url: 'https://todos.example.com/mcp', prefix: 'todos_team', enabled: true, has_token: true,
+  id: 1,
+  name: 'Team to-dos',
+  url: 'https://todos.example.com/mcp',
+  prefix: 'todos_team',
+  enabled: true,
+  has_token: true,
   tools: [{ name: 'todo_create', description: 'Create a to-do', read_only_hint: false }],
-  last_discovered_at: '2026-10-24T15:00:00Z', last_error: null, created_at: '2026-10-24T15:00:00Z', updated_at: '2026-10-24T15:00:00Z',
+  last_discovered_at: '2026-10-24T15:00:00Z',
+  last_error: null,
+  created_at: '2026-10-24T15:00:00Z',
+  updated_at: '2026-10-24T15:00:00Z',
   ...over,
 });
 
@@ -24,7 +32,11 @@ describe('validateDraft', () => {
   });
 
   it('names every field the backend would refuse', () => {
-    expect(Object.keys(validateDraft({ name: ' ', url: '', token: '', prefix: '' })).sort()).toEqual(['name', 'prefix', 'url']);
+    expect(Object.keys(validateDraft({ name: ' ', url: '', token: '', prefix: '' })).sort()).toEqual([
+      'name',
+      'prefix',
+      'url',
+    ]);
     expect(validateDraft({ ...ok, url: 'ftp://example.com/mcp' }).url).toMatch(/https:\/\//);
     expect(validateDraft({ ...ok, url: 'todos.example.com' }).url).toMatch(/https:\/\//);
     expect(validateDraft({ ...ok, url: 'https://me:pw@todos.example.com/mcp' }).url).toMatch(/login/);
@@ -42,7 +54,14 @@ describe('validateDraft', () => {
 
 describe('McpServersCard', () => {
   it('lists servers with their state and says every remote call asks for approval', async () => {
-    mockFetch({ [`GET ${BASE}`]: { body: [server(), server({ id: 2, name: 'Broken', prefix: 'broken', tools: [], last_error: 'Timed out after 30 s' })] } });
+    mockFetch({
+      [`GET ${BASE}`]: {
+        body: [
+          server(),
+          server({ id: 2, name: 'Broken', prefix: 'broken', tools: [], last_error: 'Timed out after 30 s' }),
+        ],
+      },
+    });
     render(<McpServersCard />);
     expect(await screen.findByText('Team to-dos')).toBeTruthy();
     expect(screen.getByText('1 tool')).toBeTruthy();
@@ -65,9 +84,12 @@ describe('McpServersCard', () => {
     fireEvent.change(screen.getByLabelText('Token (optional)'), { target: { value: 'secret' } });
     fireEvent.click(add);
     await waitFor(() => expect(callsTo(fetchMock, 'POST', BASE)).toHaveLength(1));
-    expect(JSON.parse(callsTo(fetchMock, 'POST', BASE)[0][1]!.body as string)).toEqual(
-      { name: 'Team to-dos', url: 'https://todos.example.com/mcp', token: 'secret', prefix: 'todos_team' },
-    );
+    expect(JSON.parse(callsTo(fetchMock, 'POST', BASE)[0][1]!.body as string)).toEqual({
+      name: 'Team to-dos',
+      url: 'https://todos.example.com/mcp',
+      token: 'secret',
+      prefix: 'todos_team',
+    });
     expect(await screen.findByText('todos_team.*')).toBeTruthy();
   });
 });

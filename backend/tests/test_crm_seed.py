@@ -27,16 +27,25 @@ def test_sample_builds_the_pipeline_once(app, make_user):
     run(seed.seed)
     run(contacts_seed.sample)  # preview seeds core's sample directory first
     run(seed.sample)
-    deals = core_db.rows("SELECT title, stage, owner_user_id, person_id, organization_id, value_cents FROM crm_deals ORDER BY id")
+    deals = core_db.rows(
+        "SELECT title, stage, owner_user_id, person_id, organization_id, value_cents FROM crm_deals ORDER BY id"
+    )
     assert [d["stage"] for d in deals] == ["proposal", "negotiation", "qualified", "lead", "won", "lost"]
     assert {d["owner_user_id"] for d in deals} == {admin.id, member.id}
     assert all(d["person_id"] and d["organization_id"] for d in deals), "deals hang off the sample directory"
     assert all(isinstance(d["value_cents"], int) for d in deals)
     assert core_db.one("SELECT sample_data_loaded FROM crm_meta")["sample_data_loaded"] == 1
-    counts = [core_db.one(f"SELECT count(*) AS n FROM {t}")["n"] for t in ("crm_deals", "crm_activity_log", "core_people")]
+    counts = [
+        core_db.one(f"SELECT count(*) AS n FROM {t}")["n"] for t in ("crm_deals", "crm_activity_log", "core_people")
+    ]
     run(seed.sample)
-    assert [core_db.one(f"SELECT count(*) AS n FROM {t}")["n"] for t in ("crm_deals", "crm_activity_log", "core_people")] == counts
-    assert all(e.endswith(".example.com") for (e,) in core_db.get_conn().execute("SELECT email FROM core_people WHERE email IS NOT NULL"))
+    assert [
+        core_db.one(f"SELECT count(*) AS n FROM {t}")["n"] for t in ("crm_deals", "crm_activity_log", "core_people")
+    ] == counts
+    assert all(
+        e.endswith(".example.com")
+        for (e,) in core_db.get_conn().execute("SELECT email FROM core_people WHERE email IS NOT NULL")
+    )
 
 
 def test_preview_seeds_the_sample_directory_before_the_deals(app, monkeypatch):

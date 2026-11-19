@@ -29,11 +29,24 @@ def test_member_gets_403_on_an_admin_only_app(login_as):
 
 def test_apps_listing_by_role_and_hidden_state(login_as):
     admin, member = login_as("admin"), login_as("member")
+
     def example(client) -> dict | None:  # forks install more apps; only the fixture is pinned here
         return next((a for a in client.get("/api/core/apps").json() if a["slug"] == "example"), None)
 
     listed = example(member)
-    assert set(listed) == {"slug", "name", "description", "path", "icon", "roles", "order", "badge", "hidden", "settings_cards", "version"}
+    assert set(listed) == {
+        "slug",
+        "name",
+        "description",
+        "path",
+        "icon",
+        "roles",
+        "order",
+        "badge",
+        "hidden",
+        "settings_cards",
+        "version",
+    }
     assert listed["path"] == "/example" and listed["hidden"] is False
     assert listed["settings_cards"] == []  # the example's card is admin-only
     assert example(admin)["settings_cards"] == [{"id": "example", "title": "Example", "admin_only": True}]
@@ -62,7 +75,9 @@ def test_an_app_hidden_by_default_stays_hidden_until_an_admin_shows_it(app, logi
         monkeypatch.setenv("PREVIEW_MODE", "1")
         with core_db.transaction() as conn:
             registry.factory_reset_in(conn)  # a reset install starts from the manifests again
-        hidden = core_db.rows("SELECT slug, hidden FROM core_apps_state WHERE slug IN ('example', 'todos') ORDER BY slug")
+        hidden = core_db.rows(
+            "SELECT slug, hidden FROM core_apps_state WHERE slug IN ('example', 'todos') ORDER BY slug"
+        )
         assert hidden == [{"slug": "example", "hidden": 1}, {"slug": "todos", "hidden": 0}]
 
 
@@ -120,7 +135,14 @@ def test_every_app_sample_is_idempotent(app, make_user, monkeypatch):
 
     monkeypatch.setenv("PREVIEW_MODE", "1")
     preview.seed()
-    counts = lambda: {t: core_db.one(f"SELECT count(*) AS n FROM {t}")["n"] for a in registry.installed() for t in a.modules["seed"].RESET_TABLES}  # noqa: E731
+
+    def counts():
+        return {
+            t: core_db.one(f"SELECT count(*) AS n FROM {t}")["n"]
+            for a in registry.installed()
+            for t in a.modules["seed"].RESET_TABLES
+        }
+
     first = counts()
     preview.seed()
     assert counts() == first
@@ -136,8 +158,15 @@ def test_samples_run_after_the_apps_they_require(app, monkeypatch):
 
     def fake(slug: str, *requires: str) -> registry.App:
         seed = SimpleNamespace(seed=lambda conn: None, sample=lambda conn: ran.append(slug), RESET_TABLES=[])
-        manifest = registry.AppManifest(slug=slug, name=slug, path=f"/{slug}", roles=["member"], version="0.1.0",
-                                        requires_core=">=0.1,<1", requires_apps=list(requires))
+        manifest = registry.AppManifest(
+            slug=slug,
+            name=slug,
+            path=f"/{slug}",
+            roles=["member"],
+            version="0.1.0",
+            requires_core=">=0.1,<1",
+            requires_apps=list(requires),
+        )
         return registry.App(manifest, Path(slug), {"seed": seed})
 
     ordered = registry.dependency_order([fake("aaa"), fake("orders", "recipes"), fake("recipes"), fake("zzz")])

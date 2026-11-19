@@ -43,7 +43,8 @@ def sweep(cancel: threading.Event | None = None) -> dict:
     with db.transaction() as conn:
         pinned = pinned_blobs()
         expired = [
-            sha for (sha,) in conn.execute(
+            sha
+            for (sha,) in conn.execute(
                 """SELECT sha256 FROM core_file_blobs b WHERE unreferenced_since < ?
                       AND NOT EXISTS (SELECT 1 FROM core_files f WHERE f.sha256 = b.sha256)""",
                 (clock.ago(KEEP_UNREFERENCED),),

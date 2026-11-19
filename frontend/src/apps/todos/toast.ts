@@ -18,12 +18,15 @@ const listeners = new Set<(t: ToastMsg[]) => void>();
 function push(kind: ToastMsg['kind'], text: string) {
   const msg = { id: nextId++, kind, text };
   current = [...current, msg];
-  listeners.forEach(l => l(current));
-  timers.set(msg.id, setTimeout(() => {
-    timers.delete(msg.id);
-    current = current.filter(t => t.id !== msg.id);
-    listeners.forEach(l => l(current));
-  }, 5000));
+  listeners.forEach((l) => l(current));
+  timers.set(
+    msg.id,
+    setTimeout(() => {
+      timers.delete(msg.id);
+      current = current.filter((t) => t.id !== msg.id);
+      listeners.forEach((l) => l(current));
+    }, 5000),
+  );
 }
 
 export const toast = {
@@ -38,10 +41,10 @@ export const toast = {
  *  being told reads the wrong test's output. The undo queue exports its reset for
  *  the same reason. */
 export function resetToasts() {
-  current.forEach(t => clearTimeout(timers.get(t.id)));
+  current.forEach((t) => clearTimeout(timers.get(t.id)));
   timers.clear();
   current = [];
-  listeners.forEach(l => l(current));
+  listeners.forEach((l) => l(current));
 }
 
 export function useToasts(): ToastMsg[] {
@@ -49,7 +52,9 @@ export function useToasts(): ToastMsg[] {
   useEffect(() => {
     const listener = (t: ToastMsg[]) => setToasts(t);
     listeners.add(listener);
-    return () => { listeners.delete(listener); };
+    return () => {
+      listeners.delete(listener);
+    };
   }, []);
   return toasts;
 }

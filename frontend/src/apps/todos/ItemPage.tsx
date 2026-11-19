@@ -43,11 +43,16 @@ export function ItemPage() {
   }
 
   const remove = async () => {
-    if (!todo || !await confirmDialog({
-      title: 'Delete this todo?',
-      message: `“${todo.title}” goes for good, with its notes and files. To keep it out of the way instead, set its status to Dropped.`,
-      confirmLabel: 'Delete', danger: true,
-    })) return;
+    if (
+      !todo ||
+      !(await confirmDialog({
+        title: 'Delete this todo?',
+        message: `“${todo.title}” goes for good, with its notes and files. To keep it out of the way instead, set its status to Dropped.`,
+        confirmLabel: 'Delete',
+        danger: true,
+      }))
+    )
+      return;
     setDeleting(true);
     try {
       await deleteTodo(todo.id);
@@ -69,8 +74,12 @@ export function ItemPage() {
         <>
           <div className="mb-4 flex flex-wrap items-center gap-3">
             <label className="flex items-center gap-2 text-sm text-sf-ink">
-              <input type="checkbox" checked={todo.status === 'done'} onChange={() => void toggleDone(todo)}
-                     className="h-5 w-5 accent-sf-green" />
+              <input
+                type="checkbox"
+                checked={todo.status === 'done'}
+                onChange={() => void toggleDone(todo)}
+                className="h-5 w-5 accent-sf-green"
+              />
               {todo.status === 'done' ? 'Done' : 'Mark done'}
             </label>
             {recordPath && (
@@ -79,15 +88,26 @@ export function ItemPage() {
               </Link>
             )}
             {canDelete && (
-              <button type="button" onClick={() => void remove()} disabled={deleting}
-                      className="ml-auto cursor-pointer rounded-lg border border-sf-line-strong bg-transparent px-3 py-1.5 text-sm text-sf-red-text hover:bg-sf-hover disabled:opacity-50">
+              <button
+                type="button"
+                onClick={() => void remove()}
+                disabled={deleting}
+                className="ml-auto cursor-pointer rounded-lg border border-sf-line-strong bg-transparent px-3 py-1.5 text-sm text-sf-red-text hover:bg-sf-hover disabled:opacity-50"
+              >
                 Delete
               </button>
             )}
           </div>
           {/* key: a fresh form whenever the saved row changes (a save, a sync, a completion). */}
-          <TodoEditSheet key={`${todo.id}:${todo.rev}`} asPage todo={todo} projects={projects}
-                         contexts={filters?.contexts ?? []} onClose={() => {}} onSaved={reload} />
+          <TodoEditSheet
+            key={`${todo.id}:${todo.rev}`}
+            asPage
+            todo={todo}
+            projects={projects}
+            contexts={filters?.contexts ?? []}
+            onClose={() => {}}
+            onSaved={reload}
+          />
           <div className="mt-8 grid gap-8 md:grid-cols-2">
             <section>
               <h2 className="m-0 mb-3 font-display text-base font-medium text-sf-ink">Notes and history</h2>

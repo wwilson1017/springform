@@ -107,7 +107,9 @@ def list_views(user: User, surface: str) -> list[dict]:
     return list_views_in(db.get_conn(), user, surface)
 
 
-def create_view_in(conn: db.Conn, user: User, surface: str, name: str, payload: dict, entity_type: str | None = None) -> dict:
+def create_view_in(
+    conn: db.Conn, user: User, surface: str, name: str, payload: dict, entity_type: str | None = None
+) -> dict:
     """A new private view owned by `user`, at version 1."""
     surface, name, encoded, entity_type = _surface(surface), _name(name), _payload(payload), _entity_type(entity_type)
     count = conn.execute(
@@ -162,7 +164,8 @@ def share_view_in(conn: db.Conn, user: User, view_id: int, is_shared: bool | Non
     row = _row_in(conn, user, view_id, edit=True)
     shared = not row["is_shared"] if is_shared is None else is_shared
     conn.execute(
-        "UPDATE core_saved_views SET is_shared = ?, updated_at = ? WHERE id = ?", (int(shared), clock.now_iso(), view_id)
+        "UPDATE core_saved_views SET is_shared = ?, updated_at = ? WHERE id = ?",
+        (int(shared), clock.now_iso(), view_id),
     )
     return _view(_row_in(conn, user, view_id), user)
 

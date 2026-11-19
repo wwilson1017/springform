@@ -19,11 +19,17 @@ export function CrmNav() {
   return (
     <nav aria-label="CRM" className="overflow-x-auto border-b border-sf-line px-4 md:px-7">
       <ul className="m-0 flex list-none gap-1 p-0">
-        {TABS.map(t => (
+        {TABS.map((t) => (
           <li key={t.label}>
-            <NavLink to={t.to} end={t.end}
-              className={({ isActive }) => `block border-b-2 px-3 py-2.5 text-sm whitespace-nowrap no-underline ${
-                isActive ? 'border-sf-accent text-sf-ink' : 'border-transparent text-sf-ink-mute hover:text-sf-ink'}`}>
+            <NavLink
+              to={t.to}
+              end={t.end}
+              className={({ isActive }) =>
+                `block border-b-2 px-3 py-2.5 text-sm whitespace-nowrap no-underline ${
+                  isActive ? 'border-sf-accent text-sf-ink' : 'border-transparent text-sf-ink-mute hover:text-sf-ink'
+                }`
+              }
+            >
               {t.label}
             </NavLink>
           </li>

@@ -65,7 +65,9 @@ def test_bulk_edits_and_a_repeat_spawn_are_all_reported(two):
     service.update_item(me, routine["id"], {"status": "done"})
     out = service.changes(me, since)
     assert ids(out)["items"][:3] == [a["id"], b["id"], routine["id"]]
-    assert len(out["items"]) == 4 and out["items"][3]["title"] == "Water plants" and out["items"][3]["status"] == "inbox"
+    assert (
+        len(out["items"]) == 4 and out["items"][3]["title"] == "Water plants" and out["items"][3]["status"] == "inbox"
+    )
 
 
 def test_each_caller_keeps_its_own_place_and_paging_has_no_gap_or_repeat(two):
@@ -149,7 +151,11 @@ def test_deletes_leave_tombstones_for_the_rows_audience(two):
     service.delete_item(a, team["id"])
     service.delete_item(a, own["id"])
     service.delete_container(a, "project", project["id"])
-    assert gone(service.changes(a, a_since)) == {"items": [team["id"], own["id"]], "projects": [project["id"]], "areas": []}
+    assert gone(service.changes(a, a_since)) == {
+        "items": [team["id"], own["id"]],
+        "projects": [project["id"]],
+        "areas": [],
+    }
     assert gone(service.changes(b, b_since)) == {"items": [team["id"]], "projects": [project["id"]], "areas": []}
 
 
@@ -188,8 +194,13 @@ def test_head_only_gives_the_cursor_without_walking_the_journal(login_as):
     assert len(full["items"]) == 3
     top = b.get("/api/todos/changes", params={"head": 1}).json()
     assert top == {
-        "since_rev": 0, "next_since_rev": full["next_since_rev"], "more": False, "reset": False, "changed": False,
-        **NOTHING, "removed": NOTHING,
+        "since_rev": 0,
+        "next_since_rev": full["next_since_rev"],
+        "more": False,
+        "reset": False,
+        "changed": False,
+        **NOTHING,
+        "removed": NOTHING,
     }
     assert b.get("/api/todos/changes", params={"head": 1, "since_rev": 10**6}).json()["reset"] is False
     todo = a.post("/api/todos/items", json={"title": "After the head", "visibility": "team"}).json()

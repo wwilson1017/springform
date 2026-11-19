@@ -11,8 +11,20 @@ def test_list_excludes_the_system_principal_and_filters(login_as):
     rows = admin.get("/api/auth/users").json()
     assert {r["id"] for r in rows} == {admin.user["id"], member.user["id"]}
     assert set(rows[0]) == {
-        "id", "email", "name", "role", "tz", "is_active", "invite_pending", "has_password", "google_linked",
-        "totp_enabled", "invited_by", "last_login_at", "deactivated_at", "created_at",
+        "id",
+        "email",
+        "name",
+        "role",
+        "tz",
+        "is_active",
+        "invite_pending",
+        "has_password",
+        "google_linked",
+        "totp_enabled",
+        "invited_by",
+        "last_login_at",
+        "deactivated_at",
+        "created_at",
     }
     admin.post(f"/api/auth/users/{member.user['id']}/deactivate")
     assert [r["id"] for r in admin.get("/api/auth/users?status=active").json()] == [admin.user["id"]]
@@ -97,12 +109,25 @@ def test_patch_me(login_as):
 
 
 NEW_WRITES = [
-    ("post", "/api/auth/login/totp"), ("post", "/api/auth/totp/enrol"), ("post", "/api/auth/totp/confirm"),
-    ("post", "/api/auth/totp/disable"), ("delete", "/api/auth/trusted-devices"), ("post", "/api/auth/google/unlink"),
-    ("put", "/api/auth/google/config"), ("post", "/api/auth/google/test"), ("post", "/api/auth/users"),
-    ("post", "/api/auth/users/1/resend-invite"), ("post", "/api/auth/users/1/reset-link"), ("post", "/api/auth/invite/x"), ("post", "/api/auth/forgot"),
-    ("post", "/api/auth/reset"), ("post", "/api/auth/password"), ("patch", "/api/auth/users/1"),
-    ("post", "/api/auth/users/1/deactivate"), ("post", "/api/auth/users/1/reactivate"), ("patch", "/api/me"),
+    ("post", "/api/auth/login/totp"),
+    ("post", "/api/auth/totp/enrol"),
+    ("post", "/api/auth/totp/confirm"),
+    ("post", "/api/auth/totp/disable"),
+    ("delete", "/api/auth/trusted-devices"),
+    ("post", "/api/auth/google/unlink"),
+    ("put", "/api/auth/google/config"),
+    ("post", "/api/auth/google/test"),
+    ("post", "/api/auth/users"),
+    ("post", "/api/auth/users/1/resend-invite"),
+    ("post", "/api/auth/users/1/reset-link"),
+    ("post", "/api/auth/invite/x"),
+    ("post", "/api/auth/forgot"),
+    ("post", "/api/auth/reset"),
+    ("post", "/api/auth/password"),
+    ("patch", "/api/auth/users/1"),
+    ("post", "/api/auth/users/1/deactivate"),
+    ("post", "/api/auth/users/1/reactivate"),
+    ("patch", "/api/me"),
 ]
 
 

@@ -48,11 +48,13 @@ class Part:
 
 KINDS = {
     "person": Kind(
-        "core_people", "core.person",
+        "core_people",
+        "core.person",
         ("name", "given_name", "family_name", "title", "source", "status", "tags", "notes", "owner_user_id"),
     ),
     "organization": Kind(
-        "core_organizations", "core.organization",
+        "core_organizations",
+        "core.organization",
         ("name", "domain", "website", "industry", "source", "status", "tags", "notes", "owner_user_id"),
     ),
 }
@@ -182,7 +184,9 @@ def _sync_primary(conn: db.Conn, owner_type: str, owner_id: int) -> None:
     )
 
 
-def _settle_in(conn: db.Conn, owner_type: str, owner_id: int, user: User | None = None, before: dict | None = None) -> None:
+def _settle_in(
+    conn: db.Conn, owner_type: str, owner_id: int, user: User | None = None, before: dict | None = None
+) -> None:
     """After any change to an owner's channels or addresses: primaries, the mirror, and (given
     `before`) the field changes on the owner's timeline and change log."""
     for kind in CHANNEL_KINDS:
@@ -233,7 +237,10 @@ def _clean_in(conn: db.Conn, kind: str, fields: dict, creating: bool) -> tuple[d
             raise Invalid("tags must be a list of strings")
         cols["tags"] = json.dumps(list(dict.fromkeys(t.strip() for t in tags if t.strip())))
     owner = cols.get("owner_user_id")
-    if owner is not None and not conn.execute("SELECT 1 FROM core_users WHERE id = ? AND role != 'system'", (owner,)).fetchone():
+    if (
+        owner is not None
+        and not conn.execute("SELECT 1 FROM core_users WHERE id = ? AND role != 'system'", (owner,)).fetchone()
+    ):
         raise Invalid("owner_user_id: no such user")
     return cols, mirrored
 
@@ -312,15 +319,25 @@ def get_in(conn: db.Conn, user: User, kind: str, record_id: int) -> dict:
 
 
 def list_in(
-    conn: db.Conn, user: User, kind: str, *, q: str | None = None, archived: bool = False,
-    organization_id: int | None = None, tag: str | None = None, page: int = 1, page_size: int | None = None,
+    conn: db.Conn,
+    user: User,
+    kind: str,
+    *,
+    q: str | None = None,
+    archived: bool = False,
+    organization_id: int | None = None,
+    tag: str | None = None,
+    page: int = 1,
+    page_size: int | None = None,
 ) -> dict:
     """One page of unmerged records, live or (archived=True) archived, ordered by name.
     Rows carry the owner's name; people rows also their primary organization's id and name."""
     _gate(user, conn, kind, "read")
     where, params = ["r.merged_into_id IS NULL", f"r.archived_at IS {'NOT ' if archived else ''}NULL"], []
     if match := _match(q):
-        where.append("r.id IN (SELECT owner_id FROM core_contacts_fts WHERE core_contacts_fts MATCH ? AND owner_type = ?)")
+        where.append(
+            "r.id IN (SELECT owner_id FROM core_contacts_fts WHERE core_contacts_fts MATCH ? AND owner_type = ?)"
+        )
         params += [match, kind]
     if tag and tag.strip():
         where.append("EXISTS (SELECT 1 FROM json_each(r.tags) WHERE lower(value) = lower(?))")
@@ -497,7 +514,9 @@ def resolve_or_create_organizations_in(conn: db.Conn, user: User, names: list[st
         if not name:
             continue
         found = _org_named_in(conn, name, merged=True)
-        out[raw] = resolve_in(conn, "organization", found) if found else _insert_in(conn, user, "organization", {"name": name})
+        out[raw] = (
+            resolve_in(conn, "organization", found) if found else _insert_in(conn, user, "organization", {"name": name})
+        )
     return out
 
 
@@ -515,8 +534,14 @@ def _link_row_in(conn: db.Conn, person_id: int, organization_id: int, role: str)
 
 
 def link_in(
-    conn: db.Conn, user: User, person_id: int, organization_id: int, role: str = "", is_primary: bool = False,
-    started_on: Any = None, ended_on: Any = None,
+    conn: db.Conn,
+    user: User,
+    person_id: int,
+    organization_id: int,
+    role: str = "",
+    is_primary: bool = False,
+    started_on: Any = None,
+    ended_on: Any = None,
 ) -> dict:
     """Link a person to an organization with a role (idempotent per (person, organization, role)).
     is_primary=True demotes the person's other primary; a person's first link is primary.
@@ -552,17 +577,22 @@ def update_link_in(conn: db.Conn, user: User, person_id: int, organization_id: i
     cols = {k: _day(v) for k, v in fields.items() if k in ("started_on", "ended_on")}
     if "new_role" in fields:
         cols["role"] = (fields["new_role"] or "").strip()
-        if cols["role"] != link["role"] and conn.execute(
-            f"SELECT 1 FROM {LINKS} WHERE person_id = ? AND organization_id = ? AND role = ?",
-            (person_id, organization_id, cols["role"]),
-        ).fetchone():
+        if (
+            cols["role"] != link["role"]
+            and conn.execute(
+                f"SELECT 1 FROM {LINKS} WHERE person_id = ? AND organization_id = ? AND role = ?",
+                (person_id, organization_id, cols["role"]),
+            ).fetchone()
+        ):
             raise Conflict("that person already has that role at that organization")
     if "is_primary" in fields:
         cols["is_primary"] = int(bool(fields["is_primary"]))
         if cols["is_primary"]:
             conn.execute(f"UPDATE {LINKS} SET is_primary = 0 WHERE person_id = ? AND id != ?", (person_id, link["id"]))
     if cols:
-        conn.execute(f"UPDATE {LINKS} SET {', '.join(f'{c} = ?' for c in cols)} WHERE id = ?", (*cols.values(), link["id"]))
+        conn.execute(
+            f"UPDATE {LINKS} SET {', '.join(f'{c} = ?' for c in cols)} WHERE id = ?", (*cols.values(), link["id"])
+        )
     _ensure_primary_in(conn, LINKS, "person_id = ?", (person_id,))
     return _bools(conn.execute(f"SELECT * FROM {LINKS} WHERE id = ?", (link["id"],)).fetchone())
 
@@ -613,8 +643,11 @@ def add_part_in(conn: db.Conn, user: User, part: str, owner_type: str, owner_id:
     before = _live_in(conn, user, owner_type, owner_id)
     now = clock.now_iso()
     cols = _part_cols(p, fields, creating=True) | {
-        "owner_type": owner_type, "owner_id": owner_id, "is_primary": int(bool(fields.get("is_primary"))),
-        "created_at": now, "updated_at": now,
+        "owner_type": owner_type,
+        "owner_id": owner_id,
+        "is_primary": int(bool(fields.get("is_primary"))),
+        "created_at": now,
+        "updated_at": now,
     }
     if cols["is_primary"]:
         _demote_in(conn, p, cols, None)
@@ -662,7 +695,9 @@ def _merge_links_in(conn: db.Conn, kind: str, target: int, source: int) -> None:
     sees two. A (person, organization, role) collision keeps the target's row. A cleared primary
     comes back on the moved or kept row when that person has no other primary."""
     col, other = ("person_id", "organization_id") if kind == "person" else ("organization_id", "person_id")
-    primaries = conn.execute(f"SELECT {other}, role FROM {LINKS} WHERE {col} = ? AND is_primary = 1", (source,)).fetchall()
+    primaries = conn.execute(
+        f"SELECT {other}, role FROM {LINKS} WHERE {col} = ? AND is_primary = 1", (source,)
+    ).fetchall()
     conn.execute(f"UPDATE {LINKS} SET is_primary = 0 WHERE {col} = ?", (source,))
     conn.execute(
         f"""DELETE FROM {LINKS} WHERE {col} = ? AND EXISTS (
@@ -699,7 +734,9 @@ def _merge_parts_in(conn: db.Conn, kind: str, target: int, source: int) -> None:
         (kind, source, kind, target),
     )
     for table in (c, a):
-        conn.execute(f"UPDATE {table} SET owner_id = ?, updated_at = ? WHERE {scope}", (target, clock.now_iso(), kind, source))
+        conn.execute(
+            f"UPDATE {table} SET owner_id = ?, updated_at = ? WHERE {scope}", (target, clock.now_iso(), kind, source)
+        )
     _settle_in(conn, kind, target)
     _sync_primary(conn, kind, source)
 

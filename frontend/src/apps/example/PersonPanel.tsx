@@ -12,8 +12,12 @@ export default function PersonWidgetsPanel({ entityId }: RecordPanelProps) {
   if (widgets.length === 0) return <p className="m-0 text-sm text-sf-ink-dim">No widgets for this person.</p>;
   return (
     <ul className="m-0 list-none p-0 text-sm">
-      {widgets.map(w => (
-        <li key={w.id} className="py-1"><Link to={`/example/${w.id}`} className="text-sf-accent-text">{w.name}</Link></li>
+      {widgets.map((w) => (
+        <li key={w.id} className="py-1">
+          <Link to={`/example/${w.id}`} className="text-sf-accent-text">
+            {w.name}
+          </Link>
+        </li>
       ))}
     </ul>
   );

@@ -8,7 +8,8 @@ import { AppIcon } from '../../shared/icons';
 import { toast } from '../../shared/toast';
 import { chipClass, errorText, secondaryButtonClass } from './ui';
 
-const arrowClass = 'cursor-pointer rounded border border-sf-line-strong bg-transparent px-2 py-1 text-xs text-sf-ink-mute hover:bg-sf-hover disabled:cursor-default disabled:opacity-40';
+const arrowClass =
+  'cursor-pointer rounded border border-sf-line-strong bg-transparent px-2 py-1 text-xs text-sf-ink-mute hover:bg-sf-hover disabled:cursor-default disabled:opacity-40';
 
 /**
  * Installed apps in launcher order. Admins hide, show and reorder them; members see the list.
@@ -36,7 +37,7 @@ export function AppsCard() {
   }
 
   function move(index: number, by: -1 | 1) {
-    const slugs = list!.map(a => a.slug);
+    const slugs = list!.map((a) => a.slug);
     [slugs[index], slugs[index + by]] = [slugs[index + by], slugs[index]];
     void write(putJson<CoreApp[]>('/api/core/apps/order', { slugs }));
   }
@@ -50,17 +51,43 @@ export function AppsCard() {
             <span className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
               <span className="text-sf-ink">{app.name}</span>
               {app.hidden && <span className={chipClass}>Hidden</span>}
-              {app.badge && <span className={chipClass} title={`Launcher badge from ${app.badge}`}>Badge</span>}
+              {app.badge && (
+                <span className={chipClass} title={`Launcher badge from ${app.badge}`}>
+                  Badge
+                </span>
+              )}
             </span>
             {isAdmin && (
               <span className="flex items-center gap-1.5">
-                <button type="button" aria-label={`Move ${app.name} up`} disabled={busy || i === 0}
-                  onClick={() => move(i, -1)} className={arrowClass}>↑</button>
-                <button type="button" aria-label={`Move ${app.name} down`} disabled={busy || i === list.length - 1}
-                  onClick={() => move(i, 1)} className={arrowClass}>↓</button>
-                <button type="button" aria-label={`${app.hidden ? 'Show' : 'Hide'} ${app.name}`} disabled={busy}
-                  onClick={() => void write(patchJson<CoreApp[]>(`/api/core/apps/${app.slug}`, { hidden: !app.hidden }))}
-                  className={`${secondaryButtonClass} w-16`}>{app.hidden ? 'Show' : 'Hide'}</button>
+                <button
+                  type="button"
+                  aria-label={`Move ${app.name} up`}
+                  disabled={busy || i === 0}
+                  onClick={() => move(i, -1)}
+                  className={arrowClass}
+                >
+                  ↑
+                </button>
+                <button
+                  type="button"
+                  aria-label={`Move ${app.name} down`}
+                  disabled={busy || i === list.length - 1}
+                  onClick={() => move(i, 1)}
+                  className={arrowClass}
+                >
+                  ↓
+                </button>
+                <button
+                  type="button"
+                  aria-label={`${app.hidden ? 'Show' : 'Hide'} ${app.name}`}
+                  disabled={busy}
+                  onClick={() =>
+                    void write(patchJson<CoreApp[]>(`/api/core/apps/${app.slug}`, { hidden: !app.hidden }))
+                  }
+                  className={`${secondaryButtonClass} w-16`}
+                >
+                  {app.hidden ? 'Show' : 'Hide'}
+                </button>
               </span>
             )}
           </li>
@@ -68,8 +95,8 @@ export function AppsCard() {
       </ul>
       {isAdmin && (
         <p className="mb-0 mt-4 text-xs text-sf-ink-dim">
-          A hidden app leaves members' launcher and navigation; admins still see it, marked hidden.
-          The order here is the launcher's order for everyone.
+          A hidden app leaves members' launcher and navigation; admins still see it, marked hidden. The order here is
+          the launcher's order for everyone.
         </p>
       )}
     </div>

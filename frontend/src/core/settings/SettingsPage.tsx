@@ -19,25 +19,35 @@ export function SettingsPage() {
   if (!apps) return <BootFallback variant="panel" />;
   const all = settingsSections(apps);
   const visible = visibleSections(all, isAdmin);
-  const section = all.find(s => s.id === sectionId);
+  const section = all.find((s) => s.id === sectionId);
   if (!section) return <Navigate to={`/settings/${visible[0].id}`} replace />;
-  const adminOnly = section.cards.every(c => c.adminOnly);
+  const adminOnly = section.cards.every((c) => c.adminOnly);
 
   return (
     <div className="mx-auto flex max-w-5xl flex-col gap-6 px-4 py-8 md:flex-row md:px-8">
       <nav aria-label="Settings sections" className="flex shrink-0 flex-wrap gap-1 md:w-48 md:flex-col">
-        {visible.map(s => (
-          <NavLink key={s.id} to={`/settings/${s.id}`}
-            className={({ isActive }) => `whitespace-nowrap rounded px-3 py-2 text-sm no-underline ${
-              isActive ? 'bg-sf-raised text-sf-ink' : 'text-sf-ink-soft hover:bg-sf-hover'}`}>
+        {visible.map((s) => (
+          <NavLink
+            key={s.id}
+            to={`/settings/${s.id}`}
+            className={({ isActive }) =>
+              `whitespace-nowrap rounded px-3 py-2 text-sm no-underline ${
+                isActive ? 'bg-sf-raised text-sf-ink' : 'text-sf-ink-soft hover:bg-sf-hover'
+              }`
+            }
+          >
             {s.label}
           </NavLink>
         ))}
       </nav>
       <div className="min-w-0 flex-1">
-        {adminOnly
-          ? <RequireAdmin><SectionCards section={section} isAdmin={isAdmin} /></RequireAdmin>
-          : <SectionCards section={section} isAdmin={isAdmin} />}
+        {adminOnly ? (
+          <RequireAdmin>
+            <SectionCards section={section} isAdmin={isAdmin} />
+          </RequireAdmin>
+        ) : (
+          <SectionCards section={section} isAdmin={isAdmin} />
+        )}
       </div>
     </div>
   );
@@ -47,8 +57,14 @@ function SectionCards({ section, isAdmin }: { section: SettingsSection; isAdmin:
   return (
     <div className="flex flex-col gap-4">
       {visibleCards(section, isAdmin).map(({ id, title, Card }) => (
-        <section key={id} aria-labelledby={`card-${section.id}-${id}`} className="rounded-lg border border-sf-line-strong bg-sf-card p-5">
-          <h2 id={`card-${section.id}-${id}`} className="m-0 mb-4 font-display text-base font-medium text-sf-ink">{title}</h2>
+        <section
+          key={id}
+          aria-labelledby={`card-${section.id}-${id}`}
+          className="rounded-lg border border-sf-line-strong bg-sf-card p-5"
+        >
+          <h2 id={`card-${section.id}-${id}`} className="m-0 mb-4 font-display text-base font-medium text-sf-ink">
+            {title}
+          </h2>
           {/* App cards are lazy and non-essential: a failure stays inside the card. */}
           <ChunkErrorBoundary scope="panel">
             <Suspense fallback={<BootFallback variant="panel" />}>

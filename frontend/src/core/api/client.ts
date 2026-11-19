@@ -47,7 +47,9 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
       const body = await res.json();
       // Only a string: FastAPI sends an ARRAY for a 422, and `detail` must stay a string.
       if (typeof body.detail === 'string' && body.detail) detail = body.detail;
-    } catch { /* not JSON */ }
+    } catch {
+      /* not JSON */
+    }
     throw new ApiError(res.status, detail);
   }
   if (res.status === 204) return undefined as T;
@@ -77,4 +79,8 @@ export const upload = <T>(path: string, form: FormData) => request<T>(path, { me
  * `{ data, error }` rather than throwing, and shares the 401 redirect above.
  */
 export const api = createClient<paths>({ credentials: 'same-origin' });
-api.use({ onResponse: ({ response }) => { redirectOn401(response.status); } });
+api.use({
+  onResponse: ({ response }) => {
+    redirectOn401(response.status);
+  },
+});

@@ -15,7 +15,13 @@ import { ProjectDetails } from './ProjectFields';
 import type { TodoProject } from '../types';
 
 const PROJECT = {
-  id: 3, name: 'Kitchen', notes: '', status: 'active', purpose: '', outcome: 'old', area_id: null,
+  id: 3,
+  name: 'Kitchen',
+  notes: '',
+  status: 'active',
+  purpose: '',
+  outcome: 'old',
+  area_id: null,
 } as unknown as TodoProject;
 
 let container: HTMLDivElement;
@@ -33,21 +39,27 @@ afterEach(() => {
 });
 
 const render = (project: TodoProject) =>
-  act(async () => { root.render(<ProjectDetails project={project} areas={[]} onSaved={() => {}} />); });
+  act(async () => {
+    root.render(<ProjectDetails project={project} areas={[]} onSaved={() => {}} />);
+  });
 const outcome = () => container.querySelector<HTMLInputElement>('[aria-label="Project outcome"]')!;
-const type = (value: string) => act(async () => {
-  Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(outcome(), value);
-  outcome().dispatchEvent(new Event('input', { bubbles: true }));
-});
+const type = (value: string) =>
+  act(async () => {
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(outcome(), value);
+    outcome().dispatchEvent(new Event('input', { bubbles: true }));
+  });
 
 it('a save echoing back does not replace text typed since', async () => {
   await render(PROJECT);
   await type('new');
-  await act(async () => { outcome().focus(); outcome().blur(); });
+  await act(async () => {
+    outcome().focus();
+    outcome().blur();
+  });
   expect(updateProjectMock).toHaveBeenCalledWith(3, { outcome: 'new' });
 
-  await type('new and more');                    // back in the field before the refresh lands
-  await render({ ...PROJECT, outcome: 'new' });  // the refresh
+  await type('new and more'); // back in the field before the refresh lands
+  await render({ ...PROJECT, outcome: 'new' }); // the refresh
   expect(outcome().value).toBe('new and more');
 });
 

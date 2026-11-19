@@ -26,11 +26,24 @@ announceGoogleReturn(window.location.pathname, window.location.search);
 // the shell's Workspace (10) and Apps (20).
 export default [
   {
-    id: 'account', label: 'Account', order: 5, cards: [
+    id: 'account',
+    label: 'Account',
+    order: 5,
+    cards: [
       { id: 'profile', title: 'Profile', adminOnly: false, Card: ProfileCard },
       { id: 'security', title: 'Security', adminOnly: false, Card: SecurityCard },
     ],
   },
-  { id: 'users', label: 'Users', order: 30, cards: [{ id: 'users', title: 'Users', adminOnly: true, Card: UsersCard }] },
-  { id: 'signin', label: 'Sign-in', order: 40, cards: [{ id: 'google', title: 'Google sign-in', adminOnly: true, Card: GoogleConfigCard }] },
+  {
+    id: 'users',
+    label: 'Users',
+    order: 30,
+    cards: [{ id: 'users', title: 'Users', adminOnly: true, Card: UsersCard }],
+  },
+  {
+    id: 'signin',
+    label: 'Sign-in',
+    order: 40,
+    cards: [{ id: 'google', title: 'Google sign-in', adminOnly: true, Card: GoogleConfigCard }],
+  },
 ] satisfies SettingsSection[];

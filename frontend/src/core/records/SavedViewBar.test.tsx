@@ -7,9 +7,24 @@ import { SavedViewBar } from './SavedViewBar';
 import type { SavedView } from './types';
 
 const LIST = '/api/core/views?surface=core.reminders';
-const view = (id: number, name: string, payload: Record<string, unknown>, extra: Partial<SavedView> = {}): SavedView => ({
-  id, surface: 'core.reminders', entity_type: null, name, version: 3, payload, owner: { id: 1, name: 'Ada' },
-  is_shared: false, can_edit: true, created_at: '2026-10-20T15:00:00Z', updated_at: '2026-10-20T15:00:00Z', ...extra,
+const view = (
+  id: number,
+  name: string,
+  payload: Record<string, unknown>,
+  extra: Partial<SavedView> = {},
+): SavedView => ({
+  id,
+  surface: 'core.reminders',
+  entity_type: null,
+  name,
+  version: 3,
+  payload,
+  owner: { id: 1, name: 'Ada' },
+  is_shared: false,
+  can_edit: true,
+  created_at: '2026-10-20T15:00:00Z',
+  updated_at: '2026-10-20T15:00:00Z',
+  ...extra,
 });
 const fresh = view(1, 'Open this week', viewPayload({ status: 'open' }, 2));
 const old = view(2, 'Old layout', viewPayload({ state: 'open' }, 1));
@@ -50,13 +65,19 @@ describe('SavedViewBar', () => {
   });
 
   it('saves the current value under the schema version', async () => {
-    const { fetchMock } = renderBar({ 'POST /api/core/views': { body: view(3, 'Done', viewPayload({ status: 'done' }, 2)) } });
+    const { fetchMock } = renderBar({
+      'POST /api/core/views': { body: view(3, 'Done', viewPayload({ status: 'done' }, 2)) },
+    });
     fireEvent.click(await screen.findByRole('button', { name: 'Save current view as…' }));
     fireEvent.change(screen.getByLabelText('View name'), { target: { value: ' Done ' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
     await vi.waitFor(() => expect(callsTo(fetchMock, 'POST', '/api/core/views')).toHaveLength(1));
     const [, init] = callsTo(fetchMock, 'POST', '/api/core/views')[0];
-    expect(JSON.parse(init!.body as string)).toEqual({ surface: 'core.reminders', name: 'Done', payload: { schema_version: 2, value: { status: 'done' } } });
+    expect(JSON.parse(init!.body as string)).toEqual({
+      surface: 'core.reminders',
+      name: 'Done',
+      payload: { schema_version: 2, value: { status: 'done' } },
+    });
   });
 
   it('sends the server version with an edit and, on 409 stale_view, reloads the list and says so', async () => {

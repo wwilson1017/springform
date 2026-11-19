@@ -1,0 +1,13 @@
+{
+  "singleQuote": true,
+  "semi": true,
+  "printWidth": 120,
+  "overrides": [
+    {
+      "files": "eslint.config.js",
+      "options": {
+        "semi": false
+      }
+    }
+  ]
+}

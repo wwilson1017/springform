@@ -50,13 +50,22 @@ export function Attachments({ entityType, entityId }: AttachmentsProps) {
   }
 
   async function remove(f: FileRecord) {
-    const ok = await confirmDialog({ title: 'Delete file', message: `Delete ${f.filename}? This can't be undone.`, confirmLabel: 'Delete', danger: true });
+    const ok = await confirmDialog({
+      title: 'Delete file',
+      message: `Delete ${f.filename}? This can't be undone.`,
+      confirmLabel: 'Delete',
+      danger: true,
+    });
     if (!ok) return;
     try {
       await del(`/api/core/files/${f.id}`);
       reload();
     } catch (err) {
-      toast.error(err instanceof ApiError && err.status === 403 ? "You can't delete files on this record." : `Couldn't delete ${f.filename}.`);
+      toast.error(
+        err instanceof ApiError && err.status === 403
+          ? "You can't delete files on this record."
+          : `Couldn't delete ${f.filename}.`,
+      );
     }
   }
 
@@ -64,34 +73,59 @@ export function Attachments({ entityType, entityId }: AttachmentsProps) {
     <section aria-label="Attachments" className="flex flex-col gap-3">
       <label className="w-fit cursor-pointer rounded-md border border-sf-line-strong px-3 py-1.5 text-sm text-sf-ink-mute hover:bg-sf-hover">
         {uploading ? 'Uploading…' : 'Upload a file'}
-        <input type="file" className="sr-only" disabled={uploading} onChange={e => void onPick(e)} />
+        <input type="file" className="sr-only" disabled={uploading} onChange={(e) => void onPick(e)} />
       </label>
-      {error ? <LoadError label="Couldn't load the files" onRetry={reload} compact />
-        : !files ? <p className="m-0 text-sm text-sf-ink-dim">Loading…</p>
-        : files.length === 0 ? <p className="m-0 text-sm text-sf-ink-dim">No files yet.</p>
-        : (
-          <ul className="m-0 list-none divide-y divide-sf-line p-0">
-            {files.map(f => (
-              <li key={f.id} className="flex items-center gap-3 py-2 text-sm">
-                {f.has_thumb
-                  ? <img src={`/api/core/files/${f.id}/thumb`} alt="" loading="lazy" className="h-10 w-10 shrink-0 rounded border border-sf-line object-cover" />
-                  : <span aria-hidden className="flex h-10 w-10 shrink-0 items-center justify-center rounded border border-sf-line text-sf-ink-dim"><IconFile size={18} /></span>}
-                <div className="min-w-0 flex-1">
-                  <span className="block truncate text-sf-ink">{f.filename}</span>
-                  <span className="text-xs text-sf-ink-dim">
-                    {formatBytes(f.byte_size)} · {f.uploaded_by?.name ?? 'Unknown'} · {formatDate(f.created_at)}
-                  </span>
-                </div>
-                <a href={`/api/core/files/${f.id}/download`} download={f.filename} aria-label={`Download ${f.filename}`}
-                  className="p-1 text-xs text-sf-accent-text no-underline hover:underline">Download</a>
-                <button type="button" onClick={() => void remove(f)} aria-label={`Delete ${f.filename}`}
-                  className="cursor-pointer border-0 bg-transparent p-1 font-sans text-xs text-sf-red-text hover:underline">
-                  Delete
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
+      {error ? (
+        <LoadError label="Couldn't load the files" onRetry={reload} compact />
+      ) : !files ? (
+        <p className="m-0 text-sm text-sf-ink-dim">Loading…</p>
+      ) : files.length === 0 ? (
+        <p className="m-0 text-sm text-sf-ink-dim">No files yet.</p>
+      ) : (
+        <ul className="m-0 list-none divide-y divide-sf-line p-0">
+          {files.map((f) => (
+            <li key={f.id} className="flex items-center gap-3 py-2 text-sm">
+              {f.has_thumb ? (
+                <img
+                  src={`/api/core/files/${f.id}/thumb`}
+                  alt=""
+                  loading="lazy"
+                  className="h-10 w-10 shrink-0 rounded border border-sf-line object-cover"
+                />
+              ) : (
+                <span
+                  aria-hidden
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded border border-sf-line text-sf-ink-dim"
+                >
+                  <IconFile size={18} />
+                </span>
+              )}
+              <div className="min-w-0 flex-1">
+                <span className="block truncate text-sf-ink">{f.filename}</span>
+                <span className="text-xs text-sf-ink-dim">
+                  {formatBytes(f.byte_size)} · {f.uploaded_by?.name ?? 'Unknown'} · {formatDate(f.created_at)}
+                </span>
+              </div>
+              <a
+                href={`/api/core/files/${f.id}/download`}
+                download={f.filename}
+                aria-label={`Download ${f.filename}`}
+                className="p-1 text-xs text-sf-accent-text no-underline hover:underline"
+              >
+                Download
+              </a>
+              <button
+                type="button"
+                onClick={() => void remove(f)}
+                aria-label={`Delete ${f.filename}`}
+                className="cursor-pointer border-0 bg-transparent p-1 font-sans text-xs text-sf-red-text hover:underline"
+              >
+                Delete
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
     </section>
   );
 }

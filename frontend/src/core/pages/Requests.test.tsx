@@ -17,7 +17,15 @@ function renderRequests(role: User['role'], configured: boolean, post: Reply) {
     'GET /api/core/requests?state=open&limit=200': { body: [] },
     'POST /api/core/requests': post,
   });
-  render(<MemoryRouter><AuthProvider><CoreAppsProvider><RequestsPage /></CoreAppsProvider></AuthProvider></MemoryRouter>);
+  render(
+    <MemoryRouter>
+      <AuthProvider>
+        <CoreAppsProvider>
+          <RequestsPage />
+        </CoreAppsProvider>
+      </AuthProvider>
+    </MemoryRouter>,
+  );
 }
 
 async function send(title: string) {
@@ -45,14 +53,26 @@ describe('RequestsPage', () => {
   });
 
   it('shows the new request with its GitHub link', async () => {
-    renderRequests('member', true, { body: {
-      id: 1, issue_number: 12, url: 'https://github.com/example/repo/issues/12', state: 'open', title: 'Add a delivery date',
-      app: 'core', description: '', labels: ['request', 'app:core'], requested_by: { id: 1, name: 'A' },
-      created_at: '2026-10-24T03:00:00Z', updated_at: '2026-10-24T03:00:00Z',
-    } });
+    renderRequests('member', true, {
+      body: {
+        id: 1,
+        issue_number: 12,
+        url: 'https://github.com/example/repo/issues/12',
+        state: 'open',
+        title: 'Add a delivery date',
+        app: 'core',
+        description: '',
+        labels: ['request', 'app:core'],
+        requested_by: { id: 1, name: 'A' },
+        created_at: '2026-10-24T03:00:00Z',
+        updated_at: '2026-10-24T03:00:00Z',
+      },
+    });
     await send('Add a delivery date');
     const status = await screen.findByRole('status');
     expect(status.textContent).toContain('#12');
-    expect(screen.getByRole('link', { name: 'View it on GitHub' }).getAttribute('href')).toBe('https://github.com/example/repo/issues/12');
+    expect(screen.getByRole('link', { name: 'View it on GitHub' }).getAttribute('href')).toBe(
+      'https://github.com/example/repo/issues/12',
+    );
   });
 });

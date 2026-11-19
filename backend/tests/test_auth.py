@@ -122,7 +122,9 @@ def test_csrf_rules_for_cookie_sessions(login_as, monkeypatch):
     assert bare.post("/api/example/widgets", json=body).status_code == 403  # no fetch metadata, no Origin
     assert bare.get("/api/example/widgets").status_code == 200  # reads are not state-changing
     monkeypatch.setenv("PUBLIC_URL", "https://crm.example.com/")
-    assert bare.post("/api/example/widgets", json=body, headers={"Origin": "https://crm.example.com"}).status_code == 200
+    assert (
+        bare.post("/api/example/widgets", json=body, headers={"Origin": "https://crm.example.com"}).status_code == 200
+    )
     assert bare.post("/api/example/widgets", json=body, headers={"Origin": "https://evil.example"}).status_code == 403
     bearer = make_client(member.app, Authorization=f"Bearer {cookie}")
     del bearer.headers["Sec-Fetch-Site"]
@@ -145,7 +147,11 @@ def test_preview_role_picker(client, db, monkeypatch):
     r = client.post("/api/auth/preview", json={"role": "member"})
     assert r.json()["user"]["email"] == "preview-member@example.com"
     assert client.get("/api/me").json()["role"] == "member"
-    assert client.get("/api/auth/status").json() == {"setup_required": False, "google": True, "preview": True}  # the stub
+    assert client.get("/api/auth/status").json() == {
+        "setup_required": False,
+        "google": True,
+        "preview": True,
+    }  # the stub
     assert _login(client, "preview-admin@example.com", "!").status_code == 401  # a random password nobody knows
 
 
@@ -174,7 +180,9 @@ def test_preview_refuses_real_secrets(db, monkeypatch):
     settings.set_setting(push.PRIVATE_KEY, "generated", None, is_secret=True)
     assert preview.GENERATED_SECRETS == (push.PRIVATE_KEY,)
     preview.check_startup()
-    monkeypatch.delenv("PREVIEW_MODE")  # a running preview refuses to store it (next test); a volume may already hold one
+    monkeypatch.delenv(
+        "PREVIEW_MODE"
+    )  # a running preview refuses to store it (next test); a volume may already hold one
     settings.set_setting("core.mail_key", "re_123", None, is_secret=True)
     monkeypatch.setenv("PREVIEW_MODE", "1")
     with pytest.raises(RuntimeError, match="a secret in core_settings"):
@@ -192,9 +200,11 @@ def test_running_preview_refuses_secrets_so_the_next_boot_starts(monkeypatch):
     refused = {"detail": "Preview mode does not store secrets."}
     with make_client(create_app()) as client:  # the real lifespan, as a deploy boots it
         assert client.post("/api/auth/preview", json={"role": "admin"}).status_code == 200
-        for path, body in (("/api/auth/google/config", {"client_id": "x"}),
-                           ("/api/auth/google/config", {"client_secret": "y"}),
-                           ("/api/core/sheets/credentials", {"service_account_json": key_json()})):
+        for path, body in (
+            ("/api/auth/google/config", {"client_id": "x"}),
+            ("/api/auth/google/config", {"client_secret": "y"}),
+            ("/api/core/sheets/credentials", {"service_account_json": key_json()}),
+        ):
             r = client.put(path, json=body)
             assert (r.status_code, r.json()) == (403, refused), path
         r = client.put("/api/auth/google/config", json={"require_totp_for_google": True})  # not a secret: still saves

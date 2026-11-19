@@ -10,7 +10,10 @@ export type FieldInfo = Record<string, Pick<FieldDefinition, 'label' | 'type'>>;
 
 /** "value_cents" → "Value", "owner_user_id" → "Owner", "is_private" → "Is private". */
 export function humanize(column: string): string {
-  const words = column.replace(/(_user_id|_cents|_id)$/, '').replace(/_/g, ' ').trim();
+  const words = column
+    .replace(/(_user_id|_cents|_id)$/, '')
+    .replace(/_/g, ' ')
+    .trim();
   return words.charAt(0).toUpperCase() + words.slice(1);
 }
 
@@ -19,7 +22,7 @@ const customKey = (field: string) => (field.startsWith('field.') ? field.slice('
 /** The name a change is shown under: a custom field's label, else the column (or key), humanized. */
 export function fieldName(field: string, fields: FieldInfo): string {
   const key = customKey(field);
-  return key === null ? humanize(field) : fields[key]?.label ?? humanize(key);
+  return key === null ? humanize(field) : (fields[key]?.label ?? humanize(key));
 }
 
 /** Whether the field holds a user id: an `*_user_id` column or a custom field of type user. */

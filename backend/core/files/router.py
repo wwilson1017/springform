@@ -32,7 +32,9 @@ def list_files(entity_type: str, entity_id: int, user: User = Depends(current_us
     return service.list_for(user, entity_type, entity_id)
 
 
-@router.post("", response_model=File, status_code=201, responses={200: {"model": File, "description": "Already attached"}})
+@router.post(
+    "", response_model=File, status_code=201, responses={200: {"model": File, "description": "Already attached"}}
+)
 def upload_file(
     response: Response,
     entity_type: str = Form(),

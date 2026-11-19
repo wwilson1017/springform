@@ -28,22 +28,26 @@ function Label({ item, inboxCount }: { item: ListItem; inboxCount: number }) {
 // ── "More": a disclosure button over a short list of links ──────────────────
 
 const primaryCls = (current: boolean) =>
-  `whitespace-nowrap border-b-[3px] -mb-px px-2.5 py-2 text-base ${FOCUS} ${current
-    ? 'border-sf-accent font-semibold text-sf-ink'
-    : 'border-transparent text-sf-ink-dim hover:text-sf-ink'}`;
+  `whitespace-nowrap border-b-[3px] -mb-px px-2.5 py-2 text-base ${FOCUS} ${
+    current ? 'border-sf-accent font-semibold text-sf-ink' : 'border-transparent text-sf-ink-dim hover:text-sf-ink'
+  }`;
 
 const secondaryCls = (current: boolean) =>
-  `rounded px-[7px] py-1.5 text-[0.8125rem] ${FOCUS} ${current
-    ? 'font-bold text-sf-ink'
-    : 'text-sf-ink-dim hover:text-sf-ink'}`;
+  `rounded px-[7px] py-1.5 text-[0.8125rem] ${FOCUS} ${
+    current ? 'font-bold text-sf-ink' : 'text-sf-ink-dim hover:text-sf-ink'
+  }`;
 
 // The bar sits on the screen edge, so its focus ring is drawn inside the item.
 const phoneCls = (current: boolean) =>
-  `flex min-h-14 min-w-0 flex-1 items-center justify-center border-t-[3px] -mt-px px-0.5 text-xs ${FOCUS} -outline-offset-2 ${current
-    ? 'border-sf-accent font-semibold text-sf-ink'
-    : 'border-transparent text-sf-ink-dim'}`;
+  `flex min-h-14 min-w-0 flex-1 items-center justify-center border-t-[3px] -mt-px px-0.5 text-xs ${FOCUS} -outline-offset-2 ${
+    current ? 'border-sf-accent font-semibold text-sf-ink' : 'border-transparent text-sf-ink-dim'
+  }`;
 
-const MORE_LABEL = <>More<span aria-hidden="true"> ▾</span></>;
+const MORE_LABEL = (
+  <>
+    More<span aria-hidden="true"> ▾</span>
+  </>
+);
 
 function MoreMenu({ items, active, phone = false }: { items: ListItem[]; active: string; phone?: boolean }) {
   const [open, setOpen] = useState(false);
@@ -76,7 +80,7 @@ function MoreMenu({ items, active, phone = false }: { items: ListItem[]; active:
   // On the phone every secondary list is in here, so the button stands in for the
   // current one when it is among them: marked current in the bar's set of items
   // ("true"), while the link inside keeps "page".
-  const holdsCurrent = items.some(i => i.key === active);
+  const holdsCurrent = items.some((i) => i.key === active);
 
   return (
     <div ref={wrap} className={phone ? 'flex min-w-0 flex-1' : 'relative'}>
@@ -86,7 +90,7 @@ function MoreMenu({ items, active, phone = false }: { items: ListItem[]; active:
         aria-expanded={open}
         aria-controls={panelId}
         aria-current={holdsCurrent ? 'true' : undefined}
-        onClick={() => setOpen(o => !o)}
+        onClick={() => setOpen((o) => !o)}
         className={phone ? phoneCls(holdsCurrent) : secondaryCls(holdsCurrent)}
       >
         {phone ? 'More' : MORE_LABEL}
@@ -94,11 +98,13 @@ function MoreMenu({ items, active, phone = false }: { items: ListItem[]; active:
       {open && (
         <div
           id={panelId}
-          className={`z-40 border border-sf-line-strong bg-sf-card shadow-lg ${phone
-            ? 'fixed inset-x-2 bottom-[calc(var(--bottom-bar)+0.5rem)] rounded-xl p-1.5'
-            : 'absolute right-0 top-full mt-1 min-w-36 rounded-lg p-1'}`}
+          className={`z-40 border border-sf-line-strong bg-sf-card shadow-lg ${
+            phone
+              ? 'fixed inset-x-2 bottom-[calc(var(--bottom-bar)+0.5rem)] rounded-xl p-1.5'
+              : 'absolute right-0 top-full mt-1 min-w-36 rounded-lg p-1'
+          }`}
         >
-          {items.map(item => {
+          {items.map((item) => {
             const current = item.key === active;
             return (
               <Link
@@ -128,19 +134,20 @@ export function TopMenu({ active, inboxCount }: MenuProps) {
   const slot = useRef<HTMLDivElement>(null);
   const ruler = useRef<HTMLDivElement>(null);
   const [hidden, setHidden] = useState<number[]>([]);
-  const current = SECONDARY.findIndex(l => l.key === active);
+  const current = SECONDARY.findIndex((l) => l.key === active);
 
   // Priority-plus: the ruler is an invisible copy of the full secondary run plus
   // "More", so every width is known whether or not the item is showing.
   useLayoutEffect(() => {
-    const s = slot.current, r = ruler.current;
+    const s = slot.current,
+      r = ruler.current;
     if (!s || !r) return;
     const measure = () => {
-      const widths = [...r.children].map(c => (c as HTMLElement).offsetWidth);
+      const widths = [...r.children].map((c) => (c as HTMLElement).offsetWidth);
       const more = widths.pop() ?? 0;
       const chrome = r.offsetWidth - more - widths.reduce((a, b) => a + b, 0); // divider + padding
       const next = overflowHidden(widths, s.clientWidth - chrome, more, current);
-      setHidden(prev => (prev.join() === next.join() ? prev : next));
+      setHidden((prev) => (prev.join() === next.join() ? prev : next));
     };
     measure();
     if (typeof ResizeObserver === 'undefined') return;
@@ -153,7 +160,7 @@ export function TopMenu({ active, inboxCount }: MenuProps) {
   return (
     <div className="mt-3 flex items-stretch border-b border-sf-line-strong">
       <nav aria-label="Main lists" className="flex shrink-0 gap-0.5">
-        {PRIMARY.map(item => (
+        {PRIMARY.map((item) => (
           <Link
             key={item.key}
             to={todoPath(item.sub)}
@@ -166,19 +173,20 @@ export function TopMenu({ active, inboxCount }: MenuProps) {
       </nav>
       <div ref={slot} className="relative ml-3 flex min-w-0 flex-1 items-center justify-end">
         <nav aria-label="Other lists" className={SECONDARY_ROW}>
-          {SECONDARY.map((item, i) => !hidden.includes(i) && (
-            <Link
-              key={item.key}
-              to={todoPath(item.sub)}
-              aria-current={i === current ? 'page' : undefined}
-              className={secondaryCls(i === current)}
-            >
-              {item.label}
-            </Link>
-          ))}
-          {hidden.length > 0 && (
-            <MoreMenu items={hidden.map(i => SECONDARY[i])} active={active} />
+          {SECONDARY.map(
+            (item, i) =>
+              !hidden.includes(i) && (
+                <Link
+                  key={item.key}
+                  to={todoPath(item.sub)}
+                  aria-current={i === current ? 'page' : undefined}
+                  className={secondaryCls(i === current)}
+                >
+                  {item.label}
+                </Link>
+              ),
           )}
+          {hidden.length > 0 && <MoreMenu items={hidden.map((i) => SECONDARY[i])} active={active} />}
         </nav>
         {/* Anchored right so its overflow runs left, never widening the page. */}
         <div
@@ -187,7 +195,9 @@ export function TopMenu({ active, inboxCount }: MenuProps) {
           className={`${SECONDARY_ROW} pointer-events-none invisible absolute right-0 top-0`}
         >
           {SECONDARY.map((item, i) => (
-            <span key={item.key} className={secondaryCls(i === current)}>{item.label}</span>
+            <span key={item.key} className={secondaryCls(i === current)}>
+              {item.label}
+            </span>
           ))}
           <span className={secondaryCls(false)}>{MORE_LABEL}</span>
         </div>
@@ -204,7 +214,7 @@ export function BottomBar({ active, inboxCount }: MenuProps) {
       aria-label="Main lists"
       className="fixed inset-x-0 bottom-0 z-40 flex border-t border-sf-line-strong bg-sf-card pb-[env(safe-area-inset-bottom)]"
     >
-      {PRIMARY.map(item => (
+      {PRIMARY.map((item) => (
         <Link
           key={item.key}
           to={todoPath(item.sub)}

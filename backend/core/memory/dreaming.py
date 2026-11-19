@@ -42,13 +42,24 @@ def consolidate() -> dict:
     if merges:
         with db.transaction() as conn:
             for keep, dups in merges:
-                if conn.execute("SELECT 1 FROM core_agent_facts WHERE id = ? AND invalid_from IS NULL", (keep["id"],)).fetchone() is None:
+                if (
+                    conn.execute(
+                        "SELECT 1 FROM core_agent_facts WHERE id = ? AND invalid_from IS NULL", (keep["id"],)
+                    ).fetchone()
+                    is None
+                ):
                     continue
                 tags = json.loads(keep["tags"])
                 for dup in dups:
-                    if facts.forget_in(conn, dup["id"], SYSTEM_USER_ID, superseded_by=keep["id"])["superseded_by"] != keep["id"]:
+                    if (
+                        facts.forget_in(conn, dup["id"], SYSTEM_USER_ID, superseded_by=keep["id"])["superseded_by"]
+                        != keep["id"]
+                    ):
                         continue  # someone ended it first
                     tags += [t for t in json.loads(dup["tags"]) if t not in tags]
                     merged += 1
-                conn.execute("UPDATE core_agent_facts SET tags = ? WHERE id = ?", (json.dumps(tags[: facts.TAGS_MAX]), keep["id"]))
+                conn.execute(
+                    "UPDATE core_agent_facts SET tags = ? WHERE id = ?",
+                    (json.dumps(tags[: facts.TAGS_MAX]), keep["id"]),
+                )
     return {"facts": len(rows), "merged": merged}

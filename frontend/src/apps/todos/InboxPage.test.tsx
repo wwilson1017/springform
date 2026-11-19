@@ -37,11 +37,22 @@ import { notifyTodosChanged, resetInboxFocus } from './hooks';
 import { resetUndoQueue } from './undoQueue';
 import { ITEM_EXTRA } from './testFixtures';
 
-const base: Omit<Todo, 'id' | 'title'> = { ...ITEM_EXTRA,
-  notes: '', project_id: null, project_name: null, context: '', tags: [],
-  status: 'inbox', star: false, due_date: null, repeat: '',
-  auto_star_on_due: false, source: 'ui',
-  created_at: '2026-08-06T12:00:00Z', updated_at: '2026-08-06T12:00:00Z', completed_at: null,
+const base: Omit<Todo, 'id' | 'title'> = {
+  ...ITEM_EXTRA,
+  notes: '',
+  project_id: null,
+  project_name: null,
+  context: '',
+  tags: [],
+  status: 'inbox',
+  star: false,
+  due_date: null,
+  repeat: '',
+  auto_star_on_due: false,
+  source: 'ui',
+  created_at: '2026-08-06T12:00:00Z',
+  updated_at: '2026-08-06T12:00:00Z',
+  completed_at: null,
 };
 const FIRST: Todo = { ...base, id: 1, title: 'first captured' };
 const SECOND: Todo = { ...base, id: 2, title: 'second captured' };
@@ -68,32 +79,35 @@ afterEach(() => {
 
 async function render() {
   await act(async () => {
-    root.render(<MemoryRouter><InboxPage /></MemoryRouter>);
+    root.render(
+      <MemoryRouter>
+        <InboxPage />
+      </MemoryRouter>,
+    );
   });
 }
 
 /** The item currently on the big triage card (its click-to-rename title). */
 const onCard = () =>
-  container.querySelector('.rounded-xl')?.querySelector('button[title="Click to rename"]')
-    ?.textContent ?? null;
+  container.querySelector('.rounded-xl')?.querySelector('button[title="Click to rename"]')?.textContent ?? null;
 
 /** The compact "N more in inbox" rows below the card.
  *
  * Keyed on the list's `data-inbox-queue` marker, not on a Tailwind class: this
  * used to select `button.truncate` and went silently empty the moment those
  * titles were changed to wrap. */
-const restRows = () =>
-  [...container.querySelectorAll<HTMLButtonElement>('[data-inbox-queue] button')];
+const restRows = () => [...container.querySelectorAll<HTMLButtonElement>('[data-inbox-queue] button')];
 
 function button(label: string): HTMLButtonElement {
-  const found = [...container.querySelectorAll('button')].find(
-    b => (b.textContent ?? '').trim() === label,
-  );
+  const found = [...container.querySelectorAll('button')].find((b) => (b.textContent ?? '').trim() === label);
   if (!found) throw new Error(`no button labelled "${label}"`);
   return found;
 }
 
-const click = (el: Element) => act(() => { (el as HTMLElement).click(); });
+const click = (el: Element) =>
+  act(() => {
+    (el as HTMLElement).click();
+  });
 
 describe('InboxPage triage selection', () => {
   it('keeps a manually selected item on the card through an in-place change', async () => {
@@ -117,9 +131,7 @@ describe('InboxPage triage selection', () => {
     expect(onCard()).toBe('second captured');
 
     listTodosMock.mockResolvedValue([FIRST]); // the filed item is gone on reload
-    const picker = container.querySelector<HTMLSelectElement>(
-      'select[aria-label="Set context and file this todo"]',
-    )!;
+    const picker = container.querySelector<HTMLSelectElement>('select[aria-label="Set context and file this todo"]')!;
     const setter = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(picker), 'value')?.set;
     await act(async () => {
       setter?.call(picker, '0');
@@ -136,17 +148,16 @@ describe('InboxPage triage selection', () => {
     await render();
 
     listTodosMock.mockResolvedValue([SECOND, third]); // FIRST is filed and gone
-    const picker = container.querySelector<HTMLSelectElement>(
-      'select[aria-label="Set context and file this todo"]',
-    )!;
+    const picker = container.querySelector<HTMLSelectElement>('select[aria-label="Set context and file this todo"]')!;
     const setter = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(picker), 'value')?.set;
     await act(async () => {
       setter?.call(picker, '0');
       picker.dispatchEvent(new Event('change', { bubbles: true }));
     });
 
-    const notices = [...container.querySelectorAll('[role="status"]')]
-      .filter(n => (n.textContent ?? '').trim() !== '');
+    const notices = [...container.querySelectorAll('[role="status"]')].filter(
+      (n) => (n.textContent ?? '').trim() !== '',
+    );
     expect(notices).toHaveLength(1); // no second "Filed under…" toast
     const pill = notices[0];
     expect(pill.getAttribute('aria-label')).toBe('Recent changes you can undo');
@@ -178,7 +189,7 @@ describe('InboxPage triage selection', () => {
     expect(updateTodoMock).not.toHaveBeenCalled();
   });
 
-  it('does not carry one item\'s chosen destination onto the next', async () => {
+  it("does not carry one item's chosen destination onto the next", async () => {
     await render();
     click(restRows()[0]);
     click(button('Waiting'));
@@ -193,8 +204,7 @@ describe('InboxPage triage selection', () => {
 });
 
 describe('InboxPage capture box', () => {
-  const captureBox = () =>
-    [...container.querySelectorAll<HTMLInputElement>('input[placeholder^="Add to inbox"]')];
+  const captureBox = () => [...container.querySelectorAll<HTMLInputElement>('input[placeholder^="Add to inbox"]')];
 
   it('renders once, in the page body below the filter bar', async () => {
     // The shell's copy is suppressed (hideQuickAdd) and this page renders its own
@@ -219,8 +229,7 @@ describe('InboxPage capture box', () => {
 // alone, which is exactly why they exist.
 
 /** The card's context picker — the affordance that has to still work afterwards. */
-const picker = () =>
-  container.querySelector<HTMLSelectElement>('select[aria-label="Set context and file this todo"]')!;
+const picker = () => container.querySelector<HTMLSelectElement>('select[aria-label="Set context and file this todo"]')!;
 
 /** File whatever is on the card under the first offered context. */
 async function fileFromCard() {
@@ -235,7 +244,9 @@ async function fileFromCard() {
 async function clickUndoFiling(title: string) {
   const el = container.querySelector<HTMLButtonElement>(`button[aria-label="Undo filing “${title}”"]`);
   if (!el) throw new Error(`no filing-undo button for "${title}"`);
-  await act(async () => { el.click(); });
+  await act(async () => {
+    el.click();
+  });
 }
 
 describe('InboxPage — undoing a filing (todo-gtd #2925)', () => {
@@ -294,12 +305,16 @@ describe('InboxPage — undoing a filing (todo-gtd #2925)', () => {
     // `SearchInput` settles the query through a 250ms debounce before the page
     // ever sees it, so asserting on the unsettled box would pass against no filter
     // at all — which is what the first draft of this test did.
-    await act(async () => { await new Promise(r => setTimeout(r, 300)); });
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 300));
+    });
     // The filter is real: only FIRST is on the card, SECOND is filtered away.
     expect(onCard()).toBe('first captured');
     expect(restRows()).toHaveLength(0);
 
-    act(() => { notifyTodosChanged(2); }); // an undo restores "second captured"
+    act(() => {
+      notifyTodosChanged(2);
+    }); // an undo restores "second captured"
 
     expect(onCard()).toBe('second captured');
     expect(search.value).toBe('');
@@ -313,7 +328,9 @@ describe('InboxPage — undoing a filing (todo-gtd #2925)', () => {
     // user asked for is invisible. `notifyTodosChanged` is the seam the undo path
     // reaches the pages through; this drives it directly because the whole point
     // is that no page is mounted at the time.
-    act(() => { notifyTodosChanged(2); });
+    act(() => {
+      notifyTodosChanged(2);
+    });
 
     await render();
 
@@ -323,8 +340,7 @@ describe('InboxPage — undoing a filing (todo-gtd #2925)', () => {
 
 describe('InboxPage — the inline undo notice and the edit sheet', () => {
   /** Every rendered undo block, floating or inline — they share one accessible name. */
-  const undoBlocks = () =>
-    [...container.querySelectorAll('[aria-label="Recent changes you can undo"]')];
+  const undoBlocks = () => [...container.querySelectorAll('[aria-label="Recent changes you can undo"]')];
 
   it('hands the notice to the floating copy while the edit sheet covers the page', async () => {
     await render();
@@ -337,8 +353,7 @@ describe('InboxPage — the inline undo notice and the edit sheet', () => {
     // while its 7s window keeps running.
     click(button('Edit'));
     await act(async () => {});
-    const sheet = [...container.querySelectorAll('h2')]
-      .find(h => h.textContent === 'Edit todo')!.closest('.fixed')!;
+    const sheet = [...container.querySelectorAll('h2')].find((h) => h.textContent === 'Edit todo')!.closest('.fixed')!;
 
     // Still ONE block, now in the shell's floating stack — which is rendered after the
     // sheet, so it paints above the overlay — and its Undo still works from there.
@@ -381,8 +396,11 @@ describe('InboxPage — the inline undo notice and the edit sheet', () => {
 
     listTodosMock.mockResolvedValue([FIRST, SECOND]);
     const undo = container.querySelector<HTMLButtonElement>(
-      'button[aria-label="Undo marking “second captured” done"]')!;
-    await act(async () => { undo.click(); });
+      'button[aria-label="Undo marking “second captured” done"]',
+    )!;
+    await act(async () => {
+      undo.click();
+    });
 
     expect(updateTodoMock).toHaveBeenLastCalledWith(2, { status: 'inbox' });
     expect(onCard()).toBe('second captured');

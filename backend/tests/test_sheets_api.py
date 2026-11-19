@@ -21,10 +21,16 @@ from backend.core.sheets import api as sheets, google, jobs, service, startup
 def key_json(email: str = "springform@demo-project.iam.gserviceaccount.com") -> str:
     key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
     pem = key.private_bytes(serialization.Encoding.PEM, serialization.PrivateFormat.PKCS8, serialization.NoEncryption())
-    return json.dumps({
-        "type": "service_account", "project_id": "demo-project", "private_key_id": "k1", "private_key": pem.decode(),
-        "client_email": email, "token_uri": "https://oauth2.googleapis.com/token",
-    })
+    return json.dumps(
+        {
+            "type": "service_account",
+            "project_id": "demo-project",
+            "private_key_id": "k1",
+            "private_key": pem.decode(),
+            "client_email": email,
+            "token_uri": "https://oauth2.googleapis.com/token",
+        }
+    )
 
 
 class Stub:
@@ -76,7 +82,9 @@ def _add_sheet(name: str, mode: str = "read", schedule: str = "hourly", enabled:
     with core_db.transaction() as conn:
         service.seed_in(conn, [("example", registry.Sheet(name=name, mode=mode))])
     sheet_id = core_db.one("SELECT id FROM core_connected_sheets WHERE name = ?", (name,))["id"]
-    service.update_sheet(sheet_id, {"spreadsheet_id": f"id_{name}", "range": "A1:B", "schedule": schedule, "enabled": enabled})
+    service.update_sheet(
+        sheet_id, {"spreadsheet_id": f"id_{name}", "range": "A1:B", "schedule": schedule, "enabled": enabled}
+    )
     return sheet_id
 
 
@@ -85,8 +93,12 @@ def _add_sheet(name: str, mode: str = "read", schedule: str = "hourly", enabled:
 
 def test_credentials_are_stored_encrypted_and_only_the_email_comes_back(admin, login_as):
     assert admin.get("/api/core/sheets/credentials").json() == {"configured": False, "service_account_email": None}
-    for bad in ("not json", json.dumps({"type": "authorized_user"}), json.dumps({"type": "service_account", "client_email": "x"}),
-                json.dumps({"type": "service_account", "client_email": "x", "private_key": "nope"})):
+    for bad in (
+        "not json",
+        json.dumps({"type": "authorized_user"}),
+        json.dumps({"type": "service_account", "client_email": "x"}),
+        json.dumps({"type": "service_account", "client_email": "x", "private_key": "nope"}),
+    ):
         assert admin.put("/api/core/sheets/credentials", json={"service_account_json": bad}).status_code == 422
     r = admin.put("/api/core/sheets/credentials", json={"service_account_json": key_json()})
     assert r.json() == {"configured": True, "service_account_email": "springform@demo-project.iam.gserviceaccount.com"}
@@ -94,7 +106,11 @@ def test_credentials_are_stored_encrypted_and_only_the_email_comes_back(admin, l
     stored = core_db.one("SELECT value, is_secret FROM core_settings WHERE key = 'sheets.service_account_json'")
     assert stored["is_secret"] == 1 and stored["value"].startswith("enc:v1:") and "PRIVATE KEY" not in stored["value"]
     member = login_as("member")
-    for method, path in (("get", "/api/core/sheets/credentials"), ("get", "/api/core/sheets"), ("post", "/api/core/sheets/1/refresh")):
+    for method, path in (
+        ("get", "/api/core/sheets/credentials"),
+        ("get", "/api/core/sheets"),
+        ("post", "/api/core/sheets/1/refresh"),
+    ):
         assert getattr(member, method)(path).status_code == 403
 
 
@@ -106,9 +122,20 @@ def test_seeding_from_manifests_is_idempotent_and_keeps_admin_settings(admin):
     service.update_sheet(sheet_id, {"spreadsheet_id": "abc", "range": "A1:B"})
     startup.on_startup()
     startup.on_startup()
-    rows = core_db.rows("SELECT app, name, description, mode, schedule, enabled, spreadsheet_id FROM core_connected_sheets")
-    assert rows == [{"app": "example", "name": "widgets", "description": "A sample sheet of widgets", "mode": "read",
-                     "schedule": "hourly", "enabled": 1, "spreadsheet_id": "abc"}]
+    rows = core_db.rows(
+        "SELECT app, name, description, mode, schedule, enabled, spreadsheet_id FROM core_connected_sheets"
+    )
+    assert rows == [
+        {
+            "app": "example",
+            "name": "widgets",
+            "description": "A sample sheet of widgets",
+            "mode": "read",
+            "schedule": "hourly",
+            "enabled": 1,
+            "spreadsheet_id": "abc",
+        }
+    ]
     listed = admin.get("/api/core/sheets").json()
     assert [(s["id"], s["configured"], s["fetched_at"]) for s in listed] == [(sheet_id, True, None)]
 
@@ -136,14 +163,22 @@ def test_refresh_caches_header_and_rows_then_throttles_for_60s(admin, stub, free
     _configure(admin, sheet_id)
     r = admin.post(f"/api/core/sheets/{sheet_id}/refresh")
     assert r.status_code == 200, r.text
-    assert (r.json()["row_count"], r.json()["last_synced_at"], r.json()["fetched_at"]) == (2, "2026-11-02T09:00:00Z", "2026-11-02T09:00:00Z")
+    assert (r.json()["row_count"], r.json()["last_synced_at"], r.json()["fetched_at"]) == (
+        2,
+        "2026-11-02T09:00:00Z",
+        "2026-11-02T09:00:00Z",
+    )
     assert stub.calls == [("read", "abc123", "Widgets!A1:C")]
     preview = admin.get(f"/api/core/sheets/{sheet_id}/preview").json()
     assert preview["header"] == ["name", "color"] and preview["rows"] == [["Sprocket", "teal"], ["Gear", ""]]
 
     freeze("2026-11-02T09:00:45Z")
     r = admin.post(f"/api/core/sheets/{sheet_id}/refresh")
-    assert r.status_code == 429 and r.json() == {"detail": "throttled", "retry_after": 15} and r.headers["retry-after"] == "15"
+    assert (
+        r.status_code == 429
+        and r.json() == {"detail": "throttled", "retry_after": 15}
+        and r.headers["retry-after"] == "15"
+    )
     assert len(stub.calls) == 1
     freeze("2026-11-02T09:01:00Z")
     assert admin.post(f"/api/core/sheets/{sheet_id}/refresh").status_code == 200
@@ -229,14 +264,20 @@ def test_client_read_serves_the_cache_and_never_calls_google(admin, stub, monkey
 
     monkeypatch.setattr(google, "make_client", no_google)
     data = client.read("widgets")
-    assert data == sheets.SheetData(["name", "color"], [["Sprocket", "teal"], ["Gear", ""]], "2026-11-02T09:00:00Z", False)
+    assert data == sheets.SheetData(
+        ["name", "color"], [["Sprocket", "teal"], ["Gear", ""]], "2026-11-02T09:00:00Z", False
+    )
     assert stub.calls == calls
     with core_db.transaction() as conn:
         assert client.read_in(conn, "widgets") == data
     freeze("2026-11-02T11:00:01Z")
     assert client.read("widgets").stale is True  # hourly sheet, cache over two hours old
     assert client.status("widgets") == {
-        "configured": True, "enabled": True, "last_synced_at": "2026-11-02T09:00:00Z", "last_error": None, "row_count": 2,
+        "configured": True,
+        "enabled": True,
+        "last_synced_at": "2026-11-02T09:00:00Z",
+        "last_error": None,
+        "row_count": 2,
     }
     with pytest.raises(NotFound):
         client.read("nope")
@@ -258,10 +299,14 @@ def test_client_write_refuses_formulas_and_read_sheets_then_writes_outside_the_t
         client.write("out_one", [["a"]])
 
     assert client.write("out_one", [["name", "total"], ["Sprocket", 3], ["Gear", None], ["sum", "=SUM(B2:B3)"]]) == 4
-    assert stub.calls == [("write", "id_out_one", "A1:B", [["name", "total"], ["Sprocket", 3], ["Gear", ""], ["sum", "=SUM(B2:B3)"]])]
+    assert stub.calls == [
+        ("write", "id_out_one", "A1:B", [["name", "total"], ["Sprocket", 3], ["Gear", ""], ["sum", "=SUM(B2:B3)"]])
+    ]
     status = client.status("out_one")
     assert (status["last_synced_at"], status["row_count"], status["last_error"]) == ("2026-11-02T09:00:00Z", 4, None)
-    assert core_db.one("SELECT 1 AS x FROM core_sheet_cache WHERE sheet_id = ?", (sheet_id,)) is None  # write leaves the cache
+    assert (
+        core_db.one("SELECT 1 AS x FROM core_sheet_cache WHERE sheet_id = ?", (sheet_id,)) is None
+    )  # write leaves the cache
 
 
 def test_forbidden_formula_and_bound_range():
@@ -295,6 +340,8 @@ def test_google_client_signs_a_jwt_reads_values_and_explains_a_403():
     client = google.GoogleSheets(info, transport=httpx.MockTransport(handler))
     assert client.read("sheet1", "'My Tab'!A1:B") == [["a", "b"], ["1"]]
     assert seen[1].url.raw_path.startswith(b"/v4/spreadsheets/sheet1/values/%27My%20Tab%27%21A1%3AB")
-    with pytest.raises(google.SheetsError, match=r"403: The caller does not have permission\. Share the spreadsheet with springform@"):
+    with pytest.raises(
+        google.SheetsError, match=r"403: The caller does not have permission\. Share the spreadsheet with springform@"
+    ):
         client.read("denied", "A1:B")
     assert sum(r.url.path == "/token" for r in seen) == 1  # the token is reused

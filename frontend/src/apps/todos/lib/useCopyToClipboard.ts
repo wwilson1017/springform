@@ -47,19 +47,25 @@ export function useCopyToClipboard(resetMs = 1500) {
   const [state, setState] = useState<CopyState>('idle');
   const timerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
-  const copy = useCallback(async (text: string) => {
-    const ok = await copyToClipboard(text);
-    setState(ok ? 'copied' : 'failed');
-    if (timerRef.current) clearTimeout(timerRef.current);
-    // A failure stays up longer: it carries an instruction, not a confirmation.
-    timerRef.current = setTimeout(() => setState('idle'), ok ? resetMs : 4000);
-  }, [resetMs]);
+  const copy = useCallback(
+    async (text: string) => {
+      const ok = await copyToClipboard(text);
+      setState(ok ? 'copied' : 'failed');
+      if (timerRef.current) clearTimeout(timerRef.current);
+      // A failure stays up longer: it carries an instruction, not a confirmation.
+      timerRef.current = setTimeout(() => setState('idle'), ok ? resetMs : 4000);
+    },
+    [resetMs],
+  );
 
   // The reset timer outlives the component otherwise: copy, then close the sheet
   // inside `resetMs` and the timeout fires against an unmounted component.
-  useEffect(() => () => {
-    if (timerRef.current) clearTimeout(timerRef.current);
-  }, []);
+  useEffect(
+    () => () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    },
+    [],
+  );
 
   return { state, copied: state === 'copied', failed: state === 'failed', copy };
 }

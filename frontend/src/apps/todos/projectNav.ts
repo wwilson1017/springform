@@ -7,10 +7,11 @@ import type { TodoProject } from './types';
  * project is unknown or is the only one of its status — nothing to cycle to.
  */
 export function projectNeighbours(
-  projects: Pick<TodoProject, 'id' | 'status'>[], currentId: number,
+  projects: Pick<TodoProject, 'id' | 'status'>[],
+  currentId: number,
 ): { prev: number; next: number } | null {
-  const status = projects.find(p => p.id === currentId)?.status;
-  const ids = projects.filter(p => p.status === status).map(p => p.id);
+  const status = projects.find((p) => p.id === currentId)?.status;
+  const ids = projects.filter((p) => p.status === status).map((p) => p.id);
   const i = ids.indexOf(currentId);
   if (i < 0 || ids.length < 2) return null;
   return { prev: ids[(i - 1 + ids.length) % ids.length], next: ids[(i + 1) % ids.length] };
@@ -18,6 +19,5 @@ export function projectNeighbours(
 
 /** True when a key press belongs to a field the user is typing in. */
 export function isTypingTarget(el: EventTarget | null): boolean {
-  return el instanceof HTMLElement
-    && (el.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName));
+  return el instanceof HTMLElement && (el.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName));
 }

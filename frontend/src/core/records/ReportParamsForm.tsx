@@ -8,7 +8,11 @@ import { INPUT, LABEL } from './ui';
  * select, a date-format string a date input, integer and number a number input, boolean a
  * yes/no select. Optional params get an empty choice so "not set" stays expressible.
  */
-export function ReportParamsForm({ schema, values, onChange }: {
+export function ReportParamsForm({
+  schema,
+  values,
+  onChange,
+}: {
   schema: ReportParamsSchema | null;
   values: ParamValues;
   onChange: (values: ParamValues) => void;
@@ -23,9 +27,17 @@ export function ReportParamsForm({ schema, values, onChange }: {
         const required = isRequired(schema, name);
         return (
           <div key={name}>
-            <label htmlFor={id} className={LABEL}>{p.title ?? name}{required ? ' *' : ''}</label>
-            <ParamInput id={id} param={p} required={required} value={values[name] ?? ''}
-              onChange={v => onChange({ ...values, [name]: v })} />
+            <label htmlFor={id} className={LABEL}>
+              {p.title ?? name}
+              {required ? ' *' : ''}
+            </label>
+            <ParamInput
+              id={id}
+              param={p}
+              required={required}
+              value={values[name] ?? ''}
+              onChange={(v) => onChange({ ...values, [name]: v })}
+            />
             {p.description && <p className="m-0 mt-1 text-xs text-sf-ink-dim">{p.description}</p>}
           </div>
         );
@@ -34,7 +46,13 @@ export function ReportParamsForm({ schema, values, onChange }: {
   );
 }
 
-function ParamInput({ id, param, required, value, onChange }: {
+function ParamInput({
+  id,
+  param,
+  required,
+  value,
+  onChange,
+}: {
   id: string;
   param: ReportParam;
   required: boolean;
@@ -45,14 +63,27 @@ function ParamInput({ id, param, required, value, onChange }: {
   const choices = param.enum ?? (param.type === 'boolean' ? [true, false] : null);
   if (choices) {
     return (
-      <select {...common} onChange={e => onChange(e.target.value)}>
+      <select {...common} onChange={(e) => onChange(e.target.value)}>
         {(!required || value === '') && <option value="">—</option>}
-        {choices.map(c => <option key={String(c)} value={String(c)}>{typeof c === 'boolean' ? (c ? 'Yes' : 'No') : String(c)}</option>)}
+        {choices.map((c) => (
+          <option key={String(c)} value={String(c)}>
+            {typeof c === 'boolean' ? (c ? 'Yes' : 'No') : String(c)}
+          </option>
+        ))}
       </select>
     );
   }
   if (param.type === 'integer' || param.type === 'number') {
-    return <input {...common} type="number" step={param.type === 'integer' ? 1 : 'any'} onChange={e => onChange(e.target.value)} />;
+    return (
+      <input
+        {...common}
+        type="number"
+        step={param.type === 'integer' ? 1 : 'any'}
+        onChange={(e) => onChange(e.target.value)}
+      />
+    );
   }
-  return <input {...common} type={param.format === 'date' ? 'date' : 'text'} onChange={e => onChange(e.target.value)} />;
+  return (
+    <input {...common} type={param.format === 'date' ? 'date' : 'text'} onChange={(e) => onChange(e.target.value)} />
+  );
 }

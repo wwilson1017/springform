@@ -4,10 +4,14 @@
 // type and silently send a field the API rejects.
 import { describe, expect, it } from 'vitest';
 
-const sources = import.meta.glob<string>(['./**/*.{ts,tsx}', '!./crmGuard.test.ts'], { query: '?raw', import: 'default', eager: true });
+const sources = import.meta.glob<string>(['./**/*.{ts,tsx}', '!./crmGuard.test.ts'], {
+  query: '?raw',
+  import: 'default',
+  eager: true,
+});
 const FORBIDDEN = /\b(contact_id|company_id)\b/;
 
-const offenders = (files: Record<string, string>) => Object.keys(files).filter(f => FORBIDDEN.test(files[f]));
+const offenders = (files: Record<string, string>) => Object.keys(files).filter((f) => FORBIDDEN.test(files[f]));
 
 describe('CRM grep guard', () => {
   it('reached the real CRM sources', () => {

@@ -14,10 +14,24 @@ export function WidgetPage() {
   const { data: widget, error, reload, setData } = useJson<Widget>(widgetUrl(id!));
 
   if (error instanceof ApiError && error.status === 404) {
-    return <Shell><p className="text-sf-ink-mute">This widget doesn't exist, or you can't see it.</p></Shell>;
+    return (
+      <Shell>
+        <p className="text-sf-ink-mute">This widget doesn't exist, or you can't see it.</p>
+      </Shell>
+    );
   }
-  if (error) return <Shell><LoadError label="Couldn't load the widget" onRetry={reload} /></Shell>;
-  if (!widget) return <Shell><p className="text-sm text-sf-ink-dim">Loading…</p></Shell>;
+  if (error)
+    return (
+      <Shell>
+        <LoadError label="Couldn't load the widget" onRetry={reload} />
+      </Shell>
+    );
+  if (!widget)
+    return (
+      <Shell>
+        <p className="text-sm text-sf-ink-dim">Loading…</p>
+      </Shell>
+    );
 
   async function save(patch: WidgetInput) {
     try {
@@ -52,7 +66,9 @@ export function WidgetPage() {
 function Shell({ children }: { children: React.ReactNode }) {
   return (
     <div className="mx-auto max-w-4xl px-4 py-8 md:px-8">
-      <Link to=".." className="text-sm text-sf-accent-text">← All widgets</Link>
+      <Link to=".." className="text-sm text-sf-accent-text">
+        ← All widgets
+      </Link>
       <div className="mt-4">{children}</div>
     </div>
   );
@@ -72,19 +88,40 @@ function WidgetForm({ widget, onSave }: { widget: Widget; onSave: (patch: Widget
 
   return (
     <div className="flex flex-wrap items-center gap-3">
-      <label htmlFor="widget-edit-name" className="sr-only">Name</label>
-      <input id="widget-edit-name" value={name} onChange={e => setName(e.target.value)}
-        className="min-w-40 flex-1 rounded-md border border-sf-line-strong bg-sf-card px-3 py-2 font-display text-xl text-sf-ink" />
+      <label htmlFor="widget-edit-name" className="sr-only">
+        Name
+      </label>
+      <input
+        id="widget-edit-name"
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        className="min-w-40 flex-1 rounded-md border border-sf-line-strong bg-sf-card px-3 py-2 font-display text-xl text-sf-ink"
+      />
       <label className="flex items-center gap-2 text-sm text-sf-ink-mute">
-        Color <input type="color" value={color} onChange={e => setColor(e.target.value)} className="h-8 w-10 cursor-pointer border-0 bg-transparent p-0" />
+        Color{' '}
+        <input
+          type="color"
+          value={color}
+          onChange={(e) => setColor(e.target.value)}
+          className="h-8 w-10 cursor-pointer border-0 bg-transparent p-0"
+        />
       </label>
       <label className="flex items-center gap-2 text-sm text-sf-ink-mute">
-        <input type="checkbox" checked={widget.is_private} disabled={busy} className="accent-sf-accent"
-          onChange={e => void run({ is_private: e.target.checked })} />
+        <input
+          type="checkbox"
+          checked={widget.is_private}
+          disabled={busy}
+          className="accent-sf-accent"
+          onChange={(e) => void run({ is_private: e.target.checked })}
+        />
         Private
       </label>
-      <button type="button" disabled={busy || !dirty || !name.trim()} onClick={() => void run({ name: name.trim(), color })}
-        className="cursor-pointer rounded-md border-0 bg-sf-accent px-4 py-2 text-sm font-medium text-sf-accent-ink disabled:opacity-50">
+      <button
+        type="button"
+        disabled={busy || !dirty || !name.trim()}
+        onClick={() => void run({ name: name.trim(), color })}
+        className="cursor-pointer rounded-md border-0 bg-sf-accent px-4 py-2 text-sm font-medium text-sf-accent-ink disabled:opacity-50"
+      >
         Save
       </button>
     </div>

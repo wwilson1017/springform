@@ -6,15 +6,34 @@ import { UserPicker } from './UserPicker';
 import { resetUserNames } from './users';
 
 const FIRST = '/api/core/timeline/mentionable?q=';
-const PEOPLE = [{ id: 1, name: 'Ada Admin' }, { id: 2, name: 'Max Member' }];
+const PEOPLE = [
+  { id: 1, name: 'Ada Admin' },
+  { id: 2, name: 'Max Member' },
+];
 
-function Harness({ initial = '', onChange = () => {}, valueName }: { initial?: string; onChange?: (v: string) => void; valueName?: string }) {
+function Harness({
+  initial = '',
+  onChange = () => {},
+  valueName,
+}: {
+  initial?: string;
+  onChange?: (v: string) => void;
+  valueName?: string;
+}) {
   const [value, setValue] = useState(initial);
   return (
     <>
       <label htmlFor="owner">Owner</label>
-      <UserPicker id="owner" value={value} valueName={valueName} options={[['', 'Nobody']]}
-        onChange={v => { setValue(v); onChange(v); }} />
+      <UserPicker
+        id="owner"
+        value={value}
+        valueName={valueName}
+        options={[['', 'Nobody']]}
+        onChange={(v) => {
+          setValue(v);
+          onChange(v);
+        }}
+      />
       <output data-testid="value">{value}</output>
     </>
   );
@@ -51,10 +70,10 @@ describe('UserPicker', () => {
     expect(input().value).toBe('Nobody');
     fireEvent.focus(input());
     expect(await screen.findByRole('option', { name: 'Ada Admin' })).toBeTruthy();
-    expect(screen.getAllByRole('option').map(o => o.textContent)).toEqual(['Nobody', 'Ada Admin', 'Max Member']);
+    expect(screen.getAllByRole('option').map((o) => o.textContent)).toEqual(['Nobody', 'Ada Admin', 'Max Member']);
 
     fireEvent.change(input(), { target: { value: 'max' } });
-    await vi.waitFor(() => expect(screen.getAllByRole('option').map(o => o.textContent)).toEqual(['Max Member']));
+    await vi.waitFor(() => expect(screen.getAllByRole('option').map((o) => o.textContent)).toEqual(['Max Member']));
     expect(callsTo(fetchMock, 'GET', `${FIRST}max`)).toHaveLength(1);
     expect(input().getAttribute('aria-activedescendant')).toBe(screen.getByRole('option', { name: 'Max Member' }).id);
     fireEvent.keyDown(input(), { key: 'Enter' });

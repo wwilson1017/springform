@@ -18,9 +18,10 @@ export function createSseParser(): SseParser {
   let buffer = '';
 
   function frame(block: string): ChatEvent | null {
-    const data = block.split('\n')
-      .filter(line => line.startsWith('data:'))
-      .map(line => line.slice(line.startsWith('data: ') ? 6 : 5))
+    const data = block
+      .split('\n')
+      .filter((line) => line.startsWith('data:'))
+      .map((line) => line.slice(line.startsWith('data: ') ? 6 : 5))
       .join('\n');
     if (!data.trim()) return null;
     try {
@@ -35,7 +36,7 @@ export function createSseParser(): SseParser {
     // Only CRLF pairs: a lone CR may be the first half of one split across two chunks.
     buffer = buffer.replace(/\r\n/g, '\n');
     const blocks = buffer.split('\n\n');
-    buffer = final ? '' : blocks.pop() ?? '';
+    buffer = final ? '' : (blocks.pop() ?? '');
     return blocks.map(frame).filter((e): e is ChatEvent => e !== null);
   }
 
@@ -54,7 +55,10 @@ export function createSseParser(): SseParser {
  * Read a streaming response to its end, handing each batch of events to `onEvents`. Resolves
  * when the body ends; rejects when the connection drops (or the caller aborts the fetch).
  */
-export async function readEvents(body: ReadableStream<Uint8Array>, onEvents: (events: ChatEvent[]) => void): Promise<void> {
+export async function readEvents(
+  body: ReadableStream<Uint8Array>,
+  onEvents: (events: ChatEvent[]) => void,
+): Promise<void> {
   const reader = body.getReader();
   const decoder = new TextDecoder();
   const parser = createSseParser();

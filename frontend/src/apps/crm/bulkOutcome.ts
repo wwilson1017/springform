@@ -52,9 +52,7 @@ export type BulkMoveOutcome =
   | { kind: 'rejected'; reason?: string }
   | { kind: 'unconfirmed' };
 
-export function classifyBulkMove(
-  result: BulkMoveResponse | { thrown: ThrownRequest },
-): BulkMoveOutcome {
+export function classifyBulkMove(result: BulkMoveResponse | { thrown: ThrownRequest }): BulkMoveOutcome {
   if ('thrown' in result) {
     const { status, reason } = result.thrown;
     if (status !== undefined && status >= 400 && status < 500) {
@@ -67,9 +65,7 @@ export function classifyBulkMove(
   // Committed. Per-deal errors alongside ok:true are benign skips — a deal archived or
   // deleted between page load and the click. The rest moved.
   const reasons = result.errors ?? [];
-  return reasons.length > 0
-    ? { kind: 'skips', skipped: reasons.length, reasons }
-    : { kind: 'clean' };
+  return reasons.length > 0 ? { kind: 'skips', skipped: reasons.length, reasons } : { kind: 'clean' };
 }
 
 export interface BulkNotice {
@@ -130,11 +126,12 @@ export function describeBulkMove(
     // deal needs restoring first). Only fall back to a bare count for several, where
     // stacking every sentence would be worse than a summary plus the first cause.
     const [first] = outcome.reasons;
-    const detail = outcome.skipped === 1 && first
-      ? first.trim().replace(/[.\s]+$/, '')
-      : first
-        ? `${plural(outcome.skipped, 'deal')} couldn't be moved — first: ${first.trim().replace(/[.\s]+$/, '')}`
-        : `${plural(outcome.skipped, 'deal')} couldn't be moved`;
+    const detail =
+      outcome.skipped === 1 && first
+        ? first.trim().replace(/[.\s]+$/, '')
+        : first
+          ? `${plural(outcome.skipped, 'deal')} couldn't be moved — first: ${first.trim().replace(/[.\s]+$/, '')}`
+          : `${plural(outcome.skipped, 'deal')} couldn't be moved`;
     return {
       text: `${detail}.${stale ? staleWarning : ''}`,
       // A skip tally on a reconciled board is an FYI that can auto-dismiss. Once the

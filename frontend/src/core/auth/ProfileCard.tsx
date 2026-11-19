@@ -34,19 +34,37 @@ export default function ProfileCard() {
     <form onSubmit={onSubmit} className="flex max-w-md flex-col gap-4">
       <div>
         <p className={labelSm}>Email</p>
-        <p className="m-0 break-all text-sm text-sf-ink">{user.email} <span className="text-sf-ink-dim">· {user.role === 'admin' ? 'Admin' : 'Member'}</span></p>
+        <p className="m-0 break-all text-sm text-sf-ink">
+          {user.email} <span className="text-sf-ink-dim">· {user.role === 'admin' ? 'Admin' : 'Member'}</span>
+        </p>
       </div>
       <div>
-        <label htmlFor="profile-name" className={labelSm}>Name</label>
-        <input id="profile-name" value={name} onChange={e => setName(e.target.value)} autoComplete="name" className={inputSm} />
+        <label htmlFor="profile-name" className={labelSm}>
+          Name
+        </label>
+        <input
+          id="profile-name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          autoComplete="name"
+          className={inputSm}
+        />
       </div>
       <div>
-        <label htmlFor="profile-tz" className={labelSm}>Time zone</label>
+        <label htmlFor="profile-tz" className={labelSm}>
+          Time zone
+        </label>
         <TimezoneSelect id="profile-tz" value={tz} onChange={setTz} />
       </div>
-      {error && <p role="alert" className={alertText}>{error}</p>}
+      {error && (
+        <p role="alert" className={alertText}>
+          {error}
+        </p>
+      )}
       <div>
-        <button type="submit" disabled={busy || !dirty || !name.trim()} className={btnPrimary}>{busy ? 'Saving…' : 'Save'}</button>
+        <button type="submit" disabled={busy || !dirty || !name.trim()} className={btnPrimary}>
+          {busy ? 'Saving…' : 'Save'}
+        </button>
       </div>
     </form>
   );

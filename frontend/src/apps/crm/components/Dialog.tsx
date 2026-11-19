@@ -7,7 +7,13 @@
 import { useEffect, useId, useRef, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 
-export function Dialog({ title, subtitle, onClose, children, wide }: {
+export function Dialog({
+  title,
+  subtitle,
+  onClose,
+  children,
+  wide,
+}: {
   title: string;
   subtitle?: string;
   onClose: () => void;
@@ -17,14 +23,19 @@ export function Dialog({ title, subtitle, onClose, children, wide }: {
   const ref = useRef<HTMLDivElement>(null);
   const titleId = useId();
   const onCloseRef = useRef(onClose);
-  useEffect(() => { onCloseRef.current = onClose; });
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  });
 
   useEffect(() => {
     const previouslyFocused = document.activeElement;
-    const focusable = () => [...(ref.current?.querySelectorAll<HTMLElement>(
-      'input, textarea, select, button, [href], [tabindex]:not([tabindex="-1"])',
-    ) ?? [])].filter(el => !(el as HTMLButtonElement).disabled);
-    (focusable().find(el => el.matches('input, textarea, select')) ?? focusable()[0])?.focus();
+    const focusable = () =>
+      [
+        ...(ref.current?.querySelectorAll<HTMLElement>(
+          'input, textarea, select, button, [href], [tabindex]:not([tabindex="-1"])',
+        ) ?? []),
+      ].filter((el) => !(el as HTMLButtonElement).disabled);
+    (focusable().find((el) => el.matches('input, textarea, select')) ?? focusable()[0])?.focus();
 
     function onKeyDown(e: KeyboardEvent) {
       // A dialog opened over this one (the shared confirm) owns the keyboard while it has focus.
@@ -62,16 +73,21 @@ export function Dialog({ title, subtitle, onClose, children, wide }: {
   }, []);
 
   return createPortal(
-    <div onClick={onClose} className="fixed inset-0 z-[140] flex items-end justify-center bg-sf-scrim md:items-center md:p-4">
+    <div
+      onClick={onClose}
+      className="fixed inset-0 z-[140] flex items-end justify-center bg-sf-scrim md:items-center md:p-4"
+    >
       <div
         ref={ref}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        onClick={e => e.stopPropagation()}
+        onClick={(e) => e.stopPropagation()}
         className={`max-h-[90dvh] w-full overflow-y-auto rounded-t-xl border border-sf-line-strong bg-sf-card p-5 shadow-xl md:rounded-lg md:p-6 ${wide ? 'md:max-w-3xl' : 'md:max-w-md'}`}
       >
-        <h2 id={titleId} className="m-0 font-display text-lg font-medium text-sf-ink">{title}</h2>
+        <h2 id={titleId} className="m-0 font-display text-lg font-medium text-sf-ink">
+          {title}
+        </h2>
         {subtitle && <p className="m-0 mt-1 text-sm text-sf-ink-mute">{subtitle}</p>}
         <div className="mt-4">{children}</div>
       </div>

@@ -15,7 +15,9 @@ export function LoadError({ label = "Couldn't load", onRetry, compact }: Props) 
   return (
     <div
       style={{
-        display: 'flex', alignItems: 'center', gap: 10,
+        display: 'flex',
+        alignItems: 'center',
+        gap: 10,
         background: tint(CORAL_FILL, 6),
         border: `1px solid ${tint(CORAL_FILL, 18)}`,
         borderRadius: 6,
@@ -30,8 +32,14 @@ export function LoadError({ label = "Couldn't load", onRetry, compact }: Props) 
       <button
         onClick={onRetry}
         style={{
-          background: 'none', border: 'none', color: GOLD_TEXT, cursor: 'pointer',
-          fontSize: 12, fontFamily: FONT_SANS, padding: '2px 4px', flexShrink: 0,
+          background: 'none',
+          border: 'none',
+          color: GOLD_TEXT,
+          cursor: 'pointer',
+          fontSize: 12,
+          fontFamily: FONT_SANS,
+          padding: '2px 4px',
+          flexShrink: 0,
         }}
       >
         Retry

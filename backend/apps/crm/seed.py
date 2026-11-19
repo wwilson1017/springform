@@ -64,6 +64,13 @@ def sample(conn) -> None:
         elif stage != "lead":
             deals.update_in(conn, owner, deal["id"], {"stage": stage})
         if stage in ("proposal", "negotiation"):
-            activity.log_in(conn, owner, "call", f"Talked through {title.lower()}", deal_id=deal["id"], person_id=person_ids.get(email))
+            activity.log_in(
+                conn,
+                owner,
+                "call",
+                f"Talked through {title.lower()}",
+                deal_id=deal["id"],
+                person_id=person_ids.get(email),
+            )
     seed_meta_in(conn)
     conn.execute("UPDATE crm_meta SET sample_data_loaded = 1, updated_at = ? WHERE id = 1", (clock.now_iso(),))

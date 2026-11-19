@@ -84,7 +84,9 @@ def test_sweep_holding_the_lock_then_an_upload_of_the_same_bytes_republishes(log
     monkeypatch.setattr(thumbnails, "make", lambda path: staged.set())  # runs between staging and the transaction
     out: dict = {}
     sweeper = threading.Thread(target=lambda: out.update(sweep=jobs.sweep()))
-    uploader = threading.Thread(target=lambda: out.update(file=files_api.attach(member.principal, W, w, "new.txt", b"old bytes")))
+    uploader = threading.Thread(
+        target=lambda: out.update(file=files_api.attach(member.principal, W, w, "new.txt", b"old bytes"))
+    )
 
     sweeper.start()
     assert in_lock.wait(5)  # the sweep is inside its transaction
@@ -107,7 +109,9 @@ def test_a_missing_file_is_410_flagged_by_the_sweep_and_healed_by_reupload(login
     member = login_as("member")
     w = _widget(member)
     upload = lambda: member.post(  # noqa: E731
-        "/api/core/files", data={"entity_type": W, "entity_id": str(w)}, files={"file": ("a.txt", b"precious", "text/plain")}
+        "/api/core/files",
+        data={"entity_type": W, "entity_id": str(w)},
+        files={"file": ("a.txt", b"precious", "text/plain")},
     )
     f = upload().json()
     storage.blob_path(f["sha256"]).unlink()
@@ -139,5 +143,8 @@ def test_sweep_removes_stale_orphans_and_tmp_uploads_only(db):
             os.utime(p, (old, old))
     assert jobs.sweep() == {"expired": 0, "missing": 0, "orphans": 1, "tmp": 1}
     assert {name: p.exists() for name, p in paths.items()} == {
-        "stale_orphan": False, "fresh_orphan": True, "stale_tmp": False, "fresh_tmp": True,
+        "stale_orphan": False,
+        "fresh_orphan": True,
+        "stale_tmp": False,
+        "fresh_tmp": True,
     }

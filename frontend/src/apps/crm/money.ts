@@ -9,8 +9,10 @@ export function formatCents(cents: number | null | undefined, currency = 'USD'):
   const whole = cents % 100 === 0;
   try {
     return new Intl.NumberFormat(undefined, {
-      style: 'currency', currency,
-      minimumFractionDigits: whole ? 0 : 2, maximumFractionDigits: whole ? 0 : 2,
+      style: 'currency',
+      currency,
+      minimumFractionDigits: whole ? 0 : 2,
+      maximumFractionDigits: whole ? 0 : 2,
     }).format(cents / 100);
   } catch {
     // An unknown currency code: Intl throws, so fall back to the bare number and the code.

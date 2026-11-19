@@ -10,16 +10,23 @@ import { AppRoute } from './AppRoute';
 import { MemoryRouter } from 'react-router';
 
 const member: User = { id: 2, email: 'm@example.com', name: 'M', role: 'member', tz: 'UTC' };
-const app = (roles: AppManifest['roles']) => ({
-  slug: 'x',
-  manifest: { slug: 'x', roles } as AppManifest,
-  contributions: { slug: 'x' },
-  Screen: (() => <p>APP SCREEN</p>) as unknown as LazyExoticComponent<ComponentType>,
-}) satisfies RegisteredApp;
+const app = (roles: AppManifest['roles']) =>
+  ({
+    slug: 'x',
+    manifest: { slug: 'x', roles } as AppManifest,
+    contributions: { slug: 'x' },
+    Screen: (() => <p>APP SCREEN</p>) as unknown as LazyExoticComponent<ComponentType>,
+  }) satisfies RegisteredApp;
 
 function renderRoute(a: RegisteredApp, apps: unknown[]) {
   mockFetch({ 'GET /api/me': { body: member }, 'GET /api/core/apps': { body: apps } });
-  render(<MemoryRouter><AuthProvider><AppRoute app={a} /></AuthProvider></MemoryRouter>);
+  render(
+    <MemoryRouter>
+      <AuthProvider>
+        <AppRoute app={a} />
+      </AuthProvider>
+    </MemoryRouter>,
+  );
 }
 
 afterEach(() => vi.unstubAllGlobals());

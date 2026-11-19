@@ -12,7 +12,8 @@ from backend.core.errors import NotFound
 def _actor_in(conn: db.Conn, user_id: int) -> User:
     """The acting user: any active account, the system principal (id 0, a job) included."""
     row = conn.execute(
-        "SELECT id, email, name, role, tz, is_active, token_epoch FROM core_users WHERE id = ? AND is_active = 1", (user_id,)
+        "SELECT id, email, name, role, tz, is_active, token_epoch FROM core_users WHERE id = ? AND is_active = 1",
+        (user_id,),
     ).fetchone()
     if row is None:
         raise NotFound("no such active user")
@@ -59,7 +60,9 @@ def create(
         )  # fmt: skip
 
 
-def list_for_record_in(conn: db.Conn, user: User, entity_type: str, entity_id: int, include_done: bool = False) -> list[dict]:
+def list_for_record_in(
+    conn: db.Conn, user: User, entity_type: str, entity_id: int, include_done: bool = False
+) -> list[dict]:
     """Team todos and the user's private ones linked to a record. NotFound when the user may not read the record."""
     return service.list_for_record_in(conn, user, entity_type, entity_id, include_done)
 

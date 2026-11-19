@@ -30,8 +30,12 @@ class AIProvider(ABC):
 
     @abstractmethod
     def stream_turn(
-        self, messages: list[dict], tools: list[dict], system_prompt: str | tuple[str, str],
-        *, max_tokens: int = DEFAULT_MAX_TOKENS,
+        self,
+        messages: list[dict],
+        tools: list[dict],
+        system_prompt: str | tuple[str, str],
+        *,
+        max_tokens: int = DEFAULT_MAX_TOKENS,
     ) -> AsyncGenerator[dict, None]:
         """One model call. `system_prompt` is a string or a (static, volatile) pair; providers
         with prompt caching cache the static half."""
@@ -51,13 +55,21 @@ class AIProvider(ABC):
         return None
 
     def build_tool_turn(
-        self, text: str, tool_calls: list[dict], tool_results: list[dict], native: list | None = None,
+        self,
+        text: str,
+        tool_calls: list[dict],
+        tool_results: list[dict],
+        native: list | None = None,
     ) -> list[dict]:
         """Rebuild one tool-using assistant iteration as native messages. Exactly one result per
         call: a missing one is stubbed, so the model never sees an orphaned tool_use. `native` is
         the provider's own assistant content from this turn (only Anthropic uses it)."""
         tcs = [
-            {"id": tc.get("tool_use_id") or tc.get("id"), "name": tc.get("tool") or tc.get("name"), "args": tc.get("args", {})}
+            {
+                "id": tc.get("tool_use_id") or tc.get("id"),
+                "name": tc.get("tool") or tc.get("name"),
+                "args": tc.get("args", {}),
+            }
             for tc in tool_calls or []
         ]
         by_id = {r.get("tool_use_id"): r for r in tool_results or []}

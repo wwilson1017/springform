@@ -29,17 +29,17 @@ export function NextActionsPage() {
   const [adding, setAdding] = useState(false);
 
   const visible = useMemo(
-    () => (todos ?? []).filter(
-      t => matchesContexts(t.context, contexts) && matchesPeople(t.people, people)
-        && matchesFilter(t, search),
-    ),
+    () =>
+      (todos ?? []).filter(
+        (t) => matchesContexts(t.context, contexts) && matchesPeople(t.people, people) && matchesFilter(t, search),
+      ),
     [todos, search, contexts, people],
   );
 
-  const starred = visible.filter(t => t.star);
+  const starred = visible.filter((t) => t.star);
   const groups = useMemo(() => {
     const byContext = new Map<string, Todo[]>();
-    for (const t of visible.filter(v => !v.star)) {
+    for (const t of visible.filter((v) => !v.star)) {
       const key = t.context || NO_CONTEXT;
       byContext.set(key, [...(byContext.get(key) ?? []), t]);
     }
@@ -52,9 +52,8 @@ export function NextActionsPage() {
 
   const rows = (items: Todo[]) => (
     <div className="space-y-2">
-      {items.map(t => (
-        <TodoRow key={t.id} todo={t} onToggleDone={toggleDone}
-                 onToggleStar={toggleStar} onEdit={setEditTodo} />
+      {items.map((t) => (
+        <TodoRow key={t.id} todo={t} onToggleDone={toggleDone} onToggleStar={toggleStar} onEdit={setEditTodo} />
       ))}
     </div>
   );
@@ -62,7 +61,9 @@ export function NextActionsPage() {
   return (
     <TodoShell active="next" onAdded={reload} scoped>
       <div className="mb-3 flex items-center justify-between gap-2">
-        <p className="text-sm text-sf-ink-dim">{visible.length} next action{visible.length === 1 ? '' : 's'}</p>
+        <p className="text-sm text-sf-ink-dim">
+          {visible.length} next action{visible.length === 1 ? '' : 's'}
+        </p>
         <button
           type="button"
           onClick={() => setAdding(true)}
@@ -76,23 +77,19 @@ export function NextActionsPage() {
         onQueryChange={setSearch}
         placeholder="Filter…"
         groups={[
-          contextGroup(
-            filters?.contexts ?? [],
-            contexts,
-            v => setContexts(prev => toggleValue(prev, v)),
-          ),
-          peopleGroup(
-            filters?.people ?? [],
-            people,
-            v => setPeople(prev => toggleValue(prev, v)),
-          ),
+          contextGroup(filters?.contexts ?? [], contexts, (v) => setContexts((prev) => toggleValue(prev, v))),
+          peopleGroup(filters?.people ?? [], people, (v) => setPeople((prev) => toggleValue(prev, v))),
         ]}
         visibleCount={visible.length}
         totalCount={todos?.length ?? 0}
         countNoun="next action"
         active={search.trim() !== '' || contexts.length + people.length > 0}
         activeFacetCount={contexts.length + people.length}
-        onClear={() => { setSearch(''); setContexts([]); setPeople([]); }}
+        onClear={() => {
+          setSearch('');
+          setContexts([]);
+          setPeople([]);
+        }}
       />
       {failed && <LoadFailed retry={reload} />}
       {!failed && todos === null && <LoadingRows />}
@@ -110,9 +107,7 @@ export function NextActionsPage() {
         )}
         {groups.map(([context, items]) => (
           <section key={context}>
-            <h2 className="mb-2 text-xs font-display font-bold uppercase tracking-wide text-sf-ink-dim">
-              {context}
-            </h2>
+            <h2 className="mb-2 text-xs font-display font-bold uppercase tracking-wide text-sf-ink-dim">{context}</h2>
             {rows(items)}
           </section>
         ))}
@@ -123,7 +118,10 @@ export function NextActionsPage() {
           defaults={{ status: 'next_action' }}
           projects={projects}
           contexts={filters?.contexts ?? []}
-          onClose={() => { setEditTodo(null); setAdding(false); }}
+          onClose={() => {
+            setEditTodo(null);
+            setAdding(false);
+          }}
           onSaved={after}
         />
       )}

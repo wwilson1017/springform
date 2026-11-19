@@ -177,7 +177,12 @@ def list_facts_in(conn: db.Conn, limit: int = 50, offset: int = 0, *, include_hi
     rows = conn.execute(
         f"""SELECT {_COLS} FROM {_FROM} WHERE (:history OR {_CURRENT})
             ORDER BY {_CURRENT} DESC, f.id DESC LIMIT :limit OFFSET :offset""",
-        {"history": int(include_history), "now": clock.now_iso(), "limit": _limit(limit), "offset": max(0, int(offset))},
+        {
+            "history": int(include_history),
+            "now": clock.now_iso(),
+            "limit": _limit(limit),
+            "offset": max(0, int(offset)),
+        },
     )
     return [_row(r) for r in rows]
 

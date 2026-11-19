@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { LISTS, PRIMARY, SECONDARY, overflowHidden, todoPath } from './menu';
 
-const labels = (items: { label: string }[]) => items.map(i => i.label);
+const labels = (items: { label: string }[]) => items.map((i) => i.label);
 
 describe('the menu definition', () => {
   it('splits the ten lists into the two tiers, in order', () => {
@@ -15,9 +15,17 @@ describe('the menu definition', () => {
   });
 
   it('keeps the existing routes', () => {
-    expect(Object.fromEntries(LISTS.map(l => [l.key, l.sub]))).toEqual({
-      today: '', inbox: '/inbox', next: '/next', search: '/search', projects: '/projects',
-      areas: '/areas', waiting: '/waiting', someday: '/someday', review: '/review', done: '/done',
+    expect(Object.fromEntries(LISTS.map((l) => [l.key, l.sub]))).toEqual({
+      today: '',
+      inbox: '/inbox',
+      next: '/next',
+      search: '/search',
+      projects: '/projects',
+      areas: '/areas',
+      waiting: '/waiting',
+      someday: '/someday',
+      review: '/review',
+      done: '/done',
     });
   });
 });

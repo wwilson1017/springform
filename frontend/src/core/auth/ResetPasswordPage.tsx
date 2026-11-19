@@ -29,9 +29,15 @@ export default function ResetPasswordPage() {
     try {
       setError(await finish(await postJson<LoginResult>('/api/auth/reset', { token, password })));
     } catch (err) {
-      setError(errorText(err, {
-        not_found: 'This reset link has expired or was already used. Ask for a new one from the sign-in page.',
-      }, "Couldn't reset your password. Try again."));
+      setError(
+        errorText(
+          err,
+          {
+            not_found: 'This reset link has expired or was already used. Ask for a new one from the sign-in page.',
+          },
+          "Couldn't reset your password. Try again.",
+        ),
+      );
     } finally {
       setBusy(false);
     }
@@ -40,8 +46,16 @@ export default function ResetPasswordPage() {
   if (challenge) {
     return (
       <AuthLayout subtitle="One more step.">
-        <ChallengeStep challenge={challenge} onSignedIn={enter}
-          onRestart={message => navigate('/login', { replace: true, state: { notice: message || 'Your new password is saved. Sign in with it.' } })} />
+        <ChallengeStep
+          challenge={challenge}
+          onSignedIn={enter}
+          onRestart={(message) =>
+            navigate('/login', {
+              replace: true,
+              state: { notice: message || 'Your new password is saved. Sign in with it.' },
+            })
+          }
+        />
       </AuthLayout>
     );
   }
@@ -49,19 +63,50 @@ export default function ResetPasswordPage() {
   return (
     <AuthLayout subtitle="Choose a new password.">
       <form onSubmit={onSubmit}>
-        <label htmlFor="reset-password" className={labelClass}>New password</label>
-        <input id="reset-password" type="password" autoComplete="new-password" value={password} autoFocus
-          onChange={e => setPassword(e.target.value)} placeholder="At least 8 characters" className={inputClass} />
-        <label htmlFor="reset-confirm" className={`${labelClass} mt-4`}>Confirm password</label>
-        <input id="reset-confirm" type="password" autoComplete="new-password" value={confirm} aria-invalid={mismatch}
-          onChange={e => setConfirm(e.target.value)} className={inputClass} />
+        <label htmlFor="reset-password" className={labelClass}>
+          New password
+        </label>
+        <input
+          id="reset-password"
+          type="password"
+          autoComplete="new-password"
+          value={password}
+          autoFocus
+          onChange={(e) => setPassword(e.target.value)}
+          placeholder="At least 8 characters"
+          className={inputClass}
+        />
+        <label htmlFor="reset-confirm" className={`${labelClass} mt-4`}>
+          Confirm password
+        </label>
+        <input
+          id="reset-confirm"
+          type="password"
+          autoComplete="new-password"
+          value={confirm}
+          aria-invalid={mismatch}
+          onChange={(e) => setConfirm(e.target.value)}
+          className={inputClass}
+        />
         {mismatch && <p className="mb-0 mt-2 text-xs text-sf-red-text">Passwords don't match.</p>}
-        {error && <p role="alert" className="mb-0 mt-3 text-sm text-sf-red-text">{error}</p>}
-        <button type="submit" disabled={busy || password.length < 8 || password !== confirm} className={`${buttonClass} mt-5`}>
+        {error && (
+          <p role="alert" className="mb-0 mt-3 text-sm text-sf-red-text">
+            {error}
+          </p>
+        )}
+        <button
+          type="submit"
+          disabled={busy || password.length < 8 || password !== confirm}
+          className={`${buttonClass} mt-5`}
+        >
           {busy ? 'Saving…' : 'Save and sign in'}
         </button>
       </form>
-      <p className="mb-0 mt-6 text-center text-sm"><Link to="/login" className="text-sf-accent-text">Back to sign in</Link></p>
+      <p className="mb-0 mt-6 text-center text-sm">
+        <Link to="/login" className="text-sf-accent-text">
+          Back to sign in
+        </Link>
+      </p>
     </AuthLayout>
   );
 }

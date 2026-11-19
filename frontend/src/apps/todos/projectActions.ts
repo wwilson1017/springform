@@ -6,9 +6,7 @@ import { toast } from './toast';
 import type { TodoProjectStatus } from './types';
 
 /** PUT a project status change; toasts on failure. Returns success. */
-export async function updateProjectStatus(
-  projectId: number, status: TodoProjectStatus,
-): Promise<boolean> {
+export async function updateProjectStatus(projectId: number, status: TodoProjectStatus): Promise<boolean> {
   try {
     await updateProject(projectId, { status });
     return true;

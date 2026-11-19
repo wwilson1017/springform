@@ -22,12 +22,12 @@ const KIND: Record<UndoKind, { row: string; header: string; verb: (title: string
   done: {
     row: 'Marked done',
     header: 'marked done',
-    verb: title => `Undo marking “${title}” done`,
+    verb: (title) => `Undo marking “${title}” done`,
   },
   filed: {
     row: 'Context set',
     header: 'filed from inbox',
-    verb: title => `Undo filing “${title}”`,
+    verb: (title) => `Undo filing “${title}”`,
   },
 };
 
@@ -55,10 +55,8 @@ export function UndoPill({ inline = false }: { inline?: boolean }) {
   // The header names the action while every row is the same one, which keeps
   // todo-gtd #2879's wording exactly where it was; a queue holding both kinds has no one
   // action to name, and the per-row labels are what disambiguate it there.
-  const onlyKind = entries.every(e => e.kind === entries[0].kind) ? entries[0].kind : null;
-  const heading = onlyKind
-    ? `${entries.length} ${KIND[onlyKind].header}`
-    : `${entries.length} recent changes`;
+  const onlyKind = entries.every((e) => e.kind === entries[0].kind) ? entries[0].kind : null;
+  const heading = onlyKind ? `${entries.length} ${KIND[onlyKind].header}` : `${entries.length} recent changes`;
 
   return (
     <div
@@ -67,14 +65,12 @@ export function UndoPill({ inline = false }: { inline?: boolean }) {
       role="status"
       aria-live="polite"
       aria-label="Recent changes you can undo"
-      className={`overflow-hidden rounded-xl border border-sf-line-strong bg-sf-card ${inline
-        ? 'mt-4 w-full'
-        : 'pointer-events-auto w-full max-w-sm shadow-lg sm:w-80 sm:self-end'}`}
+      className={`overflow-hidden rounded-xl border border-sf-line-strong bg-sf-card ${
+        inline ? 'mt-4 w-full' : 'pointer-events-auto w-full max-w-sm shadow-lg sm:w-80 sm:self-end'
+      }`}
     >
       <div className="flex h-11 items-center justify-between gap-2 border-b border-sf-line px-3">
-        <span className="truncate font-display text-sm font-semibold text-sf-ink">
-          {heading}
-        </span>
+        <span className="truncate font-display text-sm font-semibold text-sf-ink">{heading}</span>
         {/* Only once it stops being a second button for the same single row. */}
         {entries.length > 1 && (
           <button type="button" onClick={() => void undoAll()} className={ACTION}>
@@ -83,7 +79,7 @@ export function UndoPill({ inline = false }: { inline?: boolean }) {
         )}
       </div>
       <ul>
-        {entries.map(entry => (
+        {entries.map((entry) => (
           <li key={entry.key} className={ROW}>
             {/* `min-w-0` is what lets `truncate` actually clip inside a flex row —
                 without it the title sets the block's width and C2's fixed width

@@ -44,7 +44,9 @@ def ensure_setup_token() -> str | None:
     with os.fdopen(fd, "w") as f:
         f.write(token + "\n")
     os.chmod(path, 0o600)
-    logger.warning("No account exists yet. Open %s/setup and enter this one-time setup token: %s", settings.public_url(), token)
+    logger.warning(
+        "No account exists yet. Open %s/setup and enter this one-time setup token: %s", settings.public_url(), token
+    )
     return token
 
 
@@ -74,6 +76,8 @@ def create_admin(email: str, name: str, password: str) -> dict:
     """The operator's route (CLI): an admin at any time; also ends first-run setup."""
     with db.transaction() as conn:
         user = service.create_user_in(conn, email, name, "admin", password)
-        conn.execute("UPDATE core_login_tokens SET used_at = ? WHERE purpose = 'setup' AND used_at IS NULL", (clock.now_iso(),))
+        conn.execute(
+            "UPDATE core_login_tokens SET used_at = ? WHERE purpose = 'setup' AND used_at IS NULL", (clock.now_iso(),)
+        )
     (db.data_dir() / TOKEN_FILE).unlink(missing_ok=True)
     return user

@@ -125,7 +125,9 @@ def create_definition_in(conn: db.Conn, user: User, data: dict) -> dict:
     if not _KEY.fullmatch(key):
         raise Invalid("key: lowercase letters, digits and underscores, starting with a letter, at most 64")
     options = _options(field_type, data.get("options"))
-    if conn.execute("SELECT 1 FROM core_field_definitions WHERE entity_type = ? AND key = ?", (entity_type, key)).fetchone():
+    if conn.execute(
+        "SELECT 1 FROM core_field_definitions WHERE entity_type = ? AND key = ?", (entity_type, key)
+    ).fetchone():
         raise Conflict("duplicate_key")  # archived definitions keep their key
     position = data.get("position")
     if position is None:
@@ -219,13 +221,21 @@ def _valid_in(conn: db.Conn, definition: dict, value: Any) -> bool:
     if t == "url":
         return isinstance(value, str) and len(value) <= MAX_URL and bool(_URL.fullmatch(value))
     if t == "user":
-        return type(value) is int and conn.execute(
-            "SELECT 1 FROM core_users WHERE id = ? AND is_active = 1 AND role != 'system'", (value,)
-        ).fetchone() is not None
+        return (
+            type(value) is int
+            and conn.execute(
+                "SELECT 1 FROM core_users WHERE id = ? AND is_active = 1 AND role != 'system'", (value,)
+            ).fetchone()
+            is not None
+        )
     options = json.loads(definition["options"] or "[]")
     if t == "select":
         return isinstance(value, str) and value in options
-    return isinstance(value, list) and all(isinstance(v, str) and v in options for v in value) and len(set(value)) == len(value)
+    return (
+        isinstance(value, list)
+        and all(isinstance(v, str) and v in options for v in value)
+        and len(set(value)) == len(value)
+    )
 
 
 def values_for_in(conn: db.Conn, user: User, entity_type: str, entity_id: int) -> dict[str, Any]:
@@ -238,7 +248,9 @@ def values_for(user: User, entity_type: str, entity_id: int) -> dict[str, Any]:
     return values_for_in(db.get_conn(), user, entity_type, entity_id)
 
 
-def set_values_in(conn: db.Conn, user: User, entity_type: str, entity_id: int, values: dict[str, Any]) -> dict[str, Any]:
+def set_values_in(
+    conn: db.Conn, user: User, entity_type: str, entity_id: int, values: dict[str, Any]
+) -> dict[str, Any]:
     """Set some of a record's values ({key: value}; null, "" or [] clears) and return all of
     them. All or nothing: an unknown or archived key, or a value of the wrong type, changes
     nothing. Changed values are reported through timeline.record_changes_in."""
@@ -265,7 +277,9 @@ def set_values_in(conn: db.Conn, user: User, entity_type: str, entity_id: int, v
             continue
         params = (entity_type, entity_id, definitions[key]["id"])
         if value is None:
-            conn.execute("DELETE FROM core_field_values WHERE entity_type = ? AND entity_id = ? AND definition_id = ?", params)
+            conn.execute(
+                "DELETE FROM core_field_values WHERE entity_type = ? AND entity_id = ? AND definition_id = ?", params
+            )
         else:
             conn.execute(
                 """INSERT INTO core_field_values (entity_type, entity_id, definition_id, value, updated_at, updated_by)
@@ -275,8 +289,12 @@ def set_values_in(conn: db.Conn, user: User, entity_type: str, entity_id: int, v
                 (*params, json.dumps(value), now, user.id),
             )
     timeline.record_changes_in(
-        conn, entity_type, entity_id,
-        {f"field.{k}": before.get(k) for k in clean}, {f"field.{k}": v for k, v in clean.items()}, user.id,
+        conn,
+        entity_type,
+        entity_id,
+        {f"field.{k}": before.get(k) for k in clean},
+        {f"field.{k}": v for k, v in clean.items()},
+        user.id,
     )
     return _values_in(conn, entity_type, entity_id)
 

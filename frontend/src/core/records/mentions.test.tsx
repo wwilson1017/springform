@@ -19,12 +19,18 @@ describe('mention helpers', () => {
 
   it('write the markup the server parses, dropping characters it cannot carry', () => {
     expect(mentionMarkup({ id: 7, name: 'Ada [ops]' })).toBe('@[Ada ops](user:7)');
-    expect(applyMention('ping @ad please', 5, 8, '@[Ada](user:7)')).toEqual({ text: 'ping @[Ada](user:7)  please', caret: 20 });
+    expect(applyMention('ping @ad please', 5, 8, '@[Ada](user:7)')).toEqual({
+      text: 'ping @[Ada](user:7)  please',
+      caret: 20,
+    });
   });
 
   it('split a body into text and mentions', () => {
     expect(bodySegments('Hey @[Ada Admin](user:1), see @[Max](user:2)')).toEqual([
-      'Hey ', { id: 1, name: 'Ada Admin' }, ', see ', { id: 2, name: 'Max' },
+      'Hey ',
+      { id: 1, name: 'Ada Admin' },
+      ', see ',
+      { id: 2, name: 'Max' },
     ]);
     expect(bodySegments('plain')).toEqual(['plain']);
   });
@@ -33,7 +39,12 @@ describe('mention helpers', () => {
 describe('MentionPicker in NoteComposer', () => {
   it('lists teammates for the typed query and inserts the markup on Enter', async () => {
     const fetchMock = mockFetch({
-      'GET /api/core/timeline/mentionable?q=ma': { body: [{ id: 2, name: 'Max Member' }, { id: 3, name: 'Mara' }] },
+      'GET /api/core/timeline/mentionable?q=ma': {
+        body: [
+          { id: 2, name: 'Max Member' },
+          { id: 3, name: 'Mara' },
+        ],
+      },
     });
     render(<NoteComposer entityType="example.widget" entityId={7} onPosted={() => {}} />);
     const box = screen.getByLabelText('Add a note') as HTMLTextAreaElement;
@@ -51,7 +62,14 @@ describe('MentionPicker in NoteComposer', () => {
 
 describe('Timeline mention chips', () => {
   it('render a mention as @Name, not as markup', async () => {
-    const entry: TimelineEntry = { id: 1, kind: 'note', body: 'Over to @[Max Member](user:2)', changes: null, author: { id: 1, name: 'Ada' }, created_at: '2026-10-20T15:00:00Z' };
+    const entry: TimelineEntry = {
+      id: 1,
+      kind: 'note',
+      body: 'Over to @[Max Member](user:2)',
+      changes: null,
+      author: { id: 1, name: 'Ada' },
+      created_at: '2026-10-20T15:00:00Z',
+    };
     mockFetch({ 'GET /api/core/timeline?entity_type=example.widget&entity_id=7&limit=50': { body: [entry] } });
     render(<Timeline entityType="example.widget" entityId={7} />);
     expect((await screen.findByText('@Max Member')).getAttribute('title')).toBe('Mentioned Max Member');

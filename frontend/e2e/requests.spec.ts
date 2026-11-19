@@ -18,7 +18,9 @@ test('the Requests form validates, and says so when GitHub is not connected', as
   await expect(send).toBeEnabled();
   await send.click();
   await expect(form.getByRole('alert')).toContainText("Not sent. Requests aren't connected to GitHub yet");
-  expect((await api.get<Array<{ title: string }>>('/api/core/requests?state=all')).map(r => r.title)).not.toContain(title);
+  expect((await api.get<Array<{ title: string }>>('/api/core/requests?state=all')).map((r) => r.title)).not.toContain(
+    title,
+  );
 
   // The server's own checks, which the form's controls keep a person from reaching.
   for (const [body, detail] of [

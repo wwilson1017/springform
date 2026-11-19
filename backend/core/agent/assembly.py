@@ -42,7 +42,9 @@ DEFAULT_BUDGET_TOKENS = 128_000
 HEAD_ROWS = 2  # the opening exchange, kept verbatim across every compaction
 _OVERSIZED_ROW_FRACTION = 0.25
 _TRUNCATION_MARKER = "\n…[truncated]"
-_FENCE_OPEN_RE = re.compile(rf'<({delimiters.UNTRUSTED_EXTERNAL_TAG}|{delimiters.CONVERSATION_SUMMARY_TAG}) id=(\\?)"([0-9a-f]+)\2"')
+_FENCE_OPEN_RE = re.compile(
+    rf'<({delimiters.UNTRUSTED_EXTERNAL_TAG}|{delimiters.CONVERSATION_SUMMARY_TAG}) id=(\\?)"([0-9a-f]+)\2"'
+)
 
 
 def _truncate(text, limit: int):
@@ -79,7 +81,9 @@ def assemble_messages(provider, conversation_id: int) -> list[dict]:
     for run in history.tool_runs_for(conversation_id):
         if run["message_id"] is not None:
             runs.setdefault(run["message_id"], {})[run["tool_use_id"]] = run
-    limit = int(_OVERSIZED_ROW_FRACTION * (getattr(provider, "context_window", None) or DEFAULT_BUDGET_TOKENS) * CHARS_PER_TOKEN)
+    limit = int(
+        _OVERSIZED_ROW_FRACTION * (getattr(provider, "context_window", None) or DEFAULT_BUDGET_TOKENS) * CHARS_PER_TOKEN
+    )
     out: list[dict] = []
     for row in rows:
         text = _truncate(row["content"].get("text") or "", limit)
@@ -92,10 +96,18 @@ def assemble_messages(provider, conversation_id: int) -> list[dict]:
         else:
             by_id = runs.get(row["id"], {})
             results = [
-                {"tool_use_id": c["tool_use_id"], "tool_name": c["tool"], "content": _truncate(history.model_content(by_id[c["tool_use_id"]]), limit)}
-                for c in calls if c["tool_use_id"] in by_id
+                {
+                    "tool_use_id": c["tool_use_id"],
+                    "tool_name": c["tool"],
+                    "content": _truncate(history.model_content(by_id[c["tool_use_id"]]), limit),
+                }
+                for c in calls
+                if c["tool_use_id"] in by_id
             ]
-            bounded = [{**c, "args": c["args"] if len(json.dumps(c["args"], default=str)) <= limit else {"truncated": True}} for c in calls]
+            bounded = [
+                {**c, "args": c["args"] if len(json.dumps(c["args"], default=str)) <= limit else {"truncated": True}}
+                for c in calls
+            ]
             out.extend(provider.build_tool_turn(text, bounded, results))
     return _coalesce(out)
 
@@ -105,7 +117,13 @@ def _coalesce(messages: list[dict]) -> list[dict]:
     Never merge a message carrying OpenAI's top-level tool_calls: that would orphan its results."""
     out: list[dict] = []
     for m in messages:
-        if out and m["role"] in ("user", "assistant") and out[-1]["role"] == m["role"] and "tool_calls" not in m and "tool_calls" not in out[-1]:
+        if (
+            out
+            and m["role"] in ("user", "assistant")
+            and out[-1]["role"] == m["role"]
+            and "tool_calls" not in m
+            and "tool_calls" not in out[-1]
+        ):
             out[-1] = {**out[-1], "content": _merge(out[-1].get("content"), m.get("content"))}
         else:
             out.append(dict(m))
@@ -121,7 +139,11 @@ def _merge(a, b):
 
 def has_untrusted(messages: list[dict]) -> bool:
     """True when any assembled content carries an untrusted-external fence (any provider shape)."""
-    return any(delimiters.UNTRUSTED_EXTERNAL_MARKER in (m["content"] if isinstance(m.get("content"), str) else str(m.get("content"))) for m in messages)
+    return any(
+        delimiters.UNTRUSTED_EXTERNAL_MARKER
+        in (m["content"] if isinstance(m.get("content"), str) else str(m.get("content")))
+        for m in messages
+    )
 
 
 # ── Memory seam ───────────────────────────────────────────────────────────────
@@ -169,6 +191,9 @@ def after_turn(conversation_id: int) -> None:
 
 def system_prompt(agent: dict, user: User, *, query: str | None, catalog: str = "") -> tuple[str, str]:
     return agents.build_system_prompt(
-        agent, user, instructions=memory_instructions(agent["slug"]), catalog=catalog,
+        agent,
+        user,
+        instructions=memory_instructions(agent["slug"]),
+        catalog=catalog,
         memory=memory_context(user, agent["slug"], query),
     )

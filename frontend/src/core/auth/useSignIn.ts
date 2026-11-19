@@ -22,13 +22,16 @@ export function useSignIn(initialChallenge: string | null = null) {
     return "Signed in, but couldn't load your account. Reload the page.";
   }, [refresh, navigate]);
 
-  const finish = useCallback(async (result: LoginResult) => {
-    if (needsChallenge(result)) {
-      setChallenge(result.challenge);
-      return '';
-    }
-    return enter();
-  }, [enter]);
+  const finish = useCallback(
+    async (result: LoginResult) => {
+      if (needsChallenge(result)) {
+        setChallenge(result.challenge);
+        return '';
+      }
+      return enter();
+    },
+    [enter],
+  );
 
   return { challenge, setChallenge, finish, enter };
 }

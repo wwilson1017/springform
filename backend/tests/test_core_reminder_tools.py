@@ -30,7 +30,14 @@ def jane(login_as, freeze):
 
 
 def test_a_reminder_is_the_user_s_and_due_in_utc(jane):
-    end = inline(jane, "core_set_reminder", entity_type="core.person", entity_id=jane.jane, due_at="2026-10-30T09:00", note="Call about the spring order")
+    end = inline(
+        jane,
+        "core_set_reminder",
+        entity_type="core.person",
+        entity_id=jane.jane,
+        due_at="2026-10-30T09:00",
+        note="Call about the spring order",
+    )
     made = end["result"]
     assert end["status"] == "done", "routine: it runs in the chat turn, no Approve card"
     assert (made["due_at"], made["due_local"]) == ("2026-10-30T14:00:00Z", "2026-10-30T09:00:00-05:00")  # 09:00 CDT
@@ -40,8 +47,13 @@ def test_a_reminder_is_the_user_s_and_due_in_utc(jane):
         jane.principal.id, "2026-10-30T14:00:00Z", "core.person", jane.jane, "Call about the spring order",
     )  # fmt: skip
 
-    utc = inline(jane, "core_set_reminder", entity_type="core.person", entity_id=jane.jane, due_at="2026-11-03T15:00:00Z")["result"]
-    assert (utc["due_at"], utc["due_local"]) == ("2026-11-03T15:00:00Z", "2026-11-03T09:00:00-06:00")  # CST after the change
+    utc = inline(
+        jane, "core_set_reminder", entity_type="core.person", entity_id=jane.jane, due_at="2026-11-03T15:00:00Z"
+    )["result"]
+    assert (utc["due_at"], utc["due_local"]) == (
+        "2026-11-03T15:00:00Z",
+        "2026-11-03T09:00:00-06:00",
+    )  # CST after the change
     bad = inline(jane, "core_set_reminder", entity_type="core.person", entity_id=jane.jane, due_at="next Friday")
     assert bad["status"] == "error" and bad["result"]["error"].startswith("due_at must be an ISO date-time")
     assert len(core_db.rows("SELECT * FROM core_reminders")) == 2
@@ -49,10 +61,17 @@ def test_a_reminder_is_the_user_s_and_due_in_utc(jane):
 
 def test_each_user_lists_their_own(jane, login_as):
     admin = login_as("admin")
-    first = call(jane.principal, "core_set_reminder", entity_type="core.person", entity_id=jane.jane, due_at="2026-11-02T09:00")
-    later = call(jane.principal, "core_set_reminder", entity_type="core.person", entity_id=jane.jane, due_at="2026-11-05T09:00")
+    first = call(
+        jane.principal, "core_set_reminder", entity_type="core.person", entity_id=jane.jane, due_at="2026-11-02T09:00"
+    )
+    later = call(
+        jane.principal, "core_set_reminder", entity_type="core.person", entity_id=jane.jane, due_at="2026-11-05T09:00"
+    )
     reminders.snooze(jane.principal, first["id"], "2026-11-03T09:00")
-    assert [(r["id"], r["status"]) for r in call(jane.principal, "core_list_my_reminders")] == [(first["id"], "snoozed"), (later["id"], "open")]
+    assert [(r["id"], r["status"]) for r in call(jane.principal, "core_list_my_reminders")] == [
+        (first["id"], "snoozed"),
+        (later["id"], "open"),
+    ]
     assert call(admin.principal, "core_list_my_reminders") == []
     reminders.complete(jane.principal, later["id"])
     assert [r["id"] for r in call(jane.principal, "core_list_my_reminders", status="done")] == [later["id"]]
@@ -64,5 +83,11 @@ def test_each_user_lists_their_own(jane, login_as):
 def test_an_unreadable_record_is_refused(jane, login_as):
     private = todos.create_item(login_as("member").principal, "Ask about holiday dates", visibility="private")
     with pytest.raises(Refused, match="not_found"):
-        call(jane.principal, "core_set_reminder", entity_type="todos.item", entity_id=private["id"], due_at="2026-11-02T09:00")
+        call(
+            jane.principal,
+            "core_set_reminder",
+            entity_type="todos.item",
+            entity_id=private["id"],
+            due_at="2026-11-02T09:00",
+        )
     assert core_db.rows("SELECT * FROM core_reminders") == []

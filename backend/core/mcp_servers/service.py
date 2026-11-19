@@ -25,10 +25,17 @@ def token(r: dict) -> str:
 
 def view(r: dict) -> dict:
     return {
-        "id": r["id"], "name": r["name"], "url": r["url"], "prefix": r["prefix"], "enabled": bool(r["enabled"]),
-        "has_token": bool(r["token_enc"]), "tools": json.loads(r["tools_json"]),
-        "last_discovered_at": r["last_discovered_at"], "last_error": r["last_error"],
-        "created_at": r["created_at"], "updated_at": r["updated_at"],
+        "id": r["id"],
+        "name": r["name"],
+        "url": r["url"],
+        "prefix": r["prefix"],
+        "enabled": bool(r["enabled"]),
+        "has_token": bool(r["token_enc"]),
+        "tools": json.loads(r["tools_json"]),
+        "last_discovered_at": r["last_discovered_at"],
+        "last_error": r["last_error"],
+        "created_at": r["created_at"],
+        "updated_at": r["updated_at"],
     }
 
 
@@ -71,7 +78,8 @@ def update_in(conn: db.Conn, server_id: int, **fields) -> None:
     sets = "".join(f"{k} = ?, " for k in fields)  # keys are the router's model fields
     with _unique_prefix():
         changed = conn.execute(
-            f"UPDATE core_agent_mcp_servers SET {sets}updated_at = ? WHERE id = ?", (*fields.values(), now_iso(), server_id)
+            f"UPDATE core_agent_mcp_servers SET {sets}updated_at = ? WHERE id = ?",
+            (*fields.values(), now_iso(), server_id),
         ).rowcount
     if not changed:
         raise NotFound("mcp_server_not_found")

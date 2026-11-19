@@ -43,7 +43,9 @@ def trust_proxy() -> bool:
 
 @functools.cache
 def _secret_key(data_dir_: str, env_value: str) -> str:
-    return secrets.persisted("SECRET_KEY", ".secret-key", lambda: _stdlib_secrets.token_urlsafe(48), lambda v: len(v) >= 32)
+    return secrets.persisted(
+        "SECRET_KEY", ".secret-key", lambda: _stdlib_secrets.token_urlsafe(48), lambda v: len(v) >= 32
+    )
 
 
 def secret_key() -> str:

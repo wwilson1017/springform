@@ -30,7 +30,9 @@ export default function TodosRecordPanel(props: RecordPanelProps) {
 function Panel({ entityType, entityId }: RecordPanelProps) {
   const [includeDone, setIncludeDone] = useState(false);
   const { todos, failed, reload } = useTodos(
-    () => todosForRecord(entityType, entityId, includeDone), `${entityType}:${entityId}:${includeDone}`);
+    () => todosForRecord(entityType, entityId, includeDone),
+    `${entityType}:${entityId}:${includeDone}`,
+  );
   useTodoMeta(); // the time zone, default visibility and projects the rows and quick add read
   const navigate = useNavigate();
 
@@ -43,25 +45,46 @@ function Panel({ entityType, entityId }: RecordPanelProps) {
     reload();
   };
   // Completing goes through /complete, so a repeating todo's next occurrence appears here too.
-  const toggleDone = (t: Todo) => write(() => t.status === 'done' ? updateTodo(t.id, { status: 'next_action' }) : completeTodo(t.id));
+  const toggleDone = (t: Todo) =>
+    write(() => (t.status === 'done' ? updateTodo(t.id, { status: 'next_action' }) : completeTodo(t.id)));
   const toggleStar = (t: Todo) => write(() => updateTodo(t.id, { star: !t.star }));
 
   return (
     <div className="flex flex-col gap-3">
-      <QuickAdd link={{ entity_type: entityType, entity_id: entityId }} onAdded={reload} placeholder="Add a to-do for this record" />
-      {failed ? <LoadError label="Couldn't load to-dos" onRetry={reload} compact />
-        : !todos ? <p className="m-0 text-sm text-sf-ink-dim">Loading…</p>
-        : todos.length === 0 ? <p className="m-0 text-sm text-sf-ink-dim">{includeDone ? 'No to-dos for this record.' : 'No open to-dos for this record.'}</p>
-        : (
-          <div className="flex flex-col gap-2">
-            {todos.map(t => (
-              <TodoRow key={t.id} todo={t} showStatus={includeDone} onToggleDone={t => void toggleDone(t)}
-                       onToggleStar={t => void toggleStar(t)} onEdit={t => navigate(todoPath(`/items/${t.id}`))} />
-            ))}
-          </div>
-        )}
+      <QuickAdd
+        link={{ entity_type: entityType, entity_id: entityId }}
+        onAdded={reload}
+        placeholder="Add a to-do for this record"
+      />
+      {failed ? (
+        <LoadError label="Couldn't load to-dos" onRetry={reload} compact />
+      ) : !todos ? (
+        <p className="m-0 text-sm text-sf-ink-dim">Loading…</p>
+      ) : todos.length === 0 ? (
+        <p className="m-0 text-sm text-sf-ink-dim">
+          {includeDone ? 'No to-dos for this record.' : 'No open to-dos for this record.'}
+        </p>
+      ) : (
+        <div className="flex flex-col gap-2">
+          {todos.map((t) => (
+            <TodoRow
+              key={t.id}
+              todo={t}
+              showStatus={includeDone}
+              onToggleDone={(t) => void toggleDone(t)}
+              onToggleStar={(t) => void toggleStar(t)}
+              onEdit={(t) => navigate(todoPath(`/items/${t.id}`))}
+            />
+          ))}
+        </div>
+      )}
       <label className="flex items-center gap-2 text-xs text-sf-ink-dim">
-        <input type="checkbox" checked={includeDone} onChange={e => setIncludeDone(e.target.checked)} className="accent-sf-accent" />
+        <input
+          type="checkbox"
+          checked={includeDone}
+          onChange={(e) => setIncludeDone(e.target.checked)}
+          className="accent-sf-accent"
+        />
         Show done
       </label>
     </div>

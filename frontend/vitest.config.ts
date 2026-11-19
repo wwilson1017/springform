@@ -1,6 +1,6 @@
-import { readFileSync } from 'node:fs'
-import { defineConfig } from 'vitest/config'
-import springformApps from './vite-plugin-apps'
+import { readFileSync } from 'node:fs';
+import { defineConfig } from 'vitest/config';
+import springformApps from './vite-plugin-apps';
 
 /**
  * A standalone config rather than a `test` block in `vite.config.ts`, so tests skip the React
@@ -29,4 +29,4 @@ export default defineConfig({
     // Not UTC on purpose: a UTC runner hides local-vs-UTC date bugs.
     env: { TZ: 'America/Chicago' },
   },
-})
+});

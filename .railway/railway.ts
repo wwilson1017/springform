@@ -4,6 +4,9 @@
 //   SPRINGFORM_SERVICE=<service> railway config plan      then the same with `apply`
 // It starts from the live service (`railway config pull --json`), so the service's source,
 // variables and volume stay as they are and only the settings below change.
+// Railway's config omits restartPolicyType when it is the default (ON_FAILURE), so it is set only
+// when a pulled service carries another policy. requiredMountPath is left out: Railway does not
+// store it (CLI 5.54.1), so nothing refuses a deploy without a /data volume.
 // simplification: no `railway/iac` import, so nothing to npm install. The program takes the
 // `project` function the CLI passes it (the SDK's RailwayProgram type); tested with CLI 5.54.1.
 import { execFileSync } from "node:child_process";
@@ -25,10 +28,9 @@ export default (ctx, project) => {
     ...svc.deploy,
     healthcheckPath: "/up",
     healthcheckTimeout: 60,
-    restartPolicyType: "ON_FAILURE",
     restartPolicyMaxRetries: 3,
-    requiredMountPath: "/data",
   };
+  if (svc.deploy.restartPolicyType) svc.deploy.restartPolicyType = "ON_FAILURE";
   return project(live.project.name, {
     resources: [svc, ...live.resources.filter((r) => volumes.includes(r.address))],
   });

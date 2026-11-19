@@ -13,7 +13,9 @@ from backend.core.reports import registry as reports
 def _person() -> int:
     now = clock.now_iso()
     with core_db.transaction() as conn:
-        return conn.execute("INSERT INTO core_people (name, created_at, updated_at) VALUES ('Ada', ?, ?)", (now, now)).lastrowid
+        return conn.execute(
+            "INSERT INTO core_people (name, created_at, updated_at) VALUES ('Ada', ?, ?)", (now, now)
+        ).lastrowid
 
 
 def test_private_widget_is_invisible_to_another_member_on_every_surface(login_as):
@@ -32,7 +34,9 @@ def test_private_widget_is_invisible_to_another_member_on_every_surface(login_as
     assert other.get("/api/core/timeline", params=timeline_q).status_code == 404
     assert other.post("/api/core/timeline", json={**timeline_q, "body": "hi"}).status_code == 404
     conn = core_db.get_conn()
-    assert entities.titles_for(other.principal, conn, "example.widget", [secret["id"], public["id"]]) == {public["id"]: "Public"}
+    assert entities.titles_for(other.principal, conn, "example.widget", [secret["id"], public["id"]]) == {
+        public["id"]: "Public"
+    }
     assert [w["name"] for w in example_api.widgets_for_person(other.principal, person)] == ["Public"]
     assert [w["name"] for w in other.get("/api/example/widgets", params={"person_id": person}).json()] == ["Public"]
     assert other.get("/api/example/widgets", params={"person_id": 999}).status_code == 404
@@ -59,7 +63,9 @@ def test_widget_shape_defaults_and_validation(login_as):
     member = login_as("member")
     w = member.post("/api/example/widgets", json={"name": "Gear"}).json()
     assert set(w) == {"id", "name", "color", "owner_user_id", "person_id", "is_private", "created_at", "updated_at"}
-    assert w["color"] == "teal" and w["owner_user_id"] == member.user["id"] and w["is_private"] is False  # setting default
+    assert (
+        w["color"] == "teal" and w["owner_user_id"] == member.user["id"] and w["is_private"] is False
+    )  # setting default
     assert member.post("/api/example/widgets", json={"name": "Gear", "person_id": 999}).status_code == 422
     assert member.post("/api/example/widgets", json={"name": ""}).status_code == 422
     assert member.patch(f"/api/example/widgets/{w['id']}", json={"name": None}).status_code == 422
@@ -75,6 +81,7 @@ def test_sync_hook_runs_with_the_edit(login_as):
 
 def test_tools_registered_and_scoped(login_as):
     member = login_as("member")
+
     def ours(specs):  # forks install more apps; only the fixture's tools are pinned here
         return [t.name for t in specs if t.app == "example"]
 

@@ -33,13 +33,18 @@ def _key_and_cert():
     name = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, "test")])
     now = datetime.now(UTC)
     cert = (
-        x509.CertificateBuilder().subject_name(name).issuer_name(name).public_key(key.public_key())
-        .serial_number(1).not_valid_before(now - timedelta(days=1)).not_valid_after(now + timedelta(days=1))
+        x509.CertificateBuilder()
+        .subject_name(name)
+        .issuer_name(name)
+        .public_key(key.public_key())
+        .serial_number(1)
+        .not_valid_before(now - timedelta(days=1))
+        .not_valid_after(now + timedelta(days=1))
         .sign(key, hashes.SHA256())
     )
-    return key.private_bytes(serialization.Encoding.PEM, serialization.PrivateFormat.PKCS8, serialization.NoEncryption()), (
-        cert.public_bytes(serialization.Encoding.PEM).decode()
-    )
+    return key.private_bytes(
+        serialization.Encoding.PEM, serialization.PrivateFormat.PKCS8, serialization.NoEncryption()
+    ), (cert.public_bytes(serialization.Encoding.PEM).decode())
 
 
 PRIVATE_PEM, CERT_PEM = _key_and_cert()
@@ -68,8 +73,15 @@ class FakeGoogle:
             return r
         now = int(time.time())
         body = {
-            "iss": "https://accounts.google.com", "aud": CLIENT_ID, "sub": "g-1", "email": "pat@gmail.com",
-            "email_verified": True, "nonce": params["nonce"][0], "iat": now - 1, "exp": now + 600, **claims,
+            "iss": "https://accounts.google.com",
+            "aud": CLIENT_ID,
+            "sub": "g-1",
+            "email": "pat@gmail.com",
+            "email_verified": True,
+            "nonce": params["nonce"][0],
+            "iat": now - 1,
+            "exp": now + 600,
+            **claims,
         }
         body = {k: v for k, v in body.items() if v is not None}
         self.id_token = pyjwt.encode(body, PRIVATE_PEM, algorithm="RS256", headers={"kid": KID})
@@ -102,13 +114,21 @@ def test_start_redirects_to_google_with_pkce_and_the_public_url(fake_google, app
     params = {k: v[0] for k, v in parse_qs(target.query).items()}
     assert f"{target.scheme}://{target.netloc}{target.path}" == google.AUTH_URL
     assert params["redirect_uri"] == "https://crm.example.com/api/auth/google/callback"
-    assert params["client_id"] == CLIENT_ID and params["prompt"] == "select_account" and params["scope"] == "openid email profile"
+    assert (
+        params["client_id"] == CLIENT_ID
+        and params["prompt"] == "select_account"
+        and params["scope"] == "openid email profile"
+    )
     assert params["code_challenge_method"] == "S256"
     cookie = r.headers["set-cookie"]
     assert "sf_google=" in cookie and "HttpOnly" in cookie and "Path=/api/auth/google" in cookie
     fake_google.sign_in(browser)  # a full round trip, to see what the code exchange sent
     sent = fake_google.exchanges[-1]
-    assert sent["redirect_uri"] == params["redirect_uri"] and sent["client_secret"] == "shh" and sent["code"] == "auth-code"
+    assert (
+        sent["redirect_uri"] == params["redirect_uri"]
+        and sent["client_secret"] == "shh"
+        and sent["code"] == "auth-code"
+    )
     challenge = base64.urlsafe_b64encode(hashlib.sha256(sent["code_verifier"].encode()).digest()).rstrip(b"=").decode()
     assert challenge == fake_google.start["code_challenge"][0] != params["code_challenge"]  # fresh per start
 
@@ -136,7 +156,10 @@ def test_uninvited_is_refused_and_nobody_is_created(fake_google, app):
 def test_non_google_address_links_only_from_a_session(fake_google, app, make_user):
     make_user("member", email="sam@acme.test")
     browser = _browser(app)
-    assert fake_google.sign_in(browser, sub="g-sam", email="sam@acme.test").headers["location"] == "/login?error=link_required"
+    assert (
+        fake_google.sign_in(browser, sub="g-sam", email="sam@acme.test").headers["location"]
+        == "/login?error=link_required"
+    )
     assert _sub("sam@acme.test") is None
     assert browser.post("/api/auth/login", json={"email": "sam@acme.test", "password": PASSWORD}).status_code == 200
     assert browser.get("/api/auth/google").json() == {"available": True, "linked": False, "has_password": True}
@@ -163,7 +186,10 @@ def test_link_needs_a_session_and_a_free_sub(fake_google, app, make_user):
 def test_workspace_hd_claim_is_authoritative_for_its_own_domain(fake_google, app, make_user):
     make_user("member", email="kim@acme.test", password=None)
     make_user("member", email="lee@acme.test", password=None)
-    assert fake_google.sign_in(_browser(app), sub="g-kim", email="kim@acme.test", hd="acme.test").headers["location"] == "/"
+    assert (
+        fake_google.sign_in(_browser(app), sub="g-kim", email="kim@acme.test", hd="acme.test").headers["location"]
+        == "/"
+    )
     assert _sub("kim@acme.test") == "g-kim"
     r = fake_google.sign_in(_browser(app), sub="g-lee", email="lee@acme.test", hd="other.test")
     assert r.headers["location"] == "/login?error=link_required" and _sub("lee@acme.test") is None
@@ -203,19 +229,48 @@ def test_token_signed_by_another_key_is_refused(fake_google, app, make_user):
     start = parse_qs(urlparse(browser.get("/api/auth/google/start", follow_redirects=False).headers["location"]).query)
     now = int(time.time())
     fake_google.id_token = pyjwt.encode(
-        {"iss": "accounts.google.com", "aud": CLIENT_ID, "sub": "g-1", "email": "pat@gmail.com", "email_verified": True,
-         "nonce": start["nonce"][0], "iat": now, "exp": now + 600},
-        other_pem, algorithm="RS256", headers={"kid": KID},
+        {
+            "iss": "accounts.google.com",
+            "aud": CLIENT_ID,
+            "sub": "g-1",
+            "email": "pat@gmail.com",
+            "email_verified": True,
+            "nonce": start["nonce"][0],
+            "iat": now,
+            "exp": now + 600,
+        },
+        other_pem,
+        algorithm="RS256",
+        headers={"kid": KID},
     )
-    r = browser.get(f"/api/auth/google/callback?{urlencode({'state': start['state'][0], 'code': 'c'})}", follow_redirects=False)
+    r = browser.get(
+        f"/api/auth/google/callback?{urlencode({'state': start['state'][0], 'code': 'c'})}", follow_redirects=False
+    )
     assert r.headers["location"] == "/login?error=google_failed"
 
 
 @pytest.mark.parametrize("bad", ["aud", "iss", "exp", "nonce", "email_verified", "sub"])
 def test_explicit_claim_checks(bad):
-    good = {"aud": CLIENT_ID, "iss": "accounts.google.com", "exp": time.time() + 60, "nonce": "n", "email_verified": True, "sub": "s"}
+    good = {
+        "aud": CLIENT_ID,
+        "iss": "accounts.google.com",
+        "exp": time.time() + 60,
+        "nonce": "n",
+        "email_verified": True,
+        "sub": "s",
+    }
     google.check_claims(good, CLIENT_ID, "n")
-    broken = {**good, bad: {"aud": "x", "iss": "google.com", "exp": time.time() - 1, "nonce": "m", "email_verified": "true", "sub": ""}[bad]}
+    broken = {
+        **good,
+        bad: {
+            "aud": "x",
+            "iss": "google.com",
+            "exp": time.time() - 1,
+            "nonce": "m",
+            "email_verified": "true",
+            "sub": "",
+        }[bad],
+    }
     with pytest.raises(google.GoogleError, match=bad):
         google.check_claims(broken, CLIENT_ID, "n")
 
@@ -228,14 +283,21 @@ def test_state_must_match_the_cookie_and_failures_redirect(fake_google, app, mak
         "/login?error=google_failed"
     )
     stranger = _browser(app)  # no state cookie at all
-    r = stranger.get(f"/api/auth/google/callback?{urlencode({'state': start['state'][0], 'code': 'c'})}", follow_redirects=False)
+    r = stranger.get(
+        f"/api/auth/google/callback?{urlencode({'state': start['state'][0], 'code': 'c'})}", follow_redirects=False
+    )
     assert r.headers["location"] == "/login?error=google_failed"
     fake_google.token_status = 400
     assert fake_google.sign_in(_browser(app)).headers["location"] == "/login?error=google_failed"
     fake_google.token_status = 200
     cancelled = _browser(app)
-    start = parse_qs(urlparse(cancelled.get("/api/auth/google/start", follow_redirects=False).headers["location"]).query)
-    r = cancelled.get(f"/api/auth/google/callback?{urlencode({'state': start['state'][0], 'error': 'access_denied'})}", follow_redirects=False)
+    start = parse_qs(
+        urlparse(cancelled.get("/api/auth/google/start", follow_redirects=False).headers["location"]).query
+    )
+    r = cancelled.get(
+        f"/api/auth/google/callback?{urlencode({'state': start['state'][0], 'error': 'access_denied'})}",
+        follow_redirects=False,
+    )
     assert r.headers["location"] == "/login?error=google_failed"
 
 
@@ -267,7 +329,9 @@ def test_google_skips_totp_unless_the_setting_requires_it(fake_google, app, logi
 
 def test_invite_page_google_button_links_any_address_and_spends_the_token(fake_google, app, login_as):
     admin = login_as("admin")
-    url = admin.post("/api/auth/users", json={"email": "new@acme.test", "name": "New", "role": "member"}).json()["invite_url"]
+    url = admin.post("/api/auth/users", json={"email": "new@acme.test", "name": "New", "role": "member"}).json()[
+        "invite_url"
+    ]
     token = url.rsplit("/", 1)[1]
     browser = _browser(app)
     r = fake_google.sign_in(browser, query=f"?invite={token}", sub="g-new", email="personal@gmail.com")
@@ -298,12 +362,17 @@ def test_unlink_needs_a_password(fake_google, app, make_user):
 def test_status_config_and_test_routes(db, app, login_as, monkeypatch):
     admin, member = login_as("admin"), login_as("member")
     assert admin.get("/api/auth/status").json()["google"] is False
-    assert admin.get("/api/auth/google/start", follow_redirects=False).headers["location"] == "/login?error=google_not_configured"
+    assert (
+        admin.get("/api/auth/google/start", follow_redirects=False).headers["location"]
+        == "/login?error=google_not_configured"
+    )
     assert member.get("/api/auth/google/config").status_code == 403
     assert member.put("/api/auth/google/config", json={"client_id": "x"}).status_code == 403
     r = admin.put("/api/auth/google/config", json={"client_id": f" {CLIENT_ID} ", "client_secret": "s3cret"})
     assert r.json() == {
-        "client_id": CLIENT_ID, "has_secret": True, "redirect_uri": "http://localhost:8000/api/auth/google/callback",
+        "client_id": CLIENT_ID,
+        "has_secret": True,
+        "redirect_uri": "http://localhost:8000/api/auth/google/callback",
         "require_totp_for_google": False,
     }
     stored = core_db.rows("SELECT value, is_secret FROM core_settings WHERE key LIKE 'auth.google_%'")
@@ -311,8 +380,11 @@ def test_status_config_and_test_routes(db, app, login_as, monkeypatch):
     assert "s3cret" not in admin.get("/api/auth/google/config").text
     assert admin.get("/api/auth/status").json()["google"] is True
     assert admin.post("/api/auth/google/test").json() == {
-        "redirect_uri": "http://localhost:8000/api/auth/google/callback", "client_id_valid": True, "has_secret": True,
-        "ok": True, "problems": [],
+        "redirect_uri": "http://localhost:8000/api/auth/google/callback",
+        "client_id_valid": True,
+        "has_secret": True,
+        "ok": True,
+        "problems": [],
     }
     monkeypatch.setenv("PUBLIC_URL", "http://crm.example.com")
     admin.put("/api/auth/google/config", json={"client_id": "nonsense", "require_totp_for_google": True})
@@ -335,6 +407,8 @@ def test_preview_stub_completes_the_callback_path(db, app, monkeypatch):
     link = next(a for a in page.text.split('href="')[1:] if "stub%3Aadmin" in a).split('"')[0].replace("&amp;", "&")
     r = browser.get(link, follow_redirects=False)
     assert r.headers["location"] == "/" and browser.get("/api/me").json()["email"] == "preview-admin@example.com"
-    assert browser.get("/api/auth/google/callback?state=x&code=stub:admin", follow_redirects=False).headers["location"] == (
+    assert browser.get("/api/auth/google/callback?state=x&code=stub:admin", follow_redirects=False).headers[
+        "location"
+    ] == (
         "/login?error=google_failed"  # the stub still needs the state cookie
     )

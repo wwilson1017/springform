@@ -117,22 +117,35 @@ def build_entries(evidence: dict) -> tuple[list[dict], list[dict]]:
     for row in evidence["notes"]:
         text = _truncate(row["body"], MAX_LINE_CHARS)
         if not text:
-            skipped.append({"source": "note", "source_id": row["id"], "event_at": row["created_at"], "why": "empty_note"})
+            skipped.append(
+                {"source": "note", "source_id": row["id"], "event_at": row["created_at"], "why": "empty_note"}
+            )
             continue
-        entries.append({"source": "note", "source_id": row["id"], "event_at": row["created_at"], "line": f"{_day(row['created_at'])} [note] {text}"})
+        entries.append(
+            {
+                "source": "note",
+                "source_id": row["id"],
+                "event_at": row["created_at"],
+                "line": f"{_day(row['created_at'])} [note] {text}",
+            }
+        )
     for row in evidence["activities"]:
         kind, note = _truncate(row["activity"] or "activity", 60), _truncate(row["note"], MAX_LINE_CHARS)
         line = f"{_day(row['created_at'])} [activity:{kind}] {note}".rstrip()
         entries.append({"source": "activity", "source_id": row["id"], "event_at": row["created_at"], "line": line})
     entries.sort(key=lambda e: (e["event_at"], e["source_id"]))
     if notes := _truncate(evidence["deal"]["notes"], MAX_DEAL_NOTES_CHARS):
-        entries.append({"source": "deal_notes", "source_id": None, "event_at": "", "line": f"[deal notes field] {notes}"})
+        entries.append(
+            {"source": "deal_notes", "source_id": None, "event_at": "", "line": f"[deal notes field] {notes}"}
+        )
     return entries, skipped
 
 
 def watermark(evidence: dict) -> str:
     """The newest evidence instant (the deal's creation when there is none)."""
-    return max((r["created_at"] for r in (*evidence["notes"], *evidence["activities"])), default=evidence["deal"]["created_at"])
+    return max(
+        (r["created_at"] for r in (*evidence["notes"], *evidence["activities"])), default=evidence["deal"]["created_at"]
+    )
 
 
 def line_hash(line: str) -> str:
@@ -226,11 +239,16 @@ def _validate(data, expected: int) -> list[dict] | None:
             return None
         n = item.get("n", position)  # a model that kept the order but dropped the index is not wrong
         touch = item.get("touch")
-        touch = touch if isinstance(touch, bool) else bool(touch) if isinstance(touch, int) and touch in (0, 1) else None
+        touch = (
+            touch if isinstance(touch, bool) else bool(touch) if isinstance(touch, int) and touch in (0, 1) else None
+        )
         if isinstance(n, bool) or not isinstance(n, int) or not 1 <= n <= expected or n in out or touch is None:
             return None
         reason = item.get("reason")
-        out[n] = {"touch": touch, "reason": "" if touch else _truncate(reason if isinstance(reason, str) else "", MAX_REASON_CHARS)}
+        out[n] = {
+            "touch": touch,
+            "reason": "" if touch else _truncate(reason if isinstance(reason, str) else "", MAX_REASON_CHARS),
+        }
     return [out[n] for n in sorted(out)]
 
 
@@ -269,8 +287,15 @@ NEEDS_COUNT = f"""{LIVE} AND {OPEN} AND (d.touch_dirty = 1 OR coalesce(d.ai_touc
 
 def _candidates_in(conn: db.Conn) -> list[int]:
     """Up to BATCH deals that need a count; closed and archived deals just lose the flag."""
-    conn.execute(f"UPDATE crm_deals SET touch_dirty = 0 WHERE touch_dirty = 1 AND id IN (SELECT d.id FROM crm_deals d WHERE NOT ({LIVE} AND {OPEN}))")
-    return [r[0] for r in conn.execute(f"SELECT d.id FROM crm_deals d WHERE {NEEDS_COUNT} ORDER BY d.touch_dirty DESC, d.id LIMIT ?", (BATCH,))]
+    conn.execute(
+        f"UPDATE crm_deals SET touch_dirty = 0 WHERE touch_dirty = 1 AND id IN (SELECT d.id FROM crm_deals d WHERE NOT ({LIVE} AND {OPEN}))"
+    )
+    return [
+        r[0]
+        for r in conn.execute(
+            f"SELECT d.id FROM crm_deals d WHERE {NEEDS_COUNT} ORDER BY d.touch_dirty DESC, d.id LIMIT ?", (BATCH,)
+        )
+    ]
 
 
 def _store_in(conn: db.Conn, deal_id: int, seen: dict, count: int, payload: dict | None) -> bool:
@@ -318,7 +343,11 @@ def count_deal(deal_id: int) -> int | None:
         return None
     entries, skipped = build_entries(seen)
     judged = _judged(seen["deal"], entries)
-    snap = db.get_conn().execute("SELECT verdicts FROM crm_deal_ai_touch_evidence WHERE deal_id = ?", (deal_id,)).fetchone()
+    snap = (
+        db.get_conn()
+        .execute("SELECT verdicts FROM crm_deal_ai_touch_evidence WHERE deal_id = ?", (deal_id,))
+        .fetchone()
+    )
     if seen["deal"]["ai_touch_count"] is not None and snap and json.loads(snap[0]).get("judged") == judged:
         # The stored verdicts were judged on exactly this evidence: an edit to the deal's value,
         # stage or person flags it but changes nothing the model reads, so no call is paid for.
@@ -331,17 +360,26 @@ def count_deal(deal_id: int) -> int | None:
         count, payload = 0, _payload(0, [], [], skipped, judged)  # no evidence is no touches: no model call
     else:
         lines = [f"[{i}] {e['line']}" for i, e in enumerate(entries, 1)]
-        reply = llm.complete(SYSTEM_PROMPT, build_prompt(seen["deal"], lines), tier="light", max_tokens=min(4096, 400 + 60 * len(lines)))
+        reply = llm.complete(
+            SYSTEM_PROMPT, build_prompt(seen["deal"], lines), tier="light", max_tokens=min(4096, 400 + 60 * len(lines))
+        )
         if (verdicts := parse_touch_verdicts(reply, len(entries))) is not None:
             count = sum(v["touch"] for v in verdicts)
             payload = _payload(count, entries, verdicts, skipped, judged)
         elif (count := parse_touch_count(reply)) is not None:
             payload = None
-            logger.warning("touch count verdicts invalid for deal %s (lines=%d); storing the count alone", deal_id, len(entries))
+            logger.warning(
+                "touch count verdicts invalid for deal %s (lines=%d); storing the count alone", deal_id, len(entries)
+            )
         else:
-            logger.warning("touch count unparseable for deal %s (reply len=%d, lines=%d)", deal_id, len(reply or ""), len(entries))
+            logger.warning(
+                "touch count unparseable for deal %s (reply len=%d, lines=%d)", deal_id, len(reply or ""), len(entries)
+            )
             with db.transaction() as conn:  # the count stays as it was; the evidence is marked as seen
-                conn.execute("UPDATE crm_deals SET touch_dirty = 0, ai_touch_count_at = ? WHERE id = ?", (watermark(seen), deal_id))
+                conn.execute(
+                    "UPDATE crm_deals SET touch_dirty = 0, ai_touch_count_at = ? WHERE id = ?",
+                    (watermark(seen), deal_id),
+                )
             return None
     with db.transaction() as conn:
         return count if _store_in(conn, deal_id, seen, count, payload) else None
@@ -388,7 +426,9 @@ def evidence(user: User, deal_id: int) -> dict:
     seen = _load_in(conn, deal_id)
     deal = seen["deal"]
     entries, skipped = build_entries(seen)
-    snap = conn.execute("SELECT verdicts, computed_at FROM crm_deal_ai_touch_evidence WHERE deal_id = ?", (deal_id,)).fetchone()
+    snap = conn.execute(
+        "SELECT verdicts, computed_at FROM crm_deal_ai_touch_evidence WHERE deal_id = ?", (deal_id,)
+    ).fetchone()
     payload = json.loads(snap["verdicts"]) if snap else {}
     stored = {(i["source"], i["source_id"]): i for i in payload.get("items", [])}
     events = []
@@ -400,7 +440,9 @@ def evidence(user: User, deal_id: int) -> dict:
             state, reason = "edited_since", ""
         else:
             state, reason = ("touch", "") if item["touch"] else ("not_touch", item.get("reason") or "")
-        events.append({**{k: e[k] for k in ("source", "source_id", "event_at", "line")}, "state": state, "reason": reason})
+        events.append(
+            {**{k: e[k] for k in ("source", "source_id", "event_at", "line")}, "state": state, "reason": reason}
+        )
     events += [{"source": s["source"], "source_id": s["source_id"], "event_at": s["event_at"], "line": "(empty note)",
                 "state": "excluded_empty", "reason": ""} for s in skipped]  # fmt: skip
     for m in conn.execute(
@@ -419,8 +461,10 @@ def evidence(user: User, deal_id: int) -> dict:
         state = "none"
     elif payload.get("count") != deal["ai_touch_count"] or visible != payload.get("count"):
         state = "superseded"
-    elif any(e["state"] in ("edited_since", "not_evaluated") for e in events) or any(k not in live for k in stored) or (
-        open_deal and deal["ai_touch_count_at"] != watermark(seen)
+    elif (
+        any(e["state"] in ("edited_since", "not_evaluated") for e in events)
+        or any(k not in live for k in stored)
+        or (open_deal and deal["ai_touch_count_at"] != watermark(seen))
     ):
         state = "stale"
     else:
@@ -434,7 +478,12 @@ def evidence(user: User, deal_id: int) -> dict:
 
 def status() -> dict:
     pending = db.get_conn().execute(f"SELECT count(*) FROM crm_deals d WHERE {NEEDS_COUNT}").fetchone()[0]
-    return {"pending": pending, "running": _running.is_set(), "last_run_at": _last_run_at, "configured": providers.get_provider(tier="light") is not None}
+    return {
+        "pending": pending,
+        "running": _running.is_set(),
+        "last_run_at": _last_run_at,
+        "configured": providers.get_provider(tier="light") is not None,
+    }
 
 
 def request_backfill(scope: str) -> dict:
@@ -443,7 +492,9 @@ def request_backfill(scope: str) -> dict:
     evidence is judged again too."""
     with db.transaction() as conn:
         extra = "" if scope == "all" else "AND d.ai_touch_count IS NULL"
-        conn.execute(f"UPDATE crm_deals SET touch_dirty = 1 WHERE id IN (SELECT d.id FROM crm_deals d WHERE {LIVE} AND {OPEN} {extra})")
+        conn.execute(
+            f"UPDATE crm_deals SET touch_dirty = 1 WHERE id IN (SELECT d.id FROM crm_deals d WHERE {LIVE} AND {OPEN} {extra})"
+        )
         if scope == "all":
             conn.execute(f"""UPDATE crm_deal_ai_touch_evidence SET verdicts = json_remove(verdicts, '$.judged')
                               WHERE deal_id IN (SELECT d.id FROM crm_deals d WHERE {LIVE} AND {OPEN})""")

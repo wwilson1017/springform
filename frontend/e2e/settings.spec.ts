@@ -9,7 +9,7 @@ async function sections({ page }: Session) {
   await page.goto('/settings');
   await expect(page).toHaveURL(/\/settings\/account$/);
   const links = page.getByRole('navigation', { name: 'Settings sections' }).getByRole('link');
-  return () => links.evaluateAll(as => as.map(a => a.getAttribute('href')?.replace('/settings/', '')));
+  return () => links.evaluateAll((as) => as.map((a) => a.getAttribute('href')?.replace('/settings/', '')));
 }
 
 test("an admin sees every section, including the example app's card", async ({ admin }) => {
@@ -23,7 +23,7 @@ test("an admin sees every section, including the example app's card", async ({ a
 test('a member sees only the sections with a card for members', async ({ member }) => {
   const ids = await sections(member);
   await expect.poll(ids).toEqual(expect.arrayContaining(MEMBER));
-  expect((await ids()).filter(id => id && ADMIN_ONLY.includes(id))).toEqual([]);
+  expect((await ids()).filter((id) => id && ADMIN_ONLY.includes(id))).toEqual([]);
   const { page } = member;
   await expect(page.getByRole('heading', { name: 'Security', level: 2 })).toBeVisible();
   // A deep link to an admin-only section lands back on the member's first section.

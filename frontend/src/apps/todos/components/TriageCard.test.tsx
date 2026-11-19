@@ -29,7 +29,8 @@ import { resetUndoQueue, takeAll } from '../undoQueue';
 import type { Todo, TodoProject } from '../types';
 import { ITEM_EXTRA, PROJECT_EXTRA } from '../testFixtures';
 
-const TODO: Todo = { ...ITEM_EXTRA,
+const TODO: Todo = {
+  ...ITEM_EXTRA,
   id: 7,
   title: 'dentist',
   notes: '',
@@ -75,9 +76,15 @@ afterEach(() => {
   vi.restoreAllMocks(); // the toast spies are per-test — don't leak them
 });
 
-const PROJECT: TodoProject = { ...PROJECT_EXTRA,
-  id: 3, name: 'Kitchen remodel', notes: '', status: 'active', open_count: 2,
-  created_at: '2026-08-06T12:00:00Z', updated_at: '2026-08-06T12:00:00Z',
+const PROJECT: TodoProject = {
+  ...PROJECT_EXTRA,
+  id: 3,
+  name: 'Kitchen remodel',
+  notes: '',
+  status: 'active',
+  open_count: 2,
+  created_at: '2026-08-06T12:00:00Z',
+  updated_at: '2026-08-06T12:00:00Z',
 };
 
 function render(todo: Partial<Todo> = {}, contexts = ['@calls', '@errands'], projects = [PROJECT]) {
@@ -106,13 +113,13 @@ function setValue(el: HTMLSelectElement | HTMLTextAreaElement | HTMLInputElement
 }
 
 function click(el: Element) {
-  act(() => { (el as HTMLElement).click(); });
+  act(() => {
+    (el as HTMLElement).click();
+  });
 }
 
 function button(label: string): HTMLButtonElement {
-  const found = [...container.querySelectorAll('button')].find(
-    b => (b.textContent ?? '').trim() === label,
-  );
+  const found = [...container.querySelectorAll('button')].find((b) => (b.textContent ?? '').trim() === label);
   if (!found) throw new Error(`no button labelled "${label}"`);
   return found;
 }
@@ -120,11 +127,9 @@ function button(label: string): HTMLButtonElement {
 const contextPicker = () =>
   container.querySelector<HTMLSelectElement>('select[aria-label="Set context and file this todo"]')!;
 
-const projectPicker = () =>
-  container.querySelector<HTMLSelectElement>('select[aria-label="Project"]');
+const projectPicker = () => container.querySelector<HTMLSelectElement>('select[aria-label="Project"]');
 
-const projectNameInput = () =>
-  container.querySelector<HTMLInputElement>('input[aria-label="New project name"]');
+const projectNameInput = () => container.querySelector<HTMLInputElement>('input[aria-label="New project name"]');
 
 const submitForm = (el: Element) => {
   act(() => {
@@ -166,7 +171,7 @@ describe('step 1 — choosing a destination', () => {
 describe('step 3 — context is the only exit', () => {
   it('offers no skip option — every choice but "new" is a context', () => {
     render();
-    const values = [...contextPicker().options].map(o => o.textContent);
+    const values = [...contextPicker().options].map((o) => o.textContent);
     expect(values).toEqual(['Set context…', '@calls', '@errands', '+ New context…']);
   });
 
@@ -184,7 +189,9 @@ describe('step 3 — context is the only exit', () => {
     setValue(contextPicker(), 'new');
     const input = container.querySelector<HTMLInputElement>('input[aria-label="New context"]')!;
     setValue(input, '   ');
-    act(() => { input.closest('form')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })); });
+    act(() => {
+      input.closest('form')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+    });
     await act(async () => {});
 
     expect(updateTodoMock).not.toHaveBeenCalled();
@@ -196,7 +203,9 @@ describe('step 3 — context is the only exit', () => {
     setValue(contextPicker(), 'new');
     const input = container.querySelector<HTMLInputElement>('input[aria-label="New context"]')!;
     setValue(input, ' @garage ');
-    act(() => { input.closest('form')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })); });
+    act(() => {
+      input.closest('form')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+    });
     await act(async () => {});
 
     expect(updateTodoMock).toHaveBeenCalledWith(7, { context: '@garage', status: 'next_action' });
@@ -205,25 +214,34 @@ describe('step 3 — context is the only exit', () => {
 
   it("offers the item's own context even when the shared meta is empty", () => {
     render({ context: '@home' }, []);
-    expect([...contextPicker().options].map(o => o.textContent))
-      .toEqual(['Set context…', '@home', '+ New context…']);
+    expect([...contextPicker().options].map((o) => o.textContent)).toEqual(['Set context…', '@home', '+ New context…']);
   });
 });
 
 describe('tags typed just before filing', () => {
   it('are saved before the filing write is sent', async () => {
     let answer!: (v: unknown) => void;
-    updateTodoMock.mockImplementationOnce(() => new Promise(r => { answer = r; }));
+    updateTodoMock.mockImplementationOnce(
+      () =>
+        new Promise((r) => {
+          answer = r;
+        }),
+    );
     render();
     const tags = container.querySelector<HTMLInputElement>('input[aria-label="Tags"]')!;
     setValue(tags, 'errand');
-    act(() => { tags.dispatchEvent(new FocusEvent('focusout', { bubbles: true })); });
+    act(() => {
+      tags.dispatchEvent(new FocusEvent('focusout', { bubbles: true }));
+    });
     setValue(contextPicker(), '0');
     await act(async () => {});
     expect(updateTodoMock).toHaveBeenCalledTimes(1); // the filing write is waiting
-    await act(async () => { answer(TODO); });
-    expect(updateTodoMock.mock.calls.map(c => c[1])).toEqual([
-      { tags: ['errand'] }, { context: '@calls', status: 'next_action' },
+    await act(async () => {
+      answer(TODO);
+    });
+    expect(updateTodoMock.mock.calls.map((c) => c[1])).toEqual([
+      { tags: ['errand'] },
+      { context: '@calls', status: 'next_action' },
     ]);
   });
 });
@@ -231,7 +249,7 @@ describe('tags typed just before filing', () => {
 describe('step 2 — every field says what it is', () => {
   it('labels project, due date, notes, tags and people', () => {
     render();
-    const shown = [...container.querySelectorAll('span')].map(e => e.textContent);
+    const shown = [...container.querySelectorAll('span')].map((e) => e.textContent);
     for (const name of ['Project', 'Due date', 'Notes', 'Tags', 'People']) expect(shown).toContain(name);
   });
 });
@@ -244,17 +262,33 @@ describe('the resolves contract — in-place edits must not advance the card', (
   // whatever status happened to be selected.
   it.each([
     ['star', () => click(button('★')), { star: true }],
-    ['project', () => setValue(container.querySelector<HTMLSelectElement>('select[aria-label="Project"]')!, '3'), { project_id: 3 }],
-    ['due date', () => {
-      const due = container.querySelector<HTMLInputElement>('input[aria-label="Due date"]')!;
-      setValue(due, '2026-09-01');
-      act(() => { due.dispatchEvent(new FocusEvent('focusout', { bubbles: true })); }); // written on blur
-    }, { due_date: '2026-09-01' }],
-    ['tags', () => {
-      const tags = container.querySelector<HTMLInputElement>('input[aria-label="Tags"]')!;
-      setValue(tags, 'errand, 5 min');
-      act(() => { tags.dispatchEvent(new FocusEvent('focusout', { bubbles: true })); }); // written on blur
-    }, { tags: ['errand', '5 min'] }],
+    [
+      'project',
+      () => setValue(container.querySelector<HTMLSelectElement>('select[aria-label="Project"]')!, '3'),
+      { project_id: 3 },
+    ],
+    [
+      'due date',
+      () => {
+        const due = container.querySelector<HTMLInputElement>('input[aria-label="Due date"]')!;
+        setValue(due, '2026-09-01');
+        act(() => {
+          due.dispatchEvent(new FocusEvent('focusout', { bubbles: true }));
+        }); // written on blur
+      },
+      { due_date: '2026-09-01' },
+    ],
+    [
+      'tags',
+      () => {
+        const tags = container.querySelector<HTMLInputElement>('input[aria-label="Tags"]')!;
+        setValue(tags, 'errand, 5 min');
+        act(() => {
+          tags.dispatchEvent(new FocusEvent('focusout', { bubbles: true }));
+        }); // written on blur
+      },
+      { tags: ['errand', '5 min'] },
+    ],
   ])('%s writes in place and stays on the card', async (_label, act_, payload) => {
     render();
     act_();
@@ -344,8 +378,11 @@ describe('step 2 — creating a project without leaving triage', () => {
 
   it('offers the create option below the real projects', () => {
     render();
-    expect([...projectPicker()!.options].map(o => o.textContent))
-      .toEqual(['No project', 'Kitchen remodel', '+ New project…']);
+    expect([...projectPicker()!.options].map((o) => o.textContent)).toEqual([
+      'No project',
+      'Kitchen remodel',
+      '+ New project…',
+    ]);
   });
 
   it('creates the project and files this item under it, in place', async () => {
@@ -356,7 +393,13 @@ describe('step 2 — creating a project without leaving triage', () => {
     submitForm(input);
     await act(async () => {});
 
-    expect(createProjectMock).toHaveBeenCalledWith({ name: 'Garage', area_id: null, purpose: '', outcome: '', visibility: 'private' });
+    expect(createProjectMock).toHaveBeenCalledWith({
+      name: 'Garage',
+      area_id: null,
+      purpose: '',
+      outcome: '',
+      visibility: 'private',
+    });
     expect(updateTodoMock).toHaveBeenCalledWith(7, { project_id: 9 });
     // Non-resolving: same tier as the other step-2 fields, so the card stays put.
     expect(onChanged).toHaveBeenCalledTimes(1);
@@ -404,7 +447,13 @@ describe('step 2 — creating a project without leaving triage', () => {
     submitForm(projectNameInput()!);
     await act(async () => {});
 
-    expect(createProjectMock).toHaveBeenLastCalledWith({ name: 'Garage shelving', area_id: null, purpose: '', outcome: '', visibility: 'private' });
+    expect(createProjectMock).toHaveBeenLastCalledWith({
+      name: 'Garage shelving',
+      area_id: null,
+      purpose: '',
+      outcome: '',
+      visibility: 'private',
+    });
     expect(updateTodoMock).toHaveBeenCalledWith(7, { project_id: 9 });
     expect(projectPicker()).toBeTruthy();
   });
@@ -448,8 +497,12 @@ describe('step 2 — creating a project without leaving triage', () => {
     expect(onChanged).toHaveBeenCalledTimes(1);
     const GARAGE: TodoProject = { ...PROJECT, id: 9, name: 'Garage' };
     render({}, ['@calls', '@errands'], [PROJECT, GARAGE]);
-    expect([...projectPicker()!.options].map(o => o.textContent))
-      .toEqual(['No project', 'Kitchen remodel', 'Garage', '+ New project…']);
+    expect([...projectPicker()!.options].map((o) => o.textContent)).toEqual([
+      'No project',
+      'Kitchen remodel',
+      'Garage',
+      '+ New project…',
+    ]);
   });
 
   it('locks the form while the two writes are in flight, so one gesture cannot create twice', async () => {
@@ -463,8 +516,18 @@ describe('step 2 — creating a project without leaving triage', () => {
     // would sail through unnoticed.
     let releasePost!: (p: TodoProject) => void;
     let releasePut!: (t: Todo) => void;
-    createProjectMock.mockImplementationOnce(() => new Promise<TodoProject>(r => { releasePost = r; }));
-    updateTodoMock.mockImplementationOnce(() => new Promise<Todo>(r => { releasePut = r; }));
+    createProjectMock.mockImplementationOnce(
+      () =>
+        new Promise<TodoProject>((r) => {
+          releasePost = r;
+        }),
+    );
+    updateTodoMock.mockImplementationOnce(
+      () =>
+        new Promise<Todo>((r) => {
+          releasePut = r;
+        }),
+    );
     render();
     const input = openCreate();
     setValue(input, 'Garage');
@@ -482,11 +545,15 @@ describe('step 2 — creating a project without leaving triage', () => {
 
     // Write 2 in flight — the form has closed back to the picker, which must
     // stay disabled until the assignment settles.
-    await act(async () => { releasePost({ ...PROJECT, id: 9, name: 'Garage' }); });
+    await act(async () => {
+      releasePost({ ...PROJECT, id: 9, name: 'Garage' });
+    });
     expect(updateTodoMock).toHaveBeenCalledWith(7, { project_id: 9 });
     expect(projectPicker()!.disabled).toBe(true);
 
-    await act(async () => { releasePut(TODO); });
+    await act(async () => {
+      releasePut(TODO);
+    });
     expect(projectPicker()!.disabled).toBe(false);
     expect(onChanged).toHaveBeenCalledTimes(1);
   });
@@ -508,11 +575,15 @@ describe('inline title editing', () => {
   };
 
   const press = (el: Element, key: string) => {
-    act(() => { el.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true })); });
+    act(() => {
+      el.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true }));
+    });
   };
 
   const blur = (el: Element) => {
-    act(() => { el.dispatchEvent(new FocusEvent('focusout', { bubbles: true })); });
+    act(() => {
+      el.dispatchEvent(new FocusEvent('focusout', { bubbles: true }));
+    });
   };
 
   it('saves a trimmed title on Enter without filing the item', async () => {
@@ -589,7 +660,12 @@ describe('inline title editing', () => {
     // keeping the editor itself disabled is the only thing preventing a second,
     // stale rename from racing the first.
     let release!: (t: Todo) => void;
-    updateTodoMock.mockImplementationOnce(() => new Promise<Todo>(r => { release = r; }));
+    updateTodoMock.mockImplementationOnce(
+      () =>
+        new Promise<Todo>((r) => {
+          release = r;
+        }),
+    );
     render();
     const editor = openEditor();
     setValue(editor, 'call the dentist');
@@ -600,7 +676,9 @@ describe('inline title editing', () => {
     expect(inFlight.disabled).toBe(true);
     expect(updateTodoMock).toHaveBeenCalledTimes(1);
 
-    await act(async () => { release({ ...TODO, title: 'call the dentist' }); });
+    await act(async () => {
+      release({ ...TODO, title: 'call the dentist' });
+    });
     expect(updateTodoMock).toHaveBeenCalledTimes(1);
   });
 
@@ -626,8 +704,12 @@ describe('inline title editing', () => {
     // The same lag as the Edit sheet above: until the parent's refetch lands the
     // `todo` prop still carries the old title, and an item filed or finished in that
     // window used to offer its undo under the name the user had just replaced.
-    updateTodoMock.mockResolvedValueOnce(
-      { ...TODO, title: 'call the dentist', updated_at: '2026-08-06T12:05:00Z', rev: 6 });
+    updateTodoMock.mockResolvedValueOnce({
+      ...TODO,
+      title: 'call the dentist',
+      updated_at: '2026-08-06T12:05:00Z',
+      rev: 6,
+    });
     render();
     const editor = openEditor();
     setValue(editor, 'call the dentist');
@@ -638,7 +720,7 @@ describe('inline title editing', () => {
     await act(async () => {});
 
     const queued = takeAll();
-    expect(queued.map(e => e.title)).toEqual(['call the dentist']);
+    expect(queued.map((e) => e.title)).toEqual(['call the dentist']);
     expect(queued[0].restore).toEqual({ status: 'inbox' }); // what undo puts back is unchanged
   });
 
@@ -656,7 +738,7 @@ describe('inline title editing', () => {
     await act(async () => {});
 
     expect(updateTodoMock).toHaveBeenCalledWith(7, { status: 'done' });
-    expect(takeAll().map(e => e.title)).toEqual(['dentist']);
+    expect(takeAll().map((e) => e.title)).toEqual(['dentist']);
   });
 
   it('names the undo row by a same-gesture rename that the server then saves', async () => {
@@ -664,7 +746,12 @@ describe('inline title editing', () => {
     // completion starts. The completion waits for it, and the undo row carries the
     // title the server stored rather than the one the card held at the click.
     let release!: (t: Todo) => void;
-    updateTodoMock.mockImplementationOnce(() => new Promise<Todo>(r => { release = r; }));
+    updateTodoMock.mockImplementationOnce(
+      () =>
+        new Promise<Todo>((r) => {
+          release = r;
+        }),
+    );
     render();
     const editor = openEditor();
     setValue(editor, 'call the dentist');
@@ -678,29 +765,40 @@ describe('inline title editing', () => {
     });
 
     expect(updateTodoMock).toHaveBeenLastCalledWith(7, { status: 'done' });
-    expect(takeAll().map(e => e.title)).toEqual(['call the dentist']);
+    expect(takeAll().map((e) => e.title)).toEqual(['call the dentist']);
   });
 
   it('keeps a saved rename whose version ties the one the card already holds', async () => {
     // A rename can answer with the same `rev` as a row the card already adopted (its own
     // write's echo). The tie must not discard the rename.
     let release!: (t: Todo) => void;
-    updateTodoMock.mockImplementationOnce(() => new Promise<Todo>(r => { release = r; }));
+    updateTodoMock.mockImplementationOnce(
+      () =>
+        new Promise<Todo>((r) => {
+          release = r;
+        }),
+    );
     render();
     const editor = openEditor();
     setValue(editor, 'call the dentist');
     blur(editor);
     click(button('Took 2 minutes — Done ✓'));
-    await act(async () => { release({ ...TODO, title: 'call the dentist' }); }); // same rev
+    await act(async () => {
+      release({ ...TODO, title: 'call the dentist' });
+    }); // same rev
 
-    expect(takeAll().map(e => e.title)).toEqual(['call the dentist']);
+    expect(takeAll().map((e) => e.title)).toEqual(['call the dentist']);
   });
 
-  it('prefers a newer title from elsewhere over this card\'s earlier rename', async () => {
+  it("prefers a newer title from elsewhere over this card's earlier rename", async () => {
     // The last rename's answer is kept for the card's life; a refetch carrying a later
     // edit (another device, an agent) is the newer stored title and must win.
-    updateTodoMock.mockResolvedValueOnce(
-      { ...TODO, title: 'call the dentist', updated_at: '2026-08-06T12:05:00Z', rev: 6 });
+    updateTodoMock.mockResolvedValueOnce({
+      ...TODO,
+      title: 'call the dentist',
+      updated_at: '2026-08-06T12:05:00Z',
+      rev: 6,
+    });
     render();
     const editor = openEditor();
     setValue(editor, 'call the dentist');
@@ -711,7 +809,7 @@ describe('inline title editing', () => {
     click(button('Took 2 minutes — Done ✓'));
     await act(async () => {});
 
-    expect(takeAll().map(e => e.title)).toEqual(['book the dentist for March']);
+    expect(takeAll().map((e) => e.title)).toEqual(['book the dentist for March']);
   });
 
   it('does not hand the sheet a rename that failed to save', async () => {
@@ -794,16 +892,20 @@ describe('step 2 — the due-date cue (todo-gtd #2351)', () => {
   // see whether that overlay is present, absent once a date exists, or — the one that
   // actually breaks the control — still sitting on top of the native editor while the
   // user is picking a date.
-  const dueInput = () =>
-    container.querySelector<HTMLInputElement>('input[aria-label="Due date"]')!;
+  const dueInput = () => container.querySelector<HTMLInputElement>('input[aria-label="Due date"]')!;
   const cue = () =>
-    [...container.querySelectorAll('span[aria-hidden="true"]')]
-      .find(el => (el.textContent ?? '').trim() === 'Add due date');
+    [...container.querySelectorAll('span[aria-hidden="true"]')].find(
+      (el) => (el.textContent ?? '').trim() === 'Add due date',
+    );
   const focus = (el: Element) => {
-    act(() => { el.dispatchEvent(new FocusEvent('focusin', { bubbles: true })); });
+    act(() => {
+      el.dispatchEvent(new FocusEvent('focusin', { bubbles: true }));
+    });
   };
   const unfocus = (el: Element) => {
-    act(() => { el.dispatchEvent(new FocusEvent('focusout', { bubbles: true })); });
+    act(() => {
+      el.dispatchEvent(new FocusEvent('focusout', { bubbles: true }));
+    });
   };
 
   it('labels the empty box in place of the missing placeholder', () => {
@@ -930,7 +1032,11 @@ describe('step 2 — the due-date cue (todo-gtd #2351)', () => {
     // from there would read the box as untouched and put the server's old notes back over
     // what was typed since.
     let land!: (t: Todo) => void;
-    updateTodoMock.mockReturnValueOnce(new Promise<Todo>(r => { land = r; }));
+    updateTodoMock.mockReturnValueOnce(
+      new Promise<Todo>((r) => {
+        land = r;
+      }),
+    );
     render();
     setValue(dueInput(), '2026-09-01');
     unfocus(dueInput()); // the date write is in flight
@@ -949,7 +1055,11 @@ describe('step 2 — the due-date cue (todo-gtd #2351)', () => {
     // Clicking Edit is what blurs the field, and the sheet writes `due_date` too — so the
     // card's own PUT has to answer first, or it can land after the sheet's and overwrite it.
     let land!: (t: Todo) => void;
-    updateTodoMock.mockReturnValueOnce(new Promise<Todo>(r => { land = r; }));
+    updateTodoMock.mockReturnValueOnce(
+      new Promise<Todo>((r) => {
+        land = r;
+      }),
+    );
     render();
     setValue(dueInput(), '2026-09-01');
     unfocus(dueInput());
@@ -969,7 +1079,11 @@ describe('step 2 — the due-date cue (todo-gtd #2351)', () => {
     // made in it started a write the sheet never saw: the sheet opened on the old value, and
     // its full-field save put it back.
     let land!: (t: Todo) => void;
-    updateTodoMock.mockReturnValueOnce(new Promise<Todo>(r => { land = r; }));
+    updateTodoMock.mockReturnValueOnce(
+      new Promise<Todo>((r) => {
+        land = r;
+      }),
+    );
     render();
     setValue(dueInput(), '2026-09-01');
     unfocus(dueInput());
@@ -991,19 +1105,23 @@ describe('step 2 — the due-date cue (todo-gtd #2351)', () => {
     // when it opens, not as it was at the click. Typed straight into the DOM here, past the
     // lock, to stand for any change that lands in the wait.
     let land!: (t: Todo) => void;
-    updateTodoMock.mockReturnValueOnce(new Promise<Todo>(r => { land = r; }));
+    updateTodoMock.mockReturnValueOnce(
+      new Promise<Todo>((r) => {
+        land = r;
+      }),
+    );
     render();
     setValue(dueInput(), '2026-09-01');
     unfocus(dueInput());
     click(button('Edit')); // waits on the date write
-    setValue(container.querySelector<HTMLTextAreaElement>('textarea[aria-label="Notes"]')!,
-      'typed while waiting');
+    setValue(container.querySelector<HTMLTextAreaElement>('textarea[aria-label="Notes"]')!, 'typed while waiting');
 
     await act(async () => {
       land({ ...TODO, due_date: '2026-09-01', updated_at: '2026-08-06T12:05:00Z', rev: 6 });
     });
     expect(onEdit).toHaveBeenCalledWith(
-      expect.objectContaining({ notes: 'typed while waiting', due_date: '2026-09-01' }));
+      expect.objectContaining({ notes: 'typed while waiting', due_date: '2026-09-01' }),
+    );
   });
 
   it('lets a newer row keep its date when this write answers late', async () => {
@@ -1012,7 +1130,11 @@ describe('step 2 — the due-date cue (todo-gtd #2351)', () => {
     // then put its own date back under the newer row's version, where no later reload
     // could ever correct it.
     let land!: (t: Todo) => void;
-    updateTodoMock.mockReturnValueOnce(new Promise<Todo>(r => { land = r; }));
+    updateTodoMock.mockReturnValueOnce(
+      new Promise<Todo>((r) => {
+        land = r;
+      }),
+    );
     render();
     setValue(dueInput(), '2026-09-01');
     unfocus(dueInput());
@@ -1031,8 +1153,16 @@ describe('step 2 — the due-date cue (todo-gtd #2351)', () => {
     let landDate!: (t: Todo) => void;
     let landStar!: (t: Todo) => void;
     updateTodoMock
-      .mockReturnValueOnce(new Promise<Todo>(r => { landDate = r; }))
-      .mockReturnValueOnce(new Promise<Todo>(r => { landStar = r; }));
+      .mockReturnValueOnce(
+        new Promise<Todo>((r) => {
+          landDate = r;
+        }),
+      )
+      .mockReturnValueOnce(
+        new Promise<Todo>((r) => {
+          landStar = r;
+        }),
+      );
     render();
     setValue(dueInput(), '2026-09-01');
     unfocus(dueInput());
@@ -1087,11 +1217,18 @@ describe('step 2 — the due-date cue (todo-gtd #2351)', () => {
     // Two overlapping PUTs to one column land in whichever order the server picks, and the
     // first write answering must not release the newer date still in the box.
     let land!: (t: Todo) => void;
-    updateTodoMock.mockReturnValueOnce(new Promise<Todo>(r => { land = r; }));
+    updateTodoMock.mockReturnValueOnce(
+      new Promise<Todo>((r) => {
+        land = r;
+      }),
+    );
     // The trailing write answers the way the server does, with a newer `rev`: an
     // answer OLDER than the row the card holds is one it rightly sets aside.
     updateTodoMock.mockResolvedValueOnce({
-      ...TODO, due_date: '2026-09-10', updated_at: '2026-08-06T12:09:00Z', rev: 10,
+      ...TODO,
+      due_date: '2026-09-10',
+      updated_at: '2026-08-06T12:09:00Z',
+      rev: 10,
     });
     render();
     setValue(dueInput(), '2026-09-01');
@@ -1104,8 +1241,10 @@ describe('step 2 — the due-date cue (todo-gtd #2351)', () => {
       land({ ...TODO, due_date: '2026-09-01', updated_at: '2026-08-06T12:05:00Z', rev: 6 });
     });
 
-    expect(updateTodoMock.mock.calls.map(c => c[1])).toEqual(
-      [{ due_date: '2026-09-01' }, { due_date: '2026-09-10' }]);
+    expect(updateTodoMock.mock.calls.map((c) => c[1])).toEqual([
+      { due_date: '2026-09-01' },
+      { due_date: '2026-09-10' },
+    ]);
     expect(dueInput().value).toBe('2026-09-10');
   });
 
@@ -1135,7 +1274,10 @@ describe('step 2 — the due-date cue (todo-gtd #2351)', () => {
     // reject it — otherwise the field reverts to the date the user just replaced, and
     // `current` hands that stale date to the Edit sheet, whose save writes back every field.
     updateTodoMock.mockResolvedValueOnce({
-      ...TODO, due_date: '2026-09-01', updated_at: '2026-08-06T12:05:00Z', rev: 6,
+      ...TODO,
+      due_date: '2026-09-01',
+      updated_at: '2026-08-06T12:05:00Z',
+      rev: 6,
     });
     render(); // mounted at 12:00, no due date
     setValue(dueInput(), '2026-09-01');
@@ -1143,7 +1285,10 @@ describe('step 2 — the due-date cue (todo-gtd #2351)', () => {
     await act(async () => {});
 
     updateTodoMock.mockResolvedValueOnce({
-      ...TODO, due_date: '2026-09-10', updated_at: '2026-08-06T12:09:00Z', rev: 10,
+      ...TODO,
+      due_date: '2026-09-10',
+      updated_at: '2026-08-06T12:09:00Z',
+      rev: 10,
     });
     setValue(dueInput(), '2026-09-10');
     unfocus(dueInput());
@@ -1163,22 +1308,29 @@ describe('step 2 — the due-date cue (todo-gtd #2351)', () => {
     // still the stale prop. Nothing else stops the cue reappearing on top of the chosen
     // date for the length of the round trip.
     let land!: (t: Todo) => void;
-    updateTodoMock.mockReturnValueOnce(new Promise<Todo>(r => { land = r; }));
+    updateTodoMock.mockReturnValueOnce(
+      new Promise<Todo>((r) => {
+        land = r;
+      }),
+    );
     render();
     focus(dueInput());
     setValue(dueInput(), '2026-09-01');
     unfocus(dueInput());
 
     expect(cue()).toBeUndefined();
-    await act(async () => { land({ ...TODO, due_date: '2026-09-01' }); });
+    await act(async () => {
+      land({ ...TODO, due_date: '2026-09-01' });
+    });
   });
 });
 
 describe('step 2 — notes without leaving triage (todo-gtd #2402)', () => {
-  const notesBox = () =>
-    container.querySelector<HTMLTextAreaElement>('textarea[aria-label="Notes"]')!;
+  const notesBox = () => container.querySelector<HTMLTextAreaElement>('textarea[aria-label="Notes"]')!;
   const unfocus = (el: Element) => {
-    act(() => { el.dispatchEvent(new FocusEvent('focusout', { bubbles: true })); });
+    act(() => {
+      el.dispatchEvent(new FocusEvent('focusout', { bubbles: true }));
+    });
   };
 
   it('seeds from the todo and saves on blur without filing the item', async () => {
@@ -1245,9 +1397,7 @@ describe('step 2 — notes without leaving triage (todo-gtd #2402)', () => {
 
     click(button('Edit'));
     await act(async () => {});
-    expect(onEdit).toHaveBeenCalledWith(
-      expect.objectContaining({ notes: 'the part number is 44-B' }),
-    );
+    expect(onEdit).toHaveBeenCalledWith(expect.objectContaining({ notes: 'the part number is 44-B' }));
   });
 
   it('adopts notes the Edit sheet wrote — a same-id reload does not remount this card', () => {
@@ -1261,7 +1411,7 @@ describe('step 2 — notes without leaving triage (todo-gtd #2402)', () => {
     expect(notesBox().value).toBe('written in the sheet');
   });
 
-  it('does not write the pre-sheet text back after adopting the sheet\'s edit', async () => {
+  it("does not write the pre-sheet text back after adopting the sheet's edit", async () => {
     // The hazard the test above NAMES but does not exercise. Adoption is only half the job,
     // and it fails two different ways: if the baseline moves on while the box keeps the old
     // text, the next blur writes that stale text straight over the sheet's edit; and if
@@ -1281,8 +1431,8 @@ describe('step 2 — notes without leaving triage (todo-gtd #2402)', () => {
     await act(async () => {});
 
     expect(updateTodoMock).toHaveBeenCalledWith(7, { notes: 'written in the sheet, and mine' });
-    const wrote = updateTodoMock.mock.calls.map(c => (c[1] as { notes?: string }).notes);
-    expect(wrote).not.toContain('first');           // never the pre-sheet text
+    const wrote = updateTodoMock.mock.calls.map((c) => (c[1] as { notes?: string }).notes);
+    expect(wrote).not.toContain('first'); // never the pre-sheet text
     expect(wrote).not.toContain('first, and mine'); // nor anything built on it
   });
 
@@ -1303,7 +1453,11 @@ describe('step 2 — notes without leaving triage (todo-gtd #2402)', () => {
     // it, and no reload could say otherwise. The typed text stays in the box, unsaved, and
     // the next blur sends it.
     let land!: (t: Todo) => void;
-    updateTodoMock.mockReturnValueOnce(new Promise<Todo>(r => { land = r; }));
+    updateTodoMock.mockReturnValueOnce(
+      new Promise<Todo>((r) => {
+        land = r;
+      }),
+    );
     render({ notes: '' });
     setValue(notesBox(), 'mine');
     unfocus(notesBox());
@@ -1316,7 +1470,10 @@ describe('step 2 — notes without leaving triage (todo-gtd #2402)', () => {
 
     unfocus(notesBox());
     await act(async () => {});
-    expect(updateTodoMock.mock.calls).toEqual([[7, { notes: 'mine' }], [7, { notes: 'mine' }]]);
+    expect(updateTodoMock.mock.calls).toEqual([
+      [7, { notes: 'mine' }],
+      [7, { notes: 'mine' }],
+    ]);
   });
 
   it('follows the server again once the write lands', async () => {
@@ -1333,13 +1490,19 @@ describe('step 2 — notes without leaving triage (todo-gtd #2402)', () => {
 
   it('keeps keystrokes typed while the save was still in flight', async () => {
     let land!: (t: Todo) => void;
-    updateTodoMock.mockReturnValueOnce(new Promise<Todo>(r => { land = r; }));
+    updateTodoMock.mockReturnValueOnce(
+      new Promise<Todo>((r) => {
+        land = r;
+      }),
+    );
     render({ notes: '' });
     setValue(notesBox(), 'first pass');
     unfocus(notesBox());
     setValue(notesBox(), 'first pass, plus more'); // typed again before the write returned
 
-    await act(async () => { land({ ...TODO, notes: 'first pass' }); });
+    await act(async () => {
+      land({ ...TODO, notes: 'first pass' });
+    });
 
     expect(notesBox().value).toBe('first pass, plus more');
   });
@@ -1349,7 +1512,11 @@ describe('step 2 — notes without leaving triage (todo-gtd #2402)', () => {
     // text can land last and silently win. The blur-commit primitive answers a commit made
     // during a save with a single trailing run whose payload is recomputed at send time.
     let land!: (t: Todo) => void;
-    updateTodoMock.mockReturnValueOnce(new Promise<Todo>(r => { land = r; }));
+    updateTodoMock.mockReturnValueOnce(
+      new Promise<Todo>((r) => {
+        land = r;
+      }),
+    );
     render({ notes: '' });
     setValue(notesBox(), 'first pass');
     unfocus(notesBox());
@@ -1358,7 +1525,9 @@ describe('step 2 — notes without leaving triage (todo-gtd #2402)', () => {
 
     expect(updateTodoMock).toHaveBeenCalledTimes(1); // NOT two concurrent writes
 
-    await act(async () => { land({ ...TODO, notes: 'first pass' }); });
+    await act(async () => {
+      land({ ...TODO, notes: 'first pass' });
+    });
 
     expect(updateTodoMock).toHaveBeenCalledTimes(2);
     expect(updateTodoMock).toHaveBeenLastCalledWith(7, { notes: 'first pass, plus more' });
@@ -1399,22 +1568,28 @@ describe('step 2 — notes without leaving triage (todo-gtd #2402)', () => {
     // trailing run — so the queued text has to be flushed BEFORE the filing write, not
     // left to a chain that is about to be thrown away.
     let land!: (t: Todo) => void;
-    updateTodoMock.mockReturnValueOnce(new Promise<Todo>(r => { land = r; }));
+    updateTodoMock.mockReturnValueOnce(
+      new Promise<Todo>((r) => {
+        land = r;
+      }),
+    );
     render({ notes: '' });
     setValue(notesBox(), 'first');
-    unfocus(notesBox());                       // save #1 in flight
+    unfocus(notesBox()); // save #1 in flight
     setValue(notesBox(), 'first and second');
-    unfocus(notesBox());                       // queued behind it — what clicking a button does
+    unfocus(notesBox()); // queued behind it — what clicking a button does
     click(button('Took 2 minutes — Done ✓'));
 
-    await act(async () => { land({ ...TODO, notes: 'first' }); });
+    await act(async () => {
+      land({ ...TODO, notes: 'first' });
+    });
     await act(async () => {});
 
-    const sent = updateTodoMock.mock.calls.map(c => c[1] as Record<string, unknown>);
-    const queued = sent.findIndex(f => f.notes === 'first and second');
-    const filed = sent.findIndex(f => f.status === 'done');
-    expect(queued).toBeGreaterThanOrEqual(0);   // it was sent at all
-    expect(filed).toBeGreaterThan(queued);      // …and before the card could go away
+    const sent = updateTodoMock.mock.calls.map((c) => c[1] as Record<string, unknown>);
+    const queued = sent.findIndex((f) => f.notes === 'first and second');
+    const filed = sent.findIndex((f) => f.status === 'done');
+    expect(queued).toBeGreaterThanOrEqual(0); // it was sent at all
+    expect(filed).toBeGreaterThan(queued); // …and before the card could go away
     expect(onProcessed).toHaveBeenCalledTimes(1);
   });
 
@@ -1453,18 +1628,26 @@ describe('step 2 — notes without leaving triage (todo-gtd #2402)', () => {
     // `useAutoSave` abandons a queued trailing run at unmount. Neither the resolving-write
     // flush nor the Edit flush covers this door, and it is the one triage uses most.
     let land!: (t: Todo) => void;
-    updateTodoMock.mockReturnValueOnce(new Promise<Todo>(r => { land = r; }));
+    updateTodoMock.mockReturnValueOnce(
+      new Promise<Todo>((r) => {
+        land = r;
+      }),
+    );
     render({ notes: '' });
     setValue(notesBox(), 'first');
-    unfocus(notesBox());                                  // save #1 in flight
+    unfocus(notesBox()); // save #1 in flight
     setValue(notesBox(), 'first and the crucial second');
-    unfocus(notesBox());                                  // queued behind it
+    unfocus(notesBox()); // queued behind it
 
-    act(() => { root.render(<div />); });                 // the parent swaps the head item
-    await act(async () => { land({ ...TODO, notes: 'first' }); });
+    act(() => {
+      root.render(<div />);
+    }); // the parent swaps the head item
+    await act(async () => {
+      land({ ...TODO, notes: 'first' });
+    });
 
-    const sent = updateTodoMock.mock.calls.map(c => c[1] as Record<string, unknown>);
-    expect(sent.some(f => f.notes === 'first and the crucial second')).toBe(true);
+    const sent = updateTodoMock.mock.calls.map((c) => c[1] as Record<string, unknown>);
+    expect(sent.some((f) => f.notes === 'first and the crucial second')).toBe(true);
   });
 
   it('chains the parting write behind a notes save still in flight', async () => {
@@ -1472,36 +1655,52 @@ describe('step 2 — notes without leaving triage (todo-gtd #2402)', () => {
     // CONCURRENTLY would reopen the very race that guarantee exists for — two writes to the
     // same column, the row going to whichever commits last, so the older draft can win.
     let land!: (t: Todo) => void;
-    updateTodoMock.mockReturnValueOnce(new Promise<Todo>(r => { land = r; }));
+    updateTodoMock.mockReturnValueOnce(
+      new Promise<Todo>((r) => {
+        land = r;
+      }),
+    );
     render({ notes: '' });
     setValue(notesBox(), 'first');
     unfocus(notesBox());
     setValue(notesBox(), 'first and second');
     unfocus(notesBox());
 
-    act(() => { root.render(<div />); });
+    act(() => {
+      root.render(<div />);
+    });
     expect(updateTodoMock).toHaveBeenCalledTimes(1); // nothing sent alongside the live request
 
-    await act(async () => { land({ ...TODO, notes: 'first' }); });
+    await act(async () => {
+      land({ ...TODO, notes: 'first' });
+    });
     await act(async () => {});
 
-    const sent = updateTodoMock.mock.calls.map(c => c[1] as Record<string, unknown>);
-    expect(sent.some(f => f.notes === 'first and second')).toBe(true);
+    const sent = updateTodoMock.mock.calls.map((c) => c[1] as Record<string, unknown>);
+    expect(sent.some((f) => f.notes === 'first and second')).toBe(true);
   });
 
   it('does not re-send a note still in flight when the card goes away', async () => {
     // The ordinary unmount: one save running, nothing queued. Sending again would be a
     // duplicate write of text the server already has.
     let land!: (t: Todo) => void;
-    updateTodoMock.mockReturnValueOnce(new Promise<Todo>(r => { land = r; }));
+    updateTodoMock.mockReturnValueOnce(
+      new Promise<Todo>((r) => {
+        land = r;
+      }),
+    );
     render({ notes: '' });
     setValue(notesBox(), 'only once');
     unfocus(notesBox());
 
-    act(() => { root.render(<div />); });
-    await act(async () => { land({ ...TODO, notes: 'only once' }); });
+    act(() => {
+      root.render(<div />);
+    });
+    await act(async () => {
+      land({ ...TODO, notes: 'only once' });
+    });
 
-    expect(updateTodoMock.mock.calls.filter(c => 'notes' in (c[1] as object))).toHaveLength(1);
+    expect(updateTodoMock.mock.calls.filter((c) => 'notes' in (c[1] as object))).toHaveLength(1);
   });
 
   it('retries a note whose save FAILED when the card is swapped away', async () => {
@@ -1514,7 +1713,9 @@ describe('step 2 — notes without leaving triage (todo-gtd #2402)', () => {
     await act(async () => {});
     updateTodoMock.mockClear();
 
-    act(() => { root.render(<div />); });
+    act(() => {
+      root.render(<div />);
+    });
     await act(async () => {});
 
     expect(updateTodoMock).toHaveBeenCalledWith(7, { notes: 'rescue me' });
@@ -1527,14 +1728,16 @@ describe('step 2 — notes without leaving triage (todo-gtd #2402)', () => {
     render({ notes: '' });
     setValue(notesBox(), 'typed then swapped away');
 
-    act(() => { root.render(<div />); });
+    act(() => {
+      root.render(<div />);
+    });
     await act(async () => {});
 
     expect(updateTodoMock).toHaveBeenCalledWith(7, { notes: 'typed then swapped away' });
     expect(onChanged).toHaveBeenCalled();
   });
 
-  it('does not clobber an outside note that arrived on another write\'s response', async () => {
+  it("does not clobber an outside note that arrived on another write's response", async () => {
     // Todo GTD has real concurrent writers (agents, Chatty sync, the phone PWA). A write of
     // ours answers with the row AS THE SERVER HAS IT — including a note someone else just
     // added. Recording that version without taking its content is a silent clobber: the
@@ -1544,7 +1747,11 @@ describe('step 2 — notes without leaving triage (todo-gtd #2402)', () => {
     // The assertion that matters is the last one: the outside note has to SURVIVE a later
     // blur, not merely appear on screen.
     updateTodoMock.mockResolvedValueOnce({
-      ...TODO, notes: 'added from my phone', star: true, updated_at: '2026-08-06T12:10:00Z', rev: 11,
+      ...TODO,
+      notes: 'added from my phone',
+      star: true,
+      updated_at: '2026-08-06T12:10:00Z',
+      rev: 11,
     });
     render({ notes: '' });
     click(button('★')); // any unrelated write; its response carries the outside note
@@ -1556,15 +1763,19 @@ describe('step 2 — notes without leaving triage (todo-gtd #2402)', () => {
     unfocus(notesBox());
     await act(async () => {});
 
-    const notesWrites = updateTodoMock.mock.calls.filter(c => 'notes' in (c[1] as object));
+    const notesWrites = updateTodoMock.mock.calls.filter((c) => 'notes' in (c[1] as object));
     expect(notesWrites).toHaveLength(0); // nothing to save — and nothing to overwrite
   });
 
-  it('keeps unsaved text of the user\'s own when an outside note arrives', async () => {
+  it("keeps unsaved text of the user's own when an outside note arrives", async () => {
     // The other half of the rule: adopting must never take the box away from someone who is
     // mid-sentence in it.
     updateTodoMock.mockResolvedValueOnce({
-      ...TODO, notes: 'added from my phone', star: true, updated_at: '2026-08-06T12:10:00Z', rev: 11,
+      ...TODO,
+      notes: 'added from my phone',
+      star: true,
+      updated_at: '2026-08-06T12:10:00Z',
+      rev: 11,
     });
     render({ notes: '' });
     setValue(notesBox(), 'what I was typing');
@@ -1578,8 +1789,7 @@ describe('step 2 — notes without leaving triage (todo-gtd #2402)', () => {
     render({ notes: 'only once' });
     expect(container.querySelectorAll('textarea[aria-label="Notes"]')).toHaveLength(1);
     // The preview was a <p> under the title; the editor is the only place notes render now.
-    expect([...container.querySelectorAll('p')].some(el => el.textContent?.includes('only once')))
-      .toBe(false);
+    expect([...container.querySelectorAll('p')].some((el) => el.textContent?.includes('only once'))).toBe(false);
     expect(notesBox().value).toBe('only once');
   });
 });
@@ -1595,7 +1805,7 @@ describe('the step bar — numbered chip and the required star (todo-gtd #2613)'
     render();
     const [one, two, three] = bars();
 
-    expect([one, two, three].map(h => chip(h).textContent)).toEqual(['01', '02', '03']);
+    expect([one, two, three].map((h) => chip(h).textContent)).toEqual(['01', '02', '03']);
     // The number moved OUT of the heading — the old "1. What kind of action?" prefix is gone.
     expect(one.textContent).not.toContain('1.');
     expect(two.textContent).not.toContain('2.');
@@ -1610,15 +1820,14 @@ describe('the step bar — numbered chip and the required star (todo-gtd #2613)'
     const [one, two, three] = bars();
 
     // The star replaced the word — visible glyph, and the word still there for assistive tech.
-    const star = [...three.querySelectorAll('span')].find(s => s.textContent === '★');
+    const star = [...three.querySelectorAll('span')].find((s) => s.textContent === '★');
     expect(star).toBeDefined();
     expect(star!.getAttribute('aria-hidden')).toBe('true');
-    expect([...three.querySelectorAll('.sr-only')].map(s => s.textContent))
-      .toEqual(['Step 3: ', ' (required)']);
+    expect([...three.querySelectorAll('.sr-only')].map((s) => s.textContent)).toEqual(['Step 3: ', ' (required)']);
 
     // Steps 1 and 2 are not requirements, so neither gets a star.
     for (const h of [one, two]) {
-      expect([...h.querySelectorAll('span')].some(s => s.textContent === '★')).toBe(false);
+      expect([...h.querySelectorAll('span')].some((s) => s.textContent === '★')).toBe(false);
     }
     // Step 2's own "(optional)" wording is untouched by all of this.
     expect(two.textContent).toContain('(optional)');
@@ -1646,7 +1855,7 @@ describe('the step bar — numbered chip and the required star (todo-gtd #2613)'
         expect(span.hasAttribute('aria-hidden')).toBe(false);
       }
     }
-    const star = [...bars()[2].querySelectorAll('span')].find(s => s.textContent === '★');
+    const star = [...bars()[2].querySelectorAll('span')].find((s) => s.textContent === '★');
     expect(star!.getAttribute('aria-hidden')).toBe('true');
     // `brand-ink` clears AA on `bg-sf-bg` in both themes by itself, so no `dark:` variant.
     expect(star!.className).toContain('text-sf-accent-text');
@@ -1657,9 +1866,10 @@ describe('step 2 — project fields appear only with a project', () => {
   const fields = () => container.querySelector('[data-project-fields]');
   const purpose = () => container.querySelector<HTMLInputElement>('input[aria-label="Project purpose"]')!;
   const outcome = () => container.querySelector<HTMLInputElement>('input[aria-label="Project outcome"]')!;
-  const blur = (el: Element) => act(() => {
-    el.dispatchEvent(new FocusEvent('focusout', { bubbles: true }));
-  });
+  const blur = (el: Element) =>
+    act(() => {
+      el.dispatchEvent(new FocusEvent('focusout', { bubbles: true }));
+    });
 
   it('shows no project fields while no project is selected', () => {
     render();
@@ -1669,7 +1879,7 @@ describe('step 2 — project fields appear only with a project', () => {
     expect(fields()).toBeNull();
   });
 
-  it('reveals the selected project\'s area, purpose and outcome, and hides them again', () => {
+  it("reveals the selected project's area, purpose and outcome, and hides them again", () => {
     const project = { ...PROJECT, purpose: 'A kitchen we like', outcome: 'Done by spring' };
     render({ project_id: 3 }, undefined, [project]);
     expect(container.querySelector('select[aria-label="Project area"]')).toBeTruthy();
@@ -1704,9 +1914,13 @@ describe('step 2 — project fields appear only with a project', () => {
     submitForm(projectNameInput()!);
     await act(async () => {});
 
-    expect(createProjectMock).toHaveBeenCalledWith(
-      { name: 'Garage', area_id: null, purpose: 'Room for the car', outcome: '', visibility: 'private' },
-    );
+    expect(createProjectMock).toHaveBeenCalledWith({
+      name: 'Garage',
+      area_id: null,
+      purpose: 'Room for the car',
+      outcome: '',
+      visibility: 'private',
+    });
     expect(updateProjectMock).not.toHaveBeenCalled();
     expect(updateTodoMock).toHaveBeenCalledWith(7, { project_id: 9 });
   });

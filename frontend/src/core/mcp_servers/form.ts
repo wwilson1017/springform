@@ -4,7 +4,11 @@ export const PREFIX_RE = /^[a-z][a-z0-9_]{1,19}$/;
 
 /** A prefix suggestion from the server's name: "Todo GTD" -> "todo_gtd". */
 export function suggestPrefix(name: string): string {
-  const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^[^a-z]+/, '').replace(/_+$/, '');
+  const slug = name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^[^a-z]+/, '')
+    .replace(/_+$/, '');
   return slug.slice(0, 20).replace(/_+$/, '');
 }
 
@@ -13,7 +17,11 @@ export function validateDraft(d: ServerDraft): Partial<Record<keyof ServerDraft,
   const errors: Partial<Record<keyof ServerDraft, string>> = {};
   if (!d.name.trim()) errors.name = 'Give the server a name.';
   let url: URL | null = null;
-  try { url = new URL(d.url.trim()); } catch { /* reported below */ }
+  try {
+    url = new URL(d.url.trim());
+  } catch {
+    /* reported below */
+  }
   if (!url || !['https:', 'http:'].includes(url.protocol) || !url.hostname) {
     errors.url = 'Enter the server address, starting with https://.';
   } else if (url.username || url.password) {

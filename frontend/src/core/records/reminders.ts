@@ -2,7 +2,12 @@ import type { ReminderFreq } from './types';
 
 export const REMINDERS = '/api/core/reminders';
 
-export const REPEAT_LABEL: Record<ReminderFreq, string> = { daily: 'Every day', weekly: 'Every week', monthly: 'Every month', yearly: 'Every year' };
+export const REPEAT_LABEL: Record<ReminderFreq, string> = {
+  daily: 'Every day',
+  weekly: 'Every week',
+  monthly: 'Every month',
+  yearly: 'Every year',
+};
 
 const pad = (n: number) => String(n).padStart(2, '0');
 
@@ -33,11 +38,11 @@ export function snoozePresets(now = new Date()): Array<{ label: string; until: s
     d.setHours(hour, 0, 0, 0);
     return d;
   };
-  const daysToMonday = ((8 - now.getDay()) % 7) || 7;
+  const daysToMonday = (8 - now.getDay()) % 7 || 7;
   return [
     { label: 'In 1 hour', until: new Date(now.getTime() + 3_600_000) },
     { label: 'In 3 hours', until: new Date(now.getTime() + 3 * 3_600_000) },
     { label: 'Tomorrow at 9 AM', until: at(1, 9) },
     { label: 'Next Monday at 9 AM', until: at(daysToMonday, 9) },
-  ].map(p => ({ label: p.label, until: p.until.toISOString() }));
+  ].map((p) => ({ label: p.label, until: p.until.toISOString() }));
 }

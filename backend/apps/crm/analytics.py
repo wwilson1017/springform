@@ -68,7 +68,9 @@ def _win_loss(conn: db.Conn) -> dict:
     closed = len(won) + len(lost)
     to_close = [max(0.0, _days_between(r["created_at"], r["won_at"])) for r in won if r["won_at"]]
     return {
-        "deals_won": len(won), "deals_lost": len(lost), "open_deals": len(open_),
+        "deals_won": len(won),
+        "deals_lost": len(lost),
+        "open_deals": len(open_),
         "win_rate_pct": round(len(won) / closed * 100, 1) if closed else None,
         "avg_won_deal_cents": _avg_cents([r["value_cents"] for r in won if r["value_cents"] > 0]),
         "avg_open_deal_cents": _avg_cents([r["value_cents"] for r in open_ if r["value_cents"] > 0]),
@@ -80,13 +82,17 @@ def _win_loss(conn: db.Conn) -> dict:
 def _open_rows(conn: db.Conn, user: User) -> list[dict]:
     """Live open deals the user can read, with their whole-day age and days since the last touch."""
     now = clock.now()
-    rows = readable_in(conn, user, conn.execute(
-        f"""SELECT d.id, d.title, d.value_cents, d.stage, d.owner_user_id, p.name AS person_name,
+    rows = readable_in(
+        conn,
+        user,
+        conn.execute(
+            f"""SELECT d.id, d.title, d.value_cents, d.stage, d.owner_user_id, p.name AS person_name,
                    o.name AS organization_name, d.created_at, {deals.LAST_TOUCH} AS last_touch
               FROM crm_deals d LEFT JOIN core_people p ON p.id = d.person_id
               LEFT JOIN core_organizations o ON o.id = d.organization_id
              WHERE {LIVE} AND {OPEN}"""
-    ))
+        ),
+    )
     out = []
     for r in rows:
         row = dict(r)
@@ -99,10 +105,16 @@ def _open_rows(conn: db.Conn, user: User) -> list[dict]:
 def _aging(open_rows: list[dict], stale_days: int, limit: int) -> dict:
     counts = Counter()
     for r in open_rows:
-        counts[next(label for lo, hi, label in AGE_BUCKETS if r["age_days"] >= lo and (hi is None or r["age_days"] <= hi))] += 1
-    stale = sorted((r for r in open_rows if r["days_since_touch"] >= stale_days), key=lambda r: (-r["days_since_touch"], r["id"]))
+        counts[
+            next(label for lo, hi, label in AGE_BUCKETS if r["age_days"] >= lo and (hi is None or r["age_days"] <= hi))
+        ] += 1
+    stale = sorted(
+        (r for r in open_rows if r["days_since_touch"] >= stale_days), key=lambda r: (-r["days_since_touch"], r["id"])
+    )
     return {
-        "buckets": [{"label": label, "min_days": lo, "max_days": hi, "count": counts[label]} for lo, hi, label in AGE_BUCKETS],
+        "buckets": [
+            {"label": label, "min_days": lo, "max_days": hi, "count": counts[label]} for lo, hi, label in AGE_BUCKETS
+        ],
         "stale_count": len(stale),
         "stale_deals": stale[:limit],
     }
@@ -114,10 +126,15 @@ def _activity(conn: db.Conn, days: int) -> tuple[dict, str, str]:
     today = localtime.today_local()
     first = today - timedelta(days=days - 1)
     start, end = _midnight(first), _midnight(today + timedelta(days=1))
-    rows = conn.execute("SELECT activity, created_at FROM crm_activity_log WHERE created_at >= ? AND created_at < ?", (start, end)).fetchall()
+    rows = conn.execute(
+        "SELECT activity, created_at FROM crm_activity_log WHERE created_at >= ? AND created_at < ?", (start, end)
+    ).fetchall()
     per_day = Counter(_local_day(r["created_at"]) for r in rows)
     kinds = Counter((r["activity"] or "").strip().lower() or "other" for r in rows)
-    daily = [{"day": d.isoformat(), "count": per_day[d.isoformat()]} for d in (first + timedelta(days=i) for i in range(days))]
+    daily = [
+        {"day": d.isoformat(), "count": per_day[d.isoformat()]}
+        for d in (first + timedelta(days=i) for i in range(days))
+    ]
     by_type = [{"activity": k, "count": n} for k, n in sorted(kinds.items(), key=lambda kv: (-kv[1], kv[0]))]
     return {"daily": daily, "by_type": by_type, "total": len(rows)}, start, end
 
@@ -169,13 +186,17 @@ def _per_rep(conn: db.Conn, start: str, end: str) -> list[dict]:
     return sorted(reps.values(), key=lambda r: (r["user_id"] is None, -r["records_touched"], -r["open_value_cents"]))
 
 
-def analytics_in(conn: db.Conn, user: User, days: int = 30, stale_days: int | None = None, stale_limit: int = 8) -> dict:
+def analytics_in(
+    conn: db.Conn, user: User, days: int = 30, stale_days: int | None = None, stale_limit: int = 8
+) -> dict:
     deals._gate(conn, user)
     days = max(7, min(365, int(days)))
     stale_days = max(1, min(365, int(stale_days or crm_settings.stale_days())))
     activity, start, end = _activity(conn, days)
     return {
-        "window_days": days, "stale_days": stale_days, "timezone": localtime.tz().key,
+        "window_days": days,
+        "stale_days": stale_days,
+        "timezone": localtime.tz().key,
         "win_loss": _win_loss(conn),
         "activity": activity,
         "aging": _aging(_open_rows(conn, user), stale_days, stale_limit),
@@ -192,7 +213,12 @@ def stale_deals_in(conn: db.Conn, user: User, days: int | None = None, limit: in
     deals._gate(conn, user)
     days = days or crm_settings.stale_days()
     aging = _aging(_open_rows(conn, user), days, limit)
-    return {"stale_days": days, "total_stale": aging["stale_count"], "count": len(aging["stale_deals"]), "deals": aging["stale_deals"]}
+    return {
+        "stale_days": days,
+        "total_stale": aging["stale_count"],
+        "count": len(aging["stale_deals"]),
+        "deals": aging["stale_deals"],
+    }
 
 
 def stale_deals(user: User, days: int | None = None, limit: int = 25) -> dict:
@@ -260,16 +286,21 @@ def pipeline_analytics_in(conn: db.Conn, user: User, days: int = 90) -> dict:
             continue
         wins = [e["changed_at"] for e in rows if e["new_stage"] == "won"]
         # A recorded Closed on day (wins are often recorded late) dates the win at local midnight.
-        won_at = _midnight(date.fromisoformat(rows[0]["closed_on"])) if rows[0]["closed_on"] else max(wins, default=None)
+        won_at = (
+            _midnight(date.fromisoformat(rows[0]["closed_on"])) if rows[0]["closed_on"] else max(wins, default=None)
+        )
         if won_at and won_at >= cutoff:
             took.append(max(0.0, _days_between(min(e["changed_at"] for e in rows), won_at)))
 
     since = conn.execute("SELECT min(changed_at) FROM crm_deal_stage_events").fetchone()[0]
     history_days = int(_days_between(since, clock.now_iso())) if since else None
     return {
-        "window_days": days, "history_since": since, "history_days": history_days,
+        "window_days": days,
+        "history_since": since,
+        "history_days": history_days,
         "history_covers_window": history_days is not None and history_days >= days,
-        "time_in_stage": time_in_stage, "conversion": conversion,
+        "time_in_stage": time_in_stage,
+        "conversion": conversion,
         "velocity": {"won_in_window": len(took), "avg_days_to_won": round(sum(took) / len(took), 1) if took else None},
     }
 
@@ -300,7 +331,9 @@ def deal_health_in(conn: db.Conn, user: User, deal_id: int) -> dict:
     stale_days = crm_settings.stale_days()
     now = clock.now()
     last_touch = conn.execute(f"SELECT {deals.LAST_TOUCH} FROM crm_deals d WHERE d.id = ?", (deal_id,)).fetchone()[0]
-    entered = conn.execute("SELECT max(changed_at) FROM crm_deal_stage_events WHERE deal_id = ?", (deal_id,)).fetchone()[0]
+    entered = conn.execute(
+        "SELECT max(changed_at) FROM crm_deal_stage_events WHERE deal_id = ?", (deal_id,)
+    ).fetchone()[0]
     flags = []
     if deal["status"] == "open":
         if (now - clock.parse(last_touch)).days >= stale_days:
@@ -317,7 +350,13 @@ def deal_health_in(conn: db.Conn, user: User, deal_id: int) -> dict:
     if not deal["organization_id"]:
         flags.append("missing_organization")
     breakdown = scoring.deal_breakdown_in(conn, deal_id, now)
-    return {"deal": deal, "score": breakdown["score"], "factors": breakdown["factors"], "stale_days": stale_days, "flags": flags}
+    return {
+        "deal": deal,
+        "score": breakdown["score"],
+        "factors": breakdown["factors"],
+        "stale_days": stale_days,
+        "flags": flags,
+    }
 
 
 def deal_health(user: User, deal_id: int) -> dict:

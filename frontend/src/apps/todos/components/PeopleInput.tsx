@@ -24,7 +24,15 @@ const MAX_OFFERED = 8;
  *  suggestions of people the list already knows. Typing narrows them; a name
  *  that is not among them is simply a new person. */
 export function PeopleInput({
-  value, onChange, suggestions, id, label, className = '', disabled, onBlur, onPick,
+  value,
+  onChange,
+  suggestions,
+  id,
+  label,
+  className = '',
+  disabled,
+  onBlur,
+  onPick,
   placeholder = 'Ana, Bo',
 }: Props) {
   const parts = value.split(',');
@@ -34,7 +42,7 @@ export function PeopleInput({
   const typing = suggestions.includes(last) ? '' : last.toLowerCase();
   const entered = parseTags(value);
   const offered = suggestions
-    .filter(s => !entered.includes(s) && s.toLowerCase().includes(typing))
+    .filter((s) => !entered.includes(s) && s.toLowerCase().includes(typing))
     .slice(0, MAX_OFFERED);
 
   /** The name replaces the fragment being typed, or joins the finished entries. */
@@ -54,19 +62,19 @@ export function PeopleInput({
         value={value}
         disabled={disabled}
         placeholder={placeholder}
-        onChange={e => onChange(e.target.value)}
+        onChange={(e) => onChange(e.target.value)}
         onBlur={onBlur}
       />
       {offered.length > 0 && (
         <span className="mt-1 flex flex-wrap gap-1" data-people-suggestions>
-          {offered.map(name => (
+          {offered.map((name) => (
             <button
               key={name}
               type="button"
               disabled={disabled}
               // Keep focus in the input: a blur here would commit the half-typed
               // fragment this click is about to replace.
-              onMouseDown={e => e.preventDefault()}
+              onMouseDown={(e) => e.preventDefault()}
               onClick={() => pick(name)}
               className="rounded-full border border-sf-line-strong px-2 py-0.5 text-xs text-sf-ink-dim hover:bg-sf-hover hover:text-sf-ink disabled:opacity-50"
             >

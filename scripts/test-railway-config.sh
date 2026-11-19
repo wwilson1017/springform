@@ -69,9 +69,7 @@ check() {
       expected.build = { ...expected.build, builder: "DOCKERFILE", dockerfilePath: "Dockerfile" };
       expected.deploy = {
         ...expected.deploy,
-        healthcheckPath: "/up", healthcheckTimeout: 60,
-        restartPolicyType: "ON_FAILURE", restartPolicyMaxRetries: 3,
-        requiredMountPath: "/data",
+        healthcheckPath: "/up", healthcheckTimeout: 60, restartPolicyMaxRetries: 3,
       };
       assert.deepEqual(result, {
         name: "springform", resources: [expected, live.resources[2]],
@@ -82,6 +80,10 @@ check() {
       live.resources[0] = first.resources[0];
       writeFileSync(livePath, JSON.stringify(live));
       assert.deepEqual(await evaluate(), first);
+    } else if (caseName === "restart") {
+      live.resources[0].deploy.restartPolicyType = "NEVER";
+      writeFileSync(livePath, JSON.stringify(live));
+      assert.equal((await evaluate()).resources[0].deploy.restartPolicyType, "ON_FAILURE");
     } else {
       throw new Error(`Unknown case ${caseName}`);
     }
@@ -99,6 +101,7 @@ check idempotent "applying the overlay twice gives the same graph"
 check unset "unset SPRINGFORM_SERVICE fails plainly"
 check missing "missing service fails plainly"
 check wrong-project "a different project fails plainly"
+check restart "a pulled non-default restart policy goes back to ON_FAILURE"
 
 if [ "$failures" -gt 0 ]; then
   echo "$failures case(s) failed"

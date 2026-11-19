@@ -15,15 +15,16 @@ import { createRoot, type Root } from 'react-dom/client';
 import { MemoryRouter } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { listAreasMock, listProjectsMock, listTodosMock, createAreaMock, updateAreaMock, getFiltersMock } =
-  vi.hoisted(() => ({
+const { listAreasMock, listProjectsMock, listTodosMock, createAreaMock, updateAreaMock, getFiltersMock } = vi.hoisted(
+  () => ({
     listAreasMock: vi.fn(),
     listProjectsMock: vi.fn(),
     listTodosMock: vi.fn(),
     createAreaMock: vi.fn(),
     updateAreaMock: vi.fn(),
     getFiltersMock: vi.fn(),
-  }));
+  }),
+);
 
 vi.mock('./api', () => ({
   listAreas: listAreasMock,
@@ -45,16 +46,48 @@ import { AREA_EXTRA, ITEM_EXTRA, PROJECT_EXTRA } from './testFixtures';
 
 const AT = '2026-09-01T12:00:00Z';
 
-const area = (id: number, name: string, over: Partial<TodoArea> = {}): TodoArea =>
-  ({ ...AREA_EXTRA, id, name, notes: '', status: 'active', created_at: AT, updated_at: AT, ...over });
+const area = (id: number, name: string, over: Partial<TodoArea> = {}): TodoArea => ({
+  ...AREA_EXTRA,
+  id,
+  name,
+  notes: '',
+  status: 'active',
+  created_at: AT,
+  updated_at: AT,
+  ...over,
+});
 
-const project = (id: number, name: string, area_id: number | null): TodoProject =>
-  ({ ...PROJECT_EXTRA, id, name, notes: '', status: 'active', open_count: 2, area_id, created_at: AT, updated_at: AT });
+const project = (id: number, name: string, area_id: number | null): TodoProject => ({
+  ...PROJECT_EXTRA,
+  id,
+  name,
+  notes: '',
+  status: 'active',
+  open_count: 2,
+  area_id,
+  created_at: AT,
+  updated_at: AT,
+});
 
-const todo = (id: number, title: string, over: Partial<Todo>): Todo => ({ ...ITEM_EXTRA,
-  id, title, notes: '', project_id: null, project_name: null, context: '', tags: [],
-  status: 'next_action', star: false, due_date: null, repeat: '', auto_star_on_due: false,
-  source: 'ui', created_at: AT, updated_at: AT, completed_at: null, ...over,
+const todo = (id: number, title: string, over: Partial<Todo>): Todo => ({
+  ...ITEM_EXTRA,
+  id,
+  title,
+  notes: '',
+  project_id: null,
+  project_name: null,
+  context: '',
+  tags: [],
+  status: 'next_action',
+  star: false,
+  due_date: null,
+  repeat: '',
+  auto_star_on_due: false,
+  source: 'ui',
+  created_at: AT,
+  updated_at: AT,
+  completed_at: null,
+  ...over,
 });
 
 const AREAS = [area(1, 'Health'), area(2, 'Work', { notes: 'the day job' }), area(3, 'Old job', { status: 'dropped' })];
@@ -67,9 +100,7 @@ const NEXT = [
   todo(102, 'Stretch at the desk', { project_id: 10, area_id: 1, effective_area_id: 1 }),
   todo(103, 'No area at all', {}),
 ];
-const SOMEDAY = [
-  todo(200, 'Learn to row', { status: 'someday_maybe', area_id: 1, effective_area_id: 1 }),
-];
+const SOMEDAY = [todo(200, 'Learn to row', { status: 'someday_maybe', area_id: 1, effective_area_id: 1 })];
 
 let container: HTMLDivElement;
 let root: Root;
@@ -81,8 +112,9 @@ beforeEach(() => {
   root = createRoot(container);
   listAreasMock.mockReset().mockResolvedValue(AREAS);
   listProjectsMock.mockReset().mockResolvedValue(PROJECTS);
-  listTodosMock.mockReset().mockImplementation(({ status }: { status: string }) =>
-    Promise.resolve(status === 'next_action' ? NEXT : SOMEDAY));
+  listTodosMock
+    .mockReset()
+    .mockImplementation(({ status }: { status: string }) => Promise.resolve(status === 'next_action' ? NEXT : SOMEDAY));
   createAreaMock.mockReset().mockResolvedValue(area(4, 'Family'));
   updateAreaMock.mockReset().mockResolvedValue(AREAS[0]);
   getFiltersMock.mockReset().mockResolvedValue({ contexts: [], tags: [], status_counts: {} });
@@ -97,23 +129,30 @@ afterEach(() => {
 
 async function render() {
   await act(async () => {
-    root.render(<MemoryRouter><AreasPage /></MemoryRouter>);
+    root.render(
+      <MemoryRouter>
+        <AreasPage />
+      </MemoryRouter>,
+    );
   });
 }
-const settle = () => act(async () => { await Promise.resolve(); });
+const settle = () =>
+  act(async () => {
+    await Promise.resolve();
+  });
 
 const card = (name: string) => container.querySelector<HTMLElement>(`[data-area="${name}"]`)!;
 /** The rows under one heading inside an area card: project links, or todo titles. */
 function under(name: string, heading: string): string[] {
-  const h3 = [...card(name).querySelectorAll('h3')].find(h => h.textContent === heading);
+  const h3 = [...card(name).querySelectorAll('h3')].find((h) => h.textContent === heading);
   if (!h3) return [];
   const block = h3.nextElementSibling!;
   return heading === 'Projects'
-    ? [...block.querySelectorAll('a')].map(a => a.querySelector('span')!.textContent ?? '')
-    : [...block.querySelectorAll('p.text-sm')].map(p => p.textContent ?? '');
+    ? [...block.querySelectorAll('a')].map((a) => a.querySelector('span')!.textContent ?? '')
+    : [...block.querySelectorAll('p.text-sm')].map((p) => p.textContent ?? '');
 }
 const button = (scope: ParentNode, text: string) =>
-  [...scope.querySelectorAll<HTMLButtonElement>('button')].find(b => b.textContent?.trim() === text)!;
+  [...scope.querySelectorAll<HTMLButtonElement>('button')].find((b) => b.textContent?.trim() === text)!;
 const nameInput = () => container.querySelector<HTMLInputElement>('input[aria-label="New area name"]')!;
 function type(el: HTMLInputElement | HTMLTextAreaElement, value: string) {
   const setter = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(el), 'value')?.set;
@@ -127,13 +166,15 @@ describe('AreasPage — what each area holds', () => {
   it('asks for active projects, next actions and someday items', async () => {
     await render();
     expect(listProjectsMock).toHaveBeenCalledWith('active');
-    expect(listTodosMock.mock.calls.map(c => c[0].status).sort()).toEqual(['next_action', 'someday_maybe']);
+    expect(listTodosMock.mock.calls.map((c) => c[0].status).sort()).toEqual(['next_action', 'someday_maybe']);
   });
 
   it('lists each active area with its projects, next actions and someday items', async () => {
     await render();
-    expect([...container.querySelectorAll('[data-area]')].map(s => s.getAttribute('data-area')))
-      .toEqual(['Health', 'Work']);
+    expect([...container.querySelectorAll('[data-area]')].map((s) => s.getAttribute('data-area'))).toEqual([
+      'Health',
+      'Work',
+    ]);
 
     expect(under('Work', 'Projects')).toEqual(['Ship the launch']);
     expect(under('Work', 'Next actions')).toEqual(['Draft the announcement']);
@@ -207,7 +248,9 @@ describe('AreasPage — writes', () => {
     act(() => card('Work').querySelector<HTMLButtonElement>('button[title="Click to rename"]')!.click());
     const editor = card('Work').querySelector<HTMLTextAreaElement>('textarea[aria-label="Area name"]')!;
     type(editor, 'Career');
-    act(() => { editor.dispatchEvent(new FocusEvent('focusout', { bubbles: true })); });
+    act(() => {
+      editor.dispatchEvent(new FocusEvent('focusout', { bubbles: true }));
+    });
     await settle();
     expect(updateAreaMock).toHaveBeenCalledWith(2, { name: 'Career' });
   });
@@ -218,11 +261,11 @@ describe('AreasPage — writes', () => {
     await settle();
     expect(updateAreaMock).toHaveBeenLastCalledWith(1, { status: 'dropped' });
 
-    const archived = [...container.querySelectorAll('li')].find(li => li.textContent?.includes('Old job'))!;
+    const archived = [...container.querySelectorAll('li')].find((li) => li.textContent?.includes('Old job'))!;
     act(() => button(archived, 'Restore').click());
     await settle();
     expect(updateAreaMock).toHaveBeenLastCalledWith(3, { status: 'active' });
 
-    expect([...container.querySelectorAll('button')].some(b => /delete/i.test(b.textContent ?? ''))).toBe(false);
+    expect([...container.querySelectorAll('button')].some((b) => /delete/i.test(b.textContent ?? ''))).toBe(false);
   });
 });

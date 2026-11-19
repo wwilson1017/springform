@@ -33,7 +33,12 @@ def sample(conn) -> None:
     soon = (service.today(admin) + datetime.timedelta(days=3)).isoformat()
     area = service.create_area_in(conn, admin, "Operations", visibility="team")
     project = service.create_project_in(
-        conn, admin, "Spring clean-up", visibility="team", area_id=area["id"], outcome="The shop is ready for the busy season"
+        conn,
+        admin,
+        "Spring clean-up",
+        visibility="team",
+        area_id=area["id"],
+        outcome="The shop is ready for the busy season",
     )
     for user, title, fields in [
         (admin, "Book the window cleaner", {"project_id": project["id"], "status": "next_action", "assignee_user_id": member.id, "due_date": soon}),

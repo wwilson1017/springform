@@ -16,7 +16,10 @@ CHECKLIST = [
     # The SQLite clock idioms are refused repo-wide by test_db.test_no_sql_reads_the_database_clock.
     ("now() (use clock.now_iso)", r"(?<![\w.])now\(\)"),
     ("AT TIME ZONE / ::date (Python bounds)", r"AT\s+TIME\s+ZONE|::date\b"),
-    ("date_trunc / substr(col, 1, 10) (bucket in Python, install timezone)", r"date_trunc|substr\(\s*[\w.]+\s*,\s*1\s*,\s*10\s*\)"),
+    (
+        "date_trunc / substr(col, 1, 10) (bucket in Python, install timezone)",
+        r"date_trunc|substr\(\s*[\w.]+\s*,\s*1\s*,\s*10\s*\)",
+    ),
     ("EXTRACT(EPOCH) (julianday)", r"EXTRACT\s*\(\s*EPOCH"),
     ("make_interval (precomputed cutoff)", r"make_interval"),
     ("DISTINCT ON (row_number() = 1)", r"DISTINCT\s+ON\b"),

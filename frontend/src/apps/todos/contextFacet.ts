@@ -42,15 +42,18 @@ export function peopleGroup(
   onToggle: (value: string | number) => void,
 ): FacetGroup {
   return {
-    key: 'people', label: 'People',
-    options: people.map(p => ({ value: p, label: p })), selected, onToggle,
+    key: 'people',
+    label: 'People',
+    options: people.map((p) => ({ value: p, label: p })),
+    selected,
+    onToggle,
   };
 }
 
 /** Whether a todo passes the people facet: nothing selected means everyone, otherwise
  *  it must involve at least one selected person. */
 export function matchesPeople(people: string[] | undefined, selected: (string | number)[]): boolean {
-  return selected.length === 0 || (people ?? []).some(p => selected.includes(p));
+  return selected.length === 0 || (people ?? []).some((p) => selected.includes(p));
 }
 
 /**

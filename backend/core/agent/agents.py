@@ -112,26 +112,39 @@ def user_note(user: User) -> str:
 
 
 def build_system_prompt(
-    agent: dict, user: User, *, instructions: str = "", catalog: str = "", memory: str = "",
+    agent: dict,
+    user: User,
+    *,
+    instructions: str = "",
+    catalog: str = "",
+    memory: str = "",
 ) -> tuple[str, str]:
     from backend.core import registry  # registry imports this package; resolve at call time
 
     install = _one_line(keys.get("workspace.name"), 120) or "this business"
     apps = registry.list_for_user(user)
     apps_block = "## Installed apps\n" + "\n".join(f"- {a['name']}: {a['description']}" for a in apps) if apps else ""
-    static = "\n\n".join(p for p in [
-        f"You are {agent['name']}, the assistant for {install}.",
-        agent["personality"],
-        instructions,
-        apps_block,
-        CONFIRMATION_NOTE,
-        delimiters.SAFETY_INSTRUCTION,
-        catalog,
-    ] if p)
+    static = "\n\n".join(
+        p
+        for p in [
+            f"You are {agent['name']}, the assistant for {install}.",
+            agent["personality"],
+            instructions,
+            apps_block,
+            CONFIRMATION_NOTE,
+            delimiters.SAFETY_INSTRUCTION,
+            catalog,
+        ]
+        if p
+    )
     now = localtime.now_local()
-    volatile = "\n\n".join(p for p in [
-        f"Today is {now.strftime('%A, %B %d, %Y')} ({now.tzinfo}).",
-        user_note(user),
-        memory,
-    ] if p)
+    volatile = "\n\n".join(
+        p
+        for p in [
+            f"Today is {now.strftime('%A, %B %d, %Y')} ({now.tzinfo}).",
+            user_note(user),
+            memory,
+        ]
+        if p
+    )
     return static, volatile

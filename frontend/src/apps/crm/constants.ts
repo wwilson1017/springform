@@ -3,10 +3,10 @@ import type { Stage } from './api';
 export const STAGE_ORDER: Stage[] = ['lead', 'qualified', 'proposal', 'negotiation', 'won', 'lost'];
 
 /** Open (non-terminal) stages: the single source of truth for "open deal". */
-export const OPEN_STAGES: Stage[] = STAGE_ORDER.filter(s => s !== 'won' && s !== 'lost');
+export const OPEN_STAGES: Stage[] = STAGE_ORDER.filter((s) => s !== 'won' && s !== 'lost');
 
 /** Derived, so a stage added to STAGE_ORDER can never leave the two lists disagreeing. */
-export const CLOSED_STAGES: Stage[] = STAGE_ORDER.filter(s => !OPEN_STAGES.includes(s));
+export const CLOSED_STAGES: Stage[] = STAGE_ORDER.filter((s) => !OPEN_STAGES.includes(s));
 
 /** Mirrors the backend's MAX_REASON (lost and archive reasons). */
 export const MAX_REASON = 500;
@@ -26,8 +26,9 @@ const stage = (name: string) => {
   return { text: `var(--color-crm-stage-${name}-text)`, fill, bg: tint(fill, 12) };
 };
 
-export const STAGE_COLORS: Record<string, { text: string; fill: string; bg: string }> =
-  Object.fromEntries(STAGE_ORDER.map(s => [s, stage(s)]));
+export const STAGE_COLORS: Record<string, { text: string; fill: string; bg: string }> = Object.fromEntries(
+  STAGE_ORDER.map((s) => [s, stage(s)]),
+);
 
 /**
  * AI-estimated touch count bands: 0-4 dead zone (amber), 5-12 closing window (green), 13+

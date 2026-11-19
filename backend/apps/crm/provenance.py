@@ -18,7 +18,20 @@ if TYPE_CHECKING:
     from backend.core.auth.deps import User
 
 FIELDS = {
-    "crm.deal": ("crm_deals", {"title", "stage", "value_cents", "notes", "probability", "expected_close", "lost_reason", "closed_on", "deal_temperature"}),
+    "crm.deal": (
+        "crm_deals",
+        {
+            "title",
+            "stage",
+            "value_cents",
+            "notes",
+            "probability",
+            "expected_close",
+            "lost_reason",
+            "closed_on",
+            "deal_temperature",
+        },
+    ),
     "core.person": ("core_people", {"email", "phone", "title", "tags", "notes"}),
 }
 
@@ -61,8 +74,13 @@ def _live_in(conn: db.Conn, entity_type: str, entity_id: int) -> dict:
         (entity_type, entity_id),
     )
     return {
-        r["field_name"]: {"source": r["source"], "populated_at": r["populated_at"], "value_snapshot": r["value_snapshot"]}
-        for r in rows if r["field_name"] in current and current[r["field_name"]] == r["value_snapshot"]
+        r["field_name"]: {
+            "source": r["source"],
+            "populated_at": r["populated_at"],
+            "value_snapshot": r["value_snapshot"],
+        }
+        for r in rows
+        if r["field_name"] in current and current[r["field_name"]] == r["value_snapshot"]
     }
 
 

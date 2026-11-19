@@ -19,9 +19,23 @@ import { TodoEditSheet } from './TodoEditSheet';
 import { TodoRow } from './TodoRow';
 
 const TODO: Todo = {
-  ...ITEM_EXTRA, id: 7, title: 'Order new aprons', notes: '', project_id: null, project_name: null, context: '',
-  tags: [], status: 'next_action', star: false, due_date: null, repeat: '', auto_star_on_due: false, source: 'ui',
-  created_at: '2026-10-01T12:00:00Z', updated_at: '2026-10-01T12:00:00Z', completed_at: null,
+  ...ITEM_EXTRA,
+  id: 7,
+  title: 'Order new aprons',
+  notes: '',
+  project_id: null,
+  project_name: null,
+  context: '',
+  tags: [],
+  status: 'next_action',
+  star: false,
+  due_date: null,
+  repeat: '',
+  auto_star_on_due: false,
+  source: 'ui',
+  created_at: '2026-10-01T12:00:00Z',
+  updated_at: '2026-10-01T12:00:00Z',
+  completed_at: null,
 };
 const MEMBERS = filtersOf().members;
 
@@ -36,12 +50,23 @@ const noop = () => {};
 describe('a team row on a list', () => {
   it('shows its owner and assignee; a private row shows neither', () => {
     const { rerender, container } = render(
-      <TodoRow todo={{ ...TODO, visibility: 'team', owner_name: 'Ann Owner', assignee_user_id: 2, assignee_name: 'Bo Member' }}
-               onToggleDone={noop} onToggleStar={noop} onEdit={noop} />);
+      <TodoRow
+        todo={{ ...TODO, visibility: 'team', owner_name: 'Ann Owner', assignee_user_id: 2, assignee_name: 'Bo Member' }}
+        onToggleDone={noop}
+        onToggleStar={noop}
+        onEdit={noop}
+      />,
+    );
     expect(container.querySelector('[data-team]')!.textContent).toBe('Team · Ann Owner → Bo Member');
 
-    rerender(<TodoRow todo={{ ...TODO, visibility: 'team', owner_name: 'Ann Owner' }}
-                      onToggleDone={noop} onToggleStar={noop} onEdit={noop} />);
+    rerender(
+      <TodoRow
+        todo={{ ...TODO, visibility: 'team', owner_name: 'Ann Owner' }}
+        onToggleDone={noop}
+        onToggleStar={noop}
+        onEdit={noop}
+      />,
+    );
     expect(container.querySelector('[data-team]')!.textContent).toBe('Team · Ann Owner');
 
     rerender(<TodoRow todo={TODO} onToggleDone={noop} onToggleStar={noop} onEdit={noop} />);
@@ -51,17 +76,44 @@ describe('a team row on a list', () => {
 
 describe('the sharing fields', () => {
   it('offers a private row only nobody or its owner, and a team row everyone', () => {
-    const { rerender } = render(<SharingFields idPrefix="t" visibility="private" assignee={null} ownerId={OWNER}
-                                               members={MEMBERS} onChange={noop} />);
-    const options = () => [...screen.getByLabelText('Assigned to').querySelectorAll('option')].map(o => o.textContent);
+    const { rerender } = render(
+      <SharingFields
+        idPrefix="t"
+        visibility="private"
+        assignee={null}
+        ownerId={OWNER}
+        members={MEMBERS}
+        onChange={noop}
+      />,
+    );
+    const options = () =>
+      [...screen.getByLabelText('Assigned to').querySelectorAll('option')].map((o) => o.textContent);
     expect(options()).toEqual(['Nobody', 'Ann Owner']);
-    rerender(<SharingFields idPrefix="t" visibility="team" assignee={null} ownerId={OWNER} members={MEMBERS} onChange={noop} />);
+    rerender(
+      <SharingFields
+        idPrefix="t"
+        visibility="team"
+        assignee={null}
+        ownerId={OWNER}
+        members={MEMBERS}
+        onChange={noop}
+      />,
+    );
     expect(options()).toEqual(['Nobody', 'Ann Owner', 'Bo Member']);
   });
 
   it('making a row private drops an assignee who is not its owner, in the same change', () => {
     const onChange = vi.fn();
-    render(<SharingFields idPrefix="t" visibility="team" assignee={2} ownerId={OWNER} members={MEMBERS} onChange={onChange} />);
+    render(
+      <SharingFields
+        idPrefix="t"
+        visibility="team"
+        assignee={2}
+        ownerId={OWNER}
+        members={MEMBERS}
+        onChange={onChange}
+      />,
+    );
     fireEvent.click(screen.getByRole('radio', { name: 'Only me' }));
     expect(onChange).toHaveBeenCalledWith({ visibility: 'private', assignee_user_id: null });
   });
@@ -112,6 +164,8 @@ describe('the edit sheet', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
     const alert = await screen.findByRole('alert');
     expect(alert.textContent).toBe('Only the owner can make this todo private.');
-    expect(within(screen.getByRole('radiogroup')).getByRole('radio', { name: 'Only me' }).getAttribute('aria-checked')).toBe('true');
+    expect(
+      within(screen.getByRole('radiogroup')).getByRole('radio', { name: 'Only me' }).getAttribute('aria-checked'),
+    ).toBe('true');
   });
 });

@@ -34,8 +34,7 @@ export const SCRIM = 'var(--color-sf-scrim)';
 export const SHADOW = 'var(--color-sf-shadow)';
 
 /** A translucent tint of a themed colour that follows the `.dark` override. */
-export const tint = (color: string, pct: number): string =>
-  `color-mix(in srgb, ${color} ${pct}%, transparent)`;
+export const tint = (color: string, pct: number): string => `color-mix(in srgb, ${color} ${pct}%, transparent)`;
 
 export const FONT_DISPLAY = 'var(--font-display)';
 export const FONT_SANS = 'var(--font-sans)';

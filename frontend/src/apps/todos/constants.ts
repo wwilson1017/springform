@@ -15,12 +15,16 @@ export const STATUS_META: Record<TodoStatus, { label: string; chip: string }> = 
 };
 
 export const TODO_STATUS_ORDER: TodoStatus[] = [
-  'inbox', 'next_action', 'waiting_for', 'delegated', 'someday_maybe', 'done', 'dropped',
+  'inbox',
+  'next_action',
+  'waiting_for',
+  'delegated',
+  'someday_maybe',
+  'done',
+  'dropped',
 ];
 
-export const PROJECT_STATUSES: TodoProjectStatus[] = [
-  'active', 'someday', 'completed', 'dropped',
-];
+export const PROJECT_STATUSES: TodoProjectStatus[] = ['active', 'someday', 'completed', 'dropped'];
 
 export const REPEAT_OPTIONS: { value: string; label: string }[] = [
   { value: '', label: 'No repeat' },

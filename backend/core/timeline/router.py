@@ -19,7 +19,10 @@ class NoteIn(BaseModel):
 
 @router.get("", response_model=list[models.TimelineEntry])
 def list_timeline(
-    entity_type: str, entity_id: int, before: int | None = None, limit: int = Query(50, ge=1, le=200),
+    entity_type: str,
+    entity_id: int,
+    before: int | None = None,
+    limit: int = Query(50, ge=1, le=200),
     user: User = Depends(current_user),
 ) -> list[dict]:
     """Newest first; pass the last id seen as `before` for the next page."""

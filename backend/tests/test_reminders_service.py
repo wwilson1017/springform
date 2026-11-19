@@ -24,7 +24,9 @@ def _row(reminder_id: int) -> dict:
 
 
 def _notes() -> list[dict]:
-    return core_db.rows("SELECT user_id, title, message, entity_type, entity_id, link FROM core_notifications ORDER BY id")
+    return core_db.rows(
+        "SELECT user_id, title, message, entity_type, entity_id, link FROM core_notifications ORDER BY id"
+    )
 
 
 def test_routes_round_trip_and_ownership(login_as, freeze):
@@ -44,7 +46,9 @@ def test_routes_round_trip_and_ownership(login_as, freeze):
     theirs = _remind(b, due_at="2026-11-04T09:00:00Z", entity_type=W, entity_id=w["id"])
 
     assert [x["id"] for x in a.get("/api/core/reminders").json()] == [loose["id"], r["id"]]
-    assert [x["id"] for x in a.get("/api/core/reminders", params={"from": "2026-11-03", "to": "2026-11-04"}).json()] == [r["id"]]
+    assert [
+        x["id"] for x in a.get("/api/core/reminders", params={"from": "2026-11-03", "to": "2026-11-04"}).json()
+    ] == [r["id"]]
     on_record = a.get("/api/core/reminders/for", params={"entity_type": W, "entity_id": w["id"]}).json()
     assert [(x["id"], x["mine"]) for x in on_record] == [(r["id"], True), (theirs["id"], False)]
 
@@ -66,7 +70,12 @@ def test_routes_round_trip_and_ownership(login_as, freeze):
     assert a.delete(f"/api/core/reminders/{loose['id']}").status_code == 204
     assert a.delete(f"/api/core/reminders/{loose['id']}").status_code == 404
     assert a.post("/api/core/reminders", json={"title": "x", "due_at": "soon"}).status_code == 422
-    assert a.post("/api/core/reminders", json={"title": "x", "due_at": "2026-11-03T09:00:00Z", "entity_type": W}).status_code == 422
+    assert (
+        a.post(
+            "/api/core/reminders", json={"title": "x", "due_at": "2026-11-03T09:00:00Z", "entity_type": W}
+        ).status_code
+        == 422
+    )
 
 
 def test_private_record_refuses_another_member(login_as):
@@ -99,7 +108,12 @@ def test_fires_under_a_frozen_clock_with_its_notification_in_the_same_transactio
     monkeypatch.undo()
 
     assert reminders.fire_due() == {"due": 1, "fired": 1, "voided": 0, "spawned": 0}
-    assert _row(r["id"]) == {"status": "open", "void_reason": None, "fired_at": "2026-11-02T09:00:00Z", "due_at": "2026-11-02T09:00:00Z"}
+    assert _row(r["id"]) == {
+        "status": "open",
+        "void_reason": None,
+        "fired_at": "2026-11-02T09:00:00Z",
+        "due_at": "2026-11-02T09:00:00Z",
+    }
     assert _notes() == [{
         "user_id": a.user["id"], "title": "Reminder: Call back", "message": "ask about pricing",
         "entity_type": W, "entity_id": w["id"], "link": f"/example/{w['id']}",
@@ -140,8 +154,20 @@ def test_repeat_spawns_the_next_occurrence_across_dst(login_as, freeze):
     assert reminders.fire_due()["spawned"] == 1
     nxt = core_db.one("SELECT * FROM core_reminders WHERE id != ? ORDER BY id DESC LIMIT 1", (r["id"],))
     assert nxt["due_at"] == "2026-11-01T15:00:00Z"  # 09:00 CST, the day DST ends
-    assert (nxt["owner_user_id"], nxt["entity_type"], nxt["entity_id"], nxt["series_id"], nxt["status"], nxt["fired_at"]) == (
-        a.user["id"], W, w["id"], r["id"], "open", None,
+    assert (
+        nxt["owner_user_id"],
+        nxt["entity_type"],
+        nxt["entity_id"],
+        nxt["series_id"],
+        nxt["status"],
+        nxt["fired_at"],
+    ) == (
+        a.user["id"],
+        W,
+        w["id"],
+        r["id"],
+        "open",
+        None,
     )
 
     # Snoozing the fired occurrence fires it again but never spawns a second successor.
@@ -166,4 +192,6 @@ def test_delete_voids_and_merge_repoints(login_as):
         entities.delete_record_in(conn, W, x["id"])
         entities.on_entity_merged_in(conn, W, z["id"], y["id"])
     assert _row(on_x["id"])["status"] == "voided" and _row(on_x["id"])["void_reason"] == "record deleted"
-    assert [r["id"] for r in a.get("/api/core/reminders/for", params={"entity_type": W, "entity_id": z["id"]}).json()] == [on_y["id"]]
+    assert [
+        r["id"] for r in a.get("/api/core/reminders/for", params={"entity_type": W, "entity_id": z["id"]}).json()
+    ] == [on_y["id"]]

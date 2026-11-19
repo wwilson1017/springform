@@ -1,7 +1,10 @@
 import { expect, test } from './fixtures';
 import { serverNow } from './totp';
 
-interface Overview { sets: Array<{ stamp: string; manifest_ok: boolean }>; last_run: { status: string } | null }
+interface Overview {
+  sets: Array<{ stamp: string; manifest_ok: boolean }>;
+  last_run: { status: string } | null;
+}
 
 // Desktop project only (playwright.config.ts): under a frozen clock every set gets the same
 // stamp, so a second "Back up now" on one boot fails (finding F1). The phone layout is checked
@@ -9,7 +12,10 @@ interface Overview { sets: Array<{ stamp: string; manifest_ok: boolean }>; last_
 test('Back up now writes a complete recovery set', async ({ admin }) => {
   const { page, api } = admin;
   const before = (await api.get<Overview>('/api/core/backups')).sets.length;
-  const stamp = serverNow().toISOString().replace(/[-:]/g, '').replace(/\.\d+Z$/, 'Z');
+  const stamp = serverNow()
+    .toISOString()
+    .replace(/[-:]/g, '')
+    .replace(/\.\d+Z$/, 'Z');
 
   await page.goto('/backups');
   await expect(page.getByRole('heading', { name: 'Backups', level: 1 })).toBeVisible();

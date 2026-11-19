@@ -172,7 +172,7 @@ All lifted code is the author's sole authorship (Decisions, License); the proven
 
 | Springform path | Donor | Donor path | Lines | Action | Notes |
 |---|---|---|---|---|---|
-| `Dockerfile`, `entrypoint.sh`, `deploy/*`, `railway.json` | — | — | ~700 with scripts (W8) | new | |
+| `Dockerfile`, `entrypoint.sh`, `deploy/*`, `.railway/railway.ts` | — | — | ~700 with scripts (W8) | new | |
 | `scripts/new-fork.sh`, `check-fork-scope.sh`, `update-from-upstream.sh`, `new-app.sh`, `gen-types.sh` | — | — | — | new | |
 | `scripts/seed-labels.sh` | CakeCRM | `scripts/seed-labels.sh` | 102 (head) | lift | + `app:<slug>` labels, `--repo`. |
 | `.github/workflows/ci.yml` | CakeCRM | `.github/workflows/ci.yml` | 146 (head) | port | Structure: SHA-pinned actions, ruff, import check, pytest, frontend build/lint/test + types diff, gitleaks, image test; conditional Fork scope job new. |

@@ -17,7 +17,9 @@ describe('KeyPanel', () => {
   });
 
   it('key file, not yet shown: one click reveals the key, its fingerprint and the off-site warning', async () => {
-    const fetchMock = mockFetch({ [`POST ${KEY_URL}`]: { body: { key_source: 'file', key: 'k3y-secret=', fingerprint: 'fp-file-1' } } });
+    const fetchMock = mockFetch({
+      [`POST ${KEY_URL}`]: { body: { key_source: 'file', key: 'k3y-secret=', fingerprint: 'fp-file-1' } },
+    });
     const writeText = vi.fn(() => Promise.resolve());
     vi.stubGlobal('navigator', { clipboard: { writeText } });
     render(<KeyPanel keySource="file" keyShown={false} />);
@@ -25,7 +27,9 @@ describe('KeyPanel', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Show key once' }));
     expect((await screen.findByTestId('encryption-key')).textContent).toBe('k3y-secret=');
     expect(screen.getByText('fp-file-1')).toBeTruthy();
-    expect(screen.getByText('Store this off-site; without it a restored copy cannot read stored credentials.')).toBeTruthy();
+    expect(
+      screen.getByText('Store this off-site; without it a restored copy cannot read stored credentials.'),
+    ).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Show key once' })).toBeNull();
     expect(callsTo(fetchMock, 'POST', KEY_URL)).toHaveLength(1);
 

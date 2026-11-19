@@ -68,8 +68,14 @@ interface Props {
 }
 
 export function InlineTitle({
-  title, label, className = '', disabled = false,
-  variant = 'title', placeholder, onSave, onCancel,
+  title,
+  label,
+  className = '',
+  disabled = false,
+  variant = 'title',
+  placeholder,
+  onSave,
+  onCancel,
 }: Props) {
   // The two variant-driven behaviours, named once so the branches below read as intent.
   const commitsOnEnter = variant === 'title';
@@ -185,9 +191,9 @@ export function InlineTitle({
         value={draft}
         disabled={saving}
         aria-label={label}
-        onChange={e => setDraft(e.target.value)}
+        onChange={(e) => setDraft(e.target.value)}
         onBlur={() => void finish(true)}
-        onKeyDown={e => {
+        onKeyDown={(e) => {
           // Both keys carry the IME guard, not just Enter (todo-gtd #1908 review): Escape is how a
           // Japanese / Chinese / Korean writer dismisses an active conversion CANDIDATE, so
           // without it the first Escape throws away the whole title edit instead of the

@@ -33,9 +33,11 @@ def test_suppression_markers_fail_collection(pytester):
     pytester.makepyfile(test_suppressed=SUPPRESSED, test_clean=CLEAN)
     result = pytester.runpytest()
     assert result.ret == ExitCode.USAGE_ERROR
+    # fmt: off
     for line in ("test_skipped: @pytest.mark.skip", "test_skipped_if: @pytest.mark.skipif",
                  "test_expected_to_fail: @pytest.mark.xfail"):
         result.stderr.fnmatch_lines([f"*test_suppressed.py::{line}"])
+    # fmt: on
 
 
 def test_clean_tests_and_allow_listed_ids_pass(pytester, monkeypatch):
@@ -86,7 +88,9 @@ def test_a_thread_left_running_stops_the_run_and_names_the_test(pytester, monkey
     try:
         result = pytester.runpytest()
         assert result.ret == ExitCode.INTERRUPTED
-        result.stdout.fnmatch_lines(["*test_left.py::test_leaves_a_thread_running left thread(s) running: left-running*"])
+        result.stdout.fnmatch_lines(
+            ["*test_left.py::test_leaves_a_thread_running left thread(s) running: left-running*"]
+        )
         result.assert_outcomes(passed=1)  # the second test never ran
     finally:  # the inner run is in-process: release its thread so it does not outlive this test
         for t in threading.enumerate():

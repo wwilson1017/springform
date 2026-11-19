@@ -93,7 +93,10 @@ def can_read_in(conn: db.Conn, user: User, entity_type: str | None, entity_id: i
 
 
 def _recipients_in(
-    conn: db.Conn, user_id: int | None, entity: tuple[str, int] | None, role: str | None = None,
+    conn: db.Conn,
+    user_id: int | None,
+    entity: tuple[str, int] | None,
+    role: str | None = None,
 ) -> list[int]:
     """Active human users who may read `entity`: one user, or everyone when user_id is None."""
     where, params = "role != 'system' AND is_active = 1", []
@@ -102,7 +105,10 @@ def _recipients_in(
     if role is not None:
         where = f"{where} AND role = ?"
         params.append(role)
-    users = [User.from_row(dict(r)) for r in conn.execute(f"SELECT {_USER_COLS} FROM core_users WHERE {where} ORDER BY id", params)]
+    users = [
+        User.from_row(dict(r))
+        for r in conn.execute(f"SELECT {_USER_COLS} FROM core_users WHERE {where} ORDER BY id", params)
+    ]
     if entity is None:
         return [u.id for u in users]
     return [u.id for u in users if can_read_in(conn, u, *entity)]
@@ -124,8 +130,14 @@ def clean_link(link: str | None) -> str | None:
 
 
 def deliver_in(
-    conn: db.Conn, title: str, message: str, *, user_id: int | None = None,
-    entity: tuple[str, int] | None = None, link: str | None = None, role: str | None = None,
+    conn: db.Conn,
+    title: str,
+    message: str,
+    *,
+    user_id: int | None = None,
+    entity: tuple[str, int] | None = None,
+    link: str | None = None,
+    role: str | None = None,
 ) -> list[int]:
     """Notify one user (`user_id`) or every active human user (`user_id=None`) who may read
     `entity` = (entity_type, entity_id). Returns the new notification ids, one per recipient;
@@ -153,14 +165,21 @@ def deliver_in(
         ).lastrowid
         for ch in _CHANNELS.values():
             if ch.enabled_in is None or ch.enabled_in(conn, uid):
-                conn.execute("INSERT INTO core_notification_deliveries (notification_id, channel) VALUES (?, ?)", (nid, ch.name))
+                conn.execute(
+                    "INSERT INTO core_notification_deliveries (notification_id, channel) VALUES (?, ?)", (nid, ch.name)
+                )
         ids.append(nid)
     return ids
 
 
 def deliver(
-    title: str, message: str, *, user_id: int | None = None,
-    entity: tuple[str, int] | None = None, link: str | None = None, role: str | None = None,
+    title: str,
+    message: str,
+    *,
+    user_id: int | None = None,
+    entity: tuple[str, int] | None = None,
+    link: str | None = None,
+    role: str | None = None,
 ) -> list[int]:
     with db.transaction() as conn:
         return deliver_in(conn, title, message, user_id=user_id, entity=entity, link=link, role=role)
@@ -236,7 +255,9 @@ def _mark_read_in(conn: db.Conn, user: User, notification_id: int) -> dict | Non
     if not can_read_in(conn, user, row["entity_type"], row["entity_id"]):
         _suppress_in(conn, [notification_id])
         return None
-    conn.execute("UPDATE core_notifications SET read_at = coalesce(read_at, ?) WHERE id = ?", (clock.now_iso(), notification_id))
+    conn.execute(
+        "UPDATE core_notifications SET read_at = coalesce(read_at, ?) WHERE id = ?", (clock.now_iso(), notification_id)
+    )
     return dict(conn.execute(f"SELECT {_COLS} FROM core_notifications WHERE id = ?", (notification_id,)).fetchone())
 
 
@@ -317,7 +338,8 @@ def flush(cancel: threading.Event | None = None) -> dict:
         for row in rows:
             if reason := _drop_reason_in(conn, row):
                 conn.execute(
-                    "UPDATE core_notification_deliveries SET status = 'dropped', last_error = ? WHERE id = ?", (reason, row["id"])
+                    "UPDATE core_notification_deliveries SET status = 'dropped', last_error = ? WHERE id = ?",
+                    (reason, row["id"]),
                 )
                 counts["dropped"] += 1
             else:
@@ -327,7 +349,9 @@ def flush(cancel: threading.Event | None = None) -> dict:
     for row in sendable:
         if cancel is not None and cancel.is_set():
             break
-        payload = {k: row[k] for k in ("notification_id", "user_id", "title", "message", "link", "entity_type", "entity_id")}
+        payload = {
+            k: row[k] for k in ("notification_id", "user_id", "title", "message", "link", "entity_type", "entity_id")
+        }
         try:
             _CHANNELS[row["channel"]].send(payload)
         except Undeliverable as e:

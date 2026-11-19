@@ -12,7 +12,10 @@ import type { PushPublicKey } from './types';
 const SW = '/sw.js';
 
 export const pushSupported = () =>
-  typeof navigator !== 'undefined' && 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+  typeof navigator !== 'undefined' &&
+  'serviceWorker' in navigator &&
+  'PushManager' in window &&
+  'Notification' in window;
 
 /** This browser's current subscription, if it has one. */
 export async function currentSubscription(): Promise<PushSubscription | null> {
@@ -23,16 +26,19 @@ export async function currentSubscription(): Promise<PushSubscription | null> {
 
 function keyBytes(base64url: string): ArrayBuffer {
   const base64 = (base64url + '='.repeat((4 - (base64url.length % 4)) % 4)).replace(/-/g, '+').replace(/_/g, '/');
-  return Uint8Array.from(atob(base64), c => c.charCodeAt(0)).buffer;
+  return Uint8Array.from(atob(base64), (c) => c.charCodeAt(0)).buffer;
 }
 
 /** Subscribe this browser. Resolves false when the user refuses permission. */
 export async function enablePush(): Promise<boolean> {
   const registration = await navigator.serviceWorker.register(SW);
   await navigator.serviceWorker.ready;
-  if (await Notification.requestPermission() !== 'granted') return false;
+  if ((await Notification.requestPermission()) !== 'granted') return false;
   const { public_key } = await fetchJson<PushPublicKey>(`${NOTIFICATIONS}/push/public-key`);
-  const subscription = await registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: keyBytes(public_key) });
+  const subscription = await registration.pushManager.subscribe({
+    userVisibleOnly: true,
+    applicationServerKey: keyBytes(public_key),
+  });
   const { endpoint, keys } = subscription.toJSON();
   await postJson(`${NOTIFICATIONS}/push/subscribe`, { endpoint, keys: { p256dh: keys?.p256dh, auth: keys?.auth } });
   return true;

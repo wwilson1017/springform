@@ -78,7 +78,9 @@ def test_win_loss_in_cents(me, freeze):
         "avg_won_deal_cents": 167, "avg_open_deal_cents": 999, "avg_days_to_close": 2.0,
         "total_pipeline_value_cents": 999,
     }  # fmt: skip
-    assert all(isinstance(wl[k], int) for k in ("avg_won_deal_cents", "avg_open_deal_cents", "total_pipeline_value_cents"))
+    assert all(
+        isinstance(wl[k], int) for k in ("avg_won_deal_cents", "avg_open_deal_cents", "total_pipeline_value_cents")
+    )
 
 
 def test_an_empty_crm_answers_with_zeros(me):
@@ -89,13 +91,20 @@ def test_an_empty_crm_answers_with_zeros(me):
 
 
 def test_aging_and_stale_deals(me, freeze):
-    for created, title in (("2026-11-01T18:00:00Z", "Fresh"), ("2026-10-20T18:00:00Z", "Two weeks"), ("2026-07-01T18:00:00Z", "Old")):
+    for created, title in (
+        ("2026-11-01T18:00:00Z", "Fresh"),
+        ("2026-10-20T18:00:00Z", "Two weeks"),
+        ("2026-07-01T18:00:00Z", "Old"),
+    ):
         at(freeze, created)
         deals.create(me, {"title": title})
     at(freeze, "2026-11-02T18:00:00Z")
     aging = analytics.analytics(me, stale_days=10)["aging"]
     assert [b["count"] for b in aging["buckets"]] == [1, 1, 0, 1]
-    assert [(d["title"], d["days_since_touch"], d["age_days"]) for d in aging["stale_deals"]] == [("Old", 124, 124), ("Two weeks", 13, 13)]
+    assert [(d["title"], d["days_since_touch"], d["age_days"]) for d in aging["stale_deals"]] == [
+        ("Old", 124, 124),
+        ("Two weeks", 13, 13),
+    ]
     old = aging["stale_deals"][0]["id"]
     timeline.add_note(me, "crm.deal", old, "Called them back")
     assert [d["title"] for d in analytics.stale_deals(me, days=10)["deals"]] == ["Two weeks"], "a note is a touch"
@@ -110,8 +119,16 @@ def test_per_rep_credit(me, make_user):
     timeline.add_note(me, "crm.deal", mine["id"], "Sent the samples")
     add_activity("2026-11-02T17:00:00Z", deal_id=mine["id"])  # nobody did this one
     reps = {r["name"]: r for r in analytics.analytics(me)["per_rep"]}
-    assert (reps[me.name]["deals_open"], reps[me.name]["open_value_cents"], reps[me.name]["activity_count"]) == (1, 500, 1)
-    assert (reps[other.name]["won_value_cents"], reps[other.name]["activity_count"], reps[other.name]["records_touched"]) == (700, 2, 1)
+    assert (reps[me.name]["deals_open"], reps[me.name]["open_value_cents"], reps[me.name]["activity_count"]) == (
+        1,
+        500,
+        1,
+    )
+    assert (
+        reps[other.name]["won_value_cents"],
+        reps[other.name]["activity_count"],
+        reps[other.name]["records_touched"],
+    ) == (700, 2, 1)
     assert list(reps)[-1] == "Unattributed" and reps["Unattributed"]["activity_count"] == 1
 
 
@@ -130,13 +147,27 @@ def test_the_funnel(me, freeze):
     at(freeze, "2026-11-02T18:00:00Z")
     out = analytics.pipeline_analytics(me, days=90)
     stays = {s["stage"]: (s["samples"], s["avg_days"], s["median_days"]) for s in out["time_in_stage"]}
-    assert stays == {"lead": (2, 2.5, 2.5), "qualified": (1, 3.0, 3.0), "proposal": (1, 1.0, 1.0), "negotiation": (0, None, None)}
+    assert stays == {
+        "lead": (2, 2.5, 2.5),
+        "qualified": (1, 3.0, 3.0),
+        "proposal": (1, 1.0, 1.0),
+        "negotiation": (0, None, None),
+    }
     conv = {c["stage"]: c for c in out["conversion"]}
-    assert (conv["lead"]["entered"], conv["lead"]["won"], conv["lead"]["lost"], conv["lead"]["progression_rate"]) == (2, 1, 1, 0.5)
+    assert (conv["lead"]["entered"], conv["lead"]["won"], conv["lead"]["lost"], conv["lead"]["progression_rate"]) == (
+        2,
+        1,
+        1,
+        0.5,
+    )
     assert (conv["qualified"]["entered"], conv["qualified"]["win_rate"]) == (1, 1.0)
     # Won on 7 Oct, dated by its Closed on day: local midnight (05:00Z), 5 days 14 hours after creation.
     assert out["velocity"] == {"won_in_window": 1, "avg_days_to_won": 5.6}
-    assert (out["history_since"], out["history_days"], out["history_covers_window"]) == ("2026-10-01T15:00:00Z", 32, False)
+    assert (out["history_since"], out["history_days"], out["history_covers_window"]) == (
+        "2026-10-01T15:00:00Z",
+        32,
+        False,
+    )
 
 
 def test_deal_health_flags(me, freeze):
@@ -149,7 +180,9 @@ def test_deal_health_flags(me, freeze):
     at(freeze, "2026-12-15T18:00:00Z")
     assert analytics.deal_health(me, deal["id"])["flags"][:2] == ["stale", "stuck_in_stage"]
     deals.mark_won(me, deal["id"])
-    assert analytics.deal_health(me, deal["id"])["flags"] == ["missing_organization"], "a closed deal is not stale or stuck"
+    assert analytics.deal_health(me, deal["id"])["flags"] == ["missing_organization"], (
+        "a closed deal is not stale or stuck"
+    )
 
 
 def test_duplicates_are_title_and_person(me):
@@ -175,7 +208,11 @@ def test_conversion_counts_a_stage_reentered_inside_the_window(me, freeze):
     stage once before the window began."""
     at(freeze, "2026-06-01T15:00:00Z")
     deal = deals.create(me, {"title": "Back again", "stage": "qualified"})
-    for when, stage in (("2026-06-02T15:00:00Z", "lead"), ("2026-10-20T15:00:00Z", "qualified"), ("2026-10-25T15:00:00Z", "proposal")):
+    for when, stage in (
+        ("2026-06-02T15:00:00Z", "lead"),
+        ("2026-10-20T15:00:00Z", "qualified"),
+        ("2026-10-25T15:00:00Z", "proposal"),
+    ):
         at(freeze, when)
         deals.update(me, deal["id"], {"stage": stage})
     at(freeze, "2026-11-02T18:00:00Z")

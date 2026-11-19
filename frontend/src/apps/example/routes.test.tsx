@@ -13,13 +13,23 @@ describe('example routes', () => {
     const url = (id: number) => `/example/${id}`;
     mockFetch({
       'GET /api/example/widgets/7': {
-        body: { id: 7, name: 'Blue widget', color: '#0000ff', owner_user_id: 1, person_id: null, is_private: false,
-          created_at: '2026-10-20T15:00:00Z', updated_at: '2026-10-20T15:00:00Z' },
+        body: {
+          id: 7,
+          name: 'Blue widget',
+          color: '#0000ff',
+          owner_user_id: 1,
+          person_id: null,
+          is_private: false,
+          created_at: '2026-10-20T15:00:00Z',
+          updated_at: '2026-10-20T15:00:00Z',
+        },
       },
     });
     render(
       <MemoryRouter initialEntries={[url(7)]}>
-        <Routes><Route path="/example/*" element={<app.App />} /></Routes>
+        <Routes>
+          <Route path="/example/*" element={<app.App />} />
+        </Routes>
       </MemoryRouter>,
     );
     expect(await screen.findByDisplayValue('Blue widget')).toBeTruthy();

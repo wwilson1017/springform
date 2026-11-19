@@ -11,19 +11,38 @@ type Handler = (init?: RequestInit) => Response;
 
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status });
 const sse = (...events: ChatEvent[]) =>
-  new Response(events.map(e => `data: ${JSON.stringify(e)}\n\n`).join(''), { headers: { 'Content-Type': 'text/event-stream' } });
+  new Response(events.map((e) => `data: ${JSON.stringify(e)}\n\n`).join(''), {
+    headers: { 'Content-Type': 'text/event-stream' },
+  });
 
 const user = (role: User['role']): User => ({ id: 1, email: 'a@example.com', name: 'A', role, tz: 'UTC' });
 const status = (configured: boolean): AgentStatus => ({
-  configured, default_agent: 'whisk', providers: [], models: { default: configured ? 'm' : null, light: null },
+  configured,
+  default_agent: 'whisk',
+  providers: [],
+  models: { default: configured ? 'm' : null, light: null },
 });
 const agent: AgentRow = {
-  id: 1, slug: 'whisk', name: 'Whisk', personality: '', provider_override: null, model_override: null,
-  model_tier: 'default', is_default: true, created_at: '2026-10-24T10:00:00Z',
+  id: 1,
+  slug: 'whisk',
+  name: 'Whisk',
+  personality: '',
+  provider_override: null,
+  model_override: null,
+  model_tier: 'default',
+  is_default: true,
+  created_at: '2026-10-24T10:00:00Z',
 };
 const conversation = (id: number): Conversation => ({
-  id, user_id: 1, agent_id: 1, agent_slug: 'whisk', title: 'make a widget', is_private: false,
-  created_at: '2026-10-24T10:00:00Z', updated_at: '2026-10-24T10:00:00Z', compacted_at: null,
+  id,
+  user_id: 1,
+  agent_id: 1,
+  agent_slug: 'whisk',
+  title: 'make a widget',
+  is_private: false,
+  created_at: '2026-10-24T10:00:00Z',
+  updated_at: '2026-10-24T10:00:00Z',
+  compacted_at: null,
 });
 
 /** Stub fetch by "METHOD url"; a list answers its calls in order. Unlisted routes are 404. */
@@ -46,13 +65,17 @@ function serve(role: User['role'], configured: boolean, routes: Record<string, H
 }
 
 const bodiesOf = (fn: ReturnType<typeof serve>, method: string, url: string) =>
-  fn.mock.calls.filter(([u, init]) => u === url && init?.method === method).map(([, init]) => JSON.parse(String(init?.body)));
+  fn.mock.calls
+    .filter(([u, init]) => u === url && init?.method === method)
+    .map(([, init]) => JSON.parse(String(init?.body)));
 
 function renderAt(path = '/whisk') {
   render(
     <MemoryRouter initialEntries={[path]}>
       <AuthProvider>
-        <Routes><Route path="whisk/*" element={<WhiskPage />} /></Routes>
+        <Routes>
+          <Route path="whisk/*" element={<WhiskPage />} />
+        </Routes>
       </AuthProvider>
     </MemoryRouter>,
   );
@@ -102,16 +125,36 @@ describe('approving a write', () => {
   it('shows the card, posts the decision, shows the result and resumes the turn', async () => {
     const fn = serve('admin', true, {
       'POST /api/agent/chat': [
-        () => sse(
-          { type: 'conversation_id', id: 7 },
-          { type: 'title_update', conversation_id: 7, title: 'make a widget' },
-          { type: 'tool_start', tool: 'example_create_widget', tool_use_id: 'w1' },
-          { type: 'tool_args', tool: 'example_create_widget', tool_use_id: 'w1', args: { name: 'Demo' }, description: 'Model instructions: ask the user to approve.' },
-          { type: 'confirm', tool_run_id: 11, tool: 'example_create_widget', tool_use_id: 'w1', msg_id: 4, args: { name: 'Demo' }, summary: 'Create this widget.' },
-          { type: 'text', text: 'Waiting for your approval.' },
-          { type: 'done', model: 'fake' },
-        ),
-        () => sse({ type: 'conversation_id', id: 7 }, { type: 'text', text: 'Created it.' }, { type: 'done', model: 'fake' }),
+        () =>
+          sse(
+            { type: 'conversation_id', id: 7 },
+            { type: 'title_update', conversation_id: 7, title: 'make a widget' },
+            { type: 'tool_start', tool: 'example_create_widget', tool_use_id: 'w1' },
+            {
+              type: 'tool_args',
+              tool: 'example_create_widget',
+              tool_use_id: 'w1',
+              args: { name: 'Demo' },
+              description: 'Model instructions: ask the user to approve.',
+            },
+            {
+              type: 'confirm',
+              tool_run_id: 11,
+              tool: 'example_create_widget',
+              tool_use_id: 'w1',
+              msg_id: 4,
+              args: { name: 'Demo' },
+              summary: 'Create this widget.',
+            },
+            { type: 'text', text: 'Waiting for your approval.' },
+            { type: 'done', model: 'fake' },
+          ),
+        () =>
+          sse(
+            { type: 'conversation_id', id: 7 },
+            { type: 'text', text: 'Created it.' },
+            { type: 'done', model: 'fake' },
+          ),
       ],
       'POST /api/agent/confirm': () => json({ status: 'done', result: { id: 3, name: 'Demo' } }),
     });
@@ -137,13 +180,28 @@ describe('approving a write', () => {
 
   it('a refused confirm leaves the card pending with the reason, and nothing resumes', async () => {
     const fn = serve('admin', true, {
-      'POST /api/agent/chat': () => sse(
-        { type: 'conversation_id', id: 7 },
-        { type: 'tool_start', tool: 'example_create_widget', tool_use_id: 'w1' },
-        { type: 'tool_args', tool: 'example_create_widget', tool_use_id: 'w1', args: {}, description: 'Model instructions.' },
-        { type: 'confirm', tool_run_id: 11, tool: 'example_create_widget', tool_use_id: 'w1', msg_id: 4, args: {}, summary: '' },
-        { type: 'done', model: 'fake' },
-      ),
+      'POST /api/agent/chat': () =>
+        sse(
+          { type: 'conversation_id', id: 7 },
+          { type: 'tool_start', tool: 'example_create_widget', tool_use_id: 'w1' },
+          {
+            type: 'tool_args',
+            tool: 'example_create_widget',
+            tool_use_id: 'w1',
+            args: {},
+            description: 'Model instructions.',
+          },
+          {
+            type: 'confirm',
+            tool_run_id: 11,
+            tool: 'example_create_widget',
+            tool_use_id: 'w1',
+            msg_id: 4,
+            args: {},
+            summary: '',
+          },
+          { type: 'done', model: 'fake' },
+        ),
       'POST /api/agent/confirm': () => json({ detail: 'not_your_conversation' }, 403),
     });
     renderAt();
@@ -167,7 +225,14 @@ describe('a dropped stream', () => {
       ...conversation(7),
       messages: [
         { id: 1, role: 'user', text: 'hello', model: null, created_at: '2026-10-24T10:00:00Z', tool_calls: [] },
-        { id: 2, role: 'assistant', text: 'Saved answer.', model: 'fake', created_at: '2026-10-24T10:00:01Z', tool_calls: [] },
+        {
+          id: 2,
+          role: 'assistant',
+          text: 'Saved answer.',
+          model: 'fake',
+          created_at: '2026-10-24T10:00:01Z',
+          tool_calls: [],
+        },
       ],
     };
     serve('admin', true, {

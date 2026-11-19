@@ -68,10 +68,17 @@ def test_recency_falls_back_to_the_creation_day():
 
 
 def test_temperature_is_neutral_until_someone_judges_it():
-    scores = {t: scoring.compose_deal(deal(stage="proposal", deal_temperature=t), 3, None, NOW)["score"] for t in (None, "hot", "warm", "cold")}
+    scores = {
+        t: scoring.compose_deal(deal(stage="proposal", deal_temperature=t), 3, None, NOW)["score"]
+        for t in (None, "hot", "warm", "cold")
+    }
     assert scores["cold"] < scores[None] < scores["warm"] < scores["hot"]
-    a = scoring.compose_deal(deal(stage="proposal", deal_temperature="hot", person_id=1), 3, "2026-10-13T00:00:00Z", NOW)
-    b = scoring.compose_deal(deal(stage="negotiation", deal_temperature="hot", person_id=1), 3, "2026-10-13T00:00:00Z", NOW)
+    a = scoring.compose_deal(
+        deal(stage="proposal", deal_temperature="hot", person_id=1), 3, "2026-10-13T00:00:00Z", NOW
+    )
+    b = scoring.compose_deal(
+        deal(stage="negotiation", deal_temperature="hot", person_id=1), 3, "2026-10-13T00:00:00Z", NOW
+    )
     assert a["score"] < b["score"] < 99, "two hot deals stay distinguishable below the clamp"
 
 
@@ -88,7 +95,9 @@ def test_a_person_s_best_live_deal_lifts_them(stages, multiplier):
 
 
 def test_person_factors():
-    full = scoring.compose_person(person(email="a@example.com", phone="555-0100"), 4, "2026-10-12T00:00:00Z", ["proposal"], True, NOW)
+    full = scoring.compose_person(
+        person(email="a@example.com", phone="555-0100"), 4, "2026-10-12T00:00:00Z", ["proposal"], True, NOW
+    )
     bare = scoring.compose_person(person(status="mystery"), 0, None, [], False, NOW)
     assert full["factors"]["profile_completeness"] == 1.1 and bare["factors"]["profile_completeness"] == 0.85
     assert bare["factors"]["status_base"] == 15, "an unknown status reads as inactive"

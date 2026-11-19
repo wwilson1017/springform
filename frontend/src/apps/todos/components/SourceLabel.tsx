@@ -8,10 +8,7 @@ import type { Todo } from '../types';
 export function SourceLabel({ todo }: { todo: Pick<Todo, 'source'> }) {
   if (todo.source !== 'agent') return null;
   return (
-    <span
-      className="rounded-full border border-sf-line-strong px-2 py-0.5 text-sf-ink-dim"
-      title="Added by an AI tool"
-    >
+    <span className="rounded-full border border-sf-line-strong px-2 py-0.5 text-sf-ink-dim" title="Added by an AI tool">
       <span aria-hidden="true">✦ </span>
       <span className="sr-only">Added by </span>
       AI

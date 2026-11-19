@@ -18,9 +18,17 @@ def test_create_shape_and_mine_plus_shared(login_as):
     admin, ann, bob = login_as("admin"), login_as("member"), login_as("member")
     view = _create(ann, entity_type="example.widget")
     assert view == {
-        "id": view["id"], "surface": SURFACE, "entity_type": "example.widget", "name": "Red ones", "version": 1,
-        "payload": {"filters": {"color": ["red"]}}, "owner": {"id": ann.user["id"], "name": ann.user["name"]},
-        "is_shared": False, "can_edit": True, "created_at": view["created_at"], "updated_at": view["updated_at"],
+        "id": view["id"],
+        "surface": SURFACE,
+        "entity_type": "example.widget",
+        "name": "Red ones",
+        "version": 1,
+        "payload": {"filters": {"color": ["red"]}},
+        "owner": {"id": ann.user["id"], "name": ann.user["name"]},
+        "is_shared": False,
+        "can_edit": True,
+        "created_at": view["created_at"],
+        "updated_at": view["updated_at"],
     }
     _create(bob, "Bob's")
     _create(ann, "Elsewhere", surface="example.other")
@@ -32,10 +40,14 @@ def test_create_shape_and_mine_plus_shared(login_as):
     assert shared["is_shared"] is True and shared["version"] == 1  # sharing is not an edit
     listed = bob.get(VIEWS, params={"surface": SURFACE}).json()
     assert [(v["name"], v["can_edit"]) for v in listed] == [("Bob's", True), ("Red ones", False)]
-    assert [(v["name"], v["can_edit"]) for v in admin.get(VIEWS, params={"surface": SURFACE}).json()] == [("Red ones", True)]
+    assert [(v["name"], v["can_edit"]) for v in admin.get(VIEWS, params={"surface": SURFACE}).json()] == [
+        ("Red ones", True)
+    ]
 
     assert ann.post(f"{VIEWS}/{view['id']}/share").json()["is_shared"] is False  # no body flips it
-    assert ann.post(f"{VIEWS}/{view['id']}/share", json={"is_shared": False}).json()["is_shared"] is False  # a body sets it
+    assert (
+        ann.post(f"{VIEWS}/{view['id']}/share", json={"is_shared": False}).json()["is_shared"] is False
+    )  # a body sets it
     assert _names(bob) == ["Bob's"]
 
 
@@ -50,7 +62,12 @@ def test_edits_need_the_current_version(login_as):
     assert ann.patch(url, json={"version": True, "name": "x"}).status_code == 422  # strict int
     assert ann.patch(url, json={"name": "x"}).status_code == 422  # version is required
     edited = ann.patch(url, json={"version": 2, "payload": {"sort": "name"}, "entity_type": None}).json()
-    assert (edited["version"], edited["payload"], edited["entity_type"], edited["name"]) == (3, {"sort": "name"}, None, "Crimson")
+    assert (edited["version"], edited["payload"], edited["entity_type"], edited["name"]) == (
+        3,
+        {"sort": "name"},
+        None,
+        "Crimson",
+    )
 
 
 def test_only_the_owner_or_an_admin_changes_a_view(login_as):
@@ -65,7 +82,10 @@ def test_only_the_owner_or_an_admin_changes_a_view(login_as):
     assert bob.delete(f"{VIEWS}/{shared['id']}").status_code == 403
     assert bob.post(f"{VIEWS}/{shared['id']}/share").status_code == 403
 
-    assert admin.patch(f"{VIEWS}/{private['id']}", json={"version": 1, "name": "Tidied"}).json()["owner"]["id"] == ann.user["id"]
+    assert (
+        admin.patch(f"{VIEWS}/{private['id']}", json={"version": 1, "name": "Tidied"}).json()["owner"]["id"]
+        == ann.user["id"]
+    )
     assert admin.post(f"{VIEWS}/{private['id']}/share").json()["is_shared"] is True
     assert admin.delete(f"{VIEWS}/{shared['id']}").status_code == 204
     assert ann.delete(f"{VIEWS}/{private['id']}").status_code == 204
@@ -76,7 +96,9 @@ def test_only_the_owner_or_an_admin_changes_a_view(login_as):
 def test_view_validation(login_as):
     ann, bob = login_as("member"), login_as("member")
     first = _create(ann, "Mine")
-    assert ann.post(VIEWS, json={"surface": SURFACE, "name": " MINE ", "payload": {}}).json() == {"detail": "duplicate_name"}
+    assert ann.post(VIEWS, json={"surface": SURFACE, "name": " MINE ", "payload": {}}).json() == {
+        "detail": "duplicate_name"
+    }
     assert _create(bob, "Mine")["name"] == "Mine"  # names are per owner
     second = _create(ann, "Other")
     assert ann.patch(f"{VIEWS}/{second['id']}", json={"version": 1, "name": "mine"}).status_code == 409

@@ -40,7 +40,9 @@ export function TodoShell({ active, hideQuickAdd, onAdded, inlineUndo, scoped, c
   const toasts = useToasts();
   const scope = useScope();
   const inboxCount = filters?.status_counts.inbox ?? 0;
-  useEffect(() => { document.title = 'Todos'; }, []);
+  useEffect(() => {
+    document.title = 'Todos';
+  }, []);
   const phone = useMediaQuery(PHONE_QUERY);
 
   // Keep the header box in sync with ?q= while ON the results page — covers
@@ -64,15 +66,30 @@ export function TodoShell({ active, hideQuickAdd, onAdded, inlineUndo, scoped, c
       <div className="mx-auto max-w-5xl px-4 pb-[calc(var(--bottom-bar)+2.5rem)] pt-4 md:px-8">
         <div className="flex items-center gap-3">
           <h1 className="m-0 min-w-0 truncate font-display text-xl font-medium text-sf-ink">
-            <Link to={todoPath('')} className="text-sf-ink no-underline">Todos</Link>
+            <Link to={todoPath('')} className="text-sf-ink no-underline">
+              Todos
+            </Link>
           </h1>
           <div className="ml-auto flex items-center gap-2">
             {scoped && (
-              <div role="group" aria-label="Whose todos" className="flex rounded-lg border border-sf-line-strong bg-sf-card p-0.5 text-sm">
-                {(['mine', 'all'] as const).map(s => (
-                  <button key={s} type="button" aria-pressed={scope === s} onClick={() => setScope(s)}
-                    title={s === 'mine' ? 'Your private todos, team todos assigned to you, and unassigned team todos' : 'Every todo you can see'}
-                    className={`cursor-pointer rounded-md border-0 px-2.5 py-1 ${scope === s ? 'bg-sf-raised font-semibold text-sf-ink' : 'bg-transparent text-sf-ink-dim hover:text-sf-ink'}`}>
+              <div
+                role="group"
+                aria-label="Whose todos"
+                className="flex rounded-lg border border-sf-line-strong bg-sf-card p-0.5 text-sm"
+              >
+                {(['mine', 'all'] as const).map((s) => (
+                  <button
+                    key={s}
+                    type="button"
+                    aria-pressed={scope === s}
+                    onClick={() => setScope(s)}
+                    title={
+                      s === 'mine'
+                        ? 'Your private todos, team todos assigned to you, and unassigned team todos'
+                        : 'Every todo you can see'
+                    }
+                    className={`cursor-pointer rounded-md border-0 px-2.5 py-1 ${scope === s ? 'bg-sf-raised font-semibold text-sf-ink' : 'bg-transparent text-sf-ink-dim hover:text-sf-ink'}`}
+                  >
                     {s === 'mine' ? 'Mine' : 'Everyone'}
                   </button>
                 ))}
@@ -80,14 +97,14 @@ export function TodoShell({ active, hideQuickAdd, onAdded, inlineUndo, scoped, c
             )}
             <form
               role="search"
-              onSubmit={e => {
+              onSubmit={(e) => {
                 e.preventDefault();
                 navigate(todoPath(`/search?q=${encodeURIComponent(query.trim())}`));
               }}
             >
               <input
                 value={query}
-                onChange={e => setQuery(e.target.value)}
+                onChange={(e) => setQuery(e.target.value)}
                 placeholder="Search…"
                 aria-label="Search all todos"
                 className="h-9 w-28 sm:w-44 rounded-lg border border-sf-line-strong bg-sf-card px-3 text-base sm:text-sm text-sf-ink placeholder:text-sf-ink-dim focus:border-sf-accent focus:outline-none"
@@ -100,7 +117,12 @@ export function TodoShell({ active, hideQuickAdd, onAdded, inlineUndo, scoped, c
 
         {!hideQuickAdd && (
           <div className="mt-4">
-            <QuickAdd onAdded={() => { void refreshMeta(); onAdded?.(); }} />
+            <QuickAdd
+              onAdded={() => {
+                void refreshMeta();
+                onAdded?.();
+              }}
+            />
           </div>
         )}
 
@@ -115,7 +137,7 @@ export function TodoShell({ active, hideQuickAdd, onAdded, inlineUndo, scoped, c
           full-width wrapper is mandatory, or an invisible bar swallows clicks across the
           viewport; each child opts back in. On a phone the stack sits above the bottom bar. */}
       <div className="pointer-events-none fixed inset-x-0 bottom-[calc(var(--bottom-bar)+1rem)] z-50 flex flex-col items-center gap-2 px-4">
-        {toasts.map(t => (
+        {toasts.map((t) => (
           <div
             key={t.id}
             role="status"
@@ -159,7 +181,9 @@ export function LoadFailed({ retry }: { retry: () => void }) {
   return (
     <div className="rounded-xl border border-sf-red/40 bg-sf-red/10 p-4 text-sm text-sf-ink">
       Couldn't load todos.{' '}
-      <button type="button" onClick={retry} className="underline">Retry</button>
+      <button type="button" onClick={retry} className="underline">
+        Retry
+      </button>
     </div>
   );
 }

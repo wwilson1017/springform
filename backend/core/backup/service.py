@@ -154,8 +154,16 @@ def _record(started: datetime, status: str, fields: dict) -> dict:
             row_id = conn.execute(
                 """INSERT INTO core_backups (started_at, finished_at, status, snapshot, manifest, byte_size, sha256, error)
                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
-                (clock.to_iso(started), clock.now_iso(), status, fields.get("snapshot"), fields.get("manifest"),
-                 fields.get("byte_size"), fields.get("sha256"), fields.get("error")),
+                (
+                    clock.to_iso(started),
+                    clock.now_iso(),
+                    status,
+                    fields.get("snapshot"),
+                    fields.get("manifest"),
+                    fields.get("byte_size"),
+                    fields.get("sha256"),
+                    fields.get("error"),
+                ),
             ).lastrowid
         return db.one("SELECT * FROM core_backups WHERE id = ?", (row_id,))
     except Exception:
@@ -201,9 +209,7 @@ def list_sets() -> list[dict]:
     out = backups_dir()
     if not out.is_dir():
         return []
-    stamps = {
-        p.name.split(".", 1)[0] for p in out.iterdir() if p.name.endswith((SNAPSHOT, MANIFEST))
-    }
+    stamps = {p.name.split(".", 1)[0] for p in out.iterdir() if p.name.endswith((SNAPSHOT, MANIFEST))}
     statuses = {r["snapshot"]: r["status"] for r in db.rows("SELECT snapshot, status FROM core_backups ORDER BY id")}
     sets = []
     for stamp in sorted((s for s in stamps if STAMP.match(s)), key=stamp_order, reverse=True):
@@ -214,14 +220,16 @@ def list_sets() -> list[dict]:
             blob_count = len(manifest["blobs"])
         except (TypeError, KeyError):
             ok, blob_count = False, None
-        sets.append({
-            "stamp": stamp,
-            "created_at": manifest.get("created_at") if isinstance(manifest, dict) else None,
-            "snapshot_bytes": size,
-            "blob_count": blob_count,
-            "status": statuses.get(snap.name),
-            "manifest_ok": ok,
-        })
+        sets.append(
+            {
+                "stamp": stamp,
+                "created_at": manifest.get("created_at") if isinstance(manifest, dict) else None,
+                "snapshot_bytes": size,
+                "blob_count": blob_count,
+                "status": statuses.get(snap.name),
+                "manifest_ok": ok,
+            }
+        )
     return sets
 
 

@@ -22,7 +22,8 @@ import type { Todo, TodoProject } from '../types';
 import { ITEM_EXTRA, PROJECT_EXTRA } from '../testFixtures';
 import { routed } from '../testRouter';
 
-const TODO: Todo = { ...ITEM_EXTRA,
+const TODO: Todo = {
+  ...ITEM_EXTRA,
   id: 7,
   title: 'Call the plumber about the upstairs sink',
   notes: 'He quoted $200 last time.',
@@ -41,10 +42,18 @@ const TODO: Todo = { ...ITEM_EXTRA,
   completed_at: null,
 };
 
-const PROJECTS: TodoProject[] = [{ ...PROJECT_EXTRA,
-  id: 3, name: 'House repairs', notes: '', status: 'active',
-  open_count: 2, created_at: '2026-08-01T12:00:00Z', updated_at: '2026-08-01T12:00:00Z',
-}];
+const PROJECTS: TodoProject[] = [
+  {
+    ...PROJECT_EXTRA,
+    id: 3,
+    name: 'House repairs',
+    notes: '',
+    status: 'active',
+    open_count: 2,
+    created_at: '2026-08-01T12:00:00Z',
+    updated_at: '2026-08-01T12:00:00Z',
+  },
+];
 
 let container: HTMLDivElement;
 let root: Root;
@@ -56,7 +65,12 @@ beforeEach(() => {
   // jsdom ships no clipboard; define the one method the hook calls.
   Object.defineProperty(navigator, 'clipboard', {
     configurable: true,
-    value: { writeText: (t: string) => { written.push(t); return Promise.resolve(); } },
+    value: {
+      writeText: (t: string) => {
+        written.push(t);
+        return Promise.resolve();
+      },
+    },
   });
   container = document.createElement('div');
   document.body.appendChild(container);
@@ -71,13 +85,7 @@ afterEach(() => {
 async function render(todo: Todo | null = TODO) {
   await act(async () => {
     root.render(
-      <TodoEditSheet
-        todo={todo}
-        projects={PROJECTS}
-        contexts={['@calls']}
-        onClose={() => {}}
-        onSaved={() => {}}
-      />,
+      <TodoEditSheet todo={todo} projects={PROJECTS} contexts={['@calls']} onClose={() => {}} onSaved={() => {}} />,
     );
   });
 }
@@ -89,7 +97,9 @@ const copyButton = (label: string): HTMLButtonElement => {
 };
 
 const clickCopy = async (label: string) => {
-  await act(async () => { copyButton(label).click(); });
+  await act(async () => {
+    copyButton(label).click();
+  });
 };
 
 const titleInput = () => container.querySelector<HTMLInputElement>('#tgtd-title')!;
@@ -97,9 +107,7 @@ const titleInput = () => container.querySelector<HTMLInputElement>('#tgtd-title'
 /** Type into the controlled title input the way React sees it. */
 const typeTitle = async (value: string) => {
   const input = titleInput();
-  const setter = Object.getOwnPropertyDescriptor(
-    Object.getPrototypeOf(input), 'value',
-  )?.set;
+  const setter = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(input), 'value')?.set;
   await act(async () => {
     setter?.call(input, value);
     input.dispatchEvent(new Event('input', { bubbles: true }));
@@ -117,18 +125,18 @@ describe('TodoEditSheet copy buttons', () => {
     await render();
     await clickCopy('Copy the whole todo');
     expect(written).toEqual([
-      'Call the plumber about the upstairs sink\n'
-      + '\n'
-      + 'Status: Next\n'
-      + 'Project: House repairs\n'
-      + 'Context: @calls\n'
-      + 'Due: 2026-08-15\n'
-      + 'Repeat: weekly\n'
-      + 'Tags: home\n'
-      + 'Starred: yes\n'
-      + '\n'
-      + 'Notes:\n'
-      + 'He quoted $200 last time.',
+      'Call the plumber about the upstairs sink\n' +
+        '\n' +
+        'Status: Next\n' +
+        'Project: House repairs\n' +
+        'Context: @calls\n' +
+        'Due: 2026-08-15\n' +
+        'Repeat: weekly\n' +
+        'Tags: home\n' +
+        'Starred: yes\n' +
+        '\n' +
+        'Notes:\n' +
+        'He quoted $200 last time.',
     ]);
   });
 

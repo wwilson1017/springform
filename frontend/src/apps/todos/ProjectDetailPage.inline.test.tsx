@@ -44,7 +44,8 @@ import type { TodoProject } from './types';
 import { PROJECT_EXTRA } from './testFixtures';
 
 function project(over: Partial<TodoProject> = {}): TodoProject {
-  return { ...PROJECT_EXTRA,
+  return {
+    ...PROJECT_EXTRA,
     id: 7,
     name: 'Q4 lanch',
     notes: '',
@@ -90,15 +91,11 @@ async function render() {
 }
 
 /** The two click-to-edit triggers, told apart by the tooltip each variant renders. */
-const nameTrigger = () =>
-  container.querySelector<HTMLButtonElement>('button[title="Click to rename"]')!;
-const notesTrigger = () =>
-  container.querySelector<HTMLButtonElement>('button[title="Click to edit"]')!;
+const nameTrigger = () => container.querySelector<HTMLButtonElement>('button[title="Click to rename"]')!;
+const notesTrigger = () => container.querySelector<HTMLButtonElement>('button[title="Click to edit"]')!;
 
-const nameEditor = () =>
-  container.querySelector<HTMLTextAreaElement>('textarea[aria-label="Project name"]');
-const notesEditor = () =>
-  container.querySelector<HTMLTextAreaElement>('textarea[aria-label="Project notes"]');
+const nameEditor = () => container.querySelector<HTMLTextAreaElement>('textarea[aria-label="Project name"]');
+const notesEditor = () => container.querySelector<HTMLTextAreaElement>('textarea[aria-label="Project notes"]');
 
 const alertText = () => container.querySelector('[role="alert"]')?.textContent ?? null;
 
@@ -111,15 +108,21 @@ function setValue(el: HTMLTextAreaElement, value: string) {
 }
 
 const press = (el: Element, key: string) => {
-  act(() => { el.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true })); });
+  act(() => {
+    el.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true }));
+  });
 };
 
 const blur = (el: Element) => {
-  act(() => { el.dispatchEvent(new FocusEvent('focusout', { bubbles: true })); });
+  act(() => {
+    el.dispatchEvent(new FocusEvent('focusout', { bubbles: true }));
+  });
 };
 
 async function settle() {
-  await act(async () => { await Promise.resolve(); });
+  await act(async () => {
+    await Promise.resolve();
+  });
 }
 
 describe('ProjectDetailPage — inline name edit (todo-gtd #3198)', () => {
@@ -183,9 +186,7 @@ describe('ProjectDetailPage — inline name edit (todo-gtd #3198)', () => {
     // Project names are unique case-insensitively; the service answers 400 naming the
     // conflict. Showing that sentence is the whole point — a generic failure would hide the
     // one fact the user needs. The heading must still read the last SAVED name.
-    updateProjectMock.mockRejectedValue(
-      new ApiError(422, 'Project "Roadmap" already exists'),
-    );
+    updateProjectMock.mockRejectedValue(new ApiError(422, 'Project "Roadmap" already exists'));
     await render();
 
     act(() => nameTrigger().click());
@@ -242,7 +243,12 @@ describe('ProjectDetailPage — inline name edit (todo-gtd #3198)', () => {
     let releaseName: (p: TodoProject) => void = () => {};
     updateProjectMock
       // The name write: held open, and its row still carries the OLD notes.
-      .mockImplementationOnce(() => new Promise<TodoProject>(res => { releaseName = res; }))
+      .mockImplementationOnce(
+        () =>
+          new Promise<TodoProject>((res) => {
+            releaseName = res;
+          }),
+      )
       // The notes write: lands first, carrying both the new name and the new notes.
       .mockResolvedValueOnce(project({ name: 'Q4 launch', notes: 'ship by 12/1' }));
     await render();
@@ -259,7 +265,9 @@ describe('ProjectDetailPage — inline name edit (todo-gtd #3198)', () => {
     expect(notesTrigger().textContent).toBe('ship by 12/1');
 
     // Now the name write finally answers, with the notes as they were BEFORE the second write.
-    await act(async () => { releaseName(project({ name: 'Q4 launch', notes: '' })); });
+    await act(async () => {
+      releaseName(project({ name: 'Q4 launch', notes: '' }));
+    });
     await settle();
 
     expect(notesTrigger().textContent).toBe('ship by 12/1');
@@ -367,7 +375,10 @@ describe('ProjectDetailPage — inline notes edit (todo-gtd #3198)', () => {
     // leaving the user's rejected text on screen with nothing explaining why it did not save.
     let rejectName: (e: unknown) => void = () => {};
     updateProjectMock.mockImplementationOnce(
-      () => new Promise<TodoProject>((_res, rej) => { rejectName = rej; }),
+      () =>
+        new Promise<TodoProject>((_res, rej) => {
+          rejectName = rej;
+        }),
     );
     await render();
 
@@ -404,13 +415,9 @@ describe('ProjectDetailPage — inline notes edit (todo-gtd #3198)', () => {
 describe('ProjectDetailPage — add a next action', () => {
   it('keeps the typed text and says why when the add is refused', async () => {
     const { createTodo } = await import('./api');
-    vi.mocked(createTodo).mockReset().mockRejectedValue(
-      new ApiError(422, 'This list is full.'),
-    );
+    vi.mocked(createTodo).mockReset().mockRejectedValue(new ApiError(422, 'This list is full.'));
     await render();
-    const input = container.querySelector<HTMLInputElement>(
-      'input[placeholder^="Add a next action"]',
-    )!;
+    const input = container.querySelector<HTMLInputElement>('input[placeholder^="Add a next action"]')!;
     const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
     act(() => {
       setter?.call(input, 'Email the caterer');

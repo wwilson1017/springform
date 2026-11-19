@@ -28,7 +28,9 @@ def test_mentions_notify_readers_except_the_author(login_as, make_user):
     body = f"{_mention(reader)} can you check? cc {_mention(author)} @[Gone](user:{gone.id}) @[System](user:0) @[Nobody](user:9999)"
     entry = _note(author, w["id"], body)
     assert entry["body"] == body
-    mentions = core_db.rows("SELECT user_id, display_name FROM core_timeline_mentions WHERE timeline_id = ? ORDER BY id", (entry["id"],))
+    mentions = core_db.rows(
+        "SELECT user_id, display_name FROM core_timeline_mentions WHERE timeline_id = ? ORDER BY id", (entry["id"],)
+    )
     assert mentions == [
         {"user_id": reader.user["id"], "display_name": reader.user["name"]},
         {"user_id": author.user["id"], "display_name": author.user["name"]},
@@ -61,5 +63,7 @@ def test_mentionable_lists_active_humans_only(login_as, make_user):
     ids = {u["id"] for u in everyone}
     assert member.user["id"] in ids and ann.id in ids and gone.id not in ids and 0 not in ids
     assert all(set(u) == {"id", "name"} for u in everyone)
-    assert member.get("/api/core/timeline/mentionable", params={"q": "ann@"}).json() == [{"id": ann.id, "name": ann.name}]
+    assert member.get("/api/core/timeline/mentionable", params={"q": "ann@"}).json() == [
+        {"id": ann.id, "name": ann.name}
+    ]
     assert member.get("/api/core/timeline/mentionable", params={"q": "%"}).json() == []
