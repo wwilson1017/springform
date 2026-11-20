@@ -1,12 +1,15 @@
 """Todos with more than one person: who sees and changes what, the hierarchy rule, transfer and
 deactivation, record links, reset, the published API, the Whisk tools and the HTTP surface."""
 
+import re
+
 import pytest
 
 from backend.apps.todos import api as todos_api, service
 from backend.apps.todos.models import Area, Item, Project
 from backend.core import clock, db as core_db, entities, registry
 from backend.core.agent import registry as tools
+from backend.core.agent.spec import calling_client
 from backend.core.errors import Forbidden, Invalid, NotFound
 from backend.core.reports import registry as reports
 
@@ -419,6 +422,31 @@ def test_tools_are_registered_scoped_and_act_as_the_user(two):
     secret = service.create_item(a, "secret")
     with pytest.raises(NotFound):  # what the engine runs on every target before handler_in
         entities.authorize(b, core_db.get_conn(), *update.targets({"id": secret["id"]})[0], "write")
+
+
+def test_the_guidance_names_only_real_tools():
+    named = set(re.findall(r"\btodos_[a-z_]+", registry.get_app("todos").manifest.agent_guidance))
+    assert named and named <= {t.name for t in tools.current().all()}
+
+
+def test_an_mcp_made_todo_names_its_client_and_keeps_it(two):
+    a, b = two
+    create, update, complete = (tools.get(f"todos_{n}") for n in ("create", "update", "complete"))
+    reset = calling_client.set("ChatGPT")
+    try:
+        with core_db.transaction() as conn:
+            made = create.handler_in(conn, a, {"title": "Water plants", "visibility": "team", "repeat": "daily"})
+    finally:
+        calling_client.reset(reset)
+    assert (made["source"], made["source_client"]) == ("agent", "ChatGPT")
+    with core_db.transaction() as conn:
+        assert update.handler_in(conn, b, {"id": made["id"], "title": "Water the plants"})["source_client"] == "ChatGPT"
+        complete.handler_in(conn, b, {"id": made["id"]})
+    clients = core_db.rows("SELECT source_client FROM todos_items ORDER BY id")
+    assert [r["source_client"] for r in clients] == ["ChatGPT", "ChatGPT"]  # the next occurrence keeps it
+    with core_db.transaction() as conn:  # Whisk (no MCP client) and the app leave it empty
+        assert create.handler_in(conn, a, {"title": "From Whisk"})["source_client"] is None
+    assert service.create_item(a, "By hand")["source_client"] is None
 
 
 # ── The HTTP surface ──────────────────────────────────────────────────────────

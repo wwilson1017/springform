@@ -15,6 +15,7 @@ what was shown, where it runs, and the implementation revision.
 
 from __future__ import annotations
 
+import contextvars
 import hashlib
 import json
 from collections.abc import Callable
@@ -26,6 +27,10 @@ if TYPE_CHECKING:
     from backend.core.db import Conn
 
 ROUTINE = "routine"
+
+# The AI tool on the other end of an inbound MCP call (docs/agents/mcp.md §1), self-reported and so
+# untrusted; None in chat and jobs. Core sets it around the call; a `handler_in` may read it.
+calling_client: contextvars.ContextVar[str | None] = contextvars.ContextVar("tool_calling_client", default=None)
 
 
 def _always(user: User) -> bool:
@@ -52,7 +57,8 @@ class ToolSpec:
     revision: str = ""  # the app's (or core's) version; set by the registry
     server_id: str | None = None  # remote (outbound MCP) tools only
     server_url: str | None = None
-    summary: str = ""  # user-facing line on the Approve card; empty shows only name and args (last: positional order)
+    summary: str = ""  # user-facing line on the Approve card; empty shows only name and args
+    title: str = ""  # MCP display title; empty derives one from the name. Not hashed (last: positional order)
 
     @property
     def remote(self) -> bool:

@@ -354,6 +354,14 @@ def test_system_prompt_names_the_workspace(login_as):
     assert "the assistant for Acme Bakery." in static
 
 
+def test_system_prompt_carries_app_guidance_before_the_contracts(login_as):
+    from backend.core.agent import agents
+
+    static, _ = agents.build_system_prompt(agents.get(), login_as("member").principal)
+    guidance = static.index("Todos: You are the user's GTD (Getting Things Done) partner")
+    assert static.index("## Installed apps") < guidance < static.index(agents.CONFIRMATION_NOTE)
+
+
 def test_summaryless_tool_confirms_without_description(login_as, extra_tools):
     client = login_as("member")
     extra_tools(

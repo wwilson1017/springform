@@ -21,6 +21,9 @@ Conventions:
 ### Added
 
 - A fork can set its own colours and a wide logo without editing core. `frontend/public/branding/theme.css` (upstream ships it empty) redefines the `--color-sf-*` tokens for light and dark, three new tokens colour the header bar (`--color-sf-header`, `--color-sf-header-ink`, `--color-sf-highlight`), the header shows its own `header-light.svg`/`header-dark.svg`, logos are sized by height so a wordmark keeps its ratio, and the favicon moved to `branding/favicon.svg`. The contrast tests check a fork's palette too (`docs/agents/forks.md` §10).
+- MCP links also work at `/link/<token>` and `/<token>/mcp`, and opening one in a browser shows a short page on how to connect it instead of an error.
+- MCP tools carry titles and explicit hints, so ChatGPT and Claude no longer treat every write as destructive (merging deals still is). Apps can give AI tools a paragraph of guidance (`agent_guidance` in `app.json`), which Whisk and MCP clients both receive; Todos gives its GTD-partner rules.
+- MCP tool runs record which AI tool called (`core_agent_tool_runs.client`), and a todo made over an MCP link says so: "via ChatGPT".
 
 ### Changed
 

@@ -38,7 +38,7 @@ RESERVED_SLUGS = frozenset(
         "core", "api", "auth", "mcp", "up", "assets", "agent", "me", "health", "settings", "people",
         "organizations", "guide", "requests", "login", "setup", "invite", "changelog", "backups", "jobs",
         "sheets", "notifications", "reminders", "whisk", "files", "timeline", "export", "reports",
-        "reset-password",
+        "reset-password", "link",
     }
 )  # fmt: skip
 MODULES = ("router", "seed", "api", "entities", "hooks", "reports", "tools", "jobs", "settings")
@@ -109,6 +109,7 @@ class AppManifest(BaseModel):
     sheets: list[Sheet] = []
     publishes: list[str] = []
     requires_apps: list[str] = []  # slugs this app's seed and sample build on; they run first (dependency_order)
+    agent_guidance: str = Field(default="", max_length=4000)  # one paragraph for AI tools: Whisk and MCP
 
     @field_validator("slug")
     @classmethod
@@ -314,6 +315,17 @@ def get_app(slug: str) -> App:
         if app.slug == slug:
             return app
     raise NotFound(f"no app {slug!r}")
+
+
+def agent_guidance(user: User) -> str:
+    """Each app's `agent_guidance` the user's role reaches, for Whisk's prompt and the MCP
+    instructions; "" when none has any. A hidden app's tools stay on, so its guidance does too."""
+    parts = [
+        f"{a.manifest.name}: {a.manifest.agent_guidance.strip()}"
+        for a in _APPS
+        if a.manifest.agent_guidance.strip() and has_role(user, tuple(a.manifest.roles), "read")
+    ]
+    return "\n\n".join(["## Working in the apps", *parts]) if parts else ""
 
 
 def list_for_user(user: User) -> list[dict]:
