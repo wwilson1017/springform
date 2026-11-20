@@ -17,6 +17,8 @@ export default defineConfig({
   // in the app tsconfig, so the text is injected here.
   define: {
     __INDEX_CSS__: JSON.stringify(readFileSync(new URL('./src/index.css', import.meta.url), 'utf8')),
+    // A fork's colour overrides, merged over index.css so a fork's palette faces the same guards.
+    __THEME_CSS__: JSON.stringify(readFileSync(new URL('./public/branding/theme.css', import.meta.url), 'utf8')),
   },
   test: {
     environment: 'jsdom',

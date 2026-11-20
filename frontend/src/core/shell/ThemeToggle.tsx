@@ -9,7 +9,7 @@ export function ThemeToggle() {
       type="button"
       onClick={toggleTheme}
       aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-      className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-md border border-sf-line-strong bg-transparent text-sf-ink-mute hover:bg-sf-hover"
+      className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-md border border-sf-bar-edge bg-transparent text-sf-bar-ink-mute hover:bg-sf-bar-hover"
     >
       {theme === 'dark' ? <IconSun size={16} aria-hidden /> : <IconMoon size={16} aria-hidden />}
     </button>

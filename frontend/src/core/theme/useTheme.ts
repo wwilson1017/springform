@@ -34,12 +34,16 @@ function hasExplicitPreference(): boolean {
   }
 }
 
-// Page-background hexes mirrored from --color-sf-bg in index.css, for the mobile browser chrome.
-const THEME_COLOR: Record<Theme, string> = { light: '#f1f1e8', dark: '#1c1b19' };
+/** Mobile browser chrome takes the header bar's colour, which a fork's branding/theme.css may set.
+ *  index.html seeds the default before any CSS loads; this follows the live stylesheet. */
+export function syncThemeColor() {
+  const bar = getComputedStyle(document.documentElement).getPropertyValue('--color-sf-bar').trim();
+  if (bar) document.querySelector('meta[name="theme-color"]')?.setAttribute('content', bar);
+}
 
 function applyTheme(next: Theme) {
   document.documentElement.classList.toggle('dark', next === 'dark');
-  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', THEME_COLOR[next]);
+  syncThemeColor();
   listeners.forEach((notify) => notify());
 }
 

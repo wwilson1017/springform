@@ -1,0 +1,29 @@
+/*
+ * A fork's brand colours. Upstream ships this file with no rules, so the app keeps its own palette
+ * (src/index.css). A fork may edit it: it is under frontend/public/branding/, which fork-allow.txt
+ * allows. Full rules and the token list: docs/agents/forks.md, "Brand colours and logo".
+ *
+ *   :root      { ... }   applies in BOTH themes, so put light values and shared values here.
+ *   :root.dark { ... }   dark-theme values; anything you set in :root that differs in dark
+ *                        (backgrounds, ink, accent-text) needs a line here too.
+ *
+ * Only --color-sf-* tokens and --sf-header-rule belong here, not selectors for app elements: the
+ * markup is not a stable interface. The contrast guards (src/core/theme/*.test.ts) read this file,
+ * so the fork's CI fails a pairing below WCAG AA (4.5:1).
+ *
+ * Example (a teal accent and a dark slate header bar with an orange rule):
+ *
+ * :root {
+ *   --color-sf-accent: #1f6f78;
+ *   --color-sf-accent-dark: #175259;
+ *   --color-sf-accent-text: #1f6f78;
+ *   --color-sf-header: #23313a;
+ *   --color-sf-header-ink: #ffffff;
+ *   --color-sf-highlight: #f08a24;
+ *   --sf-header-rule: 3px;
+ * }
+ * :root.dark {
+ *   --color-sf-accent-text: #7cc4cc;
+ *   --color-sf-header: #151d22;
+ * }
+ */

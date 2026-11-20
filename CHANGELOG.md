@@ -18,6 +18,10 @@ Conventions:
 
 ## [Unreleased]
 
+### Added
+
+- A fork can set its own colours and a wide logo without editing core. `frontend/public/branding/theme.css` (upstream ships it empty) redefines the `--color-sf-*` tokens for light and dark, three new tokens colour the header bar (`--color-sf-header`, `--color-sf-header-ink`, `--color-sf-highlight`), the header shows its own `header-light.svg`/`header-dark.svg`, logos are sized by height so a wordmark keeps its ratio, and the favicon moved to `branding/favicon.svg`. The contrast tests check a fork's palette too (`docs/agents/forks.md` §10).
+
 ### Changed
 
 - CI also checks formatting (`ruff format`, Prettier) and types (pyright), and installs from `uv.lock` with `--locked`. `scripts/check.sh` runs the same checks locally, and `scripts/new-app.sh` formats the app it writes so a new app passes them. A fork whose app tests trip pyright's Optional-access rules adds its tests folder to `executionEnvironments` in `pyproject.toml` (`docs/agents/forks.md`).
