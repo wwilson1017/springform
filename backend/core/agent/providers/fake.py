@@ -5,6 +5,7 @@
     {"tool": name, "args": {...}, "text"?}  -> one tool call (after optional text)
     [{"tool": ...}, {"tool": ...}]          -> several tool calls in one iteration
     {"error": "message"}                    -> a provider error
+    {"chunks": ["a", "b"], "delay": 0.2}    -> streams each chunk as its own text event, `delay` s apart
 With nothing queued it answers from the conversation: a user message `/tool <name> <json args>`
 calls that tool, a tool result or the resume nudge gets "Done.", anything else is echoed.
 Usage is reported as characters / 4 against CONTEXT_WINDOW, so compaction can be exercised.
@@ -12,6 +13,7 @@ Usage is reported as characters / 4 against CONTEXT_WINDOW, so compaction can be
 
 from __future__ import annotations
 
+import asyncio
 import json
 import uuid
 from collections import deque
@@ -63,6 +65,12 @@ class FakeProvider(AIProvider):
         if isinstance(turn, dict) and "error" in turn:
             yield {"type": "error", "error": turn["error"]}
             yield {"type": "_turn_complete", "tool_calls": [], "stop_reason": "error"}
+            return
+        if isinstance(turn, dict) and "chunks" in turn:
+            for chunk in turn["chunks"]:
+                await asyncio.sleep(turn.get("delay", 0))
+                yield {"type": "text", "text": chunk}
+            yield {"type": "_turn_complete", "tool_calls": [], "stop_reason": "end_turn", "usage": {}}
             return
         calls = [turn] if isinstance(turn, dict) else turn if isinstance(turn, list) else []
         text = turn if isinstance(turn, str) else "".join(c.get("text", "") for c in calls)

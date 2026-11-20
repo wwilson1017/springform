@@ -97,3 +97,7 @@ class ConfirmResponse(Out):
     current: ToolRunStatus | None = None
     result: Any = None
     error: str | None = None
+
+
+class TurnCancelled(Out):
+    cancelled: bool

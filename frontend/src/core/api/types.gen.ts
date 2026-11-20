@@ -49,7 +49,8 @@ export interface paths {
         put?: never;
         /**
          * Chat
-         * @description SSE stream of one turn. No message + conversation_id = continue after an approval.
+         * @description SSE stream of one server-owned turn. No message + conversation_id = continue after an
+         *     approval. 409 `turn_running` while the conversation already has a running turn.
          */
         post: operations["core_chat"];
         delete?: never;
@@ -181,6 +182,47 @@ export interface paths {
         };
         /** Status */
         get: operations["core_status"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent/turns/{turn_id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cancel Turn
+         * @description Stop a running turn: it ends with `done` + `stopped` and the status `cancelled`. Owner only;
+         *     `cancelled: false` when it had already ended.
+         */
+        post: operations["core_cancel_turn"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent/turns/{turn_id}/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Turn Events
+         * @description SSE: the turn's events with seq > after, then live ones until it ends. Owner only.
+         */
+        get: operations["core_turn_events"];
         put?: never;
         post?: never;
         delete?: never;
@@ -6651,6 +6693,11 @@ export interface components {
             /** To User Id */
             to_user_id: number;
         };
+        /** TurnCancelled */
+        TurnCancelled: {
+            /** Cancelled */
+            cancelled: boolean;
+        };
         /** TypeCount */
         TypeCount: {
             /** Activity */
@@ -7293,6 +7340,70 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AgentStatus"];
+                };
+            };
+        };
+    };
+    core_cancel_turn: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                turn_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TurnCancelled"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    core_turn_events: {
+        parameters: {
+            query?: {
+                after?: number;
+            };
+            header?: never;
+            path: {
+                turn_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
