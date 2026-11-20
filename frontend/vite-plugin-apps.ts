@@ -26,7 +26,9 @@ export function readManifests(appsDir: string): Manifest[] {
     .map((d) => {
       const file = join(appsDir, d.name, 'app.json');
       try {
-        return JSON.parse(readFileSync(file, 'utf8')) as Manifest;
+        const m = JSON.parse(readFileSync(file, 'utf8')) as Manifest & { agent_guidance?: string };
+        delete m.agent_guidance; // server-side only: it reaches AI tools by role, never the public bundle
+        return m;
       } catch (e) {
         throw new Error(`springform-apps: ${file}: ${(e as Error).message}`);
       }
