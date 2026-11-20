@@ -20,8 +20,9 @@ export type AgentRow = S['AgentRow'];
 /** POST /api/agent/providers/{provider}/test */
 export type ProviderTest = S['ProviderTest'];
 
-/** One `data:` frame of POST /api/agent/chat. */
-export type ChatEvent =
+/** One `data:` frame of POST /api/agent/chat (and GET /api/agent/turns/{id}/events). Every
+ * frame of a server-owned turn has a `seq`; the first also carries `turn_id`. */
+export type ChatEvent = { seq?: number; turn_id?: number } & (
   | { type: 'conversation_id'; id: number }
   | { type: 'title_update'; conversation_id: number; title: string }
   | { type: 'compacted'; conversation_id?: number }
@@ -47,8 +48,9 @@ export type ChatEvent =
       args: Record<string, unknown>;
       summary: string;
     }
-  | { type: 'done'; model: string }
-  | { type: 'error'; error: string };
+  | { type: 'done'; model?: string; stopped?: boolean }
+  | { type: 'error'; error: string; interrupted?: boolean }
+);
 
 /** POST /api/agent/confirm. With `already_resolved`, `current` is the run's status now. */
 export type ConfirmResponse = S['ConfirmResponse'];
