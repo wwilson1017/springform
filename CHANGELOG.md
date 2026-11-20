@@ -21,6 +21,7 @@ Conventions:
 ### Added
 
 - A fork can set its own colours and a wide logo without editing core. `frontend/public/branding/theme.css` (upstream ships it empty) redefines the `--color-sf-*` tokens for light and dark, three new tokens colour the header bar (`--color-sf-header`, `--color-sf-header-ink`, `--color-sf-highlight`), the header shows its own `header-light.svg`/`header-dark.svg`, logos are sized by height so a wordmark keeps its ratio, and the favicon moved to `branding/favicon.svg`. The contrast tests check a fork's palette too (`docs/agents/forks.md` §10).
+- Whisk keeps answering when the tab drops or the phone locks: the turn runs on the server, the page picks the reply back up where it left off (`GET /api/agent/turns/{id}/events?after=<seq>`; every chat event now carries `seq`, the first also `turn_id`), and Stop ends the turn on the server (`POST /api/agent/turns/{id}/cancel`). A message sent while Whisk is still answering in that conversation is refused (409 `turn_running`). Hook points in the turn loop (`backend/core/agent/turn_hooks.py`) ship empty, for later harness changes.
 
 ### Changed
 
