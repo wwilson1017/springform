@@ -11,7 +11,12 @@ let workspace: Workspace | null = null;
 let loading: Promise<void> | null = null;
 const listeners = new Set<() => void>();
 
+// index.html's title, until the install name replaces it.
+const DEFAULT_TITLE = document.title;
+
 export function setWorkspace(next: Workspace) {
+  // The tab shows the install name, unless a page has set a title of its own (Todos does).
+  if (document.title === (workspace?.name ?? DEFAULT_TITLE)) document.title = next.name;
   workspace = next;
   for (const listener of listeners) listener();
 }
