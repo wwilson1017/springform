@@ -1,6 +1,6 @@
 # Forks, CI and releases
 
-**What this covers:** the fork model (a private repo with a fetch-only `upstream`), `scripts/new-fork.sh`, `scripts/update-from-upstream.sh`, the `scripts/check-fork-scope.sh` rule and its exemptions, `fork-allow.txt`, `FORK.md`, the single `ci.yml` with the conditional Fork scope job, fork images, release tagging, and the changelog "Schema" convention.
+**What this covers:** the fork model, brand colours and logo (`frontend/public/branding/`) (a private repo with a fetch-only `upstream`), `scripts/new-fork.sh`, `scripts/update-from-upstream.sh`, the `scripts/check-fork-scope.sh` rule and its exemptions, `fork-allow.txt`, `FORK.md`, the single `ci.yml` with the conditional Fork scope job, fork images, release tagging, and the changelog "Schema" convention.
 **Who reads it:** W8 (scripts, release, CI), whoever builds a client fork, and anyone changing core paths (the scope check is why core must not be edited in a fork).
 
 ## 1. The fork model
@@ -102,11 +102,52 @@ The script reads the first `upstream: <tag-or-sha>` line of `FORK.md`, fetching 
 - **Step 5:** tag `v0.1.0`; `new-fork.sh` into a throwaway org repo; `update-from-upstream.sh v0.1.1` after a trivial core change, with one PR touching core (must fail) and one touching an app (must pass).
 - **First client fork:** created with `new-fork.sh` against `v0.1.0`; its first `update-from-upstream.sh` run is the first live test of the fork model.
 
+## 10. Brand colours and logo
+
+A fork brands its install from `frontend/public/branding/` alone (allowed by `fork-allow.txt`); `src/index.css` stays core.
+
+| File | Shown | Upstream ships |
+|---|---|---|
+| `theme.css` | colour overrides, linked at the top of `<body>` so it always loads after the app's CSS | comments only (no rules) |
+| `mark-light.svg`, `mark-dark.svg` | the sign-in pages, light and dark theme | the Springform mark |
+| `header-light.svg`, `header-dark.svg` | the header bar, light and dark theme | copies of the marks |
+| `favicon.svg` | the browser tab | the Springform tab icon |
+
+**Logos** are sized by height with automatic width: 28 px tall in the header (at most `min(40vw, 10rem)` wide, so a wide wordmark fits a 390 px phone) and 36 px on the sign-in pages (at most `min(60vw, 14rem)`). A square mark looks as before; a wide wordmark keeps its ratio. The header has its own pair so a dark header bar can carry an on-dark (light) logo while the sign-in pages keep the normal one. The files must be SVG; a raster logo goes inside one: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 W H" width="W" height="H"><image width="W" height="H" href="data:image/png;base64,…"/></svg>` with the PNG's pixel size as W and H (an `<img>` loads no external files from an SVG, so the data URI is required).
+
+**`theme.css`** holds only token blocks; the contrast guards refuse any other selector, because app markup is not a stable interface.
+
+```css
+:root      { /* both themes: light values and anything shared */ }
+:root.dark { /* dark theme only */ }
+```
+
+A token set in `:root` applies in dark mode too (it beats `index.css`'s `.dark` block), so every value that differs in dark (surfaces, ink, `accent-text`, the header) needs a `:root.dark` line. `--color-sf-accent-soft` is a mix of the accent and follows it.
+
+| Token | Paints | Default |
+|---|---|---|
+| `--color-sf-bg`, `-card`, `-raised` | page, card and raised surfaces | cream / warm greys |
+| `--color-sf-line`, `-line-strong` | borders | greys |
+| `--color-sf-ink`, `-ink-mute`, `-ink-soft`, `-ink-dim` | text, darkest to lightest | ink ramp |
+| `--color-sf-hover` | hover tint; keep it an rgba of `ink` | ink at 5% |
+| `--color-sf-accent`, `-accent-dark` | accent FILL: buttons, focus, active states | copper |
+| `--color-sf-accent-ink` | text on an accent fill | white |
+| `--color-sf-accent-text` | accent as TEXT or an icon | dark copper / light copper |
+| `--color-sf-header` | header bar background | the page `bg` |
+| `--color-sf-header-ink` | header text and icons; muted items, outlines and hover become tints of it | the page ink ramp |
+| `--color-sf-highlight` | the rule under the header and the active-nav underline | `line` and `accent` |
+| `--sf-header-rule` | that rule's width (a length, e.g. `3px`) | `1px` |
+
+The three header tokens are not declared upstream; the header reads them with a fallback to the page tokens, so leaving them out keeps the plain header. The mobile browser's `theme-color` follows `--color-sf-header`.
+
+**The AA rule.** Every pairing painted as text must clear WCAG AA 4.5:1, in both themes. Accent is two tokens because a fill colour usually fails as text on a light page: `accent` is for fills (with `accent-ink` on top), `accent-text` for glyphs on `bg` and `card`. The ink ramp must clear 4.5:1 on every surface, `header-ink` (and its 80% tint) on `header`. The contrast guards in `frontend/src/core/theme/*.test.ts` read `index.css` with `theme.css` over it, so a fork's own palette is checked in its CI (Frontend job). `--color-sf-highlight` is a line, not text.
+
 ## Tests that pin this
 
 - Live: `new-fork.sh` + `update-from-upstream.sh` on a throwaway repo with the two-PR scope test.
 - Step 1b: scope check fails on a core edit and passes on an app edit.
 - `gen-types` diff clean (types regenerate in the update PR).
+- Brand: `frontend/src/core/theme/themeOverride.test.ts` (an override changes the accent; the header's contrast) and `frontend/e2e/branding.spec.ts` (the cascade in a real browser, a missing `theme.css`, a wide logo at 390 px).
 
 ## Source
 

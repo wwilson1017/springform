@@ -3,10 +3,10 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <!-- Mobile browser chrome; kept in sync by the script below and applyTheme() in
-         src/core/theme/useTheme.ts. -->
+    <!-- Mobile browser chrome; seeded by the script below, then syncThemeColor() in
+         src/core/theme/useTheme.ts follows the header colour. -->
     <meta name="theme-color" content="#f1f1e8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/svg+xml" href="/branding/favicon.svg" />
     <title>Springform</title>
     <script>
       // Apply the theme before React loads so a dark-mode reload never flashes white.
@@ -28,6 +28,9 @@
     </script>
   </head>
   <body>
+    <!-- A fork's colours (docs/agents/forks.md). In <body> so it always follows the app's own CSS,
+         which Vite puts in <head>; parser-inserted, so it still blocks the first paint. -->
+    <link rel="stylesheet" href="/branding/theme.css" />
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

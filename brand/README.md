@@ -9,7 +9,7 @@ Files, all the same drawing:
 
 - `springform-mark.svg` follows the viewer's light or dark setting.
 - `springform-icon.svg` is the tab icon: the mark's spring in cream on a copper circle. The full
-  mark has too many parts for a 16-pixel tab and disappears against some tab colours. The favicons (`frontend/public/favicon.svg`,
+  mark has too many parts for a 16-pixel tab and disappears against some tab colours. The favicons (`frontend/public/branding/favicon.svg`,
   `site/favicon.svg`) are copies of it.
 - `springform-mark-light.svg` (ink foundation) and `springform-mark-dark.svg` (cream foundation) are
   for places that pick a version themselves, such as the README's `<picture>`.
@@ -53,5 +53,9 @@ most; the product is software, the pan is only the name.
 Where it is used: the two favicons (the tab icon), `site/index.html` and `site/404.html` (inline, so it
 follows the page's own colours), the README, and `site/social-card.png`, the 1200×630 link preview. That PNG
 is a screenshot of `social-card.html` in this folder (kept out of `site/` so it is not published);
-re-render it when the mark or the headline changes. The app header and signed-out pages use copies in
-`frontend/public/branding/` (`mark-light.svg` and `mark-dark.svg`), which a fork may replace with its own logo.
+re-render it when the mark or the headline changes. The app uses copies in `frontend/public/branding/`:
+`mark-light.svg` and `mark-dark.svg` on the signed-out pages, `header-light.svg` and `header-dark.svg` in the
+header. A fork may replace them with its own logo, and set its own colours in `branding/theme.css`
+(`docs/agents/forks.md` §10, which lists the tokens). The copper values above live in `frontend/src/index.css`;
+a fork's palette keeps the same rule: an accent FILL and a separate accent TEXT colour, each pairing painted as
+text at WCAG AA 4.5:1 or better in both themes.

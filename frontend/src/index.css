@@ -71,6 +71,21 @@
   --color-sf-scroll-thumb: #d1d5db;
   --color-sf-scroll-thumb-hover: #b9bcc2;
 
+  /* Header bar. A fork colours it by setting --color-sf-header (background), --color-sf-header-ink
+     (text and icons) and --color-sf-highlight (the rule under the bar and the active-nav underline)
+     in public/branding/theme.css. None of the three is declared here, so each bar token falls back
+     to today's page token: a var() of an unset property with no fallback makes the whole value
+     invalid, and the outer var() then takes its fallback. Set header-ink and the muted steps, the
+     outlines and the hover become tints of it (the --sf-bar-ink-* mixes in :root below). */
+  --color-sf-bar: var(--color-sf-header, var(--color-sf-bg));
+  --color-sf-bar-ink: var(--color-sf-header-ink, var(--color-sf-ink));
+  --color-sf-bar-ink-soft: var(--sf-bar-ink-80, var(--color-sf-ink-soft));
+  --color-sf-bar-ink-mute: var(--sf-bar-ink-80, var(--color-sf-ink-mute));
+  --color-sf-bar-edge: var(--sf-bar-ink-30, var(--color-sf-line-strong));
+  --color-sf-bar-hover: var(--sf-bar-ink-10, var(--color-sf-hover));
+  --color-sf-bar-rule: var(--color-sf-highlight, var(--color-sf-line));
+  --color-sf-bar-mark: var(--color-sf-highlight, var(--color-sf-accent));
+
   /* simplification: system font stacks, no bundled webfonts; add @fontsource packages here
      if the platform picks a typeface. */
   --font-display: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
@@ -79,6 +94,10 @@
 
 :root {
   color-scheme: light;
+  /* Invalid (so unused) until a fork sets --color-sf-header-ink; see "Header bar" above. */
+  --sf-bar-ink-80: color-mix(in srgb, var(--color-sf-header-ink) 80%, transparent);
+  --sf-bar-ink-30: color-mix(in srgb, var(--color-sf-header-ink) 30%, transparent);
+  --sf-bar-ink-10: color-mix(in srgb, var(--color-sf-header-ink) 10%, transparent);
 }
 
 /* Warm dark greys to match the warm light palette; the accent fill is unchanged.

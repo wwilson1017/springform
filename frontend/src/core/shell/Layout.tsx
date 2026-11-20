@@ -14,6 +14,8 @@ import { coreNavItems } from './coreNav';
 import { ThemeToggle } from './ThemeToggle';
 import { UserMenu } from './UserMenu';
 
+const HEADER_LOGO = 'h-7 w-auto max-w-[min(40vw,10rem)] shrink-0 object-contain object-left';
+
 /** The signed-in frame: header (nav, theme, notifications slot, user menu) over the routed page. */
 export function Layout() {
   const { user, isAdmin, signOut } = useAuth();
@@ -42,23 +44,24 @@ export function Layout() {
 
   return (
     <div className="flex min-h-svh flex-col">
-      <header className="flex h-13 shrink-0 items-center gap-3 border-b border-sf-line px-4 md:px-7">
+      <header className="flex h-13 shrink-0 items-center gap-3 border-b-[length:var(--sf-header-rule,1px)] border-sf-bar-rule bg-sf-bar px-4 md:px-7">
         {isMobile && (
           <button
             type="button"
             aria-label="Open menu"
             onClick={() => setMenuOpen(true)}
-            className="flex cursor-pointer border-0 bg-transparent p-1 text-sf-ink-mute"
+            className="flex cursor-pointer border-0 bg-transparent p-1 text-sf-bar-ink-mute"
           >
             <IconMenu aria-hidden />
           </button>
         )}
         <Link
           to="/"
-          className="flex min-w-0 items-center gap-2 font-display text-lg font-medium text-sf-ink no-underline"
+          className="flex min-w-0 items-center gap-2 font-display text-lg font-medium text-sf-bar-ink no-underline"
         >
-          <img src="/branding/mark-light.svg" alt="" className="h-7 w-7 shrink-0 dark:hidden" />
-          <img src="/branding/mark-dark.svg" alt="" className="hidden h-7 w-7 shrink-0 dark:block" />
+          {/* Sized by height: a square mark stays 28px square, a wide wordmark keeps its ratio up to the cap. */}
+          <img src="/branding/header-light.svg" alt="" className={`${HEADER_LOGO} dark:hidden`} />
+          <img src="/branding/header-dark.svg" alt="" className={`hidden ${HEADER_LOGO} dark:block`} />
           <span className="truncate">{workspace?.name}</span>
         </Link>
         {!isMobile && (
@@ -70,7 +73,9 @@ export function Layout() {
                 end={item.to === '/'}
                 className={({ isActive }) =>
                   `border-b-2 px-3 py-1.5 text-sm no-underline ${
-                    isActive ? 'border-sf-accent text-sf-ink' : 'border-transparent text-sf-ink-soft hover:text-sf-ink'
+                    isActive
+                      ? 'border-sf-bar-mark text-sf-bar-ink'
+                      : 'border-transparent text-sf-bar-ink-soft hover:text-sf-bar-ink'
                   }`
                 }
               >

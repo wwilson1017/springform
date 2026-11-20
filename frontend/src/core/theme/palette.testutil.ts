@@ -1,11 +1,13 @@
 /**
- * Shared by the two contrast guards: WCAG 2.x arithmetic and a parser for the SHIPPED
- * `src/index.css` (injected as `__INDEX_CSS__` by `vitest.config.ts`). The guards read the real
- * stylesheet because a copied palette table would drift silently, which is the exact failure
- * they exist to stop.
+ * Shared by the contrast guards: WCAG 2.x arithmetic and a parser for the SHIPPED `src/index.css`
+ * with a fork's `public/branding/theme.css` over it (injected as `__INDEX_CSS__` and
+ * `__THEME_CSS__` by `vitest.config.ts`). The guards read the real stylesheets because a copied
+ * palette table would drift silently, which is the exact failure they exist to stop.
  */
 declare const __INDEX_CSS__: string;
+declare const __THEME_CSS__: string;
 export const CSS: string = typeof __INDEX_CSS__ === 'string' ? __INDEX_CSS__ : '';
+export const THEME_CSS: string = typeof __THEME_CSS__ === 'string' ? __THEME_CSS__ : '';
 
 export const AA_NORMAL_TEXT = 4.5;
 export const BASES = ['card', 'bg', 'raised'] as const;
@@ -48,25 +50,56 @@ export function over(color: Rgb, pct: number, under: Rgb): Rgb {
 }
 
 /** Comments stripped first: index.css quotes hex values in prose, and dead CSS paints nothing. */
-const LIVE_CSS = CSS.replace(/\/\*[\s\S]*?\*\//g, '');
+const live = (css: string) => css.replace(/\/\*[\s\S]*?\*\//g, '');
 
 /** Every `--color-sf-*` declaration with its RAW value, so a non-hex value fails loudly later. */
 function declarations(slice: string): Record<string, string> {
   const out: Record<string, string> = {};
-  for (const m of slice.matchAll(/--color-sf-([a-z0-9-]+):\s*([^;]+);/g)) out[m[1]] = m[2].trim();
+  for (const m of slice.matchAll(/--color-sf-([a-z0-9-]+):\s*([^;}]+)/g)) out[m[1]] = m[2].trim();
   return out;
 }
 
-const DARK_START = LIVE_CSS.indexOf('\n.dark {');
-const DARK_BLOCK = (() => {
-  if (DARK_START < 0) throw new Error('index.css: no `.dark {` block found');
-  const end = LIVE_CSS.indexOf('\n}', DARK_START);
+function indexTokens(css: string) {
+  const text = live(css);
+  const start = text.indexOf('\n.dark {');
+  if (start < 0) throw new Error('index.css: no `.dark {` block found');
+  const end = text.indexOf('\n}', start);
   if (end < 0) throw new Error('index.css: unterminated `.dark {` block');
-  return LIVE_CSS.slice(DARK_START, end);
-})();
+  return { light: declarations(text.slice(0, start)), dark: declarations(text.slice(start, end)) };
+}
 
-export const LIGHT_TOKENS = declarations(LIVE_CSS.slice(0, DARK_START));
-export const DARK_TOKENS = { ...LIGHT_TOKENS, ...declarations(DARK_BLOCK) };
+/**
+ * A fork's theme.css: `:root` applies in both themes and `:root.dark` in dark only (it loads after
+ * index.css, so its `:root` also beats index.css's `.dark`). Any other selector fails, because the
+ * file is for tokens, not for styling app markup.
+ */
+export function themeTokens(css: string) {
+  const root: Record<string, string> = {};
+  const dark: Record<string, string> = {};
+  const text = live(css);
+  for (const m of text.matchAll(/([^{}]*)\{([^}]*)\}/g)) {
+    const selector = m[1].trim();
+    if (selector === ':root') Object.assign(root, declarations(m[2]));
+    else if (selector === ':root.dark') Object.assign(dark, declarations(m[2]));
+    else throw new Error(`theme.css: only :root and :root.dark blocks are allowed (got \`${selector}\`)`);
+  }
+  if (text.replace(/[^{}]*\{[^}]*\}/g, '').trim()) throw new Error('theme.css: text outside a :root block');
+  return { root, dark };
+}
+
+/** The tokens each theme ends up with, as the browser cascades the two files. */
+export function palette(indexCss: string, themeCss: string) {
+  const base = indexTokens(indexCss);
+  const fork = themeTokens(themeCss);
+  return {
+    light: { ...base.light, ...fork.root },
+    dark: { ...base.light, ...base.dark, ...fork.root, ...fork.dark },
+  };
+}
+
+const PALETTE = palette(CSS, THEME_CSS);
+export const LIGHT_TOKENS = PALETTE.light;
+export const DARK_TOKENS = PALETTE.dark;
 
 /**
  * A token as a literal hex, following `var(--color-sf-X)` chains. Fails closed on an unknown

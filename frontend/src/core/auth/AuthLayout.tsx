@@ -1,5 +1,8 @@
 import type { ReactNode } from 'react';
 
+// Sized by height: a square mark stays 36px square, a wide wordmark keeps its ratio up to the cap.
+const LOGO = 'h-9 w-auto max-w-[min(60vw,14rem)] shrink-0 object-contain';
+
 /** The centred card the signed-out pages share. */
 export function AuthLayout({ subtitle, children }: { subtitle: string; children: ReactNode }) {
   return (
@@ -7,8 +10,8 @@ export function AuthLayout({ subtitle, children }: { subtitle: string; children:
       <div className="w-full max-w-sm">
         <div className="mb-10 text-center">
           <h1 className="m-0 flex items-center justify-center gap-3 font-display text-3xl font-medium text-sf-ink">
-            <img src="/branding/mark-light.svg" alt="" className="h-9 w-9 shrink-0 dark:hidden" />
-            <img src="/branding/mark-dark.svg" alt="" className="hidden h-9 w-9 shrink-0 dark:block" />
+            <img src="/branding/mark-light.svg" alt="" className={`${LOGO} dark:hidden`} />
+            <img src="/branding/mark-dark.svg" alt="" className={`hidden ${LOGO} dark:block`} />
             Springform
           </h1>
           <p className="mt-2 text-sm text-sf-ink-mute">{subtitle}</p>
