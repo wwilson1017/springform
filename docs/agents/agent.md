@@ -13,7 +13,8 @@ Base: CakeCRM `backend/assistant/` (Chatty's loop already trimmed, with server-s
 |---|---|---|
 | `providers/` | CakeCRM `providers/` (`windows.py` included), Anthropic and OpenAI only; `credentials.py` rewritten so keys live only in `core_agent_providers` rows, with the default and light models taken from the row or, when it leaves them empty, from `DEFAULT_MODELS`; `fake.py` (FakeProvider, `AGENT_FAKE_PROVIDER=1`) new | 672 |
 | `spec.py`, `registry.py` | CakeCRM `assistant/registry.py` (212); sources = core + discovered apps + MCP servers; atomic swap on refresh | 76 / 131 |
-| `engine.py`, `history.py`, `assembly.py`, `compaction.py`, `delimiters.py`, `write_budget.py`, `llm.py` | CakeCRM `assistant/` (its `confirm_tier.py` folded into `spec.py` as the `ROUTINE` constant); JSONB → TEXT, array ops in Python; Gmail/page bindings cut; `turns.py` skipped in v1 | 1,108 |
+| `engine.py`, `history.py`, `assembly.py`, `compaction.py`, `delimiters.py`, `write_budget.py`, `llm.py` | CakeCRM `assistant/` (its `confirm_tier.py` folded into `spec.py` as the `ROUTINE` constant); JSONB → TEXT, array ops in Python; Gmail/page bindings cut | 1,108 |
+| `turns.py`, `dispatch.py`, `turn_hooks.py`, `detached.py`, `aio.py` | The loop (`TurnRunner`) and its per-call chain moved out of `engine.py`; the hook points are new; `detached.py` follows the shape of CakeCRM `assistant/turns.py`, cut down for one process (§5) | ~700 |
 | `deferred.py` | Chatty `deferred_tools.py`; group key = app slug, threshold 100 | 64 |
 | `agents.py` | CakeCRM `assistant/identity.py` prompt builder; agents are rows, not a singleton | 137 |
 | `backend/core/memory/facts.py`, `context_files.py`, `tools.py`, `router.py` | `facts.py` from CakeCRM `backend/memory/service.py` (FTS5, temporal facts, soft invalidation); `context_files.py` from CakeCRM `backend/context_files/service.py`, tsvector → FTS5 | 523 |
@@ -37,7 +38,8 @@ core_agent_tool_runs(
   status,                      -- CHECK over the eight values in §7
   result, error, user_id,
   source CHECK (source IN ('chat','mcp','job')),
-  requested_at, resolved_at, resolved_by
+  requested_at, resolved_at, resolved_by,
+  client                       -- the AI tool of an MCP call (mcp.md §1), else NULL
 )                              -- the pending store and the audit log
 core_agent_facts(text, tags JSON, valid_from, invalid_from, invalidated_by, superseded_by,
                  source_conversation_id, author_user_id, created_at)   -- + FTS
@@ -46,6 +48,10 @@ core_agent_observations(conversation_id PK, through_message_id, pending, marked_
 core_agent_context_files(agent_slug, filename COLLATE NOCASE, content, is_protected, updated_at, updated_by)
   -- UNIQUE(agent_slug, filename); agent_slug matches core_agents.slug by value; + FTS
 core_agent_providers(provider PK, api_key_enc, model_default, model_light, enabled, updated_at)
+core_agent_turns(id, conversation_id, user_id, status, started_at, ended_at)
+  -- status CHECK (running | done | error | cancelled | interrupted); one row per turn (§5)
+core_agent_turn_events(turn_id, seq, event JSON, PRIMARY KEY (turn_id, seq))
+  -- the events a turn streamed, for replay; transport, not the record: pruned 7 days after the turn ends
 core_agent_mcp_links           -- mcp.md §1
 core_agent_mcp_servers         -- mcp.md §2
 ```
@@ -81,8 +87,14 @@ ToolSpec(
     revision,           # the owning app's version string; "" for core tools
     server_id, server_url,   # remote (outbound MCP) tools only; remote means server_url is set
     summary: str = "",  # user-facing Approve card line; empty shows only name and args
+    title: str = "",    # MCP display title; empty derives one from the name. Not in tool_def_sha256
+    destructive: bool = False,  # MCP destructiveHint: the write discards data for good. Not in tool_def_sha256
 )
 ```
+
+`spec.calling_client` is a context variable holding the MCP client's self-reported name while an
+inbound MCP call runs (`None` in chat and jobs). A `handler_in` may read it for provenance (Todos
+stores it as `source_client`); a `handler` runs in a worker thread and does not see it.
 
 ### Handler forms
 
@@ -172,7 +184,7 @@ Every install has these, from core packages' `tools.py`. The contacts, note and 
 | `core_web_search` | untrusted read | Web search, up to 10 results (title, url, snippet): DuckDuckGo through `ddgs`, no key. With `web.search_provider = "anthropic"` the Anthropic provider swaps it for Anthropic's server-side `web_search` (`web_search_20250305`, `max_uses` = `web.search_max_uses`), continues a `pause_turn` itself (up to 3 times) and appends the cited pages as a Markdown "Sources" list. |
 | `core_web_fetch` | untrusted read | One http(s) page through the outbound transport's web mode (`mcp.md` §2, Address policy): final url, title, readable text (BeautifulSoup, scripts and page chrome dropped), at most 15,000 characters with a `note` when cut, 5 MB read, 25 s for the whole fetch; non-text types refused. |
 
-The two web tools (`backend/core/web/`) are offered while `web.enabled` is on (default) to active admins and members, never over inbound MCP (`mcp_exposed=False`) or to jobs. Both are `untrusted_source`, so a result taints the conversation (§5 rule 4). Anthropic's server-side search returns its results inside the reply, past the fence, so the provider reports `untrusted` on `_turn_complete` and the engine taints the conversation before it gates that reply's tool calls; server tool blocks are not tool runs and are not shown as tool calls.
+The two web tools (`backend/core/web/`) are offered while `web.enabled` is on (default) to active admins and members, never over inbound MCP (`mcp_exposed=False`) or to jobs. Both are `untrusted_source`, so a result taints the conversation (§5 rule 4). Anthropic's server-side search returns its results inside the reply, past the fence, so the provider reports `untrusted` on `_turn_complete` and `TurnRunner._model_call` taints the conversation before that reply's tool calls are gated (a narration call included); server tool blocks are not tool runs and are not shown as tool calls.
 
 ## 5. Turn loop
 
@@ -182,6 +194,33 @@ CakeCRM's loop, minus Google/Odoo/QuickBooks/todo/meeting logic, plan mode, LLM 
 2. Reads run immediately through `handler(user, args)`.
 3. A call confirms when the tool is `always_confirm`, or when it is a write that is not routine, is `external_effect`, runs in a tainted conversation, or whose `hides_when(args)` is true or raises. A confirming call inserts a `pending` tool run and emits `confirm`; the client continues by posting `/api/agent/chat` with the conversation id and no message.
 4. Results from `untrusted_source` tools are fenced with `delimiters.wrap_untrusted_external` and taint the **conversation** (`core_agent_conversations.tainted`), permanently and across compaction: every later write in it confirms, routine ones included.
+
+The loop is `turns.TurnRunner(state, emit).run()`: it hands each event to `emit` as a dict and ends with exactly one terminal event (`done` or `error`). `dispatch.run_call` settles one tool call (refuse, `core_find_tools`, gate for approval, or run). `engine.py` keeps `chat_tools`, `needs_confirmation` and `confirm`.
+
+### Hook points
+
+`turn_hooks.py` holds everything a hook author needs: `TurnState`, the result types and `register(point, fn)`. A core module registers at import and is imported on the `# hook modules` line of `turns.py`; hooks run in registration order. `register` is the guard registry: an unknown point raises (so a typo stops boot), and a function already registered is not added twice. A hook is `def` or `async def` and runs on the event loop, so a `def` hook must not block; database work goes through `aio.in_thread`. A hook that raises ends the turn with the generic `error` event. The module is not `hooks.py` because a core package's `hooks.py` `HOOKS` is entity-event subscriptions. All five points ship empty. Tests swap a list with `monkeypatch.setitem(turn_hooks.REGISTERED, point, [fn])`.
+
+| Point | Signature | Runs | What the loop does with the answer |
+|---|---|---|---|
+| `before_model_call` | `(state) -> None` | Before every model call: each iteration, each retry, the approval narration | Nothing; the hook may edit `state.messages` and `state.system` |
+| `on_provider_error` | `(state, err: ProviderFailure) -> Retry \| Fallback \| Fail \| None` | When a model call's stream yields an `error` before any of its output reached the client (after output, the turn fails as before) | First non-None answer wins; none is `Fail()`. `Retry(delay)` sleeps (at most 30 s) and calls again; `Fallback(provider)` switches provider for the rest of the turn and rebuilds `state.messages` from the saved conversation, dropping in-memory edits made earlier in the turn; `Fail(message)` ends with `error` (`message`, or the provider's text). The third failure of one call ends the turn whatever a hook says (`MAX_PROVIDER_FAILURES`) |
+| `before_tool` | `(state, call) -> str \| None` | Before every tool call is settled (after the write-budget stop). `call` is `{id, name, args}` | First non-None string refuses the call: an `error` run with that text, `tool_end` status `error` |
+| `on_tool_result` | `(state, call, run) -> str \| None` | After a call ran through `execute.run_tool`; `run` is its outcome plus `content`, what the model will be shown | Chained: each non-None answer replaces `content`. Only the model's view of this turn changes; `tool_end` and the stored run do not, so a later turn sees the stored result |
+| `end_of_turn` | `(state) -> list[dict] \| None` | Once, when the turn ends with `done` (the model stopped, the write budget ended it, or a write waits and the narration succeeded); not on `error` or Stop | Each dict is emitted as an event, in order, just before `done` |
+
+`TurnState` fields are added, never renamed: `user`, `agent`, `provider`, `conversation_id`, `turn_id`, `messages` (provider-native), `system`, `iteration`, `usage` (the last call's), `tainted`, `budget`, `by_name`, `loaded`, `deferred_specs`, `pending`, `terminated`, and `scratch` (a hook's own per-turn storage, keyed by its module name). Hooks change only `messages`, `system` and `scratch`.
+
+### Server-owned turns
+
+`detached.py` owns each turn as an asyncio task, so a client that drops no longer ends it. `start()` creates a supervisor task before its first await; the supervisor saves the user message and the `running` turn row in one transaction, runs the `TurnRunner`, and writes the events. The request only waits for that first transaction, and a request that goes away even then still gets its message answered.
+
+- Every event gets `seq` (0, 1, ...); the first also carries `turn_id`. A live turn keeps its events in memory, and every reader (the POST that started it, `GET /turns/{id}/events?after=N`) tails that list. An ended turn is replayed from `core_agent_turn_events`.
+- One writer per turn: events are written in batches every second, and the terminal event is committed in the same transaction as the final status. Readers get the terminal event only after that commit, so a client that re-reads the conversation on `done` never finds its turn still running. If the final write fails three times the stream still ends and the row stays `running` until the next start.
+- At most one running turn per conversation: in one process the set of live turns is the truth, so a second POST is 409 `turn_running` and saves nothing.
+- Stop (`POST /turns/{id}/cancel`) cancels the runner; the turn ends with `{type: "done", stopped: true}` and status `cancelled`. Shutdown does the same with `{type: "error", interrupted: true}` and status `interrupted`, and the lifespan closes the database only when every turn has ended (`scheduler.md` §4). Neither saves the iteration that was cut off; the iterations before it are already saved.
+- A worker thread cannot be stopped: turn-owned database calls go through `aio.in_thread`, which lets the current call finish before a cancel goes on (a tool already running finishes, up to its timeout).
+- Startup marks turns left `running` `interrupted`, with a terminal `interrupted` event in their log.
 
 ## 6. Server-side confirmation
 
@@ -220,6 +259,8 @@ The chat stream emits these event types:
 conversation_id, compacted, text, tool_start, tool_args, tool_end, usage, confirm, title_update, done, error
 ```
 
+Every event also carries `seq`, its position in the turn (from 0), and the first carries `turn_id`. An `end_of_turn` hook may add event types of its own; the client ignores types it does not know.
+
 | Event | Payload |
 |---|---|
 | `conversation_id` | `{id}` |
@@ -231,8 +272,8 @@ conversation_id, compacted, text, tool_start, tool_args, tool_end, usage, confir
 | `tool_end` | `{tool, tool_use_id, tool_run_id, status, result, elapsed_ms}` |
 | `usage` | `{input_tokens, output_tokens, context_tokens, context_window}` |
 | `confirm` | `{tool_run_id, tool, tool_use_id, msg_id, args, summary}` |
-| `done` | `{model}` |
-| `error` | `{error}` |
+| `done` | `{model}`, or `{stopped: true}` after Stop |
+| `error` | `{error}`, plus `interrupted: true` when the server stopped or restarted mid-turn |
 
 ## 9. Zero keys
 
@@ -251,7 +292,9 @@ conversation_id, compacted, text, tool_start, tool_args, tool_end, usage, confir
 | Route | Contract |
 |---|---|
 | `GET /api/agent/status` | `{configured, default_agent, providers, models: {default, light}}`. |
-| `POST /api/agent/chat` | The SSE stream of one turn. Body `{conversation_id?, agent_slug?, message?}`; no message plus a `conversation_id` continues after an approval. 422 when both are missing, 404 `conversation_not_found`, 400 `{detail: "no_provider"}` with zero keys. |
+| `POST /api/agent/chat` | The SSE stream of one turn. Body `{conversation_id?, agent_slug?, message?}`; no message plus a `conversation_id` continues after an approval. 422 when both are missing, 404 `conversation_not_found`, 400 `{detail: "no_provider"}` with zero keys, 409 `turn_running` while the conversation has a running turn. The turn is server-owned (§5): it carries on if the client goes. |
+| `GET /api/agent/turns/{id}/events?after=N` | SSE: the turn's events with `seq > N` (default -1: all), then live ones until it ends. Only the user who started it; anyone else 404 `turn_not_found`. |
+| `POST /api/agent/turns/{id}/cancel` | Stop a running turn: `{cancelled: true}`, or `false` when it had already ended. Owner only (404 otherwise). |
 | `POST /api/agent/confirm` | §6. |
 | `GET` / `POST /api/agent/conversations`; `GET` / `PATCH {title, is_private}` / `DELETE /api/agent/conversations/{id}` | The caller's own conversations only. |
 | `GET /api/agent/agents`; `PATCH /api/agent/agents/{slug}` (admin) | The PATCH takes `name`, `personality`, `provider_override` (`anthropic` or `openai`), `model_override` and `model_tier` (`default` or `light`). |
@@ -265,11 +308,11 @@ The routes under `/api/agent` are in `backend/core/agent/router.py`; the memory 
 
 ## 12. Jobs
 
-`core.agent_nightly` at 02:00 (timeout 1,800 s), gated by the setting `agent.nightly_enabled`: the observer, then dreaming. With zero keys it is skipped only when the observer reaches a model call (§9). See `scheduler.md`.
+`core.agent_nightly` at 02:00 (timeout 1,800 s), gated by the setting `agent.nightly_enabled`: the observer, then dreaming. With zero keys it is skipped only when the observer reaches a model call (§9). `core.agent_turn_events_prune` every 24 h drops the events of turns that ended over 7 days ago (the turn rows stay). See `scheduler.md`.
 
 ## 13. FakeProvider
 
-The Step 1 engine stub is gone; the full engine (`engine.py`, `chat()` and `confirm()`) runs every turn. `providers/fake.py` is a scripted provider for tests and keyless local runs: `AGENT_FAKE_PROVIDER=1` makes `get_provider` return it and `/api/agent/status` report `configured: true`. With nothing scripted, a user message `/tool <name> <json args>` calls that tool, so a confirmed `handler_in` write can be driven by hand.
+The Step 1 engine stub is gone; the full loop (`turns.py`) runs every turn. `providers/fake.py` is a scripted provider for tests and keyless local runs: `AGENT_FAKE_PROVIDER=1` makes `get_provider` return it and `/api/agent/status` report `configured: true`. With nothing scripted, a user message `/tool <name> <json args>` calls that tool, so a confirmed `handler_in` write can be driven by hand. A scripted `{"chunks": [...], "delay": s}` streams each chunk as its own `text` event `delay` seconds apart, for tests of a turn that outlives its request.
 
 ## 14. Frontend (`frontend/src/core/agent/`)
 
@@ -289,7 +332,7 @@ The Step 1 engine stub is gone; the full engine (`engine.py`, `chat()` and `conf
 Rules the frontend keeps:
 
 1. **Resume after approval.** Once every card of a message has resolved, the client posts `/chat {conversation_id}` with no message, so the model hears every outcome, a deny included. It does not resume when every answer was `already_resolved` (another tab decided).
-2. **Reconnection.** The engine runs a turn inside its response, so a dropped stream cannot be re-attached. A stream that errors or ends without `done`/`error` makes the client re-read `GET /conversations/{id}` with backoff (0.5 s doubling to 8 s) and show what was saved, pending cards included. Stop aborts and re-reads once.
+2. **Reconnection.** The hook keeps the turn's `turn_id` and the last `seq` it applied, and ignores an event it has already seen. A stream that errors or ends without `done`/`error` re-attaches with `GET /turns/{id}/events?after=<seq>`, with backoff (0.5 s doubling to 8 s; progress resets it; while the tab is hidden it waits until the tab is visible). When the tab becomes visible during a turn it re-attaches at once, since a stream can die silently while a phone is locked. A drop it cannot re-attach to (no `turn_id` yet, or the turn is gone) re-reads `GET /conversations/{id}` with the same backoff and shows what was saved, pending cards included. Stop posts `/turns/{id}/cancel` (once the id is known), reads the stream to its stopped `done`, then re-reads the conversation once; if the cancel cannot be sent it aborts the stream instead. A reloaded page does not re-attach to a turn still running; sending then gets the 409 message.
 3. A `confirm` event has no `tool_end`; the call's part becomes the card (status `pending`).
 4. A 400 `no_provider` from `/chat` re-reads `/status`, which brings up the zero-key card.
 5. The shared dialog host is `frontend/src/shared/ConfirmHost.tsx`, lifted from CakeCRM; it is not an agent piece (the Approve card is `ToolConfirmCard`).
@@ -300,6 +343,7 @@ Rules the frontend keeps:
 - Zero-key status + 400.
 - FakeProvider streams text + a write tool → `confirm`, pending run, approve by a non-owner 403, stale `tool_def_sha256` → `stale`, approve executes once with args from the DB (double approve = `already_resolved`), deny recorded, `executing` at startup → `interrupted`.
 - No network or LLM call inside `transaction()`.
+- `test_agent_turns.py`: a turn survives a disconnect and saves its reply; `after=N` replays each later event once, live and from the log; cancel records `cancelled`; a second running turn is 409; startup and shutdown mark `interrupted`; the prune; a request cancelled while the turn starts still gets an answer; the final log write is retried. `test_agent_hooks.py`: each hook point's contract. `useAgentChat.test.tsx`: resume after a drop and on `visibilitychange`, and Stop.
 - Playwright: Whisk answers with FakeProvider → write tool shows Approve and runs on approve → zero-key card.
 
 ## Source

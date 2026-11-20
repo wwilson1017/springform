@@ -18,7 +18,8 @@ FINISHED = ("done", "dropped")
 PROJECT_STATUSES = ("active", "someday", "completed", "dropped")
 AREA_STATUSES = ("active", "dropped")
 VISIBILITIES = ("private", "team")
-SOURCES = ("ui", "agent", "app")  # who created the row: the web app, Whisk or MCP, another app (api.py)
+SOURCES = ("ui", "agent", "app")  # who created the row: the web app, Whisk or MCP, another app (api.py);
+# an MCP-made row also names its AI tool in source_client
 
 MAX_TEXT_CHARS = 20_000
 MAX_SHORT_CHARS = 500

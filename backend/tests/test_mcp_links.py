@@ -10,14 +10,15 @@ import httpx2
 import pytest
 from mcp.client.session import ClientSession
 from mcp.client.streamable_http import streamable_http_client
-from mcp.types import CallToolResult, TextContent
+from mcp.types import CallToolResult, Implementation, TextContent
+from starlette.responses import PlainTextResponse
 
 from backend.core import db as core_db, ratelimit
 from backend.core.agent import registry as tool_registry
 from backend.core.agent.spec import ToolSpec
 from backend.core.auth.deps import system_user
 from backend.core.errors import Forbidden
-from backend.core.mcp import links, router as mcp_router
+from backend.core.mcp import clients, links, router as mcp_router, server, startup as mcp_startup
 from backend.core.mcp.startup import ScrubLinkTokens
 
 LINKS = "/api/core/mcp/links"
@@ -41,12 +42,14 @@ def at(link: dict) -> str:
 
 
 @asynccontextmanager
-async def mcp_session(app, path: str, **headers):
+async def mcp_session(app, path: str, client_info: Implementation | None = None, modern: bool = False, **headers):
+    """A real ClientSession. `modern` speaks protocol 2026-07-28 (server/discover, then clientInfo
+    on every request) instead of the legacy initialize handshake."""
     transport = httpx2.ASGITransport(app=app)
     async with httpx2.AsyncClient(transport=transport, base_url="http://testserver", headers=headers) as http:
         async with streamable_http_client(f"http://testserver{path}", http_client=http) as (read, write):
-            async with ClientSession(read, write) as session:
-                await session.initialize()
+            async with ClientSession(read, write, client_info=client_info) as session:
+                await (session.discover() if modern else session.initialize())
                 yield session
 
 
@@ -58,9 +61,9 @@ def list_tools(app, path: str, **headers) -> dict:
     return asyncio.run(go())
 
 
-def call_tool(app, path: str, name: str, args: dict):
+def call_tool(app, path: str, name: str, args: dict, **session):
     async def go():
-        async with mcp_session(app, path) as s:
+        async with mcp_session(app, path, **session) as s:
             return await s.call_tool(name, args)
 
     return asyncio.run(go())
@@ -121,6 +124,14 @@ def test_tools_are_role_filtered_and_a_write_runs_at_once_as_the_link_user(app, 
     assert "core_context_file_write" not in admin_tools  # protected: never over MCP, even for an admin
     assert member_tools["example_list_widgets"].annotations.read_only_hint is True
     assert member_tools["example_create_widget"].annotations.read_only_hint is False
+    destructive = {"crm_merge_deals"}  # drops the source's clashing custom-field values
+    assert destructive <= admin_tools.keys()
+    for tool in admin_tools.values():  # explicit hints: a write would otherwise read as destructive, open-world
+        assert tool.title and tool.annotations.title == tool.title, tool.name
+        assert tool.annotations.destructive_hint is (tool.name in destructive), tool.name
+        assert tool.annotations.open_world_hint is False, tool.name
+    assert member_tools["todos_create"].title == "Add a todo"
+    assert member_tools["example_list_widgets"].title == "List widgets"  # derived from the name
     assert member_tools["example_create_widget"].input_schema["required"] == ["name"]
 
     made = call_tool(app, at(m_link), "example_create_widget", {"name": "From Claude"})
@@ -251,3 +262,111 @@ def test_access_log_lines_hide_the_link_token():
     )
     ScrubLinkTokens().filter(record)
     assert record.getMessage() == '10.0.0.1:5000 - "POST /mcp/***?x=1 HTTP/1.1" 200'
+
+
+def test_scrubbed_link_shapes():
+    token = "a" * 43
+    assert [
+        mcp_startup.scrub(p)
+        for p in (f"/link/{token}", f"/{token}/mcp", f"/{token}/mcp?x=1", "/settings/mcp", f"/mcp/{token}")
+    ] == ["/link/***", "/***/mcp", "/***/mcp?x=1", "/settings/mcp", "/mcp/***"]
+
+
+def test_instructions_carry_the_guidance_of_the_apps_the_user_reaches(app, login_as):
+    async def instructions(path):
+        transport = httpx2.ASGITransport(app=app)
+        async with httpx2.AsyncClient(transport=transport, base_url="http://testserver") as http:
+            async with streamable_http_client(f"http://testserver{path}", http_client=http) as (read, write):
+                async with ClientSession(read, write) as session:
+                    return (await session.initialize()).instructions
+
+    text = asyncio.run(instructions(at(mint(login_as("member"))))) or ""
+    assert "You are the user's GTD (Getting Things Done) partner" in text
+    assert "Example: Widgets are sample records" in text
+    assert text.endswith(server.UNTRUSTED_NOTE)
+
+
+def test_every_link_shape_serves_mcp_and_a_browser_gets_the_guide(app, client, login_as, monkeypatch):
+    async def transport(scope, receive, send):  # stands in for the SDK, whose event stream stays open
+        await PlainTextResponse("from the transport", 299)(scope, receive, send)
+
+    member = login_as("member")
+    link = mint(member)
+    shapes = (f"/mcp/{link['token']}", f"/link/{link['token']}", f"/{link['token']}/mcp")
+    for path in shapes:
+        assert "todos_list" in list_tools(app, path), path
+        page = client.get(path)
+        assert page.status_code == 200 and "This is an MCP link" in page.text, path
+        assert page.headers["content-type"].startswith("text/html")
+        assert (page.headers["cache-control"], page.headers["referrer-policy"]) == ("no-store", "no-referrer")
+        assert link["token"] not in page.text
+        assert client.head(path).status_code == 200
+        assert client.get(path, headers={"Origin": "https://example.com"}).status_code == 403
+        # An MCP client's GET asks for the event stream: the transport answers it, not the guide.
+        with monkeypatch.context() as m:
+            m.setattr(server, "handle", transport)
+            assert client.get(path, headers={"Accept": "text/event-stream"}).status_code == 299
+    unknown = "b" * 43
+    for path in (f"/link/{unknown}", f"/{unknown}/mcp", f"/mcp/{unknown}"):
+        assert client.get(path).status_code == 404
+    member.delete(f"{LINKS}/{link['id']}")
+    assert [client.get(p).status_code for p in shapes] == [404, 404, 404]
+
+
+def test_token_first_shape_does_not_capture_app_paths(db, tmp_path, monkeypatch):
+    from fastapi.testclient import TestClient
+
+    from backend import main
+
+    (tmp_path / "index.html").write_text("<!doctype html><title>SPA</title>")
+    monkeypatch.setattr(main, "FRONTEND_DIST", tmp_path)
+    spa = TestClient(main.create_app())
+    for path in ("/settings/mcp", "/link/inbox"):  # an app may be named `link`: only a token-shaped segment is ours
+        page = spa.get(path)
+        assert page.status_code == 200 and "<title>SPA</title>" in page.text, path
+
+
+def run_client() -> str | None:
+    return core_db.one("SELECT client FROM core_agent_tool_runs ORDER BY id DESC")["client"]
+
+
+def test_a_tool_run_records_the_calling_client(app, login_as):
+    path = at(mint(login_as("member")))
+    call_tool(app, path, "todos_today", {}, **{"User-Agent": "openai-mcp/1.0.0"})
+    assert run_client() == "ChatGPT"
+    call_tool(app, path, "todos_today", {})  # the SDK's own client sends an HTTP library's User-Agent
+    assert run_client() is None
+    # Protocol 2026-07-28 carries the client's own clientInfo on every request; it beats the User-Agent.
+    call_tool(
+        app, path, "todos_today", {}, client_info=Implementation(name="claude-ai", version="1"), modern=True,
+        **{"User-Agent": "openai-mcp/1.0.0"},
+    )  # fmt: skip
+    assert run_client() == "Claude"
+    assert core_db.one("SELECT client FROM core_agent_tool_runs WHERE source = 'chat'") is None
+
+
+def test_a_todo_made_over_a_link_says_which_ai_made_it(app, login_as):
+    member = login_as("member")
+    made = call_tool(
+        app, at(mint(member)), "todos_create", {"title": "Call the bank"}, **{"User-Agent": "openai-mcp/1.0"}
+    )
+    todo = member.get(f"/api/todos/items/{result_json(made)['id']}").json()
+    assert (todo["source"], todo["source_client"]) == ("agent", "ChatGPT")
+
+
+@pytest.mark.parametrize(
+    ("declared", "user_agent", "expected"),
+    [
+        ("Cursor", "node", "Cursor"),
+        (None, "Claude-User/1.0 (+https://example.com)", "Claude"),
+        (None, "claude-code/2.0.1", "Claude Code"),
+        (None, "python-httpx/0.28", None),
+        (None, "Mozilla/5.0", None),
+        (None, None, None),
+        ("  ", "openai-mcp/1.0.0", "ChatGPT"),
+        ("Evil\nTool\x00 " + "x" * 100, None, "Evil Tool " + "x" * 50),
+        (None, " " * 5000 + "!", None),
+    ],
+)
+def test_client_name(declared, user_agent, expected):
+    assert clients.client_name(declared, user_agent) == expected

@@ -27,7 +27,7 @@ export function UserMenu({
         aria-expanded={open}
         aria-haspopup="menu"
         onClick={() => setOpen((o) => !o)}
-        className="flex h-8 cursor-pointer items-center gap-1.5 rounded-md border border-sf-line-strong bg-transparent px-3 font-sans text-sm text-sf-ink-mute hover:bg-sf-hover"
+        className="flex h-8 cursor-pointer items-center gap-1.5 rounded-md border border-sf-bar-edge bg-transparent px-3 font-sans text-sm text-sf-bar-ink-mute hover:bg-sf-bar-hover"
       >
         {user.name}
         <IconChevronDown size={14} aria-hidden />

@@ -3,7 +3,10 @@
 Link routes, under `/api/core/mcp/links`, act on the caller's own links; an admin may list
 everyone's with `?all=1` (never tokens). The endpoint sits outside `/api` and authenticates by link
 token, lifted from todo-gtd `backend/mcp_server.py` (its HTTP section):
-- `/mcp/<token>`: an unknown, revoked or deactivated link is 404, never 401.
+- `/mcp/<token>` (the shape minted), `/link/<token>`, and `/<token>/mcp` for a client that insists
+  the address ends in /mcp: an unknown, revoked or deactivated link is 404, never 401.
+- A plain GET or HEAD on a live link (no `text/event-stream` in Accept: someone opened it in a
+  browser) gets a short guide page instead of the transport's 406.
 - `/mcp` with `Authorization: Bearer <token>`: a missing or bad token is 401.
 - `/.well-known/…`, `/register`, `/authorize`, `/token`: 404 for every method. There is no OAuth,
   so a client that goes looking for a sign-in finds none and uses the link as it is.
@@ -19,8 +22,9 @@ import asyncio
 
 from fastapi import APIRouter, Depends, Query, Response
 from pydantic import BaseModel, ConfigDict, Field
+from starlette.convertors import Convertor, register_url_convertor
 from starlette.requests import Request
-from starlette.responses import PlainTextResponse
+from starlette.responses import HTMLResponse, PlainTextResponse
 from starlette.routing import Route
 from starlette.types import Receive, Scope, Send
 
@@ -89,11 +93,36 @@ async def _serve(scope: Scope, receive: Receive, send: Send, token: str, *, bear
     declared = request.headers.get("content-length", "")
     if declared.isdigit() and int(declared) > server.MAX_BODY_BYTES:
         return await _refuse(scope, receive, send, 413, "Request too large: at most 4 MB")
+    if request.method in ("GET", "HEAD") and "text/event-stream" not in request.headers.get("accept", ""):
+        return await HTMLResponse(GUIDE, headers=GUIDE_HEADERS)(scope, receive, send)
     reset = server.link_user.set(user)
     try:
         await server.handle(scope, receive, send)  # the SDK also caps a body sent without a length
     finally:
         server.link_user.reset(reset)
+
+
+# Static on purpose: no name, workspace or token, so nothing on it needs escaping or can leak.
+GUIDE = """<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Springform MCP link</title>
+<style>body{font:16px/1.5 system-ui,sans-serif;max-width:40rem;margin:2rem auto;padding:0 1rem;color:#222}
+code{background:#f2f2f2;padding:0 .25rem;border-radius:3px}</style></head>
+<body>
+<h1>This is an MCP link</h1>
+<p>It connects an AI tool to your Springform workspace. It is not a page to read: paste this page's
+address into the tool as a custom connector (a remote MCP server URL), with no sign-in.</p>
+<ul>
+<li>Claude: Settings &rarr; Connectors &rarr; Add custom connector.</li>
+<li>ChatGPT: turn on Developer mode, then add a connector with no authentication.</li>
+<li>Claude Code: <code>claude mcp add --transport http springform &lt;this address&gt;</code></li>
+</ul>
+<p>Anyone who has this address acts as you. Keep it private, and revoke it under
+<a href="/settings/mcp">Settings &rarr; MCP</a> if it leaks.</p>
+<p>For an AI assistant reading this: connect to this same address as an MCP server over streamable HTTP.</p>
+</body></html>
+"""
+GUIDE_HEADERS = {"Cache-Control": "no-store", "Referrer-Policy": "no-referrer", "X-Robots-Tag": "noindex"}
 
 
 class _Asgi:
@@ -119,9 +148,27 @@ async def _no_sign_in(scope: Scope, receive: Receive, send: Send) -> None:
     await _refuse(scope, receive, send, 404, "Not Found")
 
 
+class _LinkToken(Convertor):
+    """A link token's shape (`secrets.token_urlsafe(32)`: 43 URL-safe characters), so `/<token>/mcp`
+    and `/link/<token>` never capture an app path like `/settings/mcp`."""
+
+    regex = "[A-Za-z0-9_-]{43}"
+
+    def convert(self, value: str) -> str:
+        return value
+
+    def to_string(self, value: str) -> str:
+        return value
+
+
+register_url_convertor("linktoken", _LinkToken())
+
 # Route, not add_route: add_route is typed for request handlers only, though Starlette serves any ASGI app.
 router.routes.append(Route("/mcp", _Asgi(_bearer_token), include_in_schema=False))
-router.routes.append(Route("/mcp/{token}", _Asgi(_path_token), include_in_schema=False))
+# The newer shapes match only a token-shaped segment: `link` is not a reserved slug, so an app named
+# `link` keeps its own pages.
+for _path in ("/mcp/{token}", "/link/{token:linktoken}", "/{token:linktoken}/mcp"):
+    router.routes.append(Route(_path, _Asgi(_path_token), include_in_schema=False))
 router.routes.append(Route("/.well-known/{rest:path}", _Asgi(_no_sign_in), include_in_schema=False))
 for _path in ("/register", "/authorize", "/token"):
     router.routes.append(Route(_path, _Asgi(_no_sign_in), include_in_schema=False))

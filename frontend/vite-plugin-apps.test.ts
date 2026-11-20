@@ -34,6 +34,11 @@ describe('vite-plugin-apps', () => {
     expect(resolveId('./other')).toBeUndefined();
   });
 
+  it('strips agent_guidance from the bundle', () => {
+    const dir = fixture({ one: '{"slug":"one","order":1,"agent_guidance":"secret"}' });
+    expect(readManifests(dir)).toEqual([{ slug: 'one', order: 1 }]);
+  });
+
   it('fails loudly on a broken manifest or a missing apps directory', () => {
     expect(() => readManifests(fixture({ bad: '{nope' }))).toThrow(/bad.app\.json/);
     expect(() => readManifests('/nonexistent/apps')).toThrow(/no apps directory/);

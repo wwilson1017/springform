@@ -4,7 +4,7 @@ they would take a todo out of someone's view."""
 
 from backend.apps.todos import service
 from backend.apps.todos.models import ItemIn, ItemPatch
-from backend.core.agent.spec import ROUTINE, ToolSpec
+from backend.core.agent.spec import ROUTINE, ToolSpec, calling_client
 
 _LIST_FILTERS = {
     "status": {"type": "string", "enum": ["inbox", "next_action", "waiting_for", "delegated", "someday_maybe", "done", "dropped"]},
@@ -39,7 +39,8 @@ def _list(user, args: dict) -> list[dict]:
 
 def _create(conn, user, args: dict) -> dict:
     fields = ItemIn(**args).model_dump()
-    return service.create_item_in(conn, user, fields.pop("title"), **fields, source="agent")
+    title = fields.pop("title")
+    return service.create_item_in(conn, user, title, **fields, source="agent", source_client=calling_client.get())
 
 
 def _update(conn, user, args: dict) -> dict:
@@ -55,6 +56,7 @@ def get_tools() -> list[ToolSpec]:
     return [
         ToolSpec(
             name="todos_list",
+            title="List todos",
             description=(
                 "List the todos the user can see: their private ones and the team's. Statuses: inbox (unprocessed), "
                 "next_action, waiting_for, delegated, someday_maybe, done, dropped. Todos deferred to a later "
@@ -66,6 +68,7 @@ def get_tools() -> list[ToolSpec]:
         ),
         ToolSpec(
             name="todos_today",
+            title="Today's todos",
             description="The user's Today: their open work that is starred, due today or overdue, or whose revisit date has come.",
             input_schema={"type": "object", "properties": {}},
             writes=False,
@@ -73,6 +76,7 @@ def get_tools() -> list[ToolSpec]:
         ),
         ToolSpec(
             name="todos_review",
+            title="Weekly review",
             description=(
                 "The data for a weekly review of the user's work: inbox, completed last week, dated today or overdue, "
                 "projects without a next action, waiting for, routines, upcoming, stale, areas. Walk it step by step."
@@ -83,6 +87,7 @@ def get_tools() -> list[ToolSpec]:
         ),
         ToolSpec(
             name="todos_create",
+            title="Add a todo",
             description=(
                 "Create a todo. It is private to the user unless visibility is 'team' (every member sees and can edit "
                 "it). Unclear items go to the inbox. Write next actions as physical, visible verbs. Link it to a record "
@@ -97,6 +102,7 @@ def get_tools() -> list[ToolSpec]:
         ),
         ToolSpec(
             name="todos_update",
+            title="Update a todo",
             description=(
                 "Change a todo the user can see: only the fields given change, and null clears one. Making a team todo "
                 "private, or giving it to someone else, takes it out of other people's view."
@@ -111,6 +117,7 @@ def get_tools() -> list[ToolSpec]:
         ),
         ToolSpec(
             name="todos_complete",
+            title="Complete a todo",
             description="Mark a todo done. A repeating todo comes back as its next occurrence.",
             input_schema={"type": "object", "properties": _ID, "required": ["id"]},
             writes=True,

@@ -220,15 +220,17 @@ def insert_tool_run_in(
     tool_def_sha256: str = "",
     result: str | None = None,
     error: str | None = None,
+    client: str | None = None,
 ) -> int:
-    """`result` is already serialized (JSON text)."""
+    """`result` is already serialized (JSON text). `client` names the AI tool of an MCP call."""
     now = now_iso()
     terminal = status in TERMINAL
     return db.insert_in(
         conn,
         """INSERT INTO core_agent_tool_runs (conversation_id, message_id, tool_use_id, tool, tool_def_sha256, args,
-                                             status, result, error, user_id, source, requested_at, resolved_at, resolved_by)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                                             status, result, error, user_id, source, requested_at, resolved_at, resolved_by,
+                                             client)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
         (
             conversation_id,
             message_id,
@@ -244,6 +246,7 @@ def insert_tool_run_in(
             now,
             now if terminal else None,
             user_id if terminal else None,
+            client,
         ),
     )
 

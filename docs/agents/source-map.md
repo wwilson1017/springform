@@ -90,7 +90,7 @@ All lifted code is the author's sole authorship (Decisions, License); the proven
 |---|---|---|---|---|---|
 | `backend/core/agent/providers/` | CakeCRM | `backend/providers/` (Anthropic and OpenAI only; Google, Ollama, Together, model listing, tier inference and pricing not lifted) | 672 built (head: 3,038 py) | lift | `windows.py` lifted with the providers; `credentials.py` rewritten for `core_agent_providers` only; `fake.py` new. |
 | `backend/core/agent/spec.py`, `registry.py` | CakeCRM | `backend/assistant/registry.py`, `backend/assistant/confirm_tier.py` (folded into `spec.py`) | 212 → 150 / 160 new | port | Sources = core + apps + MCP; atomic swap. |
-| `backend/core/agent/{engine,history,assembly,compaction,delimiters,write_budget}.py` | CakeCRM | `backend/assistant/` same names | ~2,500 (head: 840, 674, 318, 566, 370, 53) | lift | JSONB→TEXT; Gmail/page bindings cut; `turns.py` (564) skipped in v1; `uploads.py` not lifted. |
+| `backend/core/agent/{engine,history,assembly,compaction,delimiters,write_budget}.py` | CakeCRM | `backend/assistant/` same names | ~2,500 (head: 840, 674, 318, 566, 370, 53) | lift | JSONB→TEXT; Gmail/page bindings cut; `turns.py` (564) skipped in v1, then followed in shape by `detached.py` (#81); `uploads.py` not lifted. |
 | `backend/core/agent/deferred.py` | chatty | `backend/core/agents/deferred_tools.py` | 350 (head 410) | lift | Group key = app slug, threshold 100. |
 | `backend/core/agent/agents.py` | CakeCRM | `backend/assistant/identity.py` | 300 (head 737) | port | Rows, not a singleton. |
 | `backend/core/memory/facts.py` | CakeCRM | `backend/memory/service.py` (Chatty's memory as CakeCRM ported it) | part of 1,800 | port | FTS5, temporal facts, soft invalidation. Chatty's `db.py` was not lifted directly. |

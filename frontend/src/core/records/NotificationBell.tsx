@@ -102,7 +102,7 @@ export function NotificationBell() {
         aria-expanded={open}
         aria-haspopup="dialog"
         aria-label={count ? `Notifications, ${count} unread` : 'Notifications'}
-        className="relative flex h-8 w-8 cursor-pointer items-center justify-center rounded-md border-0 bg-transparent text-sf-ink-mute hover:bg-sf-hover"
+        className="relative flex h-8 w-8 cursor-pointer items-center justify-center rounded-md border-0 bg-transparent text-sf-bar-ink-mute hover:bg-sf-bar-hover"
       >
         <IconBell size={18} aria-hidden />
         {count > 0 && (
