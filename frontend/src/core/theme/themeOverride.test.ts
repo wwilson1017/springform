@@ -51,6 +51,10 @@ describe('fork theme override', () => {
     expect(resolve(fork.light, 'ink')).toBe(resolve(upstream.light, 'ink'));
   });
 
+  it('reads a last declaration with no semicolon, as the browser does', () => {
+    expect(themeTokens(':root { --color-sf-accent: #000000 }').root.accent).toBe('#000000');
+  });
+
   it('refuses rules that are not token blocks', () => {
     expect(() => themeTokens(':root { --color-sf-accent: #000000; }')).not.toThrow();
     expect(() => themeTokens('.dark { --color-sf-accent: #000000; }')).toThrow(/only :root/);

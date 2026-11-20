@@ -55,7 +55,7 @@ const live = (css: string) => css.replace(/\/\*[\s\S]*?\*\//g, '');
 /** Every `--color-sf-*` declaration with its RAW value, so a non-hex value fails loudly later. */
 function declarations(slice: string): Record<string, string> {
   const out: Record<string, string> = {};
-  for (const m of slice.matchAll(/--color-sf-([a-z0-9-]+):\s*([^;]+);/g)) out[m[1]] = m[2].trim();
+  for (const m of slice.matchAll(/--color-sf-([a-z0-9-]+):\s*([^;}]+)/g)) out[m[1]] = m[2].trim();
   return out;
 }
 
