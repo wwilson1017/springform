@@ -87,6 +87,11 @@ The `mcp` SDK (pinned `mcp==2.3.0`, the version todo-gtd's FastMCP resolves) **l
 |---|---|
 | claude.ai custom connector, Claude Desktop | `https://host/mcp/<token>` (the minted shape; `/link/<token>` and `/<token>/mcp` work too) |
 | Claude Code | `claude mcp add --transport http springform https://host/mcp/<token>`, or `https://host/mcp` + `Authorization: Bearer <token>` |
+| ChatGPT, Gemini | A custom connector (ChatGPT: Developer mode, "No authentication") with the link as its URL |
+| Cursor, VS Code | A one-click install link, or the `mcpServers` / `code --add-mcp` snippet |
+| Codex, Gemini CLI | `codex mcp add springform --url <link>`, `gemini mcp add --transport http springform <link>` |
+
+The Settings card shows a new link once, with a tab per client (`frontend/src/core/mcp/clients.ts`, lifted from todo-gtd) holding its steps or command with the link filled in.
 
 The MCP bearer is the link token, not the session JWT. The cookie CSRF rules (`auth.md` §3) cover cookie-authenticated `/api` requests; `/mcp` sits outside `/api` and authenticates by link token.
 

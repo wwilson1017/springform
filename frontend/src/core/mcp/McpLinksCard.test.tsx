@@ -39,11 +39,23 @@ describe('McpLinksCard', () => {
     fireEvent.change(screen.getByLabelText('Link name'), { target: { value: '  Claude Desktop ' } });
     fireEvent.click(screen.getByRole('button', { name: 'Create link' }));
 
-    expect((await screen.findByTestId('mcp-new-url')).textContent).toBe(`http://localhost:8000/mcp/${TOKEN}`);
-    expect(
-      screen.getByText(`claude mcp add --transport http springform http://localhost:8000/mcp/${TOKEN}`),
-    ).toBeTruthy();
-    expect(screen.getByText(/claude\.ai:/)).toBeTruthy();
+    const url = `http://localhost:8000/mcp/${TOKEN}`;
+    expect((await screen.findByTestId('mcp-new-url')).textContent).toBe(url);
+    const tabs = screen.getAllByRole('tab').map((t) => t.textContent);
+    expect(tabs).toEqual(['Claude', 'ChatGPT', 'Gemini', 'Claude Code', 'Cursor', 'VS Code', 'Codex', 'Gemini CLI']);
+    expect(screen.getByRole('tabpanel', { name: 'Claude' }).textContent).toContain('Add custom connector');
+
+    fireEvent.click(screen.getByRole('tab', { name: 'ChatGPT' }));
+    expect(screen.getByRole('tab', { name: 'ChatGPT' }).getAttribute('aria-selected')).toBe('true');
+    expect(screen.getByRole('tabpanel').textContent).toMatch(/Developer mode.*No authentication/s);
+    fireEvent.click(screen.getByRole('tab', { name: 'Claude Code' }));
+    expect(screen.getByText(`claude mcp add --transport http springform ${url}`)).toBeTruthy();
+    fireEvent.click(screen.getByRole('tab', { name: 'Cursor' }));
+    const install = screen.getByRole('link', { name: 'Add to Cursor' }).getAttribute('href')!;
+    expect(install.startsWith('cursor://anysphere.cursor-deeplink/mcp/install?name=springform&config=')).toBe(true);
+    expect(JSON.parse(atob(decodeURIComponent(install.split('config=')[1])))).toEqual({ url });
+    fireEvent.click(screen.getByRole('tab', { name: 'Codex' }));
+    expect(screen.getByText(`codex mcp add springform --url ${url}`)).toBeTruthy();
     expect(JSON.parse(callsTo(fetchMock, 'POST', LINKS)[0][1]!.body as string)).toEqual({ label: 'Claude Desktop' });
     expect(await screen.findByText('Never used', { exact: false })).toBeTruthy();
 
