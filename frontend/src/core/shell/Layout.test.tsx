@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Workspace } from '../settings/types';
 import { CoreAppsProvider } from '../apps/CoreAppsContext';
 import { AuthProvider } from '../auth/AuthContext';
-import { setWorkspace } from '../settings/useWorkspace';
+import { setWorkspace, workspaceTitle } from '../settings/useWorkspace';
 import { mockFetch } from '../../testing';
 import { Layout } from './Layout';
 
@@ -67,5 +67,7 @@ describe('the tab title', () => {
     document.title = 'Todos';
     act(() => setWorkspace(workspace({ name: 'Again' })));
     expect(document.title).toBe('Todos');
+    // Leaving that page restores the install name it loaded meanwhile, not the title it found.
+    expect(workspaceTitle()).toBe('Again');
   });
 });

@@ -8,6 +8,7 @@ import { PHONE_QUERY, todoPath, type ListKey } from './menu';
 import { setScope, useScope } from './scope';
 import { useToasts } from './toast';
 import { useTodoMeta } from './useTodoMeta';
+import { workspaceTitle } from '../../core/settings/useWorkspace';
 
 /** A page's identity for the shell: one of the menu's lists, or a page reached from one
  *  (a todo's own page). The lists themselves are defined in ./menu. */
@@ -41,10 +42,9 @@ export function TodoShell({ active, hideQuickAdd, onAdded, inlineUndo, scoped, c
   const scope = useScope();
   const inboxCount = filters?.status_counts.inbox ?? 0;
   useEffect(() => {
-    const before = document.title;
     document.title = 'Todos';
     return () => {
-      document.title = before; // the install name again on the next page
+      document.title = workspaceTitle();
     };
   }, []);
   const phone = useMediaQuery(PHONE_QUERY);

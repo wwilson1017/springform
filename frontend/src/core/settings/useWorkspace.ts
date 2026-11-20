@@ -14,9 +14,15 @@ const listeners = new Set<() => void>();
 // index.html's title, until the install name replaces it.
 const DEFAULT_TITLE = document.title;
 
+/** The tab title when no page has set its own: the install name once known. A page that sets a
+ *  title restores this on leaving, not the title it found, which may predate the name. */
+export function workspaceTitle(): string {
+  return workspace?.name ?? DEFAULT_TITLE;
+}
+
 export function setWorkspace(next: Workspace) {
   // The tab shows the install name, unless a page has set a title of its own (Todos does).
-  if (document.title === (workspace?.name ?? DEFAULT_TITLE)) document.title = next.name;
+  if (document.title === workspaceTitle()) document.title = next.name;
   workspace = next;
   for (const listener of listeners) listener();
 }
