@@ -44,7 +44,7 @@ exposed = registry.for_user(link.user) ∩ registry.for_source("mcp")
 1. Never protected context-file writes (soul, MEMORY): `mcp_exposed=False`.
 2. Never remote (outbound) tools.
 3. Admin-only tools are filtered by role (`enabled(user)` and the app's roles); the example app's `example_count_widgets` is the fixture.
-4. `list_tools` returns JSON-schema `Tool`s with a `title` (the spec's, else derived from the name: `crm_search_deals` → "Search deals") and explicit annotations: `title`, `readOnlyHint = not writes`, `destructiveHint = false` (nothing exposed deletes for good; archiving is a status), `openWorldHint = external_effect`. Without them the spec defaults a write to destructive and open-world. A call to a tool not in the user's list is an error result and runs nothing.
+4. `list_tools` returns JSON-schema `Tool`s with a `title` (the spec's, else derived from the name: `crm_search_deals` → "Search deals") and explicit annotations: `title`, `readOnlyHint = not writes`, `destructiveHint = destructive` (true only for a write that discards data for good, e.g. `crm_merge_deals` dropping the source's clashing custom-field values; archiving is a status), `openWorldHint = external_effect`. Without them the spec defaults a write to destructive and open-world. A call to a tool not in the user's list is an error result and runs nothing.
 5. A result is the stored JSON as one text block; a failure is `isError` with `{status, error}` (`error`, or `uncertain` for an external effect that may have happened).
 
 ### Instructions

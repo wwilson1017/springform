@@ -44,8 +44,8 @@ def title_for(spec: ToolSpec) -> str:
 
 
 def _tool(s: ToolSpec) -> types.Tool:
-    # Explicit hints: the spec defaults a write to destructive and open-world. Nothing here
-    # deletes for good (archiving is a status), and only an external-effect tool leaves the install.
+    # Explicit hints: the spec defaults a write to destructive and open-world. Only a tool marked
+    # `destructive` discards data for good (archiving is a status), and only an external-effect tool leaves the install.
     title = title_for(s)
     return types.Tool(
         name=s.name,
@@ -53,7 +53,7 @@ def _tool(s: ToolSpec) -> types.Tool:
         description=s.description,
         input_schema=s.input_schema,
         annotations=types.ToolAnnotations(
-            title=title, read_only_hint=not s.writes, destructive_hint=False, open_world_hint=s.external_effect
+            title=title, read_only_hint=not s.writes, destructive_hint=s.destructive, open_world_hint=s.external_effect
         ),
     )
 

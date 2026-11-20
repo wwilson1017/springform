@@ -124,9 +124,12 @@ def test_tools_are_role_filtered_and_a_write_runs_at_once_as_the_link_user(app, 
     assert "core_context_file_write" not in admin_tools  # protected: never over MCP, even for an admin
     assert member_tools["example_list_widgets"].annotations.read_only_hint is True
     assert member_tools["example_create_widget"].annotations.read_only_hint is False
+    destructive = {"crm_merge_deals"}  # drops the source's clashing custom-field values
+    assert destructive <= admin_tools.keys()
     for tool in admin_tools.values():  # explicit hints: a write would otherwise read as destructive, open-world
         assert tool.title and tool.annotations.title == tool.title, tool.name
-        assert (tool.annotations.destructive_hint, tool.annotations.open_world_hint) == (False, False), tool.name
+        assert tool.annotations.destructive_hint is (tool.name in destructive), tool.name
+        assert tool.annotations.open_world_hint is False, tool.name
     assert member_tools["todos_create"].title == "Add a todo"
     assert member_tools["example_list_widgets"].title == "List widgets"  # derived from the name
     assert member_tools["example_create_widget"].input_schema["required"] == ["name"]

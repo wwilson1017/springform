@@ -59,6 +59,7 @@ class ToolSpec:
     server_url: str | None = None
     summary: str = ""  # user-facing line on the Approve card; empty shows only name and args
     title: str = ""  # MCP display title; empty derives one from the name. Not hashed (last: positional order)
+    destructive: bool = False  # MCP destructiveHint: the write discards data for good. Not hashed
 
     @property
     def remote(self) -> bool:
