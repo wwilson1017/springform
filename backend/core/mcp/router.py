@@ -114,7 +114,7 @@ code{background:#f2f2f2;padding:0 .25rem;border-radius:3px}</style></head>
 address into the tool as a custom connector (a remote MCP server URL), with no sign-in.</p>
 <ul>
 <li>Claude: Settings &rarr; Connectors &rarr; Add custom connector.</li>
-<li>ChatGPT: turn on Developer mode, then add a connector with no authentication.</li>
+<li>ChatGPT: chatgpt.com/plugins &rarr; + &rarr; Add custom MCP server, with no authentication; then install it.</li>
 <li>Claude Code: <code>claude mcp add --transport http springform &lt;this address&gt;</code></li>
 </ul>
 <p>Anyone who has this address acts as you. Keep it private, and revoke it under

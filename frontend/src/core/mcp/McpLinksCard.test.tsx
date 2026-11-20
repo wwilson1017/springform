@@ -47,7 +47,7 @@ describe('McpLinksCard', () => {
 
     fireEvent.click(screen.getByRole('tab', { name: 'ChatGPT' }));
     expect(screen.getByRole('tab', { name: 'ChatGPT' }).getAttribute('aria-selected')).toBe('true');
-    expect(screen.getByRole('tabpanel').textContent).toMatch(/Developer mode.*No authentication/s);
+    expect(screen.getByRole('tabpanel').textContent).toMatch(/Add custom MCP server.*No authentication/s);
     fireEvent.click(screen.getByRole('tab', { name: 'Claude Code' }));
     expect(screen.getByText(`claude mcp add --transport http springform ${url}`)).toBeTruthy();
     fireEvent.click(screen.getByRole('tab', { name: 'Cursor' }));

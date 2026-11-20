@@ -87,7 +87,7 @@ The `mcp` SDK (pinned `mcp==2.3.0`, the version todo-gtd's FastMCP resolves) **l
 |---|---|
 | claude.ai custom connector, Claude Desktop | `https://host/mcp/<token>` (the minted shape; `/link/<token>` and `/<token>/mcp` work too) |
 | Claude Code | `claude mcp add --transport http springform https://host/mcp/<token>`, or `https://host/mcp` + `Authorization: Bearer <token>` |
-| ChatGPT, Gemini | A custom connector (ChatGPT: Developer mode, "No authentication") with the link as its URL |
+| ChatGPT, Gemini | A custom connector (ChatGPT: chatgpt.com/plugins → "Add custom MCP server", "No authentication", then install the plugin) with the link as its URL |
 | Cursor, VS Code | A one-click install link, or the `mcpServers` / `code --add-mcp` snippet |
 | Codex, Gemini CLI | `codex mcp add springform --url <link>`, `gemini mcp add --transport http springform <link>` |
 

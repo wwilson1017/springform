@@ -32,11 +32,10 @@ export const CLIENTS: ClientSetup[] = [
   {
     name: 'ChatGPT',
     steps: [
-      'Open Settings → Security and login and turn on Developer mode.',
-      'Go to chatgpt.com/plugins and select the plus button.',
-      'Give it a name, paste the link as the MCP server URL, choose “No authentication”, and create it.',
+      'Go to chatgpt.com/plugins, select the plus button, then “Add custom MCP server”.',
+      'Give it a name, paste the link as the Server URL, choose “No authentication”, accept the warning and select “Create as a plugin”.',
     ],
-    note: 'Paid plans, on the web.',
+    note: 'Paid plans, on the web. Install the new plugin, then pick it with @ in a chat.',
   },
   {
     name: 'Gemini',
