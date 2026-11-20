@@ -46,7 +46,14 @@ export function SetupPage() {
     }
   }
 
-  const field = (key: keyof typeof form, label: string, type: string, autoComplete: string, placeholder?: string) => (
+  const field = (
+    key: keyof typeof form,
+    label: string,
+    type: string,
+    autoComplete: string,
+    placeholder?: string,
+    maxLength?: number,
+  ) => (
     <div className="mb-4">
       <label htmlFor={`setup-${key}`} className={labelClass}>
         {label}
@@ -57,6 +64,7 @@ export function SetupPage() {
         autoComplete={autoComplete}
         value={form[key]}
         placeholder={placeholder}
+        maxLength={maxLength}
         className={inputClass}
         onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.value }))}
       />
@@ -70,7 +78,7 @@ export function SetupPage() {
         {field('email', 'Email', 'email', 'username')}
         {field('name', 'Name', 'text', 'name')}
         {field('password', 'Password', 'password', 'new-password')}
-        {field('agent_name', 'Assistant name (optional)', 'text', 'off', DEFAULT_AGENT_NAME)}
+        {field('agent_name', 'Assistant name (optional)', 'text', 'off', DEFAULT_AGENT_NAME, 80)}
         {error && (
           <p role="alert" className="mb-0 text-sm text-sf-red-text">
             {error}
