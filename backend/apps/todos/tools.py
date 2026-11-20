@@ -346,11 +346,18 @@ def get_tools() -> list[ToolSpec]:
                 "properties": {
                     "since_rev": {"type": "integer", "minimum": 0},
                     "limit": {"type": "integer", "minimum": 1, "maximum": 500},
+                    "head_only": {
+                        "type": "boolean",
+                        "description": "Only the current cursor in next_since_rev, for a client that has just loaded its lists",
+                    },
                 },
             },
             writes=False,
             handler=lambda user, args: service.changes(
-                user, int(args.get("since_rev") or 0), int(args.get("limit") or 500)
+                user,
+                int(args.get("since_rev") or 0),
+                int(args.get("limit") or 500),
+                head_only=bool(args.get("head_only")),
             ),
         ),
     ]

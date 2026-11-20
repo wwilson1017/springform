@@ -472,6 +472,8 @@ def test_the_new_tools_keep_private_rows_private(two):
     changes = run(b, "todos_changes", {})["result"]
     assert [t["id"] for t in changes["items"]] == [shared["id"]] and changes["projects"] == changes["areas"] == []
     assert run(a, "todos_get", {"id": secret["id"]})["result"]["notes"] == "left knee"
+    head = run(b, "todos_changes", {"head_only": True})["result"]
+    assert head["items"] == [] and head["next_since_rev"] == changes["next_since_rev"]
 
     for name, args in [
         ("todos_update", {"id": secret["id"], "title": "x"}),
