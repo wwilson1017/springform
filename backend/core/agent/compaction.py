@@ -18,6 +18,7 @@ import json
 import logging
 
 from backend.core.agent import delimiters, history
+from backend.core.agent.aio import in_thread
 from backend.core.agent.assembly import CHARS_PER_TOKEN, DEFAULT_BUDGET_TOKENS, HEAD_ROWS
 from backend.core.agent.llm import acomplete
 
@@ -53,7 +54,7 @@ async def maybe_compact(provider, conversation_id: int) -> bool:
 
 
 async def _maybe_compact(provider, conversation_id: int) -> bool:
-    state = await asyncio.to_thread(history.compaction_state, conversation_id)
+    state = await in_thread(history.compaction_state, conversation_id)
     if not state:
         return False
     budget = getattr(provider, "context_window", None) or DEFAULT_BUDGET_TOKENS
@@ -62,8 +63,8 @@ async def _maybe_compact(provider, conversation_id: int) -> bool:
     # comparison against the target rather than the trigger: below it there is nothing to shed.
     if last is not None and last < TARGET_FULLNESS * budget:
         return False
-    rows = await asyncio.to_thread(history.messages, conversation_id)
-    runs = await asyncio.to_thread(history.tool_runs_for, conversation_id)
+    rows = await in_thread(history.messages, conversation_id)
+    runs = await in_thread(history.tool_runs_for, conversation_id)
     by_message: dict[int, list[dict]] = {}
     for run in runs:
         by_message.setdefault(run["message_id"], []).append(run)
@@ -80,10 +81,10 @@ async def _maybe_compact(provider, conversation_id: int) -> bool:
     if not summary:
         return False
     gist = delimiters.wrap_conversation_summary(summary[:MAX_SUMMARY_CHARS].strip())  # cap, then wrap once
-    if not await asyncio.to_thread(history.set_compaction, conversation_id, gist, first_kept):
+    if not await in_thread(history.set_compaction, conversation_id, gist, first_kept):
         return False  # a concurrent turn moved the boundary further
     if any(delimiters.UNTRUSTED_EXTERNAL_MARKER in _render(r, by_message) for r in middle):
-        await asyncio.to_thread(history.mark_tainted, conversation_id)
+        await in_thread(history.mark_tainted, conversation_id)
     logger.info("compacted conversation %s: %d rows -> gist, first kept %d", conversation_id, len(middle), first_kept)
     return True
 

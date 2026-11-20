@@ -5,6 +5,7 @@ db checks and key files -> migrations -> preview checks -> seeds -> setup token 
 Run with one worker (`uvicorn backend.main:app --workers 1`): the data-dir lock refuses a second.
 """
 
+import asyncio
 import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -26,6 +27,7 @@ from backend.core import (
     security_headers,
     settings,
 )
+from backend.core.agent import detached
 from backend.core.auth import bootstrap, csrf
 from backend.core.auth.deps import User, current_user
 from backend.core.backup import service as backup
@@ -57,10 +59,11 @@ def create_app(apps_dir: Path = db.APPS_DIR) -> FastAPI:
         try:
             yield
         finally:
-            if await app.state.scheduler.stop():
+            jobs_done, turns_done = await asyncio.gather(app.state.scheduler.stop(), detached.shutdown())
+            if jobs_done and turns_done:
                 db.close()
-            else:  # a job outlived the grace: its thread may be mid-statement; the process exit closes the file
-                logger.warning("a job was still running at shutdown; leaving the database open")
+            else:  # a job or turn outlived the grace: its thread may be mid-statement; the process exit closes the file
+                logger.warning("a job or agent turn was still running at shutdown; leaving the database open")
 
     app = FastAPI(
         title="Springform",

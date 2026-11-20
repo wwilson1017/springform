@@ -1,0 +1,316 @@
+"""Server-owned turns (agent.md §5): a Whisk turn outlives the HTTP response that started it.
+
+Pattern from CakeCRM `assistant/turns.py`, cut down for one process, one SQLite file and one
+event loop: no leases, heartbeats or dead-turn judging. A turn this process runs is in
+`_running`; anything else has ended, or belonged to a process that is gone (startup marks those).
+
+`start()` hands the turn to a supervisor task and returns its event stream. The supervisor owns
+the turn end to end: it saves the user message and the `running` row (`_begin`, one
+transaction), runs `TurnRunner`, writes the events to `core_agent_turn_events` in batches, and
+commits the final status together with the last events. Every event gets a `seq` (0, 1, ...);
+the first also carries `turn_id`. The terminal event (`done` or `error`) is held back from every
+reader until that final commit, so a client that re-reads the conversation on `done` never
+finds its turn still running.
+
+Readers: the POST that started the turn and `GET /turns/{id}/events?after=N` both tail the
+in-memory log of a live turn; an ended turn is replayed from the table. A client that leaves
+only stops its own stream. Stop cancels the runner task (it ends with `done` + `stopped`);
+shutdown does the same with `error` + `interrupted`. A tool already running in a worker thread
+cannot be interrupted: the cancel takes effect when it returns (`aio.in_thread`).
+"""
+
+from __future__ import annotations
+
+import asyncio
+import json
+import logging
+import threading
+from collections.abc import AsyncGenerator, AsyncIterator
+
+from backend.core import clock, db
+from backend.core.agent import history
+from backend.core.agent.aio import in_thread
+from backend.core.agent.providers.base import AIProvider, sse
+from backend.core.agent.turn_hooks import TurnState
+from backend.core.agent.turns import TurnRunner
+from backend.core.auth.deps import User
+
+logger = logging.getLogger(__name__)
+
+FLUSH_S = 1.0  # how far the stored log may lag a live turn (only a restart replays from it)
+FINAL_TRIES = 3
+FINAL_RETRY_S = 0.5
+EVENTS_KEPT_DAYS = 7
+TERMINAL = ("done", "error")
+STOPPED = {"type": "done", "stopped": True}
+RESTARTED = {"type": "error", "error": "The server restarted before this reply finished.", "interrupted": True}
+CRASHED = "The assistant hit an unexpected error and stopped."
+
+
+class TurnRunning(Exception):
+    """The conversation already has a running turn (the route answers 409)."""
+
+
+class Live:
+    """One turn this process runs. `events[i]["seq"] == i`; readers see `events[:visible]`."""
+
+    def __init__(self, conversation_id: int | None):
+        self.conversation_id = conversation_id
+        self.turn_id: int | None = None
+        self.events: list[dict] = []
+        self.visible = 0
+        self.saved = 0
+        self.closed = False
+        self.status: str | None = None
+        self.stopping: str | None = None  # "cancelled" or "interrupted" once a stop was asked
+        self.changed = asyncio.Event()
+        self.ended = asyncio.Event()
+        self.ready: asyncio.Future[bool] = asyncio.get_running_loop().create_future()
+        self.pump: asyncio.Task | None = None
+        self.task: asyncio.Task | None = None
+
+    def terminal(self) -> bool:
+        return bool(self.events) and self.events[-1]["type"] in TERMINAL
+
+    def emit(self, event: dict) -> None:
+        if self.terminal():  # exactly one terminal event, and it is the last
+            return
+        n = len(self.events)
+        self.events.append({**event, "seq": n, **({"turn_id": self.turn_id} if n == 0 else {})})
+        if event["type"] not in TERMINAL:  # the terminal event waits for the final commit
+            self.visible = len(self.events)
+        self._pulse()
+
+    def _pulse(self) -> None:
+        self.changed.set()
+        self.changed = asyncio.Event()
+
+    async def tail(self, after: int) -> AsyncIterator[dict]:
+        i = after + 1
+        while True:
+            changed, end, closed = self.changed, self.visible, self.closed
+            for event in self.events[i:end]:
+                yield event
+            i = max(i, end)
+            if closed:
+                return
+            await changed.wait()
+
+    def stop(self, status: str) -> bool:
+        """Ask the turn to stop; False when it has already ended or is already stopping."""
+        if self.stopping or self.status or self.terminal():
+            return False
+        self.stopping = status
+        if self.pump is not None:
+            self.pump.cancel()
+        return True
+
+    def close(self) -> None:
+        self.visible, self.closed = len(self.events), True
+        self._pulse()
+
+
+_running: set[Live] = set()  # strong references: a bare task can be collected
+
+
+def _live(turn_id: int) -> Live | None:
+    return next((t for t in _running if t.turn_id == turn_id), None)
+
+
+async def _stream(events: AsyncIterator[dict]) -> AsyncGenerator[str, None]:
+    async for event in events:
+        yield sse(event)
+
+
+async def start(
+    provider: AIProvider, user: User, message: str | None, *, conversation_id: int | None, agent: dict
+) -> AsyncGenerator[str, None] | None:
+    """Start a turn and return its SSE stream; None when the conversation is not this user's.
+    Raises TurnRunning when the conversation already has one. The turn does not depend on the
+    caller: a request cancelled from here on still gets its message saved and answered."""
+    if conversation_id is not None and any(t.conversation_id == conversation_id for t in _running):
+        raise TurnRunning
+    live = Live(conversation_id)
+    _running.add(live)  # before any await, so a second post on this conversation is refused
+    live.task = asyncio.create_task(_supervise(live, provider, user, message, agent))
+    if not await asyncio.shield(live.ready):
+        return None
+    return _stream(live.tail(-1))
+
+
+async def _supervise(live: Live, provider: AIProvider, user: User, message: str | None, agent: dict) -> None:
+    try:
+        try:
+            begun = await in_thread(_begin, user, message, live.conversation_id, agent)
+        except Exception as e:
+            live.ready.set_exception(e)
+            return
+        live.ready.set_result(begun is not None)
+        if begun is None:
+            return
+        cid, title, turn_id = begun
+        live.conversation_id, live.turn_id = cid, turn_id
+        state = TurnState(user=user, agent=agent, provider=provider, conversation_id=cid, turn_id=turn_id)
+        if live.stopping is None:
+            live.pump = asyncio.create_task(TurnRunner(state, live.emit, title=title).run())
+        writer = asyncio.create_task(_writer(live))
+        live.status = await _outcome(live)
+        live.ended.set()
+        await writer
+    finally:
+        if not live.ready.done():
+            live.ready.cancel()
+        live.close()
+        _running.discard(live)
+
+
+async def _outcome(live: Live) -> str:
+    """Wait for the runner; make sure the log ends with one terminal event; return the status."""
+    if live.pump is not None:
+        await asyncio.wait([live.pump])
+        if not live.pump.cancelled() and (e := live.pump.exception()) is not None:
+            logger.error("agent turn %s crashed", live.turn_id, exc_info=e)
+            live.emit({"type": "error", "error": CRASHED})
+    if live.stopping and not live.terminal():
+        live.emit(STOPPED if live.stopping == "cancelled" else RESTARTED)
+        return live.stopping
+    if not live.terminal():  # the runner's contract says this cannot happen
+        live.emit({"type": "error", "error": CRASHED})
+    return "done" if live.events[-1]["type"] == "done" else "error"
+
+
+def _begin(
+    user: User, message: str | None, conversation_id: int | None, agent: dict
+) -> tuple[int, str | None, int] | None:
+    """One transaction: the conversation (created if new), the user message, the title and the
+    `running` turn row. None when the conversation is not this user's."""
+    title = None
+    with db.transaction() as conn:
+        if conversation_id is None:
+            conversation_id = history.create_conversation_in(conn, user.id, agent["id"])
+        elif not conn.execute(
+            "SELECT 1 FROM core_agent_conversations WHERE id = ? AND user_id = ?", (conversation_id, user.id)
+        ).fetchone():
+            return None
+        if message:
+            history.save_message_in(conn, conversation_id, "user", {"text": message})
+            title = history.auto_title_in(conn, conversation_id, message)
+        turn_id = db.insert_in(
+            conn,
+            "INSERT INTO core_agent_turns (conversation_id, user_id, status, started_at) VALUES (?, ?, 'running', ?)",
+            (conversation_id, user.id, clock.now_iso()),
+        )
+    return conversation_id, title, turn_id
+
+
+async def _writer(live: Live) -> None:
+    """The log's only writer: visible events every FLUSH_S, then the rest with the final status."""
+    while not live.ended.is_set():
+        try:
+            await asyncio.wait_for(live.ended.wait(), FLUSH_S)
+        except TimeoutError:
+            pass
+        if not live.ended.is_set() and live.saved < live.visible:
+            upto = live.visible
+            try:
+                await in_thread(_write, live.turn_id, live.events[live.saved : upto], None)
+                live.saved = upto
+            except Exception:
+                logger.warning("could not write the log of agent turn %s; retrying", live.turn_id, exc_info=True)
+    for attempt in range(FINAL_TRIES):
+        try:
+            await in_thread(_write, live.turn_id, live.events[live.saved :], live.status)
+            live.saved = len(live.events)
+            return
+        except Exception:
+            logger.warning("could not close the log of agent turn %s", live.turn_id, exc_info=True)
+            if attempt + 1 < FINAL_TRIES:
+                await asyncio.sleep(FINAL_RETRY_S)
+    # simplification: the stream still ends normally (the conversation rows are the record); the
+    # row stays `running` until the next startup marks it interrupted.
+    logger.error("agent turn %s ended but its log could not be closed", live.turn_id)
+
+
+def _write(turn_id: int, events: list[dict], status: str | None) -> None:
+    with db.transaction() as conn:
+        conn.executemany(
+            "INSERT INTO core_agent_turn_events (turn_id, seq, event) VALUES (?, ?, ?)",
+            [(turn_id, e["seq"], json.dumps(e, default=str)) for e in events],
+        )
+        if status:
+            conn.execute(
+                "UPDATE core_agent_turns SET status = ?, ended_at = ? WHERE id = ? AND status = 'running'",
+                (status, clock.now_iso(), turn_id),
+            )
+
+
+# ── Routes, startup, job, shutdown ────────────────────────────────────────────
+
+
+def get_turn(turn_id: int, user_id: int) -> dict | None:
+    """The turn row when this user started it (anyone else gets None: the routes answer 404)."""
+    return db.one("SELECT * FROM core_agent_turns WHERE id = ? AND user_id = ?", (turn_id, user_id))
+
+
+async def events(turn: dict, after: int) -> AsyncGenerator[str, None]:
+    """Every event with seq > after: tailed live while the turn runs, else from the stored log."""
+    live = _live(turn["id"])
+    if live is not None:
+        async for event in live.tail(after):
+            yield sse(event)
+        return
+    stored = await in_thread(
+        db.rows,
+        "SELECT event FROM core_agent_turn_events WHERE turn_id = ? AND seq > ? ORDER BY seq",
+        (turn["id"], after),
+    )
+    for row in stored:
+        yield f"data: {row['event']}\n\n"
+
+
+def cancel(turn: dict) -> bool:
+    """Stop a running turn; False when it has already ended."""
+    live = _live(turn["id"])
+    return live is not None and live.stop("cancelled")
+
+
+def mark_interrupted() -> int:
+    """At startup: turns left `running` belong to a process that is gone. Each gets a terminal
+    event in its log and the status `interrupted`."""
+    with db.transaction() as conn:
+        ids = [r["id"] for r in conn.execute("SELECT id FROM core_agent_turns WHERE status = 'running'")]
+        for turn_id in ids:
+            seq = conn.execute(
+                "SELECT coalesce(max(seq), -1) + 1 FROM core_agent_turn_events WHERE turn_id = ?", (turn_id,)
+            ).fetchone()[0]
+            conn.execute(
+                "INSERT INTO core_agent_turn_events (turn_id, seq, event) VALUES (?, ?, ?)",
+                (turn_id, seq, json.dumps({**RESTARTED, "seq": seq})),
+            )
+        conn.execute(
+            "UPDATE core_agent_turns SET status = 'interrupted', ended_at = ? WHERE status = 'running'",
+            (clock.now_iso(),),
+        )
+    return len(ids)
+
+
+def prune_events(cancel: threading.Event | None = None) -> None:
+    """Job core.agent_turn_events_prune: drop the events of turns that ended over 7 days ago."""
+    with db.transaction() as conn:
+        conn.execute(
+            """DELETE FROM core_agent_turn_events WHERE turn_id IN
+                 (SELECT id FROM core_agent_turns WHERE ended_at < ?)""",
+            (clock.ago(EVENTS_KEPT_DAYS * 86400),),
+        )
+
+
+async def shutdown(grace: float = 10) -> bool:
+    """Stop every running turn; True when all ended within `grace` (the database may close)."""
+    turns = list(_running)
+    for live in turns:
+        live.stop("interrupted")
+    tasks = [t.task for t in turns if t.task is not None]
+    if not tasks:
+        return True
+    _, pending = await asyncio.wait(tasks, timeout=grace)
+    return not pending
