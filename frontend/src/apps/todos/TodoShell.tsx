@@ -41,7 +41,11 @@ export function TodoShell({ active, hideQuickAdd, onAdded, inlineUndo, scoped, c
   const scope = useScope();
   const inboxCount = filters?.status_counts.inbox ?? 0;
   useEffect(() => {
+    const before = document.title;
     document.title = 'Todos';
+    return () => {
+      document.title = before; // the install name again on the next page
+    };
   }, []);
   const phone = useMediaQuery(PHONE_QUERY);
 
