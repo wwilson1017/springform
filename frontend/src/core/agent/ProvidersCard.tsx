@@ -6,6 +6,7 @@ import { LoadError } from '../../shared/LoadError';
 import { toast } from '../../shared/toast';
 import type { ProviderInfo, ProviderTest } from './types';
 import { BUTTON, HINT, INPUT, LABEL, PRIMARY } from './ui';
+import { useAgentName } from './useAgentName';
 
 const NAMES: Record<string, string> = { anthropic: 'Anthropic (Claude)', openai: 'OpenAI (GPT)' };
 
@@ -153,14 +154,15 @@ function ProviderRow({ p, onSaved }: { p: ProviderInfo; onSaved: (p: ProviderInf
 
 /** Settings, AI: the providers Whisk can use (lifted in shape from CakeCRM's ProviderSetup). */
 export default function ProvidersCard() {
+  const agentName = useAgentName();
   const { data, error, reload, setData } = useJson<ProviderInfo[]>('/api/agent/providers');
   if (error) return <LoadError label="Couldn't load the providers" onRetry={reload} />;
   if (!data) return <BootFallback variant="panel" />;
   return (
     <div className="flex flex-col gap-3">
       <p className={HINT}>
-        Whisk uses the first enabled provider that has a key, in this order. Keys are stored encrypted and never shown
-        again.
+        {agentName} uses the first enabled provider that has a key, in this order. Keys are stored encrypted and never
+        shown again.
       </p>
       {data.map((p) => (
         <ProviderRow

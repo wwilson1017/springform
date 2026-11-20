@@ -6,6 +6,7 @@ import { formatDate } from '../../shared/formatDate';
 import { LoadError } from '../../shared/LoadError';
 import { toast } from '../../shared/toast';
 import type { McpLink, NewMcpLink } from './types';
+import { useAgentName } from '../agent/useAgentName';
 
 const LINKS = '/api/core/mcp/links';
 const inputClass =
@@ -30,6 +31,7 @@ async function copy(text: string) {
  * component's state: "Done", revoking it or leaving the page forgets it, and the list never has it.
  */
 export default function McpLinksCard() {
+  const agentName = useAgentName();
   const { data: links, error, reload } = useJson<McpLink[]>(LINKS);
   const [label, setLabel] = useState('');
   const [busy, setBusy] = useState(false);
@@ -73,8 +75,8 @@ export default function McpLinksCard() {
   return (
     <div className="flex flex-col gap-4 text-sm">
       <p className="m-0 text-sf-ink-mute">
-        Connect Claude (claude.ai, Claude Desktop or Claude Code) to this workspace. It gets the same tools Whisk has
-        and acts as you, so a link is as private as your password: make one per app, and revoke any you stop using.
+        Connect Claude (claude.ai, Claude Desktop or Claude Code) to this workspace. It gets the same tools {agentName}{' '}
+        has and acts as you, so a link is as private as your password: make one per app, and revoke any you stop using.
       </p>
 
       <form onSubmit={create} className="flex flex-wrap gap-2">

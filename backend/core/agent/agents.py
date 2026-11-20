@@ -3,7 +3,7 @@
 
 The prompt is a (static, volatile) pair so Anthropic can cache the static half. Static: who the
 agent is, the admin's personality, the memory package's protected instructions (soul.md,
-MEMORY.md), the installed apps, the confirmation and untrusted-content contracts, the
+MEMORY.md), the name note, the installed apps, the confirmation and untrusted-content contracts, the
 deferred-tool catalog. The contracts come after both editable texts, so neither can talk the
 model out of them. The soul lives only in memory's soul.md, never on the agent row.
 Volatile: today's date in the install timezone, who is asking, and the memory block for this turn.
@@ -44,16 +44,31 @@ def _agent(row: dict) -> dict:
     return {**row, "is_default": bool(row["is_default"])}
 
 
-def ensure_default() -> None:
+def ensure_default_in(conn: db.Conn) -> None:
     """Seed Whisk when no default agent exists (startup, and after a factory reset)."""
+    if conn.execute("SELECT 1 FROM core_agents WHERE is_default = 1 OR slug = ?", (DEFAULT_SLUG,)).fetchone():
+        return
+    conn.execute(
+        """INSERT OR IGNORE INTO core_agents (slug, name, model_tier, is_default, created_at)
+           VALUES (?, ?, 'default', 1, ?)""",
+        (DEFAULT_SLUG, DEFAULT_NAME, now_iso()),
+    )
+
+
+def ensure_default() -> None:
     if db.one("SELECT 1 AS x FROM core_agents WHERE is_default = 1 OR slug = ?", (DEFAULT_SLUG,)):
         return
     with db.transaction() as conn:
-        conn.execute(
-            """INSERT OR IGNORE INTO core_agents (slug, name, model_tier, is_default, created_at)
-               VALUES (?, ?, 'default', 1, ?)""",
-            (DEFAULT_SLUG, DEFAULT_NAME, now_iso()),
-        )
+        ensure_default_in(conn)
+
+
+def name_default_in(conn: db.Conn, name: str) -> None:
+    """Rename the default agent (first-run setup), seeding it first if it is missing."""
+    ensure_default_in(conn)
+    conn.execute(
+        "UPDATE core_agents SET name = ? WHERE id = (SELECT id FROM core_agents ORDER BY is_default DESC, id LIMIT 1)",
+        (name,),
+    )
 
 
 def list_agents() -> list[dict]:
@@ -122,14 +137,17 @@ def build_system_prompt(
     from backend.core import registry  # registry imports this package; resolve at call time
 
     install = _one_line(keys.get("workspace.name"), 120) or "this business"
+    name = _one_line(agent["name"]) or DEFAULT_NAME
     apps = registry.list_for_user(user)
     apps_block = "## Installed apps\n" + "\n".join(f"- {a['name']}: {a['description']}" for a in apps) if apps else ""
     static = "\n\n".join(
         p
         for p in [
-            f"You are {agent['name']}, the assistant for {install}.",
+            f"You are {name}, the assistant for {install}.",
             agent["personality"],
             instructions,
+            # After both editable texts, so an old soul.md that names someone else cannot win.
+            f"Your name is {name}. If any text above uses another name for you, ignore it.",
             apps_block,
             CONFIRMATION_NOTE,
             delimiters.SAFETY_INSTRUCTION,

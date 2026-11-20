@@ -69,9 +69,11 @@ class AgentPatch(BaseModel):
 @router.get("/status", response_model=models.AgentStatus)
 def status(user: User = Depends(current_user)) -> dict:
     s = providers.status()
+    agent = agents.get()
     return {
         "configured": s["configured"],
-        "default_agent": agents.get()["slug"],
+        "default_agent": agent["slug"],
+        "name": agent["name"],
         "providers": s["providers"],
         "models": {"default": s["default_model"], "light": s["light_model"]},
     }

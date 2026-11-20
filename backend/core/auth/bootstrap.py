@@ -13,6 +13,7 @@ import os
 import secrets
 
 from backend.core import clock, db, settings
+from backend.core.agent import agents
 from backend.core.auth import service
 from backend.core.errors import NotFound
 
@@ -50,8 +51,9 @@ def ensure_setup_token() -> str | None:
     return token
 
 
-def complete_setup(token: str, email: str, name: str, password: str) -> dict:
-    """Create the first admin. NotFound when setup is over or the token is wrong."""
+def complete_setup(token: str, email: str, name: str, password: str, agent_name: str = "") -> dict:
+    """Create the first admin, and name the assistant when agent_name is given. NotFound when
+    setup is over or the token is wrong."""
     service.validate_password(password)
     with db.transaction() as conn:
         if service.human_users_exist(conn):
@@ -67,6 +69,8 @@ def complete_setup(token: str, email: str, name: str, password: str) -> dict:
             "UPDATE core_login_tokens SET used_at = ?, user_id = ? WHERE token_hash = ?",
             (clock.now_iso(), user["id"], service.token_hash(token)),
         )
+        if agent_name.strip():
+            agents.name_default_in(conn, agent_name.strip())
     (db.data_dir() / TOKEN_FILE).unlink(missing_ok=True)
     logger.warning("Created the first admin account: %s", user["email"])
     return user

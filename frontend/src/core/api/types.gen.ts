@@ -3436,6 +3436,8 @@ export interface components {
             /** Default Agent */
             default_agent: string;
             models: components["schemas"]["AgentModels"];
+            /** Name */
+            name: string;
             /** Providers */
             providers: components["schemas"]["ProviderInfo"][];
         };
@@ -6233,6 +6235,11 @@ export interface components {
         };
         /** SetupIn */
         SetupIn: {
+            /**
+             * Agent Name
+             * @default
+             */
+            agent_name: string;
             /** Email */
             email: string;
             /**

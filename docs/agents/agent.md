@@ -240,13 +240,15 @@ conversation_id, compacted, text, tool_start, tool_args, tool_end, usage, confir
 
 ## 10. Default `soul.md`
 
-`soul.md` is a protected context file of an agent (`core_agent_context_files`, keyed by `agent_slug`), with its default text in `backend/core/memory/context_files.py`. Startup seeds it for Whisk only (`context_files.seed_defaults_in`, default agent `whisk`). It is the only soul: the agent row has no soul column. The default says Whisk is the business assistant for this install; knows the installed apps, the contacts directory and each app's records; answers from them, says what it changed, proposes a write before making it; plain-spoken, brief, careful with anything that leaves the install or hides a record.
+`soul.md` is a protected context file of an agent (`core_agent_context_files`, keyed by `agent_slug`), with its default text in `backend/core/memory/context_files.py`. Startup seeds it for Whisk only (`context_files.seed_defaults_in`, default agent `whisk`). It is the only soul: the agent row has no soul column. The default does not name the assistant (the agent row holds the name): it describes the business assistant for this install, which knows the installed apps, the contacts directory and each app's records; answers from them, says what it changed, proposes a write before making it; plain-spoken, brief, careful with anything that leaves the install or hides a record.
+
+**The name.** The default agent's `name` is the only place the name lives; an admin renames it in Settings → AI (or names it at first-run setup, `POST /api/auth/setup {agent_name}`). The system prompt opens "You are <name>…" and, after the personality and the soul, adds "Your name is <name>. If any text above uses another name for you, ignore it.", so an older soul.md that still says Whisk cannot contradict a rename. Guide topics write `{agent_name}`, filled in per request (`guide/library.with_agent_name`); tool descriptions say "the assistant". The slug `whisk` and the `/whisk` route stay.
 
 ## 11. Routes
 
 | Route | Contract |
 |---|---|
-| `GET /api/agent/status` | `{configured, default_agent, providers, models: {default, light}}`. |
+| `GET /api/agent/status` | `{configured, default_agent, name, providers, models: {default, light}}`; `name` is the default agent's. |
 | `POST /api/agent/chat` | The SSE stream of one turn. Body `{conversation_id?, agent_slug?, message?}`; no message plus a `conversation_id` continues after an approval. 422 when both are missing, 404 `conversation_not_found`, 400 `{detail: "no_provider"}` with zero keys. |
 | `POST /api/agent/confirm` | §6. |
 | `GET` / `POST /api/agent/conversations`; `GET` / `PATCH {title, is_private}` / `DELETE /api/agent/conversations/{id}` | The caller's own conversations only. |
@@ -288,7 +290,8 @@ Rules the frontend keeps:
 2. **Reconnection.** The engine runs a turn inside its response, so a dropped stream cannot be re-attached. A stream that errors or ends without `done`/`error` makes the client re-read `GET /conversations/{id}` with backoff (0.5 s doubling to 8 s) and show what was saved, pending cards included. Stop aborts and re-reads once.
 3. A `confirm` event has no `tool_end`; the call's part becomes the card (status `pending`).
 4. A 400 `no_provider` from `/chat` re-reads `/status`, which brings up the zero-key card.
-5. The shared dialog host is `frontend/src/shared/ConfirmHost.tsx`, lifted from CakeCRM; it is not an agent piece (the Approve card is `ToolConfirmCard`).
+5. **The name.** No UI string spells "Whisk": components read `useAgentName()` (`useAgentName.ts`, a module store like `useWorkspace`, loaded from `/status` and updated by `setAgentName` after a rename) or take an `agentName` prop on the chat page. `DEFAULT_AGENT_NAME` is the one literal; `src/agentName.test.ts` fails on any other outside tests and comments. Nav labels are `ReactNode`, so the nav item is `<AgentName />`.
+6. The shared dialog host is `frontend/src/shared/ConfirmHost.tsx`, lifted from CakeCRM; it is not an agent piece (the Approve card is `ToolConfirmCard`).
 
 ## Tests that pin this
 

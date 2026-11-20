@@ -40,7 +40,7 @@ order: 30
   you believe exist and the implications you would ask about. Improvised implication
   questions rarely land.
 
-## When Whisk reaches for it
+## When {agent_name} reaches for it
 
 - **A deal has no stated problem** — it sits in *lead* or *qualified*, the notes describe
   the buyer's company but never what is broken.
