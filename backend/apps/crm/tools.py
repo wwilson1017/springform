@@ -174,10 +174,12 @@ def _write(
     *,
     summary: str,
     routine: bool = True,
+    destructive: bool = False,
 ) -> ToolSpec:
     return ToolSpec(
         name=name, description=description, input_schema={"type": "object", "properties": properties, "required": list(required)},
         writes=True, confirm_tier=ROUTINE if routine else None, handler_in=handler_in, targets=targets, summary=summary,
+        destructive=destructive,
     )  # fmt: skip
 
 
@@ -382,6 +384,7 @@ def get_tools() -> list[ToolSpec]:
             ("target_id", "source_id"),
             lambda args: [(ENTITY, int(args["target_id"])), (ENTITY, int(args["source_id"]))],
             routine=False,
+            destructive=True,  # the source's custom-field values that clash with the target's are deleted
             summary="Merge the source deal into the target and archive the source.",
         ),  # fmt: skip
         _write(

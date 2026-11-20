@@ -157,6 +157,7 @@ class Item(BaseModel):
     entity_type: str | None
     entity_id: int | None
     source: Literal["ui", "agent", "app"]
+    source_client: str | None = Field(default=None, description="The AI tool behind an MCP-made todo, e.g. ChatGPT")
     created_at: str
     updated_at: str
     completed_at: str | None

@@ -4880,6 +4880,11 @@ export interface components {
              * @enum {string}
              */
             source: "ui" | "agent" | "app";
+            /**
+             * Source Client
+             * @description The AI tool behind an MCP-made todo, e.g. ChatGPT
+             */
+            source_client?: string | null;
             /** Star */
             star: boolean;
             /**

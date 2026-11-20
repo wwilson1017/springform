@@ -311,6 +311,7 @@ def _manifest(**overrides) -> dict:
         ({"roles": []}, "roles"),
         ({"requires_core": "0.1"}, "requires_core"),
         ({"badge": "/api/other/badge"}, "badge"),
+        ({"agent_guidance": "x" * 4001}, "at most 4000"),
     ],
 )
 def test_manifest_rules(overrides, message):

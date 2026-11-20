@@ -26,6 +26,7 @@ The app contract replaces the 25 core edits a previous CakeCRM fork needed. An a
 | `settings_cards` | list | `[{id, title, admin_only}]`. Each `id` must have a loader in `contributions.ts`. |
 | `sheets` | list | `[{name, mode, description}]`, `mode` is `read` or `write`. Seeds `core_connected_sheets` (`sheets-and-export.md`). |
 | `publishes` | list | Names of the app's published functions (the example lists `["get_widget", "widgets_for_person"]`). Validated against the names `api.py` exports. |
+| `agent_guidance` | string, optional | One paragraph (at most 4,000 characters) telling an AI how to work this app's tools. `registry.agent_guidance(user)` joins the paragraphs of the apps the user's role reaches under `## Working in the apps`, for Whisk's static prompt (after the installed apps, before the contracts) and the inbound MCP server's instructions. Default `""`. Todos carries the GTD-partner paragraph. |
 | `requires_apps` | list, optional | Slugs of the apps whose seed and sample data this app's build on (an `orders` app listing `["recipes"]`). Apps seed, sample and are listed by `registry.installed()` in folder-name order, except that each app comes after the apps it requires. A slug that is not installed, or a cycle, stops startup with an `AppContractError` naming the apps. Default `[]`. |
 
 The current fixture manifest (`backend/apps/example/app.json`):
@@ -46,7 +47,8 @@ The current fixture manifest (`backend/apps/example/app.json`):
   "requires_core": ">=0.1,<1",
   "settings_cards": [{ "id": "example", "title": "Example", "admin_only": true }],
   "sheets": [{ "name": "widgets", "mode": "read", "description": "A sample sheet of widgets" }],
-  "publishes": ["get_widget", "widgets_for_person"]
+  "publishes": ["get_widget", "widgets_for_person"],
+  "agent_guidance": "Widgets are sample records from the example app; use these tools only when the user asks about widgets."
 }
 ```
 

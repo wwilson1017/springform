@@ -38,7 +38,8 @@ core_agent_tool_runs(
   status,                      -- CHECK over the eight values in §7
   result, error, user_id,
   source CHECK (source IN ('chat','mcp','job')),
-  requested_at, resolved_at, resolved_by
+  requested_at, resolved_at, resolved_by,
+  client                       -- the AI tool of an MCP call (mcp.md §1), else NULL
 )                              -- the pending store and the audit log
 core_agent_facts(text, tags JSON, valid_from, invalid_from, invalidated_by, superseded_by,
                  source_conversation_id, author_user_id, created_at)   -- + FTS
@@ -86,8 +87,14 @@ ToolSpec(
     revision,           # the owning app's version string; "" for core tools
     server_id, server_url,   # remote (outbound MCP) tools only; remote means server_url is set
     summary: str = "",  # user-facing Approve card line; empty shows only name and args
+    title: str = "",    # MCP display title; empty derives one from the name. Not in tool_def_sha256
+    destructive: bool = False,  # MCP destructiveHint: the write discards data for good. Not in tool_def_sha256
 )
 ```
+
+`spec.calling_client` is a context variable holding the MCP client's self-reported name while an
+inbound MCP call runs (`None` in chat and jobs). A `handler_in` may read it for provenance (Todos
+stores it as `source_client`); a `handler` runs in a worker thread and does not see it.
 
 ### Handler forms
 
