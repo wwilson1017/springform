@@ -365,6 +365,8 @@ async def _wrap_up(provider, cid: int, msgs: list[dict], tools: list[dict], syst
             yield sse({"type": "error", "error": str(event.get("error") or "Provider error")[:500]})
             return
         elif event["type"] == "_turn_complete":
+            if event.get("untrusted"):  # the provider searched the web while narrating (Anthropic)
+                await asyncio.to_thread(history.mark_tainted, cid)
             usage = event.get("usage") or {}
             if meter := context_usage_event(usage, provider.context_window, meter_only=True):
                 yield sse(meter)

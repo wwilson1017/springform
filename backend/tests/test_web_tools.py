@@ -244,7 +244,8 @@ def whisk(app, monkeypatch):
         targets=lambda args: [],
         handler_in=lambda conn, user, args: notes.append(1) or {"ok": True},
     )
-    tool_registry.set_current(tool_registry.build_registry([*before.all(), jot]))
+    ask = replace(jot, name="core_ask_note", confirm_tier=None)  # a write that always asks
+    tool_registry.set_current(tool_registry.build_registry([*before.all(), jot, ask]))
     yield notes
     tool_registry.set_current(before)
     fake.reset()
@@ -275,6 +276,14 @@ def test_a_provider_side_search_taints_the_turn_it_happens_in(login_as, whisk):
     fake.script({"tool": "core_jot_note", "untrusted": True}, "Waiting.")  # searched, then wrote, in one reply
     evs = chat(a, "search and jot")
     assert [e["tool"] for e in evs if e["type"] == "confirm"] == ["core_jot_note"] and whisk == []
+    assert history.compaction_state(evs[0]["id"])["tainted"] == 1
+
+
+def test_a_provider_side_search_while_narrating_an_approval_taints_too(login_as, whisk):
+    a = login_as("member")
+    fake.script({"tool": "core_ask_note"}, {"tool": "core_jot_note", "text": "Waiting.", "untrusted": True})
+    evs = chat(a, "ask, then narrate")
+    assert [e["tool"] for e in evs if e["type"] == "confirm"] == ["core_ask_note"] and whisk == []
     assert history.compaction_state(evs[0]["id"])["tainted"] == 1
 
 
