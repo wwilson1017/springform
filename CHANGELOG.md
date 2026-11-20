@@ -18,7 +18,13 @@ Conventions:
 
 ## [Unreleased]
 
+### Added
+
+- Whisk can search the web and read a web page (`core_web_search`, `core_web_fetch`). What it reads is treated as untrusted, so every later change in that conversation asks for approval. Search is DuckDuckGo by default, or Anthropic's own web search while Whisk runs on Anthropic; admins switch both in Settings, AI, Web. Page reads never reach private or local addresses, including through redirects.
+
 ### Changed
+
+- Outbound MCP also refuses NAT64, 6to4 and IPv4-compatible IPv6 addresses.
 
 - CI also checks formatting (`ruff format`, Prettier) and types (pyright), and installs from `uv.lock` with `--locked`. `scripts/check.sh` runs the same checks locally, and `scripts/new-app.sh` formats the app it writes so a new app passes them. A fork whose app tests trip pyright's Optional-access rules adds its tests folder to `executionEnvironments` in `pyproject.toml` (`docs/agents/forks.md`).
 

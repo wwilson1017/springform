@@ -61,6 +61,24 @@ def _positive_int(value: Any) -> int:
     return value
 
 
+def _choice(*options: str) -> Callable[[Any], str]:
+    def check(value: Any) -> str:
+        if value not in options:
+            raise ValueError(f"must be one of {', '.join(options)}")
+        return value
+
+    return check
+
+
+def _int_range(low: int, high: int) -> Callable[[Any], int]:
+    def check(value: Any) -> int:
+        if isinstance(value, bool) or not isinstance(value, int) or not low <= value <= high:
+            raise ValueError(f"must be a whole number from {low} to {high}")
+        return value
+
+    return check
+
+
 def _bool(value: Any) -> bool:
     if not isinstance(value, bool):
         raise ValueError("must be true or false")
@@ -77,6 +95,9 @@ CORE_KEYS: dict[str, Key] = {
     "agent.nightly_enabled": Key(False, _bool),  # off: the nightly run spends AI credits
     "agent.context_budget_chars": Key(memory.DEFAULT_BUDGET, _positive_int),  # memory block size per turn
     "auth.require_totp_for_google": Key(False, _bool),
+    "web.enabled": Key(True, _bool),  # Whisk's web search and page reading
+    "web.search_provider": Key("free", _choice("free", "anthropic")),  # anthropic: Claude's own search
+    "web.search_max_uses": Key(5, _int_range(1, 20)),  # Anthropic searches per reply
 }
 
 

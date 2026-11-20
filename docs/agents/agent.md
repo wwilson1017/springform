@@ -169,6 +169,10 @@ Every install has these, from core packages' `tools.py`. The contacts, note and 
 | `core_memory_remember` | write | Records one business fact. |
 | `core_context_file_read` | read | One of Whisk's context files. |
 | `core_context_file_write` | write | Replaces a context file, protected ones included: admin only, `always_confirm`, not over MCP. |
+| `core_web_search` | untrusted read | Web search, up to 10 results (title, url, snippet): DuckDuckGo through `ddgs`, no key. With `web.search_provider = "anthropic"` the Anthropic provider swaps it for Anthropic's server-side `web_search` (`web_search_20250305`, `max_uses` = `web.search_max_uses`), continues a `pause_turn` itself (up to 3 times) and appends the cited pages as a Markdown "Sources" list. |
+| `core_web_fetch` | untrusted read | One http(s) page through the outbound transport's web mode (`mcp.md` §2, Address policy): final url, title, readable text (BeautifulSoup, scripts and page chrome dropped), at most 15,000 characters with a `note` when cut, 5 MB read, 25 s for the whole fetch; non-text types refused. |
+
+The two web tools (`backend/core/web/`) are offered while `web.enabled` is on (default) to active admins and members, never over inbound MCP (`mcp_exposed=False`) or to jobs. Both are `untrusted_source`, so a result taints the conversation (§5 rule 4). Anthropic's server-side search returns its results inside the reply, past the fence, so the provider reports `untrusted` on `_turn_complete` and the engine taints the conversation before it gates that reply's tool calls; server tool blocks are not tool runs and are not shown as tool calls.
 
 ## 5. Turn loop
 
@@ -279,7 +283,7 @@ The Step 1 engine stub is gone; the full engine (`engine.py`, `chat()` and `conf
 | `ConversationSidebar`, `useConversations` | Chatty | Search (`?q=` over message text), new, inline rename, private toggle, delete with confirm. |
 | `MarkdownContent` | shared with the Guide (`src/shared/`) | GFM, no highlighting; in-app links stay in the tab through `Link`, external ones open a new tab; images never load. |
 | `ZeroKeyCard` | new | `status.configured:false`: replaces the composer; admins get a link to Settings, AI, members are told to ask an admin. Old threads still open. |
-| `settingsCards.ts`, section `ai` (admin, order 70) | CakeCRM `ProviderSetup` (Providers), Chatty `AgentContextEditor` (Memory) | Providers (key set/replace/remove via `has_key`, both model tiers, enabled, Test), Agents (name, personality, provider and model override, tier), Memory (context files with protected ones read-only; facts with provenance and "End validity"), Nightly run (`agent.nightly_enabled`). |
+| `settingsCards.ts`, section `ai` (admin, order 70) | CakeCRM `ProviderSetup` (Providers), Chatty `AgentContextEditor` (Memory) | Providers (key set/replace/remove via `has_key`, both model tiers, enabled, Test), Agents (name, personality, provider and model override, tier), Memory (context files with protected ones read-only; facts with provenance and "End validity"), Nightly run (`agent.nightly_enabled`), Web (`web.enabled`, `web.search_provider`, `web.search_max_uses`). |
 | `McpLinksCard` (`src/core/mcp/`), `McpServersCard` (`src/core/mcp_servers/`) | new | Settings → MCP (member-visible: the caller's links; a new link's URL is shown once, with a `claude mcp add` command) and Settings → MCP servers (admin: add, edit, enable, Refresh, Test, Remove). Each area has its own `settingsCards.ts`; see `mcp.md`. |
 
 Rules the frontend keeps:

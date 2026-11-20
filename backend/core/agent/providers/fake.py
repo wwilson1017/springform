@@ -5,6 +5,7 @@
     {"tool": name, "args": {...}, "text"?}  -> one tool call (after optional text)
     [{"tool": ...}, {"tool": ...}]          -> several tool calls in one iteration
     {"error": "message"}                    -> a provider error
+    a dict turn with "untrusted": True      -> reported as untrusted (a provider-side web search)
 With nothing queued it answers from the conversation: a user message `/tool <name> <json args>`
 calls that tool, a tool result or the resume nudge gets "Done.", anything else is echoed.
 Usage is reported as characters / 4 against CONTEXT_WINDOW, so compaction can be exercised.
@@ -80,6 +81,7 @@ class FakeProvider(AIProvider):
             "tool_calls": tool_calls,
             "stop_reason": "tool_use" if tool_calls else "end_turn",
             "usage": {"input_tokens": read // 4, "output_tokens": max(1, len(text) // 4)},
+            "untrusted": isinstance(turn, dict) and turn.get("untrusted") is True,
         }
 
     def add_tool_results(self, messages: list[dict], tool_calls: list[dict], results: list[dict]) -> list[dict]:

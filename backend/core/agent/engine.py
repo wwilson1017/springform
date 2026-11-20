@@ -201,6 +201,9 @@ async def _chat(provider, user, message, conversation_id, agent_slug) -> AsyncGe
             elif etype == "_turn_complete":
                 calls, stop = event.get("tool_calls") or [], event.get("stop_reason")
                 usage, native, completed = event.get("usage") or {}, event.get("assistant_content"), True
+                if event.get("untrusted") and not tainted:  # the provider's own web search (Anthropic)
+                    tainted = True
+                    await asyncio.to_thread(history.mark_tainted, cid)
                 break
         if not completed:
             yield sse({"type": "error", "error": "The model response ended unexpectedly."})

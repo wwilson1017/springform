@@ -12,6 +12,7 @@ export default [
       { id: 'agents', title: 'Agents', adminOnly: true, Card: lazy(() => import('./AgentsCard')) },
       { id: 'memory', title: 'Memory', adminOnly: true, Card: lazy(() => import('./MemoryCard')) },
       { id: 'nightly', title: 'Nightly run', adminOnly: true, Card: lazy(() => import('./NightlyCard')) },
+      { id: 'web', title: 'Web', adminOnly: true, Card: lazy(() => import('./WebCard')) },
     ],
   },
 ] satisfies SettingsSection[];
