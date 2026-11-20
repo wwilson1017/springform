@@ -169,9 +169,12 @@ export function useAgentChat(options: Options = {}) {
       let ended: 'terminal' | 'dropped' = 'dropped';
       const onEvents = (batch: ChatEvent[]) => {
         if (!turn.live) return;
-        const events = batch.filter((e) => e.seq == null || e.seq > turn.lastSeq); // a replay overlaps
+        // A replay overlaps what was shown; the ending always counts (after a restart its seq can be old).
+        const events = batch.filter(
+          (e) => e.seq == null || e.seq > turn.lastSeq || e.type === 'done' || e.type === 'error',
+        );
         for (const e of events) {
-          if (e.seq != null) turn.lastSeq = e.seq;
+          if (e.seq != null) turn.lastSeq = Math.max(turn.lastSeq, e.seq);
           if (e.turn_id != null && turn.turnId == null) {
             turn.turnId = e.turn_id;
             if (turn.stopped) void cancelTurn(turn); // Stop came before the id

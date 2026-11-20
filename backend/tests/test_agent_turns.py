@@ -170,6 +170,8 @@ def test_a_turn_left_running_is_interrupted_at_startup(login_as):
     assert row["status"] == "interrupted" and row["ended_at"]
     log = events(a.get(f"/api/agent/turns/{tid}/events"))
     assert [e["seq"] for e in log] == [0, 1] and log[-1] == {**detached.RESTARTED, "seq": 1}
+    # A client that saw more than was stored still gets the ending.
+    assert events(a.get(f"/api/agent/turns/{tid}/events?after=5")) == [log[-1]]
     assert a.post("/api/agent/chat", json={"conversation_id": cid, "message": "again"}).status_code == 200
 
 

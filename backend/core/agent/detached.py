@@ -259,13 +259,25 @@ async def events(turn: dict, after: int) -> AsyncGenerator[str, None]:
         async for event in live.tail(after):
             yield sse(event)
         return
-    stored = await in_thread(
-        db.rows,
-        "SELECT event FROM core_agent_turn_events WHERE turn_id = ? AND seq > ? ORDER BY seq",
-        (turn["id"], after),
-    )
-    for row in stored:
+    for row in await in_thread(_stored, turn, after):
         yield f"data: {row['event']}\n\n"
+
+
+def _stored(turn: dict, after: int) -> list[dict]:
+    """The stored events after `after`. A turn marked `interrupted` at startup may have streamed
+    up to a second of events that were never stored, so its `interrupted` event can carry a seq
+    the client already has: it is sent whatever `after` is."""
+    sql = "SELECT event FROM core_agent_turn_events WHERE turn_id = ?"
+    rows = db.rows(f"{sql} AND seq > ? ORDER BY seq", (turn["id"], after))
+    if turn["status"] == "interrupted" and not (rows and _is_terminal(rows[-1])):
+        last = db.one(f"{sql} ORDER BY seq DESC LIMIT 1", (turn["id"],))
+        if last and _is_terminal(last):
+            rows.append(last)
+    return rows
+
+
+def _is_terminal(row: dict) -> bool:
+    return json.loads(row["event"])["type"] in TERMINAL
 
 
 def cancel(turn: dict) -> bool:
