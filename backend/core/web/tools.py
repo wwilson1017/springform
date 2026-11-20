@@ -53,10 +53,14 @@ def _search(user, args: dict) -> dict:
     try:
         raw = DDGS(timeout=SEARCH_TIMEOUT).text(query, max_results=count, backend="duckduckgo")
     except DDGSException as e:
-        if str(e) == "No results found.":
-            raw = []
-        else:
+        if str(e) != "No results found.":
             raise Invalid(f"Web search failed: {e}") from None
+        # ddgs says this both for a real empty answer and when DuckDuckGo turns the server away
+        return {
+            "query": query,
+            "results": [],
+            "note": "No results. DuckDuckGo may be limiting this server; try again later.",
+        }
     results = [
         {"title": str(r.get("title", ""))[:200], "url": r.get("href", ""), "snippet": str(r.get("body", ""))[:500]}
         for r in raw[:count]

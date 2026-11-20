@@ -66,7 +66,7 @@ def internal(ip: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
 def check(address: str, *, plain: bool, allow: bool) -> None:
     ip = ipaddress.ip_address(address)
     if internal(ip) and not allow:
-        raise Refused(f"{ip} is a loopback, private or link-local address; outbound MCP refuses it")
+        raise Refused(f"{ip} is a loopback, private or link-local address; the outbound guard refuses it")
     if plain and not internal(ip):
         raise Refused(f"http:// is allowed only to private addresses, and {ip} is public; use https")
 
