@@ -62,7 +62,7 @@ The endpoint lives in `backend/core/mcp/router.py` as plain ASGI routes on the d
 | Request | Response |
 |---|---|
 | Any request carrying an `Origin` header | **403**, checked first. AI clients call from a server or a desktop app and send none. |
-| Path token `/mcp/<token>`, `/link/<token>` or `/<token>/mcp` that is unknown, revoked or deactivated | **404**, never 401. `/<token>/mcp` matches only a 43-character token segment, so `/settings/mcp` stays the SPA's. |
+| Path token `/mcp/<token>`, `/link/<token>` or `/<token>/mcp` that is unknown, revoked or deactivated | **404**, never 401. `/link/…` and `/<token>/mcp` match only a 43-character token segment, so `/settings/mcp` (or an app named `link`) stays the SPA's. |
 | Bearer `/mcp` with a bad or missing token | **401** with `WWW-Authenticate: Bearer` (no resource metadata: there is no OAuth server). |
 | `/.well-known/…`, `/register`, `/authorize`, `/token`, any method | **404** (no OAuth; a client finds no sign-in and uses the link as is). |
 | More than **600 requests/min per link** | **429**, `Retry-After: 60`. |

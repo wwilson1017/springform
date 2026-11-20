@@ -150,7 +150,7 @@ async def _no_sign_in(scope: Scope, receive: Receive, send: Send) -> None:
 
 class _LinkToken(Convertor):
     """A link token's shape (`secrets.token_urlsafe(32)`: 43 URL-safe characters), so `/<token>/mcp`
-    never captures an app path like `/settings/mcp`."""
+    and `/link/<token>` never capture an app path like `/settings/mcp`."""
 
     regex = "[A-Za-z0-9_-]{43}"
 
@@ -165,7 +165,9 @@ register_url_convertor("linktoken", _LinkToken())
 
 # Route, not add_route: add_route is typed for request handlers only, though Starlette serves any ASGI app.
 router.routes.append(Route("/mcp", _Asgi(_bearer_token), include_in_schema=False))
-for _path in ("/mcp/{token}", "/link/{token}", "/{token:linktoken}/mcp"):
+# The newer shapes match only a token-shaped segment: `link` is not a reserved slug, so an app named
+# `link` keeps its own pages.
+for _path in ("/mcp/{token}", "/link/{token:linktoken}", "/{token:linktoken}/mcp"):
     router.routes.append(Route(_path, _Asgi(_path_token), include_in_schema=False))
 router.routes.append(Route("/.well-known/{rest:path}", _Asgi(_no_sign_in), include_in_schema=False))
 for _path in ("/register", "/authorize", "/token"):

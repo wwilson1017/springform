@@ -320,8 +320,10 @@ def test_token_first_shape_does_not_capture_app_paths(db, tmp_path, monkeypatch)
 
     (tmp_path / "index.html").write_text("<!doctype html><title>SPA</title>")
     monkeypatch.setattr(main, "FRONTEND_DIST", tmp_path)
-    page = TestClient(main.create_app()).get("/settings/mcp")
-    assert page.status_code == 200 and "<title>SPA</title>" in page.text
+    spa = TestClient(main.create_app())
+    for path in ("/settings/mcp", "/link/inbox"):  # an app may be named `link`: only a token-shaped segment is ours
+        page = spa.get(path)
+        assert page.status_code == 200 and "<title>SPA</title>" in page.text, path
 
 
 def run_client() -> str | None:
