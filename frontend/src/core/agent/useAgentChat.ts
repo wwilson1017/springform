@@ -189,13 +189,22 @@ export function useAgentChat(options: Options = {}) {
         updateMessage(asstId, (m) => events.reduce(applyEvent, m));
       };
       try {
-        const res = await fetch('/api/agent/chat', {
-          method: 'POST',
-          credentials: 'same-origin',
-          signal: turn.ctl.signal,
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body),
-        });
+        const post = () =>
+          fetch('/api/agent/chat', {
+            method: 'POST',
+            credentials: 'same-origin',
+            signal: turn.ctl.signal,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+          });
+        let res = await post();
+        // A continuation can race the turn it follows (still wrapping up, maybe in another tab):
+        // its card is resolved, so nothing else would resume it. Wait for that turn to finish.
+        for (let i = 0; body.message == null && res.status === 409 && i < RECONNECT_DELAYS_MS.length; i++) {
+          await sleep(RECONNECT_DELAYS_MS[i]);
+          if (!turn.live) return;
+          res = await post();
+        }
         if (res.status === 401) {
           window.location.assign('/login');
           return;

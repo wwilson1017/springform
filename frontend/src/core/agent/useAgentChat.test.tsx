@@ -136,4 +136,51 @@ describe('useAgentChat resume', () => {
     expect(result.current.messages.map((m) => m.role)).toEqual(['user']);
     expect(result.current.notice).toBeNull();
   });
+
+  it('retries an approval continuation while the previous turn is still running', async () => {
+    let posts = 0;
+    const fn = serve({
+      'POST /api/agent/chat': () =>
+        ++posts === 1
+          ? sse(
+              { type: 'conversation_id', id: 7, turn_id: 3, seq: 0 },
+              {
+                type: 'confirm',
+                tool_run_id: 9,
+                tool: 'write',
+                tool_use_id: 'u1',
+                msg_id: null,
+                args: {},
+                summary: 'Write it',
+                seq: 1,
+              },
+              { type: 'done', seq: 2 },
+            )
+          : posts === 2
+            ? json({ detail: 'turn_running' }, 409)
+            : sse(
+                { type: 'conversation_id', id: 7, turn_id: 4, seq: 0 },
+                { type: 'text', text: 'Done.', seq: 1 },
+                {
+                  type: 'done',
+                  seq: 2,
+                },
+              ),
+      'POST /api/agent/confirm': () => json({ status: 'done' }),
+    });
+    const { result } = renderHook(() => useAgentChat());
+    act(() => result.current.send('hi'));
+    await waitFor(() => expect(result.current.streaming).toBe(false));
+    const msgId = result.current.messages.at(-1)!.id;
+    await act(() => result.current.decide(msgId, 'u1', 'approve'));
+    await waitFor(() => expect(lastText(result.current.messages)).toBe('Done.'), { timeout: 2000 });
+    await waitFor(() => expect(result.current.streaming).toBe(false));
+    expect(result.current.messages.some((m) => m.error)).toBe(false);
+    expect(calls(fn)).toEqual([
+      'POST /api/agent/chat',
+      'POST /api/agent/confirm',
+      'POST /api/agent/chat',
+      'POST /api/agent/chat',
+    ]);
+  });
 });
