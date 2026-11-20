@@ -131,6 +131,7 @@ def build_system_prompt(
             agent["personality"],
             instructions,
             apps_block,
+            registry.agent_guidance(user),
             CONFIRMATION_NOTE,
             delimiters.SAFETY_INSTRUCTION,
             catalog,

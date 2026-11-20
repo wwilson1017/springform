@@ -483,7 +483,9 @@ export function TodoEditSheet({ todo, defaults, projects, contexts, onClose, onS
           <p className="mt-3 text-xs text-sf-ink-dim">
             {todo.visibility === 'team' &&
               `Owner: ${todo.owner_name ?? memberName(meta?.members, todo.owner_user_id)} · `}
-            Source: {SOURCE_LABEL[todo.source]} · Created {new Date(todo.created_at).toLocaleDateString()}
+            Source: {SOURCE_LABEL[todo.source]}
+            {todo.source_client && ` via ${todo.source_client}`} · Created{' '}
+            {new Date(todo.created_at).toLocaleDateString()}
             {todo.completed_at && ` · Completed ${new Date(todo.completed_at).toLocaleDateString()}`}
           </p>
         )}

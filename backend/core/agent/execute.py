@@ -71,7 +71,7 @@ def _outcome(
 
 def run_tool(user: User, spec: ToolSpec, args: dict, *, source: str, run_id: int | None = None, **record) -> dict:
     """Run `spec` with `args` as `user`. `record` carries the chat columns (conversation_id,
-    message_id, tool_use_id) of a new run. Sync (call through asyncio.to_thread from async code).
+    message_id, tool_use_id) or the MCP `client` of a new run. Sync (call through asyncio.to_thread from async code).
     Returns {id, status, result, stored, error, tainted}; status is done, error, uncertain, or
     already_resolved (only with run_id)."""
 

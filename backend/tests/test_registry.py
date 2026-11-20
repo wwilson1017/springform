@@ -26,6 +26,11 @@ def test_member_gets_403_on_an_admin_only_app(login_as):
     assert [a["slug"] for a in admin.get("/api/core/apps").json()] == ["adminonly"]
     assert [t.name for t in tools.for_user(member.principal) if t.app != "core"] == []
     assert [t.name for t in tools.for_user(admin.principal) if t.app != "core"] == ["adminonly_peek"]
+    # Guidance follows the role: the member reaches no app here, so none of it.
+    assert registry.agent_guidance(member.principal) == ""
+    assert (
+        registry.agent_guidance(admin.principal) == "## Working in the apps\n\nAdmin only: Admin-only fixture guidance."
+    )
 
 
 def test_apps_listing_by_role_and_hidden_state(login_as):
