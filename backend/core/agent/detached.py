@@ -17,6 +17,8 @@ in-memory log of a live turn; an ended turn is replayed from the table. A client
 only stops its own stream. Stop cancels the runner task (it ends with `done` + `stopped`);
 shutdown does the same with `error` + `interrupted`. A tool already running in a worker thread
 cannot be interrupted: the cancel takes effect when it returns (`aio.in_thread`).
+
+`run_unattended()` is the same turn with no reader, waited to its end (a check-in, agent.md §5).
 """
 
 from __future__ import annotations
@@ -26,6 +28,7 @@ import json
 import logging
 import threading
 from collections.abc import AsyncGenerator, AsyncIterator
+from typing import Literal
 
 from backend.core import clock, db
 from backend.core.agent import history
@@ -68,6 +71,7 @@ class Live:
         self.ready: asyncio.Future[bool] = asyncio.get_running_loop().create_future()
         self.pump: asyncio.Task | None = None
         self.task: asyncio.Task | None = None
+        self.reply = ""  # the last model call's own text, once the turn has ended
 
     def terminal(self) -> bool:
         return bool(self.events) and self.events[-1]["type"] in TERMINAL
@@ -144,8 +148,43 @@ async def start(
     return _stream(live.tail(-1))
 
 
+async def run_unattended(
+    provider: AIProvider, user: User, message: str, *, agent: dict, context: str, timeout: float
+) -> dict:
+    """A check-in turn nobody streams, in a new conversation, waited to its very end (tool threads
+    included): {conversation_id, status, reply, text, error}. `status` is the turn's ("done", "error",
+    "cancelled", "interrupted"); `reply` is the last model call's own text, `text` what the user is
+    shown after the last tool (the answer plus any closing note). Still running after `timeout`
+    seconds, it is stopped like a Stop click (`cancelled`)."""
+    live = Live(None)
+    _running.add(live)  # before any await, so shutdown() sees it
+    live.task = asyncio.create_task(_supervise(live, provider, user, message, agent, context, "checkin"))
+    done, _ = await asyncio.wait([live.task], timeout=timeout)
+    if not done:
+        live.stop("cancelled")
+        await asyncio.wait([live.task])
+    if live.ready.done() and not live.ready.cancelled() and (failed := live.ready.exception()) is not None:
+        return {"conversation_id": None, "status": "error", "reply": "", "text": "", "error": str(failed) or CRASHED}
+    tools = [i for i, e in enumerate(live.events) if e["type"].startswith("tool_")]
+    text = "".join(e["text"] for e in live.events[(tools[-1] + 1 if tools else 0) :] if e["type"] == "text")
+    error = live.events[-1].get("error") if live.terminal() else None
+    return {
+        "conversation_id": live.conversation_id,
+        "status": live.status or "error",
+        "reply": live.reply,
+        "text": text,
+        "error": error,
+    }
+
+
 async def _supervise(
-    live: Live, provider: AIProvider, user: User, message: str | None, agent: dict, context: str
+    live: Live,
+    provider: AIProvider,
+    user: User,
+    message: str | None,
+    agent: dict,
+    context: str,
+    source: Literal["chat", "checkin"] = "chat",
 ) -> None:
     try:
         try:
@@ -165,12 +204,14 @@ async def _supervise(
             conversation_id=cid,
             turn_id=turn_id,
             context=context,
-            message=message or "",
+            message=(message or "") if source == "chat" else "",  # a check-in's prompt is not newly typed
+            source=source,
         )
         if live.stopping is None:
             live.pump = asyncio.create_task(TurnRunner(state, live.emit, title=title).run())
         writer = asyncio.create_task(_writer(live))
         live.status = await _outcome(live)
+        live.reply = state.last_text
         live.ended.set()
         await writer
     finally:

@@ -8,7 +8,8 @@ model stops or a write waits for approval. It emits exactly one terminal event (
 last, and raises only on cancel or a bug. `detached.py` owns the task, numbers the events and
 streams them. The hook points it calls are in `turn_hooks.py`.
 
-Tools offered are `for_user(user)` ∩ `for_source("chat")`. Results of `untrusted_source` tools
+Tools offered are `for_user(user)` ∩ `for_source("chat")` (`for_source("job")` in an unattended
+check-in turn). Results of `untrusted_source` tools
 taint the conversation: from then on every write confirms. Never a provider call inside
 `transaction()`.
 """
@@ -99,7 +100,7 @@ class TurnRunner:
 
         from backend.core import registry as app_registry  # imports this package; resolve at call time
 
-        specs = chat_tools(s.user)
+        specs = chat_tools(s.user, s.tool_source)
         s.by_name = {spec.name: spec for spec in specs}
         active, s.deferred_specs, catalog = deferred.split(
             specs, {a.slug: a.manifest.name for a in app_registry.installed()}
@@ -178,7 +179,7 @@ class TurnRunner:
             text, sent, failure = "", False, None
             calling_tainted.set(s.tainted)
             stream = s.provider.stream_turn(s.messages, self._tools(), s.system)
-            async for event in metered(stream, s.provider, "chat", s.conversation_id):
+            async for event in metered(stream, s.provider, s.source, s.conversation_id):
                 etype = event.get("type")
                 if etype == "text":
                     text, sent = text + event["text"], True

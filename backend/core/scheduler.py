@@ -16,16 +16,19 @@
 - Startup marks stale `running`/`timed_out` rows `interrupted`. Runs only in the process that
   holds the data-dir lock (main.py starts it after db.init).
 - A committed transaction that queued outbox rows nudges `core.outbox_drain` immediately.
+- `run_on_loop(start)` lets a job run a coroutine on the app's loop and wait for it (a check-in's
+  Whisk turn, which `detached` owns there).
 """
 
 from __future__ import annotations
 
 import asyncio
+import concurrent.futures
 import contextlib
 import logging
 import re
 import threading
-from collections.abc import Callable
+from collections.abc import Callable, Coroutine
 from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta
 from typing import Any
@@ -36,6 +39,7 @@ from backend.core import clock, db, localtime
 logger = logging.getLogger(__name__)
 
 TICK = 30
+_LOOP: asyncio.AbstractEventLoop | None = None  # the running Scheduler's loop; None before start() and from stop()
 CONCURRENCY = 4
 _AT = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
 
@@ -155,6 +159,24 @@ def _update_run(run_id: int, status: str, error: str | None = None, finished: bo
         )
 
 
+def run_on_loop[T](start: Callable[[], Coroutine[Any, Any, T]]) -> T | None:
+    """From a job's thread: run `start()` on the app's event loop and wait for its result. None,
+    with nothing started, when no scheduler is running or one is stopping (read on the loop itself,
+    so nothing starts behind `stop()`). The coroutine bounds its own time. Never call it from the
+    loop's thread."""
+    loop = _LOOP
+    if loop is None:
+        return None
+
+    async def guarded() -> T | None:
+        return await start() if _LOOP is loop else None
+
+    try:
+        return asyncio.run_coroutine_threadsafe(guarded(), loop).result()
+    except concurrent.futures.CancelledError:  # the loop went away under it
+        return None
+
+
 class Scheduler:
     def __init__(self, registered: dict[str, Job], *, tick: float = TICK, concurrency: int = CONCURRENCY):
         self.jobs = registered
@@ -173,7 +195,8 @@ class Scheduler:
 
     async def start(self) -> None:
         await asyncio.to_thread(mark_interrupted)
-        self._loop = asyncio.get_running_loop()
+        global _LOOP
+        self._loop = _LOOP = asyncio.get_running_loop()
         db.set_commit_nudge(self.nudge)
         self._loop_task = asyncio.create_task(self._run_loop())
 
@@ -181,6 +204,8 @@ class Scheduler:
         """Cancel every job and wait up to `grace` s. False when a job's thread may still be running:
         the caller must then leave the database open, since closing a connection under a running
         statement crashes SQLite (#52)."""
+        global _LOOP
+        _LOOP = None  # first, before any await: run_on_loop starts nothing from here on (main.py stop order)
         self._stopping = True  # a run still queued for the semaphore never starts (see _run)
         db.set_commit_nudge(None)
         if self._loop_task:

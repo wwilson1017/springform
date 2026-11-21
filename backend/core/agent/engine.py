@@ -30,9 +30,9 @@ logger = logging.getLogger(__name__)
 # ── Tool plumbing shared by the loop and confirm ──────────────────────────────
 
 
-def chat_tools(user: User) -> list[ToolSpec]:
+def chat_tools(user: User, source: tool_registry.Source = "chat") -> list[ToolSpec]:
     reg = tool_registry.current()
-    allowed = {s.name for s in reg.for_source("chat")}
+    allowed = {s.name for s in reg.for_source(source)}
     return [s for s in reg.for_user(user) if s.name in allowed]
 
 
