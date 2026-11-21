@@ -257,10 +257,17 @@ async def events(turn: dict, after: int) -> AsyncGenerator[str, None]:
     live = _live(turn["id"])
     if live is not None:
         async for event in live.tail(after):
-            yield sse(event)
+            yield sse(await in_thread(_shown, event) if event["type"] == "tool_end" else event)
         return
     for row in await in_thread(_stored, turn, after):
         yield f"data: {row['event']}\n\n"
+
+
+def _shown(event: dict) -> dict:
+    """A replayed `tool_end` carries history.WITHHELD in place of a result whose user can no longer
+    read a record it names (history.recheck)."""
+    run = history.get_tool_run(event["tool_run_id"]) if event.get("tool_run_id") else None
+    return {**event, "result": history.WITHHELD} if run and run.get("withheld") else event
 
 
 def _stored(turn: dict, after: int) -> list[dict]:
@@ -273,6 +280,10 @@ def _stored(turn: dict, after: int) -> list[dict]:
         last = db.one(f"{sql} ORDER BY seq DESC LIMIT 1", (turn["id"],))
         if last and _is_terminal(last):
             rows.append(last)
+    for row in rows:
+        if '"tool_end"' in row["event"] and (event := json.loads(row["event"]))["type"] == "tool_end":
+            if (shown := _shown(event)) is not event:
+                row["event"] = json.dumps(shown)
     return rows
 
 

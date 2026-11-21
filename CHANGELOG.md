@@ -22,6 +22,10 @@ Conventions:
 
 - Settings, AI, Usage shows this month's AI spend by source (chat, compaction, the nightly run) and model, with the cache hit rate. Every model call is recorded, background ones included; costs are estimated from list prices an admin can edit.
 
+### Fixed
+
+- Whisk no longer shows an earlier tool result again (in later replies, the conversation, or a paged read) once it names a record the person can no longer see, such as a team todo made private. It says the result was withheld and can look again.
+
 ## [0.1.4] - 2026-11-21
 
 Forks can set their own colours and logo, an admin can hide the install name next to the logo, and Whisk keeps answering through dropped tabs and provider failures.

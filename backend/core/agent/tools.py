@@ -38,6 +38,7 @@ def get_tools() -> list[ToolSpec]:
             handler=lambda user, args: result_cap.read(
                 user, str(args.get("handle") or ""), offset=args.get("offset"), grep=args.get("grep")
             ),
+            reads=lambda args, result: result_cap.records_of(str(args.get("handle") or "")),
         ),
         ToolSpec(
             name="core_search_conversations",

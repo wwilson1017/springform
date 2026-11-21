@@ -4,7 +4,7 @@ Approve card: they add directory records every member sees) and run through `han
 approval transaction. Every record in a result carries `url`, the link that opens it."""
 
 from backend.core import db, entities
-from backend.core.agent.spec import ToolSpec
+from backend.core.agent.spec import ToolSpec, records_in
 from backend.core.contacts import api as contacts
 from backend.core.timeline.tools import human, url
 
@@ -124,10 +124,20 @@ def _link(conn, user, args: dict) -> dict:
     }  # fmt: skip
 
 
+def _named(d: dict) -> list[tuple[str, int]]:
+    """A person or organization a result carries (they are tagged with `kind`), for the replay recheck."""
+    kinds = {"person": PERSON, "organization": ORGANIZATION}
+    return [(kinds[d["kind"]], int(d["id"]))] if d.get("kind") in kinds and "id" in d else []
+
+
+def _reads(args: dict, result) -> list[tuple[str, int]]:
+    return records_in(result, _named)
+
+
 def _read(name: str, description: str, handler, properties: dict, required: tuple) -> ToolSpec:
     return ToolSpec(
         name=name, description=description + LINKED, input_schema={"type": "object", "properties": properties, "required": list(required)},
-        writes=False, handler=handler, enabled=human,
+        writes=False, handler=handler, enabled=human, reads=_reads,
     )  # fmt: skip
 
 
@@ -137,6 +147,7 @@ def _write(
     return ToolSpec(
         name=name, description=description + LINKED, input_schema={"type": "object", "properties": properties, "required": list(required)},
         writes=True, handler_in=handler_in, targets=targets, enabled=human, summary=summary,
+        reads=lambda args, result: [*targets(args), *_reads(args, result)],
     )  # fmt: skip
 
 

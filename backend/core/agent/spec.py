@@ -11,6 +11,9 @@ puts the card back for a call that would take a record out of view; `always_conf
 card even for reads (every remote tool). `tool_def_sha256` binds a pending approval to exactly
 what was shown, where it runs, and the implementation revision.
 `summary` is the optional user-facing line on the Approve card.
+`reads(args, result)` names the records a result carries, as (entity_type, id) pairs; they are
+stored on the run and rechecked for read access whenever the result is shown again
+(authorization.md §5). `records_in` and `linked` build one from a per-dict matcher.
 """
 
 from __future__ import annotations
@@ -18,7 +21,7 @@ from __future__ import annotations
 import contextvars
 import hashlib
 import json
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
@@ -64,6 +67,8 @@ class ToolSpec:
     summary: str = ""  # user-facing line on the Approve card; empty shows only name and args
     title: str = ""  # MCP display title; empty derives one from the name. Not hashed (last: positional order)
     destructive: bool = False  # MCP destructiveHint: the write discards data for good. Not hashed
+    # The records a result carries, for the replay recheck (history.recheck). Not hashed
+    reads: Callable[[dict, Any], Iterable[tuple[str, int]]] | None = None
 
     @property
     def remote(self) -> bool:
@@ -72,6 +77,23 @@ class ToolSpec:
     def provider_def(self) -> dict:
         """What a model provider sees."""
         return {"name": self.name, "description": self.description, "input_schema": self.input_schema}
+
+
+Record = tuple[str, int]
+
+
+def records_in(value, match: Callable[[dict], list[Record]]) -> list[Record]:
+    """Every record `match` names in any dict inside `value` (lists and dicts, walked whole)."""
+    if isinstance(value, list):
+        return [r for v in value for r in records_in(v, match)]
+    if isinstance(value, dict):
+        return [*match(value), *(r for v in value.values() for r in records_in(v, match))]
+    return []
+
+
+def linked(d: dict) -> list[Record]:
+    """A dict about another record (a note, a reminder): its entity_type/entity_id pair when set."""
+    return [(d["entity_type"], int(d["entity_id"]))] if d.get("entity_type") and d.get("entity_id") else []
 
 
 def tool_def_sha256(spec: ToolSpec) -> str:

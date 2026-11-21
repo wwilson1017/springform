@@ -43,7 +43,8 @@ core_agent_tool_runs(
   result, error, user_id,
   source CHECK (source IN ('chat','mcp','job')),
   requested_at, resolved_at, resolved_by,
-  client                       -- the AI tool of an MCP call (mcp.md §1), else NULL
+  client,                      -- the AI tool of an MCP call (mcp.md §1), else NULL
+  records                      -- JSON [[entity_type, id], ...] a done result names (§4, `reads`); '[]' none
 )                              -- the pending store and the audit log
 core_agent_facts(text, tags JSON, valid_from, invalid_from, invalidated_by, superseded_by,
                  source_conversation_id, author_user_id, created_at)   -- + FTS
@@ -96,6 +97,7 @@ ToolSpec(
     summary: str = "",  # user-facing Approve card line; empty shows only name and args
     title: str = "",    # MCP display title; empty derives one from the name. Not in tool_def_sha256
     destructive: bool = False,  # MCP destructiveHint: the write discards data for good. Not in tool_def_sha256
+    reads=None,         # reads(args, result) -> [(entity_type, id)] the result carries. Not in tool_def_sha256
 )
 ```
 
@@ -115,6 +117,19 @@ in a worker thread started with a copy of the caller's context, so it sees both.
 ### `targets`
 
 `targets(args) -> list[(entity_type, id)]` names **every** record the call touches, including bulk operations. The engine calls `entities.authorize(user, conn, …, "write")` on each, inside the same transaction, before `handler_in` runs.
+
+### `reads`
+
+`reads(args, result) -> [(entity_type, id)]` names every record a result carries a copy of, so the
+replay recheck (§5) can check it again. `execute.run_tool` stores it as `records` when a run ends
+`done`: `'[]'` for a tool without `reads`, and `[["", 0]]` (always withheld) when `reads` raises,
+which never fails the run. `spec.records_in(result, match)` walks a result and collects what a
+per-dict `match` names; `spec.linked` names a dict's `entity_type`/`entity_id` (notes, reminders).
+Todos, CRM, contacts and the example app recognise their rows by shape; `core_read_result` names
+what its source names. `test_every_shipped_tool_names_the_records_it_returns` fails for a shipped
+local tool that declares no `reads` and is not on its short list of tools that name no record.
+`history.READERS` takes a `can_read(user, conn, id)` for a kind of row that is not a registered
+entity (Todos projects and areas).
 
 ### `confirm_tier`
 
@@ -279,6 +294,19 @@ A model call's tool calls count only when its stop reason is `tool_use`: a call 
 
 Tokens are stored as the ledger's four counts: uncached input, output, cache reads and cache writes. OpenAI counts cached tokens inside `prompt_tokens`; its provider reports them as `cache_read_input_tokens` and the rest as `input_tokens`, as Anthropic does, so the cost and the cache hit rate mean the same for both. The cost is fixed at write time from the setting `agent.cost_rates` (USD per million tokens per exact model name; the default is list prices as of 2026-11, an estimate): tokens x rate is micro-dollars, `cost_micros`. A model with no rate is stored with `cost_micros` NULL and shown as "no rate"; editing a rate prices later calls only. A ledger failure is logged and never fails the call. `GET /api/agent/usage` sums the current month in the install timezone by source and model.
 
+### Replay recheck
+
+A stored result is a copy of the records it names (`records`), so `history.tool_runs_for` and
+`history.get_tool_run` (every reader: assembly, compaction, `core_read_result`, the conversation
+view, a replayed `tool_end` from `GET /turns/{id}/events`) check each one again as the run's user
+(`entities.authorize(read)`, or `history.READERS`). When any fails (made private, deleted, an app
+uninstalled) the whole result is shown as `history.WITHHELD`, `[Result withheld: it names a record
+the user can no longer read. ...]`, and `core_read_result` refuses its handle. The stored row is
+untouched, so access that comes back shows it again. At startup `execute.backfill_records` gives
+each older done chat run its `records` from today's `reads` (`[["", 0]]` when its tool is gone).
+Not revisited: the assistant's own replies, call arguments, a compaction gist written earlier,
+memory facts, and the context of a turn already running.
+
 ### Server-owned turns
 
 `detached.py` owns each turn as an asyncio task, so a client that drops no longer ends it. `start()` creates a supervisor task before its first await; the supervisor saves the user message and the `running` turn row in one transaction, runs the `TurnRunner`, and writes the events. The request only waits for that first transaction, and a request that goes away even then still gets its message answered.
@@ -416,6 +444,7 @@ Rules the frontend keeps:
 - FakeProvider streams text + a write tool → `confirm`, pending run, approve by a non-owner 403, stale `tool_def_sha256` → `stale`, approve executes once with args from the DB (double approve = `already_resolved`), deny recorded, `executing` at startup → `interrupted`.
 - No network or LLM call inside `transaction()`.
 - `test_agent_result_cap.py`: head + tail at line breaks, the CSV rule, a capped result paged back whole through `core_read_result` (also a confirmed tool's, and inside a fence), the same view in later turns, owner, conversation and 24-hour bounds. `test_agent_context_shrink.py`: the newest three kept in both message shapes, unseen and small results kept, storage untouched.
+- `test_agent_replay_access.py`: a todo made private or deleted is withheld from the next turn, the conversation view, a replayed turn event and `core_read_result`, storage kept and access that returns shown again; one lost row withholds a list; projects; a page inherits its source's records; a failing `reads` still runs the tool and withholds; older runs filled at startup; each shipped module names what it returns. Scenario `revoked_record_is_withheld`.
 - `test_agent_errors.py`: the classes, the retry delay, overflow repeats the call without re-running tools, fallback for one turn, never after a write (same turn, approved, an older card approved later, still executing, uncertain), a refusal in a one-shot call, the alternative's order. `test_agent_endings.py`: each ending's note, a cut-off call is not run, nothing saved before a tool ran, the last answer at the round limit. `test_agent_provider_events.py`: error events, length cutoff, refusal.
 - `test_agent_loop_guard.py`: strike three ends the turn, a cycle, a changed result or argument, parallel calls, recovery after a notice, repeated text, untrusted results, the rest of the round refused, a capped repeat. `test_agent_call_repair.py`: coercion, coerced args at the handler, run and card, "Did you mean", a repeated unknown tool. `test_agent_completion_claims.py`: the claim phrases and non-claims, backed and unbacked. `test_agent_search_conversations.py`: only the caller's earlier conversations, private and tainted threads, the limit, not over MCP.
 - `test_agent_turns.py`: a turn survives a disconnect and saves its reply; `after=N` replays each later event once, live and from the log; cancel records `cancelled`; a second running turn is 409; startup and shutdown mark `interrupted`; the prune; a request cancelled while the turn starts still gets an answer; the final log write is retried. `test_agent_hooks.py`: each hook point's contract. `useAgentChat.test.tsx`: resume after a drop and on `visibilitychange`, and Stop.

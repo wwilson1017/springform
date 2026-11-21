@@ -116,7 +116,7 @@ Runs against a seeded `PREVIEW_MODE=1` build with the FakeProvider and the Googl
 - `for_source("job")` excludes writes; `for_source("mcp")` excludes protected and remote tools.
 - Zero-key status + 400.
 - FakeProvider streams text + a write tool → `confirm`, pending run; approve by a non-owner 403; stale `tool_def_sha256` → `stale`; approve executes once with args from the DB (double approve = `already_resolved`); deny recorded; `executing` at startup → `interrupted`.
-- Scenarios (below): an untrusted result is fenced and every later write confirms; approve then continue; compaction shows the summarizer the identifiers and the model the gist; a dropped turn resumes. Removing the fence fails a scenario (`test_removing_the_untrusted_fence_fails_a_scenario`).
+- Scenarios (below): an untrusted result is fenced and every later write confirms; approve then continue; compaction shows the summarizer the identifiers and the model the gist; a dropped turn resumes; a result naming a record made private is withheld from the next turn. Removing the fence fails a scenario (`test_removing_the_untrusted_fence_fails_a_scenario`).
 - Prompt budget (`test_prompt_budget.py`): the static system prompt plus the eager tool definitions of an admin's first turn (lifespan run, so the seeded soul.md counts) stay under `BUDGET_TOKENS` (characters / 4); a self-test flags a synthetic oversized prompt and passes a small one. Raise it on purpose, in the PR that needs it. With `PROMPT_REPORT=<file>` it appends the sizes and the chat tool surface (name, `writes`, `always_confirm`, `confirm_tier`, eager) as Markdown; CI writes that to the Backend job summary.
 - Turn reliability (`agent.md` §5): a result over 25,000 characters is capped and fully readable through `core_read_result`; older results clear past 100,000 input tokens, the newest three kept. A fallback never happens after a write ran; each unfinished ending saves a note; the round limit gets a last answer. A repeating model is stopped on the third notice; an unbacked "I sent it." gets a correction.
 
@@ -136,6 +136,7 @@ tools:                        # optional test-only core tools, added to the live
     # also: description, confirm_tier: routine, always_confirm, untrusted_source, external_effect
 steps:
   - send: Save the blue widget.          # one action per step (see below)
+    # sql: [UPDATE ...]                  # optional: statements run in one transaction before the action
     replies:                             # queued for the FakeProvider: one entry per model call
       - {tool: core_scen_save_widget, args: {color: blue}}
       - Saving the widget needs your approval.
@@ -162,6 +163,7 @@ steps:
 | `resume: true` | `GET /api/agent/turns/{id}/events?after=<last seq seen>` for the latest turn |
 
 - `usage: [...]` on any step: the `core_agent_usage` rows the step wrote, matched in order like `events` (a mapping matches the columns it names, others may sit between).
+- `sql:` (one statement or a list) changes the data between turns, before the step's action: a record made private, say. Use explicit ids.
 - `drop_after: <event type>` on a `send` or `continue` disconnects once that event arrives, and checks the turn is still running then (script slow `chunks` so it is); the turn carries on, and a later `resume` reads the rest.
 - `replies` entries are FakeProvider turns (`providers/fake.py`): a string streams text, `{tool, args, text?}` calls a tool, a list makes several calls, `{error}` fails the call, `{chunks, delay}` streams slowly. A compaction summary is a model call too: it takes the next reply, before the turn's own. A step that leaves a reply unused fails (except a `drop_after` step, whose turn is still going).
 - Every step that streams a turn also checks that the events are numbered without gaps (a resume continues from the last seq seen) and end on `done` or `error` (or on the `drop_after` event).

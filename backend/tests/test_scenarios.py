@@ -24,7 +24,7 @@ TOP_KEYS = {"name", "role", "context_window", "tools", "steps"}
 FLAGS = ("confirm_tier", "always_confirm", "untrusted_source", "external_effect")
 TOOL_KEYS = {"name", "description", "writes", "returns", "repeat", *FLAGS}
 ACTIONS = {"send", "continue", "approve", "deny", "resume"}
-STEP_KEYS = ACTIONS | {"replies", "drop_after", "events", "request", "status", "usage"}
+STEP_KEYS = ACTIONS | {"sql", "replies", "drop_after", "events", "request", "status", "usage"}
 REQUEST_KEYS = {"call", "messages_contain", "messages_exclude", "messages_match", "system_contains"}
 TERMINAL = {"done", "error"}
 
@@ -145,6 +145,9 @@ def run(path: Path, app, login_as, model_requests: list[dict], monkeypatch) -> N
         with TestClient(app, headers={"Authorization": f"Bearer {who.cookies.get('sf_session')}"}) as c:
             for i, step in enumerate(spec["steps"], 1):
                 try:
+                    with core_db.transaction() as conn:  # a change to the data between turns, made before the action
+                        for statement in _listed(step.get("sql")):
+                            conn.execute(statement)
                     fake.script(*step.get("replies", []))
                     mark = len(model_requests)
                     ledger = core_db.one("SELECT coalesce(max(id), 0) AS n FROM core_agent_usage")["n"]

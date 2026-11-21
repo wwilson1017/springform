@@ -1,6 +1,6 @@
 import logging
 
-from backend.core.agent import agents, detached, history
+from backend.core.agent import agents, detached, execute, history
 
 logger = logging.getLogger(__name__)
 
@@ -14,3 +14,5 @@ def on_startup() -> None:
         logger.warning("Marked %d tool run(s) interrupted", n)
     if n := detached.mark_interrupted():
         logger.warning("Marked %d agent turn(s) interrupted", n)
+    if n := execute.backfill_records():
+        logger.info("Recorded what %d older tool result(s) name, for the replay recheck", n)

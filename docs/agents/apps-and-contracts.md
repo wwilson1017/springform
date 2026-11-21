@@ -66,7 +66,7 @@ The current fixture manifest (`backend/apps/example/app.json`):
 | `entities.py` | `ENTITIES = [Entity(...)]` | Table, labels, URL and title builders, `can_read(user, conn, id)` / `can_write(user, conn, id)` (`authorization.md`). |
 | `hooks.py` | `HOOKS = {"on_entity_deleted": [...], "on_entity_merged": [...], "on_record_changed": [...], "after_record_changed": [...]}` | The registry subscribes them. The three sync keys run in the caller's transaction; `after_record_changed` takes `fn(conn, payload)` after commit, via the outbox. Signatures are in `authorization.md` §3. |
 | `reports.py` | `REPORTS = [Report(...)]` | `records.md`. |
-| `tools.py` | `get_tools() -> list[ToolSpec]` | Names prefixed `<slug>_`; per-spec `enabled(user)` (`agent.md`). |
+| `tools.py` | `get_tools() -> list[ToolSpec]` | Names prefixed `<slug>_`; per-spec `enabled(user)`; a tool whose result returns records declares `reads` (`agent.md` §4). |
 | `jobs.py` | `JOBS = [Job(name="<slug>.<job>", fn, every=…\|at="HH:MM")]` | `scheduler.md`. |
 | `seed.py` | `seed(conn)`, `sample(conn)`, `RESET_TABLES`, `EXPORT` | Below. |
 | `settings.py` | `DEFAULTS = {"<slug>.<key>": value}` | Defaults for `core_settings`. |
