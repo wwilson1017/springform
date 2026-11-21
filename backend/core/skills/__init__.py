@@ -11,6 +11,8 @@ Imports only `backend.core` basics: `agent/assembly.py` imports this package at 
 
 from __future__ import annotations
 
+import hashlib
+import json
 import re
 
 from backend.core import clock, db
@@ -64,7 +66,15 @@ def clean(name, description, body) -> tuple[str, str, str]:
 
 
 def _public(row: dict) -> dict:
-    return {**row, "pinned": bool(row["pinned"])}
+    row = {**row, "pinned": bool(row["pinned"])}
+    row.pop("revises_sha", None)
+    return row
+
+
+def fingerprint(row) -> str:
+    """A skill's text (name, description, body) as one hash: an edit proposal keeps the one it
+    was based on, so approval can tell the skill changed since (timestamps tie within a second)."""
+    return hashlib.sha256(json.dumps([row["name"], row["description"], row["body"]]).encode()).hexdigest()
 
 
 def get_in(conn: db.Conn, skill_id: int) -> dict:
@@ -106,12 +116,16 @@ def create_in(
     name, description, body = clean(name, description, body)
     now = clock.now_iso()
     approved_at = now if status == "active" else None
+    base = None
+    if revises_id is not None:
+        target = conn.execute("SELECT name, description, body FROM core_agent_skills WHERE id = ?", (revises_id,))
+        base = fingerprint(db.must(target.fetchone()))
     try:
         return db.insert_in(
             conn,
             """INSERT INTO core_agent_skills (name, description, body, status, author, source_conversation_id,
-                   revises_id, created_at, updated_at, approved_at, approved_by)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                   revises_id, revises_sha, created_at, updated_at, approved_at, approved_by)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 name,
                 description,
@@ -120,6 +134,7 @@ def create_in(
                 author,
                 source_conversation_id,
                 revises_id,
+                base,
                 now,
                 now,
                 approved_at,
@@ -138,8 +153,7 @@ def create(name: str, description: str, body: str, user) -> dict:
 
 
 def update_in(conn: db.Conn, skill_id: int, fields: dict) -> None:
-    """Edit name, description, body or pinned. `updated_at` moves only when the text changes, so
-    pinning never makes a waiting edit proposal stale."""
+    """Edit name, description, body or pinned. `updated_at` moves only when the text changes."""
     row = get_in(conn, skill_id)
     if row["status"] == "rejected":
         raise Conflict("skill_rejected")
@@ -179,7 +193,8 @@ def move_in(conn: db.Conn, skill_id: int, action: str, user_id: int) -> None:
     carry = {"pinned": row["pinned"], "use_count": row["use_count"], "last_used_at": row["last_used_at"]}
     if action == "approve" and row["revises_id"] is not None:
         old = get_in(conn, row["revises_id"])
-        if old["status"] != "active" or old["updated_at"] > row["created_at"]:
+        base = conn.execute("SELECT revises_sha FROM core_agent_skills WHERE id = ?", (skill_id,)).fetchone()[0]
+        if old["status"] != "active" or fingerprint(old) != base:
             raise Conflict("skill_revision_stale")
         conn.execute("UPDATE core_agent_skills SET status = 'archived' WHERE id = ?", (old["id"],))
         carry = {"pinned": old["pinned"], "use_count": old["use_count"], "last_used_at": old["last_used_at"]}

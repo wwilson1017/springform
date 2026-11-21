@@ -14,6 +14,7 @@ CREATE TABLE core_agent_skills (
     last_used_at           TEXT,
     source_conversation_id INTEGER,                    -- no FK, as core_agent_facts: outlives the conversation
     revises_id             INTEGER REFERENCES core_agent_skills(id),  -- an edit proposal's active skill
+    revises_sha            TEXT,                       -- that skill's text when proposed: approval needs it unchanged
     created_at             TEXT NOT NULL,
     updated_at             TEXT NOT NULL,              -- name, description or body last changed
     approved_at            TEXT,

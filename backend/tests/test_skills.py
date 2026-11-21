@@ -140,7 +140,8 @@ def test_admin_routes(login_as):
     fresh = admin.post("/api/core/skills", json={**body, "name": "pricing"}).json()
     waiting = proposed("pricing-v2", revises_id=fresh["id"])
     with core_db.transaction() as conn:
-        conn.execute("UPDATE core_agent_skills SET updated_at = '2999-01-01T00:00:00Z' WHERE id = ?", (fresh["id"],))
+        # the same second as the proposal: only the text tells the edit apart
+        conn.execute("UPDATE core_agent_skills SET body = '1. Count, edited.' WHERE id = ?", (fresh["id"],))
     assert admin.post(f"/api/core/skills/{waiting}/approve").json() == {"detail": "skill_revision_stale"}
 
     rejected = proposed("not-this")

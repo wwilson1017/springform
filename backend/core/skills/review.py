@@ -42,10 +42,19 @@ MAX_ACTIVE_LISTED = 50
 MAX_REJECTED_LISTED = 30
 MAX_TOKENS = 8_192  # three bodies plus headroom: thinking counts against max_tokens
 TIER = "default"  # judgement work, one call per ten finished turns, and the job is opt-in
-# Tools whose results are the user's own and name no record the recheck could test: a search of
-# their other conversations (private ones included, agent.md §3 rule 2) and their reminders
-# (owner-only rows, named only when linked to a record). A reply restating one could carry them here.
-OWNER_ONLY_RESULTS = frozenset({"core_search_conversations", "core_list_my_reminders"})
+# A done run that names no record passes only for these tools, whose results are install-shared
+# text any member reads. Any other run naming nothing (a search of the user's other conversations,
+# their reminders, a count over records they can see) has nothing the recheck could test, so its
+# conversation is skipped: fail closed, since a reply may restate the result.
+SHARED_RESULTS = frozenset(
+    {
+        "core_memory_search",
+        "core_memory_remember",
+        "core_context_file_read",
+        "core_context_file_write",
+        "core_skill_load",
+    }
+)
 
 SYSTEM_PROMPT = """\
 You review conversations between the staff of a small business and its assistant, and decide \
@@ -108,8 +117,8 @@ def window(conn: db.Conn) -> tuple[int, int, list[int]]:
 
 
 def eligible_in(conn: db.Conn, conversation_id: int) -> bool:
-    """Not private, not tainted, no owner-only result (OWNER_ONLY_RESULTS), and every record its
-    done tool runs name is one the system principal can read (unknown provenance is unreadable)."""
+    """Not private, not tainted, and every done tool run names records the system principal can
+    read, or is a SHARED_RESULTS tool (unknown or empty provenance is unreadable)."""
     row = conn.execute(
         "SELECT is_private, tainted FROM core_agent_conversations WHERE id = ?", (conversation_id,)
     ).fetchone()
@@ -122,7 +131,7 @@ def eligible_in(conn: db.Conn, conversation_id: int) -> bool:
             (conversation_id,),
         )
     ]
-    if any(r["records"] is None or r["tool"] in OWNER_ONLY_RESULTS for r in runs):
+    if any(r["records"] in (None, "[]") and r["tool"] not in SHARED_RESULTS for r in runs):
         return False
     checked = history.recheck([{**r, "user_id": SYSTEM_USER_ID} for r in runs])
     return not any(r.get("withheld") for r in checked)
