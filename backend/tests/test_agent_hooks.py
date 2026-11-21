@@ -36,9 +36,9 @@ def hook(monkeypatch, point, fn):
 SHIPPED = {
     "before_model_call": ["backend.core.agent.context_shrink"],
     "on_provider_error": ["backend.core.agent.errors"],
-    "before_tool": [],
-    "on_tool_result": ["backend.core.agent.result_cap"],
-    "end_of_turn": ["backend.core.agent.endings"],
+    "before_tool": ["backend.core.agent.call_repair"],
+    "on_tool_result": ["backend.core.agent.loop_guard", "backend.core.agent.result_cap"],
+    "end_of_turn": ["backend.core.agent.completion_claims", "backend.core.agent.endings"],
 }
 
 
@@ -46,7 +46,9 @@ def test_shipped_hooks_and_register_checks_the_name(monkeypatch):
     assert {m.__name__ for m in turns.HOOK_MODULES} == {
         m for ms in SHIPPED.values() for m in ms
     }  # importing turns loads them
-    assert {p: [fn.__module__ for fn in fns] for p, fns in turn_hooks.REGISTERED.items()} == SHIPPED
+    # import order sets the order within a point; only on_tool_result's is load-bearing (the cap, then the notice)
+    assert {p: sorted(fn.__module__ for fn in fns) for p, fns in turn_hooks.REGISTERED.items()} == SHIPPED
+    assert [fn.__module__ for fn in turn_hooks.REGISTERED["on_tool_result"]] == SHIPPED["on_tool_result"][::-1]
     monkeypatch.setitem(turn_hooks.REGISTERED, "end_of_turn", [])
     with pytest.raises(ValueError, match="unknown turn hook point"):
         turn_hooks.register("after_everything", print)

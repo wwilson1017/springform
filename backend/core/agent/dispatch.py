@@ -20,7 +20,10 @@ from backend.core.agent.write_budget import BudgetAction
 
 async def run_call(state: TurnState, emit: Callable[[dict], None], call: dict, message_id: int | None) -> dict:
     """Settle one call and emit its `confirm` or `tool_end`; returns the result entry for the model."""
-    name, tool_use_id, args = call["name"], call["id"], call.get("args") or {}
+    call = {**call}  # before_tool may replace "args"; the model's own call (its history) stays as sent
+    name, tool_use_id = call["name"], call["id"]
+    refusal = None if state.terminated or state.halt else await turn_hooks.before_tool(state, call)
+    args = call.get("args") or {}
     record = {
         "conversation_id": state.conversation_id,
         "message_id": message_id,
@@ -34,8 +37,10 @@ async def run_call(state: TurnState, emit: Callable[[dict], None], call: dict, m
 
     if state.terminated:
         outcome = await _refuse(record, "Not run: the turn stopped at the write budget.")
-    elif (refusal := await turn_hooks.before_tool(state, call)) is not None:
+    elif refusal is not None:
         outcome = await _refuse(record, refusal)
+    elif state.halt:
+        outcome = await _refuse(record, "Not run: the turn was stopped.")
     elif name == deferred.FIND_TOOLS and state.deferred_specs:
         found = [s for s in deferred.find(args.get("query", ""), state.deferred_specs) if s.name not in state.loaded]
         state.loaded |= {s.name for s in found}
