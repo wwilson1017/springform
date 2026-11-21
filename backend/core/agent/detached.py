@@ -123,7 +123,13 @@ async def _stream(events: AsyncIterator[dict]) -> AsyncGenerator[str, None]:
 
 
 async def start(
-    provider: AIProvider, user: User, message: str | None, *, conversation_id: int | None, agent: dict
+    provider: AIProvider,
+    user: User,
+    message: str | None,
+    *,
+    conversation_id: int | None,
+    agent: dict,
+    context: str = "",
 ) -> AsyncGenerator[str, None] | None:
     """Start a turn and return its SSE stream; None when the conversation is not this user's.
     Raises TurnRunning when the conversation already has one. The turn does not depend on the
@@ -132,13 +138,15 @@ async def start(
         raise TurnRunning
     live = Live(conversation_id)
     _running.add(live)  # before any await, so a second post on this conversation is refused
-    live.task = asyncio.create_task(_supervise(live, provider, user, message, agent))
+    live.task = asyncio.create_task(_supervise(live, provider, user, message, agent, context))
     if not await asyncio.shield(live.ready):
         return None
     return _stream(live.tail(-1))
 
 
-async def _supervise(live: Live, provider: AIProvider, user: User, message: str | None, agent: dict) -> None:
+async def _supervise(
+    live: Live, provider: AIProvider, user: User, message: str | None, agent: dict, context: str
+) -> None:
     try:
         try:
             begun = await in_thread(_begin, user, message, live.conversation_id, agent)
@@ -150,7 +158,9 @@ async def _supervise(live: Live, provider: AIProvider, user: User, message: str 
             return
         cid, title, turn_id = begun
         live.conversation_id, live.turn_id = cid, turn_id
-        state = TurnState(user=user, agent=agent, provider=provider, conversation_id=cid, turn_id=turn_id)
+        state = TurnState(
+            user=user, agent=agent, provider=provider, conversation_id=cid, turn_id=turn_id, context=context
+        )
         if live.stopping is None:
             live.pump = asyncio.create_task(TurnRunner(state, live.emit, title=title).run())
         writer = asyncio.create_task(_writer(live))

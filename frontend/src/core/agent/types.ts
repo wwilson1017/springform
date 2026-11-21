@@ -16,6 +16,8 @@ export type ServerToolCall = S['ServerToolCall'];
 export type ServerMessage = S['ServerMessage'];
 /** GET /api/agent/conversations/{id} */
 export type ConversationDetail = S['ConversationDetail'];
+/** What the user has open, sent with every chat turn (POST /api/agent/chat `page`, `record`). */
+export type ChatContext = Pick<S['ChatIn'], 'page' | 'record'>;
 export type AgentRow = S['AgentRow'];
 /** POST /api/agent/providers/{provider}/test */
 export type ProviderTest = S['ProviderTest'];

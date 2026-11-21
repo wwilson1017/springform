@@ -29,10 +29,18 @@ _RESULT_PREVIEW_CAP = 2000
 _SSE_HEADERS = {"Cache-Control": "no-cache", "Connection": "keep-alive", "X-Accel-Buffering": "no"}
 
 
+class RecordRef(BaseModel):
+    entity_type: str = Field(max_length=100, pattern=r"^[a-z][a-z0-9_]*\.[a-z][a-z0-9_]*$")
+    entity_id: int = Field(gt=0, le=2**63 - 1)  # SQLite INTEGER; larger would 500, not 422
+
+
 class ChatIn(BaseModel):
     conversation_id: int | None = None
     agent_slug: str | None = None
     message: str | None = Field(default=None, max_length=100_000)
+    # What the user has open; named in the prompt only after authorize(read) (agents.context_note).
+    page: str | None = Field(default=None, max_length=300, pattern=r"^/[A-Za-z0-9/_.~%-]*$")
+    record: RecordRef | None = None
 
 
 class ConfirmIn(BaseModel):
@@ -82,7 +90,7 @@ def status(user: User = Depends(current_user)) -> dict:
     }
 
 
-def _chat_setup(body: ChatIn, user: User) -> tuple[dict, AIProvider]:
+def _chat_setup(body: ChatIn, user: User) -> tuple[dict, AIProvider, str]:
     if body.conversation_id is not None:
         conv = history.get_conversation(body.conversation_id, user.id)
         if conv is None:
@@ -97,7 +105,8 @@ def _chat_setup(body: ChatIn, user: User) -> tuple[dict, AIProvider]:
     )
     if provider is None:
         raise HTTPException(400, detail="no_provider")
-    return agent, provider
+    record = (body.record.entity_type, body.record.entity_id) if body.record else None
+    return agent, provider, agents.context_note(user, body.page, record)
 
 
 @router.post("/chat")
@@ -106,10 +115,12 @@ async def chat(body: ChatIn, user: User = Depends(current_user)) -> StreamingRes
     approval. 409 `turn_running` while the conversation already has a running turn."""
     if not (body.message or "").strip() and body.conversation_id is None:
         raise HTTPException(422, detail="message or conversation_id is required")
-    agent, provider = await asyncio.to_thread(_chat_setup, body, user)
+    agent, provider, context = await asyncio.to_thread(_chat_setup, body, user)
     message = (body.message or "").strip() or None
     try:
-        stream = await detached.start(provider, user, message, conversation_id=body.conversation_id, agent=agent)
+        stream = await detached.start(
+            provider, user, message, conversation_id=body.conversation_id, agent=agent, context=context
+        )
     except detached.TurnRunning:
         raise HTTPException(409, detail="turn_running") from None
     if stream is None:

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { ApiError } from '../../core/api/client';
+import { AskAgentButton } from '../../core/agent/AskAgentButton';
 import { useJson } from '../../core/api/useJson';
 import { Attachments } from '../../core/records/Attachments';
 import { Timeline } from '../../core/records/Timeline';
@@ -87,6 +88,7 @@ export function ItemPage() {
                 Open the linked record
               </Link>
             )}
+            <AskAgentButton entityType={TODO_ENTITY} entityId={todo.id} />
             {canDelete && (
               <button
                 type="button"
