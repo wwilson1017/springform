@@ -31,6 +31,7 @@ from backend.core.agent import (
     endings,
     errors,
     history,
+    intents,
     loop_guard,
     result_cap,
     turn_hooks,
@@ -43,7 +44,7 @@ from backend.core.agent.turn_hooks import Fallback, ProviderFailure, Retry, Turn
 from backend.core.agent.usage import metered
 
 # hook modules: a module that registers turn hooks is imported here.
-HOOK_MODULES = (result_cap, context_shrink, errors, endings, loop_guard, call_repair, completion_claims)
+HOOK_MODULES = (result_cap, context_shrink, errors, endings, loop_guard, call_repair, completion_claims, intents)
 
 logger = logging.getLogger(__name__)
 
