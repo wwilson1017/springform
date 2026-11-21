@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import { fetchJson } from '../api/client';
-import type { Badge, CoreApp } from '../api/types';
+import type { Badge, CoreApp, LauncherLink } from '../api/types';
+import { useJson } from '../api/useJson';
 import { useCoreApps } from '../apps/CoreAppsContext';
 import { useAuth } from '../auth/AuthContext';
 import BootFallback from '../components/BootFallback';
@@ -49,6 +50,7 @@ export function Launcher() {
   const { user } = useAuth();
   const { apps, error, reload } = useCoreApps();
   const badges = useBadges(apps);
+  const { data: links } = useJson<LauncherLink[]>('/api/core/launcher/links'); // failing: no link tiles, apps unaffected
 
   if (error)
     return (
@@ -65,16 +67,45 @@ export function Launcher() {
   return (
     <div className="mx-auto max-w-5xl px-4 py-8 md:px-8">
       <h1 className="m-0 mb-6 font-display text-2xl font-medium text-sf-ink">Apps</h1>
-      {tiles.length === 0 ? (
+      {tiles.length === 0 && !links?.length ? (
         <p className="text-sf-ink-mute">No apps are installed for your role yet.</p>
       ) : (
         <ul className="m-0 grid list-none gap-3 p-0 sm:grid-cols-2 lg:grid-cols-3">
           {tiles.map((app) => (
             <AppTile key={app.slug} app={app} badge={badges[app.slug]} />
           ))}
+          {(links ?? []).map((link) => (
+            <LinkTile key={link.id} link={link} />
+          ))}
         </ul>
       )}
     </div>
+  );
+}
+
+/** A tile that opens another site (a connected GTD suite app) in a new tab. */
+function LinkTile({ link }: { link: LauncherLink }) {
+  return (
+    <li>
+      <a
+        href={link.url}
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label={`${link.title} (opens in a new tab)`}
+        className="flex h-full items-center gap-3 rounded-lg border border-sf-line-strong bg-sf-card p-4 no-underline hover:border-sf-accent"
+      >
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-sf-raised text-sf-ink-mute">
+          <AppIcon name={link.icon} size={22} aria-hidden />
+        </span>
+        <span className="flex min-w-0 flex-1 items-center gap-2">
+          <span className="font-display text-base font-medium text-sf-ink">{link.title}</span>
+          {link.hidden && <span className="rounded bg-sf-ink/6 px-1.5 py-0.5 text-xs text-sf-ink-dim">hidden</span>}
+        </span>
+        <span aria-hidden className="text-sf-ink-dim">
+          ↗
+        </span>
+      </a>
+    </li>
   );
 }
 

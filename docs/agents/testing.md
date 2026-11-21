@@ -19,7 +19,7 @@ The fixtures and guards live in a pytest plugin, `backend/testing/fixtures.py`, 
 5. **Skip/xfail ban**: the plugin fails collection when a test carries a `skip`, `skipif` or `xfail` marker (lifted from CakeCRM). `ALLOWED_SUPPRESSIONS` lists node ids allowed one, each with a reason; it is empty. `test_conftest_guards.py` self-tests it.
 6. Two-member tests create two real members and one restrictive record: every `login_as("member")` call makes a new, distinct member.
 7. Providers: a **FakeProvider** stands in for LLM providers; nothing calls a real model. **`model_requests`** records every FakeProvider call of the test, in order, as `{system, messages, tools}`.
-8. HTTP to external services is mocked (Google token endpoint) or served locally: inbound MCP runs through `httpx2.ASGITransport`, and the outbound client talks to `backend/tests/fixtures/mcp_stub.py`, a two-tool `MCPServer` on a loopback port (with `MCP_ALLOW_PRIVATE=1`); `with mcp_stub.serve() as (url, calls):` stops it when the block ends.
+8. HTTP to external services is mocked (Google token endpoint) or served locally: inbound MCP runs through `httpx2.ASGITransport`, and the outbound client talks to `backend/tests/fixtures/mcp_stub.py`, a two-tool `MCPServer` on a loopback port (with `MCP_ALLOW_PRIVATE=1`); `with mcp_stub.serve() as (url, calls):` stops it when the block ends. `fixtures/gtd_stub.py` stands in for a GTD suite (device connect, `/api/config`, the MCP stub as the agent link) the same way; tests never call a real suite.
 9. The contract test runs against every app in `backend/apps/` and against `backend/tests/fixtures/bad_app`, which it must fail.
 10. **Typed routes**: `test_routes_are_typed.py` fails when a `/api/core/*`, `/api/agent/*` or `/api/health` route answers without a response model, unless its `UNTYPED` allow-list names the route with a reason (streams, downloads and a few bodies not typed yet). `test_response_models.py` pins each typed route's keys in `fixtures/response_shapes.json`.
 11. **No thread left running**: the test database is closed in one place, `_isolate`'s teardown, after waiting up to 5 s (`THREAD_GRACE`) for the threads the test started; a thread still alive then stops the run with the test id and the thread names rather than close the database under it (a connection closed while another thread steps it crashes SQLite, #52). Best effort: it compares one snapshot from the test's start, and parked AnyIO worker threads are exempt. `test_conftest_guards.py` self-tests it.
@@ -135,6 +135,9 @@ tools:                        # optional test-only core tools, added to the live
     repeat: 2000                  # optional: answer a list of that many copies of `returns` (a big result)
     delay: 0.5                    # optional: seconds a read or external-effect tool waits before it answers
     # also: description, confirm_tier: routine, always_confirm, untrusted_source, external_effect
+  - name: gtd__list_todos         # a remote tool: the wire name <prefix>__<tool>
+    remote: {trusted: true}       # built by the real outbound client (client._specs), so its flags are the
+                                  # shipped ones (no flags beside it); `writes` becomes its readOnlyHint
 records:                      # optional: example widgets owned by another user, by key
   shared: {name: Blue widget}             # readable by the scenario's user
   hidden: {name: Red widget, private: true}   # someone else's private widget: unreadable

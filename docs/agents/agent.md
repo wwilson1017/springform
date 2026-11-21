@@ -102,6 +102,7 @@ ToolSpec(
     app,                # owning app slug, or core
     revision,           # the owning app's version string; "" for core tools
     server_id, server_url,   # remote (outbound MCP) tools only; remote means server_url is set
+    trusted,            # last field: a trusted outbound server's tool (mcp.md §2); not hashed
     summary: str = "",  # user-facing Approve card line; empty shows only name and args
     title: str = "",    # MCP display title; empty derives one from the name. Not in tool_def_sha256
     destructive: bool = False,  # MCP destructiveHint: the write discards data for good. Not in tool_def_sha256
@@ -191,7 +192,7 @@ The hash is the sha256 hex of `json.dumps(fields, sort_keys=True)` over the fiel
 
 ### Registry sources and refresh
 
-Sources: core packages' `tools.py` (contacts, notes, reminders, memory and context files, listed below; `apps-and-contracts.md` §9), discovered apps' `get_tools()`, and MCP servers (`mcp.md`). Outbound MCP servers are the one source that changes after boot: `registry.swap_server(server_id, specs)` replaces one server's specs, rebuilds and validates the whole registry, and **swaps it in atomically** (a refused build changes nothing). Old specs stay valid for already-pending approvals only until their `tool_def_sha256` check fails. `build_registry` also refuses a remote spec (`server_url` set) that is not `always_confirm`, `untrusted_source` and `external_effect`.
+Sources: core packages' `tools.py` (contacts, notes, reminders, memory and context files, listed below; `apps-and-contracts.md` §9), discovered apps' `get_tools()`, and MCP servers (`mcp.md`). Outbound MCP servers are the one source that changes after boot: `registry.swap_server(server_id, specs)` replaces one server's specs, rebuilds and validates the whole registry, and **swaps it in atomically** (a refused build changes nothing). Old specs stay valid for already-pending approvals only until their `tool_def_sha256` check fails. `build_registry` also refuses a remote spec (`server_url` set) that is not `always_confirm`, `untrusted_source` and `external_effect` (a trusted server's read may leave `always_confirm` off), and `trusted` on a local spec.
 
 Deferred tools (`deferred.py`): groups keyed by app slug, deferral threshold 100 tools.
 
@@ -231,7 +232,7 @@ CakeCRM's loop, minus Google/Odoo/QuickBooks/todo/meeting logic, plan mode, LLM 
    - **Timeout.** One 90 s deadline covers every attempt. Past it the boundary still advances with no new summary: the gist is the previous one, whole, plus a note (once) that older messages were dropped, so the next turn neither waits again nor grows.
    - **Memory flush.** Before summarizing, while the nightly memory pass is on (`agent.nightly_enabled`: it is the observer running early, so it follows the observer's switch), one silent light-tier call offers only `core_memory_remember` over the user rows the nightly observer has not read yet below the boundary, under the observer's rules (§3). Facts go in as the observer writes them (system principal, `source_conversation_id`, tags `observed` and `compaction`, at most 8), and the observer's watermark moves past what the flush read, so each row is flushed or observed once. Private and tainted conversations are skipped, re-checked in the write transaction. The context-file write always confirms, so it is never offered here.
 2. Reads run immediately through `handler(user, args)`; the reads of one model step run together, before its other calls ("One step's calls" below).
-3. A call confirms when the tool is `always_confirm`, when it is an `untrusted_source` read in a tainted conversation (its arguments, a URL or a query, could carry conversation data out to a page's author), or when it is a write that is not routine, is `external_effect`, runs in a tainted conversation, or whose `hides_when(args)` is true or raises. A confirming call inserts a `pending` tool run and emits `confirm`; the client continues by posting `/api/agent/chat` with the conversation id and no message.
+3. A call confirms when the tool is `always_confirm`, when it is an `untrusted_source` read in a tainted conversation (never a trusted server's read, `mcp.md` §2; its arguments, a URL or a query, could carry conversation data out to a page's author), or when it is a write that is not routine, is `external_effect`, runs in a tainted conversation, or whose `hides_when(args)` is true or raises. A confirming call inserts a `pending` tool run and emits `confirm`; the client continues by posting `/api/agent/chat` with the conversation id and no message.
    A live always-allow rule (§6, "Always allow") lets a confirming call run like a routine write instead, when `engine.rule_eligible` holds for it in this turn.
 4. Results from `untrusted_source` tools are fenced with `delimiters.wrap_untrusted_external` and taint the **conversation** (`core_agent_conversations.tainted`), permanently and across compaction: every later write in it confirms, routine ones included.
 

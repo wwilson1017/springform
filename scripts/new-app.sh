@@ -13,7 +13,7 @@ root=$(cd "$(dirname "$0")/.." && pwd)
 
 [[ $slug =~ ^[a-z][a-z0-9_]{1,29}$ ]] || { echo "slug must match ^[a-z][a-z0-9_]{1,29}\$ (it becomes the table prefix)" >&2; exit 1; }
 # Keep in step with RESERVED_SLUGS in backend/core/registry.py.
-reserved=" core api auth mcp up assets agent me health settings people organizations guide requests login setup invite changelog backups jobs sheets notifications reminders whisk files timeline export "
+reserved=" core api auth mcp up assets agent me health settings people organizations guide requests login setup invite changelog backups jobs sheets notifications reminders whisk files timeline export reset-password gtd "
 case "$reserved" in *" $slug "*) echo "slug '$slug' is reserved" >&2; exit 1;; esac
 # Table ownership is by name prefix: a slug may not extend core's or another app's, nor be extended.
 for other in core $(ls "$root/backend/apps"); do

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { patchJson, putJson } from '../api/client';
-import type { CoreApp } from '../api/types';
+import type { CoreApp, LauncherLink } from '../api/types';
+import { useJson } from '../api/useJson';
 import { useCoreApps } from '../apps/CoreAppsContext';
 import { useAuth } from '../auth/AuthContext';
 import BootFallback from '../components/BootFallback';
@@ -21,6 +22,7 @@ export function AppsCard() {
   const { apps, reload } = useCoreApps();
   const [saved, setSaved] = useState<CoreApp[] | null>(null);
   const [busy, setBusy] = useState(false);
+  const links = useJson<LauncherLink[]>('/api/core/launcher/links');
   const list = saved ?? apps;
   if (!list) return <BootFallback variant="panel" />;
 
@@ -29,6 +31,17 @@ export function AppsCard() {
     try {
       setSaved(await request);
       reload();
+    } catch (e) {
+      toast.error(errorText(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function toggleLink(link: LauncherLink) {
+    setBusy(true);
+    try {
+      links.setData(await patchJson<LauncherLink[]>(`/api/core/launcher/links/${link.id}`, { hidden: !link.hidden }));
     } catch (e) {
       toast.error(errorText(e));
     } finally {
@@ -93,10 +106,37 @@ export function AppsCard() {
           </li>
         ))}
       </ul>
+      {!!links.data?.length && (
+        <>
+          <h3 className="mb-0 mt-5 text-sm font-medium text-sf-ink-soft">Links</h3>
+          <ul className="m-0 list-none divide-y divide-sf-line p-0">
+            {links.data.map((link) => (
+              <li key={link.id} className="flex flex-wrap items-center gap-x-3 gap-y-2 py-2.5 text-sm">
+                <AppIcon name={link.icon} size={18} className="text-sf-ink-mute" aria-hidden />
+                <span className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+                  <span className="text-sf-ink">{link.title}</span>
+                  {link.hidden && <span className={chipClass}>Hidden</span>}
+                </span>
+                {isAdmin && (
+                  <button
+                    type="button"
+                    aria-label={`${link.hidden ? 'Show' : 'Hide'} ${link.title}`}
+                    disabled={busy}
+                    onClick={() => void toggleLink(link)}
+                    className={`${secondaryButtonClass} w-16`}
+                  >
+                    {link.hidden ? 'Show' : 'Hide'}
+                  </button>
+                )}
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
       {isAdmin && (
         <p className="mb-0 mt-4 text-xs text-sf-ink-dim">
           A hidden app leaves members' launcher and navigation; admins still see it, marked hidden. The order here is
-          the launcher's order for everyone.
+          the launcher's order for everyone. Links open another site in a new tab.
         </p>
       )}
     </div>
