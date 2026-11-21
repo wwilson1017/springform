@@ -34,7 +34,7 @@ order: 34
 - **Track what you actually do.** Not to feel productive — to notice the week you stopped,
   before the quarter notices for you.
 
-## When Whisk reaches for it
+## When {agent_name} reaches for it
 
 - **The pipeline is thin** — few deals in *lead* and *qualified*, and the user is asking
   why nothing is closing.
@@ -54,7 +54,7 @@ order: 34
   today's list from real silence, which beats any list assembled from memory.
 - **Put the block in the system, not in your intentions** — `todos_create` takes a repeat, so
   the daily prospecting block can be created once and recur.
-- **Draft the outreach, review it, then put it out yourself** — Whisk can draft an email touch
+- **Draft the outreach, review it, then put it out yourself** — {agent_name} can draft an email touch
   for the user to check; it never delivers.
 - **Log the attempts, including the ones that went nowhere** — `crm_log_activity` on the
   person or the deal is what makes a cadence visible. Untracked outreach is indistinguishable

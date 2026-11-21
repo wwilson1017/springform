@@ -29,5 +29,5 @@ set in Settings → CRM (14 by default).
 ## Scores and touch counts
 
 Each deal and person gets a 0–100 **lead score** from the stage, value, activity and how recently
-anything happened. When an AI provider is set up, Whisk also counts each deal's **touches** (real
+anything happened. When an AI provider is set up, {agent_name} also counts each deal's **touches** (real
 conversations with the prospect) from its notes and activity; without one, the count stays empty.

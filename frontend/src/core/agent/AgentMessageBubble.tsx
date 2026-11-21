@@ -81,9 +81,9 @@ function ToolCallBubble({ part }: { part: ToolPart }) {
   );
 }
 
-function TypingDots() {
+function TypingDots({ agentName }: { agentName: string }) {
   return (
-    <div role="status" aria-label="Whisk is thinking" className="flex gap-1 py-2">
+    <div role="status" aria-label={`${agentName} is thinking`} className="flex gap-1 py-2">
       {[0, 1, 2].map((i) => (
         <span
           key={i}
@@ -154,7 +154,7 @@ function Bubble({ message, agentName, busy, onDecide }: Props) {
             return <ToolCallBubble key={part.toolUseId} part={part} />;
           })}
         </div>
-        {message.streaming && message.parts.length === 0 && <TypingDots />}
+        {message.streaming && message.parts.length === 0 && <TypingDots agentName={agentName} />}
         {message.error && (
           <p
             role="alert"

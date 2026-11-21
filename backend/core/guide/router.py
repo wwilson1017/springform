@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends
 
 from backend.core import registry
+from backend.core.agent import agents
 from backend.core.auth.deps import User, current_user
 from backend.core.errors import NotFound
 from backend.core.guide import library, models
@@ -10,9 +11,11 @@ MAX_RESULTS = 20
 
 
 def _readable(user: User) -> list[library.Topic]:
-    """Core topics plus those of the apps on the caller's launcher (hidden apps stay hidden from members)."""
+    """Core topics plus those of the apps on the caller's launcher (hidden apps stay hidden from members),
+    with the assistant's name filled in."""
     apps = {"core"} | {a["slug"] for a in registry.list_for_user(user)}
-    return [t for t in library.topics() if t.app in apps]
+    name = agents.get()["name"]
+    return [library.with_agent_name(t, name) for t in library.topics() if t.app in apps]
 
 
 @router.get("", response_model=list[models.GuideTopic])

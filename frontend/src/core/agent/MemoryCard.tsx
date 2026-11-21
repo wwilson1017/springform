@@ -9,6 +9,7 @@ import { toast } from '../../shared/toast';
 import { IconLock } from './icons';
 import type { ContextFile, ContextFileMeta, Fact } from './types';
 import { BUTTON, HINT, INPUT, LABEL, PRIMARY } from './ui';
+import { useAgentName } from './useAgentName';
 
 const failure = (e: unknown, what: string) => (e instanceof ApiError ? `${what}: ${e.detail}` : `${what}.`);
 
@@ -18,6 +19,7 @@ const failure = (e: unknown, what: string) => (e instanceof ApiError ? `${what}:
  * change only through a chat request an admin approves.
  */
 function ContextFiles() {
+  const agentName = useAgentName();
   const files = useJson<ContextFileMeta[]>('/api/core/context-files');
   const [file, setFile] = useState<ContextFile | null>(null);
   const [draft, setDraft] = useState('');
@@ -139,7 +141,8 @@ function ContextFiles() {
             <p className="m-0 flex items-start gap-1.5 rounded-md bg-sf-raised px-3 py-2 text-sm text-sf-ink-soft">
               <IconLock size={14} aria-hidden className="mt-0.5" />
               <span>
-                {file.filename} shapes every answer, so it is read-only here. It changes only when an admin asks Whisk
+                {file.filename} shapes every answer, so it is read-only here. It changes only when an admin asks{' '}
+                {agentName}
                 in chat and approves the change.
               </span>
             </p>
@@ -182,6 +185,7 @@ function ContextFiles() {
 
 /** Business facts Whisk remembers, with where each came from; an admin can end one. */
 function Facts() {
+  const agentName = useAgentName();
   const [input, setInput] = useState('');
   const [q, setQ] = useState('');
   const [ended, setEnded] = useState(false);
@@ -197,7 +201,7 @@ function Facts() {
     if (
       !(await confirmDialog({
         title: 'End this fact',
-        message: `Whisk will stop using "${f.text}". The fact stays in the history.`,
+        message: `${agentName} will stop using "${f.text}". The fact stays in the history.`,
         confirmLabel: 'End it',
         danger: true,
       }))
@@ -235,7 +239,7 @@ function Facts() {
         <p className={HINT}>
           {q
             ? 'No fact matches.'
-            : 'No facts yet. Whisk learns them from conversations overnight, when the nightly run is on.'}
+            : `No facts yet. ${agentName} learns them from conversations overnight, when the nightly run is on.`}
         </p>
       )}
       <ul className="m-0 flex list-none flex-col gap-2 p-0">

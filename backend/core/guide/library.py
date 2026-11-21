@@ -12,6 +12,9 @@ Each file opens with front matter (hand-parsed; three keys):
     order: 10                     (optional integer; lower sorts first, default 1000)
     ---
 
+`{agent_name}` anywhere in a topic is the default agent's current name, filled in per request
+(`with_agent_name`), so a renamed assistant is never called Whisk in the Guide.
+
 A body over MAX_TOPIC_CHARS, an unknown key, a bad file name or a duplicate slug makes a topic
 bad. `load(strict=True)` raises on it, so a test (and a fork's CI) fails loudly; at runtime
 `topics()` loads with strict=False, logging and skipping a bad topic so one broken doc never takes
@@ -22,6 +25,7 @@ Search is a deterministic ranking pass: title beats summary beats body, ties bre
 
 from __future__ import annotations
 
+import dataclasses
 import functools
 import logging
 import re
@@ -119,6 +123,15 @@ def load(sources: tuple[tuple[str, str], ...], *, strict: bool = True) -> tuple[
                 logger.warning("Guide skipped %s: %s", path, e)
         topics += sorted(found, key=lambda t: (t.order, t.slug))
     return tuple(topics)
+
+
+AGENT_NAME = "{agent_name}"
+
+
+def with_agent_name(topic: Topic, name: str) -> Topic:
+    """The topic with every `{agent_name}` replaced by the assistant's name."""
+    title, summary, body = (text.replace(AGENT_NAME, name) for text in (topic.title, topic.summary, topic.body))
+    return dataclasses.replace(topic, title=title, summary=summary, body=body)
 
 
 def sources() -> tuple[tuple[str, str], ...]:

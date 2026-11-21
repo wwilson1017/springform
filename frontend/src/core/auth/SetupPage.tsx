@@ -6,6 +6,7 @@
 import { useState, type FormEvent } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
 import { ApiError, postJson } from '../api/client';
+import { DEFAULT_AGENT_NAME } from '../agent/useAgentName';
 import { useAuth } from './AuthContext';
 import { AuthLayout, buttonClass, inputClass, labelClass } from './AuthLayout';
 
@@ -20,7 +21,13 @@ export function SetupPage() {
   const { refresh } = useAuth();
   const navigate = useNavigate();
   const [params] = useSearchParams();
-  const [form, setForm] = useState({ token: params.get('token') ?? '', email: '', name: '', password: '' });
+  const [form, setForm] = useState({
+    token: params.get('token') ?? '',
+    email: '',
+    name: '',
+    password: '',
+    agent_name: '',
+  });
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
 
@@ -39,7 +46,14 @@ export function SetupPage() {
     }
   }
 
-  const field = (key: keyof typeof form, label: string, type: string, autoComplete: string) => (
+  const field = (
+    key: keyof typeof form,
+    label: string,
+    type: string,
+    autoComplete: string,
+    placeholder?: string,
+    maxLength?: number,
+  ) => (
     <div className="mb-4">
       <label htmlFor={`setup-${key}`} className={labelClass}>
         {label}
@@ -49,6 +63,8 @@ export function SetupPage() {
         type={type}
         autoComplete={autoComplete}
         value={form[key]}
+        placeholder={placeholder}
+        maxLength={maxLength}
         className={inputClass}
         onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.value }))}
       />
@@ -62,12 +78,17 @@ export function SetupPage() {
         {field('email', 'Email', 'email', 'username')}
         {field('name', 'Name', 'text', 'name')}
         {field('password', 'Password', 'password', 'new-password')}
+        {field('agent_name', 'Assistant name (optional)', 'text', 'off', DEFAULT_AGENT_NAME, 80)}
         {error && (
           <p role="alert" className="mb-0 text-sm text-sf-red-text">
             {error}
           </p>
         )}
-        <button type="submit" disabled={busy || Object.values(form).some((v) => !v)} className={`${buttonClass} mt-2`}>
+        <button
+          type="submit"
+          disabled={busy || [form.token, form.email, form.name, form.password].some((v) => !v)}
+          className={`${buttonClass} mt-2`}
+        >
           {busy ? 'Creating…' : 'Create admin'}
         </button>
       </form>

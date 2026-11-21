@@ -26,6 +26,7 @@ class AgentModels(Out):
 class AgentStatus(Out):
     configured: bool
     default_agent: str
+    name: str  # the default agent's display name
     providers: list[ProviderInfo]
     models: AgentModels
 

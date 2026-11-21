@@ -6,11 +6,13 @@ import { LoadError } from '../../shared/LoadError';
 import { toast } from '../../shared/toast';
 import type { CoreSettings } from '../settings/types';
 import { HINT } from './ui';
+import { useAgentName } from './useAgentName';
 
 const KEY = 'agent.nightly_enabled';
 
 /** Settings, AI: the nightly memory run (`core.agent_nightly`), off by default because it spends credits. */
 export default function NightlyCard() {
+  const agentName = useAgentName();
   const { data, error, reload, setData } = useJson<CoreSettings>('/api/core/settings');
   const [busy, setBusy] = useState(false);
   if (error) return <LoadError label="Couldn't load the setting" onRetry={reload} />;
@@ -36,8 +38,9 @@ export default function NightlyCard() {
         Run the nightly memory pass
       </label>
       <p className={HINT}>
-        At 02:00 Whisk reads the day's conversations that are not private, saves the business facts it finds, and tidies
-        its memory. It uses the light model, so it costs a little each night, and it is skipped while no AI key is set.
+        At 02:00 {agentName} reads the day's conversations that are not private, saves the business facts it finds, and
+        tidies its memory. It uses the light model, so it costs a little each night, and it is skipped while no AI key
+        is set.
       </p>
     </div>
   );

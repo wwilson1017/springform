@@ -36,7 +36,7 @@ order: 32
 - **"Why change?" outranks "why us?"** Most lost deals never needed a competitor. They
   needed a reason to do anything at all this quarter.
 
-## When Whisk reaches for it
+## When {agent_name} reaches for it
 
 - **The value narrative is weak** — the user cannot say in one sentence what the buyer
   gets, or the deal value looks arbitrary.

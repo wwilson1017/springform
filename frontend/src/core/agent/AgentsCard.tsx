@@ -5,6 +5,7 @@ import BootFallback from '../components/BootFallback';
 import { LoadError } from '../../shared/LoadError';
 import { toast } from '../../shared/toast';
 import type { AgentRow } from './types';
+import { setAgentName } from './useAgentName';
 import { HINT, INPUT, LABEL, PRIMARY } from './ui';
 
 function AgentForm({ agent, onSaved }: { agent: AgentRow; onSaved: (a: AgentRow) => void }) {
@@ -112,7 +113,7 @@ function AgentForm({ agent, onSaved }: { agent: AgentRow; onSaved: (a: AgentRow)
   );
 }
 
-/** Settings, AI: the agent roster (today just Whisk): name, personality, provider and model. */
+/** Settings, AI: the agent roster (today just the default agent): name, personality, provider and model. */
 export default function AgentsCard() {
   const { data, error, reload, setData } = useJson<AgentRow[]>('/api/agent/agents');
   if (error) return <LoadError label="Couldn't load the agents" onRetry={reload} />;
@@ -123,7 +124,13 @@ export default function AgentsCard() {
       {data.map((a) => (
         <section key={a.slug} aria-label={a.name} className="flex flex-col gap-2">
           {data.length > 1 && <h3 className="m-0 text-sm font-medium text-sf-ink">{a.name}</h3>}
-          <AgentForm agent={a} onSaved={(next) => setData(data.map((x) => (x.slug === next.slug ? next : x)))} />
+          <AgentForm
+            agent={a}
+            onSaved={(next) => {
+              setData(data.map((x) => (x.slug === next.slug ? next : x)));
+              if (next.is_default) setAgentName(next.name);
+            }}
+          />
         </section>
       ))}
     </div>

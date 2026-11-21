@@ -3,7 +3,7 @@ import { MemoryRouter, Route, Routes } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { User } from '../api/types';
 import { AuthProvider } from '../auth/AuthContext';
-import type { AgentRow, AgentStatus, ChatEvent, Conversation, ConversationDetail } from './types';
+import type { AgentStatus, ChatEvent, Conversation, ConversationDetail } from './types';
 import { DROP_NOTICE } from './useAgentChat';
 import WhiskPage from './WhiskPage';
 
@@ -16,23 +16,13 @@ const sse = (...events: ChatEvent[]) =>
   });
 
 const user = (role: User['role']): User => ({ id: 1, email: 'a@example.com', name: 'A', role, tz: 'UTC' });
-const status = (configured: boolean): AgentStatus => ({
+const status = (configured: boolean, name = 'Whisk'): AgentStatus => ({
   configured,
   default_agent: 'whisk',
+  name,
   providers: [],
   models: { default: configured ? 'm' : null, light: null },
 });
-const agent: AgentRow = {
-  id: 1,
-  slug: 'whisk',
-  name: 'Whisk',
-  personality: '',
-  provider_override: null,
-  model_override: null,
-  model_tier: 'default',
-  is_default: true,
-  created_at: '2026-10-24T10:00:00Z',
-};
 const conversation = (id: number): Conversation => ({
   id,
   user_id: 1,
@@ -50,7 +40,6 @@ function serve(role: User['role'], configured: boolean, routes: Record<string, H
   const table: Record<string, Handler | Handler[]> = {
     'GET /api/me': () => json(user(role)),
     'GET /api/agent/status': () => json(status(configured)),
-    'GET /api/agent/agents': () => json([agent]),
     'GET /api/agent/conversations?limit=100': () => json([]),
     ...routes,
   };
@@ -112,11 +101,18 @@ describe('the zero-key gate', () => {
     expect(screen.queryByText('Whisk needs an AI key')).toBeNull();
   });
 
+  it('uses the name the admin gave the assistant', async () => {
+    serve('admin', false, { 'GET /api/agent/status': () => json(status(false, 'Ada')) });
+    renderAt();
+    expect(await screen.findByRole('heading', { name: 'Ada needs an AI key' })).toBeTruthy();
+    expect(screen.queryByText(/Whisk/)).toBeNull();
+  });
+
   it('turns a 400 no_provider into the error and re-reads the status', async () => {
     const fn = serve('admin', true, { 'POST /api/agent/chat': () => json({ detail: 'no_provider' }, 400) });
     renderAt();
     await send('hello');
-    expect(await screen.findByText('Whisk needs an AI key before it can answer.')).toBeTruthy();
+    expect(await screen.findByText('The assistant needs an AI key before it can answer.')).toBeTruthy();
     await waitFor(() => expect(fn.mock.calls.filter(([u]) => u === '/api/agent/status').length).toBe(2));
   });
 });
