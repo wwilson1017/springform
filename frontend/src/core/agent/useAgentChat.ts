@@ -339,7 +339,11 @@ export function useAgentChat(options: Options = {}) {
         if (files.length) {
           const shrunk: File[] = [];
           // One at a time: five large photos decoded at once can exhaust a phone tab's memory.
-          for (const f of files) shrunk.push(await shrinkImage(f));
+          // Stop (or a newer turn) abandons the photos not yet started.
+          for (const f of files) {
+            if (turn.stopped || !turn.live) break;
+            shrunk.push(await shrinkImage(f));
+          }
           if (!turn.live) return;
           if (turn.stopped) {
             // Stopped before anything was sent: no server turn to cancel, so take the message back.
