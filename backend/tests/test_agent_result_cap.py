@@ -248,3 +248,11 @@ def test_deeply_nested_json_is_capped_as_text():
 def test_rows_that_each_add_keys_are_not_tabled():
     rows = [{"a": 1, "b": 2, "c": 3, f"k{i}": i} for i in range(4000)]
     assert result_cap._as_csv(json.dumps(rows)) is None
+
+
+def test_grep_is_a_literal_and_bounded():
+    assert result_cap._grep("r1", "a" * 400_000, "a" * 190 + "b").startswith('[r1: 0 matches for "')
+    assert "@3: xx Hello" in result_cap._grep("r1", "xx Hello .*", "HELLO")
+    assert result_cap._grep("r1", "x.*y", ".*").startswith('[r1: 1 matches for ".*"]')
+    with pytest.raises(result_cap.Invalid):
+        result_cap._grep("r1", "text", "x" * (result_cap.GREP_MAX_CHARS + 1))

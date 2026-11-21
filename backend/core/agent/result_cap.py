@@ -29,6 +29,7 @@ READ_CHARS = 20_000  # one core_read_result page, under the cap so a page is nev
 READABLE_HOURS = 24
 GREP_MAX_MATCHES = 50
 GREP_CONTEXT_CHARS = 150
+GREP_MAX_CHARS = 200
 CSV_MIN_ROWS = 3
 CSV_MIN_FIELDS = 3
 CSV_KEY_SHARE = 0.9
@@ -187,14 +188,17 @@ def read(user: User, handle: str, *, offset: int | None = None, grep: str | None
 def _grep(handle: str, text: str, needle: str) -> str:
     # simplification: a case-insensitive literal, not a pattern (a model-written regex over megabytes
     # can backtrack past the tool timeout); upgrade: a bounded regex.
-    lines, last_end, total = [], -1, 0
-    for match in re.finditer(re.escape(needle), text, re.IGNORECASE):
-        if match.start() < last_end:
-            continue
+    if len(needle) > GREP_MAX_CHARS:
+        raise Invalid(f"grep takes at most {GREP_MAX_CHARS} characters")
+    hay, low = text.lower(), needle.lower()
+    if len(hay) != len(text):  # lowercasing changed the length, so offsets would drift: match case
+        hay, low = text, needle
+    lines, total, at = [], 0, hay.find(low)
+    while at >= 0 and low:  # str.find is linear; a case-insensitive regex is quadratic on near-matches
         total += 1
         if len(lines) < GREP_MAX_MATCHES:
-            lo, hi = max(0, match.start() - GREP_CONTEXT_CHARS), match.end() + GREP_CONTEXT_CHARS
-            lines.append(f"@{match.start()}: " + " ".join(text[lo:hi].split()))
-            last_end = hi
+            lo, hi = max(0, at - GREP_CONTEXT_CHARS), at + len(low) + GREP_CONTEXT_CHARS
+            lines.append(f"@{at}: " + " ".join(text[lo:hi].split()))
+        at = hay.find(low, at + len(low) + GREP_CONTEXT_CHARS)
     shown = f"first {GREP_MAX_MATCHES} of {total}" if total > GREP_MAX_MATCHES else str(total)
     return "\n".join([f'[{handle}: {shown} matches for "{needle}"]', *lines])
