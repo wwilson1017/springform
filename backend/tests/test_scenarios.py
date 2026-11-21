@@ -182,6 +182,10 @@ def run(path: Path, app, login_as, model_requests: list[dict], monkeypatch) -> N
                         last_seq = evs[-1]["seq"]
                         end = {step["drop_after"]} if "drop_after" in step else TERMINAL
                         assert evs[-1]["type"] in end, f"stream ended on {evs[-1]}"
+                    if "drop_after" not in step:  # a dropped turn may still be using its replies
+                        assert not fake._script, (
+                            f"{len(fake._script)} scripted replies left unused: {list(fake._script)}"
+                        )
                     seen += evs
                     check_events(evs, step.get("events", []))
                     for req in _listed(step.get("request")):

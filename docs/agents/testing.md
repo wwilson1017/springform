@@ -160,7 +160,7 @@ steps:
 | `resume: true` | `GET /api/agent/turns/{id}/events?after=<last seq seen>` for the latest turn |
 
 - `drop_after: <event type>` on a `send` or `continue` disconnects once that event arrives, and checks the turn is still running then (script slow `chunks` so it is); the turn carries on, and a later `resume` reads the rest.
-- `replies` entries are FakeProvider turns (`providers/fake.py`): a string streams text, `{tool, args, text?}` calls a tool, a list makes several calls, `{error}` fails the call, `{chunks, delay}` streams slowly. A compaction summary is a model call too: it takes the next reply, before the turn's own.
+- `replies` entries are FakeProvider turns (`providers/fake.py`): a string streams text, `{tool, args, text?}` calls a tool, a list makes several calls, `{error}` fails the call, `{chunks, delay}` streams slowly. A compaction summary is a model call too: it takes the next reply, before the turn's own. A step that leaves a reply unused fails (except a `drop_after` step, whose turn is still going).
 - Every step that streams a turn also checks that the events are numbered without gaps (a resume continues from the last seq seen) and end on `done` or `error` (or on the `drop_after` event).
 - Request checks look at the strings of the call's `messages` and `system`, so a fence reads as the model gets it, not JSON-escaped. Another test can read those calls with the `model_requests` fixture.
 - Files and tools a scenario makes up use generic names (no people, businesses or real records).
