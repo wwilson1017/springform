@@ -117,10 +117,11 @@ REPEATS_NOTE = "{n} repeating todos get their next occurrence; Undo cannot take 
 def _bulk_update(conn, user, args: dict) -> dict:
     fields = ItemPatch(**(args.get("fields") or {})).model_dump(exclude_unset=True)
     spawns = 0
-    if fields.get("status") == "done":  # an effect the change list's rows do not show
+    if fields.get("status") == "done" and fields.get("repeat", True):  # an effect the change list's rows do not show
+        repeats = "1" if "repeat" in fields else "coalesce(repeat, '') != ''"  # the repeat it will have
         spawns = conn.execute(
-            """SELECT count(*) FROM todos_items WHERE id IN (SELECT value FROM json_each(?))
-                AND coalesce(repeat, '') != '' AND status != 'done'""",
+            f"""SELECT count(*) FROM todos_items WHERE id IN (SELECT value FROM json_each(?))
+                AND {repeats} AND status != 'done'""",
             (json.dumps(_bulk_ids(args)),),
         ).fetchone()[0]
     out = service.bulk_update_in(conn, user, _bulk_ids(args), fields)

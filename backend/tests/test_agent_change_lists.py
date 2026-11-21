@@ -170,6 +170,29 @@ def test_a_tainted_card_lists_what_the_tool_says_beyond_the_rows(login_as):
     ]
 
 
+def test_the_repeat_note_counts_the_repeat_the_call_sets(login_as):
+    a = login_as("member")
+    daily, plain = todo(a.principal, "Water the plants", repeat="daily"), todo(a.principal, "Order flour")
+    cid = tainted_chat(a)
+    for fields, notes in (({"status": "done", "repeat": "daily"}, 2), ({"status": "done", "repeat": ""}, 0)):
+        _, evs = bulk(a, [daily, plain], fields, cid)
+        got = a.get(f"/api/agent/change-lists/{of(evs, 'confirm')[0]['tool_run_id']}").json()["notes"]
+        assert got == (
+            [f"{notes} repeating todos get their next occurrence; Undo cannot take that back."] if notes else []
+        )
+
+
+def test_undo_refuses_a_status_that_would_repeat_once_put_back(login_as):
+    a = login_as("member")
+    daily = todo(a.principal, "Water the plants", repeat="daily")
+    todos.update_item(a.principal, daily, {"status": "done"})  # its next occurrence exists
+    count = core_db.one("SELECT count(*) AS n FROM todos_items")["n"]
+    _, evs = bulk(a, [daily], {"repeat": "", "status": "next_action"})
+    out = a.post(f"/api/agent/change-lists/{of(evs, 'tool_end')[0]['tool_run_id']}/undo").json()
+    assert [s["reason"] for s in out["skipped"]] == [todos.REPEAT_UNDO]
+    assert core_db.one("SELECT count(*) AS n FROM todos_items")["n"] == count  # no second occurrence
+
+
 def test_undo_refuses_a_repeating_todo_status(login_as):
     a = login_as("member")
     daily = todo(a.principal, "Water the plants", repeat="daily")

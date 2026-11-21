@@ -523,7 +523,10 @@ def revert_in(conn: db.Conn, user: User, item_id: int, old: dict) -> None:
         if isinstance(fields.get(key), str):
             fields[key] = json.loads(fields[key])
     row = _raw_in(conn, "item", item_id)
-    if row and row["repeat"] and "status" in fields and "done" in (row["status"], fields["status"]):
+    if row is None:
+        raise NotFound()
+    repeats = row["repeat"] or fields.get("repeat")  # repeating now, or once put back
+    if repeats and "status" in fields and "done" in (row["status"], fields["status"]):
         raise Invalid(REPEAT_UNDO)
     if not _apply_update_in(conn, user, item_id, fields):
         raise NotFound()
