@@ -218,5 +218,21 @@ describe('renderUnits', () => {
       { type: 'confirm', tool_run_id: 3, tool: 'save', tool_use_id: 'u', msg_id: 2, args: {}, summary: '', batch: 'k' },
     );
     expect(m.parts[0]).toMatchObject({ batch: 'k' });
+    const [reloaded] = fromServer([
+      row(2, 'assistant', '', [
+        {
+          tool: 'save',
+          tool_use_id: 'u',
+          args: {},
+          tool_run_id: 3,
+          status: 'pending',
+          result: null,
+          error: null,
+          can_always_allow: false,
+          batch: 'k',
+        },
+      ]),
+    ]);
+    expect(reloaded.parts[0]).toMatchObject({ batch: 'k' });
   });
 });

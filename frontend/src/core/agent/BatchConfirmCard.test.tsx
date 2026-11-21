@@ -56,6 +56,20 @@ describe('BatchConfirmCard', () => {
     ]);
   });
 
+  it('shows a member whose request failed as still waiting, with the failure', () => {
+    render(
+      <BatchConfirmCard
+        members={[
+          member('a', { name: 'One' }, { confirm: { phase: 'pending', failure: 'Could not reach the server.' } }),
+          member('b', { name: 'Two' }, { confirm: { phase: 'resolved', decision: 'approve', outcome: 'done' } }),
+        ]}
+        onDecide={() => {}}
+      />,
+    );
+    expect(screen.getByText('Could not reach the server.')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Approve all 1' })).toBeTruthy();
+  });
+
   it('Deny all sends the reason with each', async () => {
     const onDecide = vi.fn();
     render(
