@@ -14,10 +14,12 @@ import threading
 import time
 from urllib.parse import urlsplit
 
+from pydantic import ValidationError
+
 from backend.core import db
 from backend.core.errors import AppError, Conflict, Invalid
 from backend.core.mcp_servers import client, service as mcp_service, transport
-from backend.core.mcp_servers.router import check_url
+from backend.core.mcp_servers.router import ServerIn, check_url
 from backend.core.platform import keys, service as platform_service
 
 PREFIX, NAME = "gtd", "GTD suite"
@@ -127,10 +129,10 @@ def start() -> dict:
         if taken is not None:
             raise Conflict("gtd_already_connected" if taken["trusted"] else "gtd_prefix_taken")
         base = keys.get("gtd.base_url")
-        try:  # the hand-added server rules: https (http only with MCP_ALLOW_PRIVATE=1), no login
-            check_url(base)
-        except ValueError as e:
-            raise Invalid(str(e)) from None
+        try:  # the hand-added server rules: https (http only with MCP_ALLOW_PRIVATE=1), and a prefix no app uses
+            ServerIn(name=NAME, url=base, prefix=PREFIX)
+        except ValidationError as e:
+            raise Invalid(e.errors()[0]["msg"].removeprefix("Value error, ")) from None
         tiles, r = _call(_start, base)
         if r.status_code == 429:
             minutes = -(-_retry_after(r, 3600) // 60)

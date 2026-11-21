@@ -4,12 +4,12 @@ import type { SettingsSection } from '../settings/settingsSections';
 // Eager module, lazy card: the card loads when Settings, GTD suite is opened.
 export default [
   {
-    id: 'gtd',
+    id: 'gtd-suite',
     label: 'GTD suite',
     order: 85,
     cards: [
       {
-        id: 'gtd',
+        id: 'gtd-suite',
         title: 'GTD suite',
         adminOnly: true,
         Card: lazy(() => import('./GtdCard')),

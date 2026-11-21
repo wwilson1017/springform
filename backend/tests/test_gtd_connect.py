@@ -4,10 +4,11 @@ ask), the launcher tiles, and disconnect. Never the real suite."""
 
 import json
 import time
+from types import SimpleNamespace
 
 import pytest
 
-from backend.core import db as core_db
+from backend.core import db as core_db, registry as app_registry
 from backend.core.agent import history, registry
 from backend.core.agent.providers import fake
 from backend.core.gtd import service as gtd
@@ -196,15 +197,19 @@ def test_an_approved_link_survives_a_prefix_clash_until_it_is_stored(admin, suit
     assert done["server"]["prefix"] == "gtd" and done["server"]["trusted"] is True
 
 
-def test_gtd_is_reserved_and_a_hand_added_server_is_never_trusted(admin, suite):
+def test_a_hand_added_gtd_server_blocks_connect_and_is_never_trusted(admin, suite):
     base, _, _ = suite
     body = {"name": "Mine", "url": f"{base}/nothing", "prefix": "gtd"}
-    assert admin.post("/api/core/mcp/servers", json=body).status_code == 422  # a core namespace now
-    assert admin.post("/api/core/mcp/servers", json={**body, "prefix": "mine", "trusted": True}).status_code == 422
-    assert admin.post("/api/core/mcp/servers", json={**body, "prefix": "mine"}).json()["trusted"] is False
-    mcp_service.create(name="Older", url=f"{base}/nothing", prefix="gtd")  # made before the reservation
+    assert admin.post("/api/core/mcp/servers", json={**body, "trusted": True}).status_code == 422
+    assert admin.post("/api/core/mcp/servers", json=body).json()["trusted"] is False
     r = admin.post(f"{BASE}/connect")
     assert r.status_code == 409 and r.json()["detail"] == "gtd_prefix_taken"
+
+
+def test_an_installed_app_named_gtd_is_refused_at_connect(admin, monkeypatch):
+    monkeypatch.setattr(app_registry, "installed", lambda: [SimpleNamespace(slug="gtd")])
+    r = admin.post(f"{BASE}/connect")
+    assert r.status_code == 422 and "installed app" in r.json()["detail"]
 
 
 def test_the_trusted_servers_address_and_prefix_are_fixed(admin, suite):

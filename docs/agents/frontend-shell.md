@@ -87,7 +87,7 @@ Settings sections as built, in the order a user sees them (a member sees only th
 | 60 | `data` | Data | Export, Files (`files.max_bytes`) (admin) | `src/core/settings/settingsCards.ts` |
 | 70 | `ai` | AI | Providers, Agents, Memory, Skills, Nightly run, Web, Usage (admin) | `src/core/agent/settingsCards.ts` |
 | 80 | `mcp_servers` | MCP servers | Connected MCP servers (admin) | `src/core/mcp_servers/settingsCards.ts` |
-| 85 | `gtd` | GTD suite | GTD suite connect (admin; `mcp.md` §2) | `src/core/gtd/settingsCards.ts` |
+| 85 | `gtd-suite` | GTD suite | GTD suite connect (admin; `mcp.md` §2) | `src/core/gtd/settingsCards.ts` |
 | after core | `<slug>` | the app's name | The manifest's `settings_cards`, in launcher order: CRM (`crm`, admin), Todos (`todos`, members), Example (`example`, admin) | `src/apps/<slug>/contributions.ts` |
 
 There is no Sheets admin page, so `sheets` stays reserved but unrouted. `/backups` is `src/core/backups/` (route plus an admin-only user-menu item). The header's install name comes from `GET /api/core/workspace` through `settings/useWorkspace.ts`. The header bar paints only with the `--color-sf-bar*` tokens (`index.css`, "Header bar"), which follow a fork's `--color-sf-header*` and `--color-sf-highlight` from `public/branding/theme.css` (`forks.md` §10); anything new in the header uses them, not the page tokens, or it vanishes on a dark bar.

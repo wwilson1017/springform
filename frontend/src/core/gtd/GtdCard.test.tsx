@@ -45,7 +45,7 @@ function renderCard(routes: Record<string, Reply>) {
 
 describe('GtdCard', () => {
   it('is an admin-only section', () => {
-    expect(settingsCards.map((s) => [s.id, s.cards.map((c) => c.adminOnly)])).toEqual([['gtd', [true]]]);
+    expect(settingsCards.map((s) => [s.id, s.cards.map((c) => c.adminOnly)])).toEqual([['gtd-suite', [true]]]);
   });
 
   it('connects: shows the code and a new-tab link, polls, then shows it connected', async () => {

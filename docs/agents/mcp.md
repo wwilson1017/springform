@@ -105,7 +105,7 @@ Code: `client.py` (discovery, remote specs, calls), `transport.py` (the address 
 core_agent_mcp_servers(id, name, url, token_enc, prefix UNIQUE, enabled, tools_json, last_discovered_at, last_error, created_at, updated_at, trusted)
 ```
 
-`trusted` (migration `20261020000950_core_gtd_connect.sql`, default 0) is set only by the GTD suite connect (below).
+`trusted` (migration `20261020000990_core_gtd_connect.sql`, default 0) is set only by the GTD suite connect (below).
 
 `token_enc` is encrypted with the install key (`enc:v1:`, `''` = no token) and sent as `Authorization: Bearer <token>`. `tools_json` is what the registry holds for the server now (`[{name, description, read_only_hint}]`, `[]` when disabled or failing). `last_discovered_at` is the last successful discovery; `last_error` the last failure (cleared by a success).
 
@@ -149,7 +149,7 @@ A server row with `trusted = 1` is one an admin connected through Settings, GTD 
 
 ### GTD suite connect (`backend/core/gtd/`)
 
-Settings, **GTD suite** (`gtd`, order 85, admin-only; `frontend/src/core/gtd/`) links the install to a GTD suite account with the suite's device flow. The suite's address is the setting `gtd.base_url` (default `https://todogtd.com`, scheme and host only), edited on the card.
+Settings, **GTD suite** (`gtd-suite`, order 85, admin-only; `frontend/src/core/gtd/`) links the install to a GTD suite account with the suite's device flow. The suite's address is the setting `gtd.base_url` (default `https://todogtd.com`, scheme and host only), edited on the card.
 
 | Route (admin) | Does |
 |---|---|
@@ -161,7 +161,7 @@ Settings, **GTD suite** (`gtd`, order 85, admin-only; `frontend/src/core/gtd/`) 
 Every route answers `GtdState = {base_url, server: S | null, pending: {user_code, url, interval, expires_in} | null}`; the device token never leaves the server. Every request to the suite goes through `transport.http_client()` (the address policy above, no redirects, 30 s, 1 MB) via `client.run`, never inside a transaction. The card opens `url` in a new tab and asks the server to poll every `interval` seconds.
 
 1. The waiting connect lives in process memory (one process is a platform rule); a restart means clicking Connect again. An approved link, which the suite hands out exactly once, stays there until it is stored: if a hand-added server holds `gtd` meanwhile, each poll answers 409 `prefix_taken` until it is removed, then stores it.
-2. Start answers 409 `gtd_already_connected` when connected, `gtd_prefix_taken` when a hand-added server holds `gtd`, 422 when `gtd.base_url` breaks the hand-added server address rules (`http://` without `MCP_ALLOW_PRIVATE=1`). `gtd` is a reserved slug (`registry.RESERVED_SLUGS`): no app can take it and no hand-added server can use it as a prefix, so a later deploy cannot clash with a connected suite's tools, its settings key or its section; `gtd_prefix_taken` covers only a hand-added row from before the reservation.
+2. Start answers 409 `gtd_already_connected` when connected, `gtd_prefix_taken` when a hand-added server holds `gtd`, 422 when `gtd.base_url` or the prefix breaks the hand-added server rules (`http://` without `MCP_ALLOW_PRIVATE=1`, or a fork with an app named `gtd`). `gtd` is deliberately not a reserved slug: reserving it would stop an existing fork with a `gtd` app from booting. A `gtd` app installed after connecting clashes only if it defines a tool named exactly like a remote one (`gtd__<tool>`); the registry then refuses that server's tools and records `last_error`, and nothing else breaks. The settings section id is `gtd-suite`, which no app slug can be.
 3. Tiles: one per app among `todo`, `notes`, `projects`, `sites`, `brain` that the suite's `/api/config` lists (`apps.{key}.url`, http or https only), titled Todo, Notes, Projects, Sites and Brain, in that order, in `core_launcher_links` with the server's id (`frontend-shell.md`). The hosted suite lists all five; a self-hosted one only the apps it runs.
 4. The agent link is stored like any server URL (the token is in its path), shown to admins in the MCP servers card.
 5. The connection is install-wide, like every outbound server: the tools reach every member's Whisk with the connected account.
