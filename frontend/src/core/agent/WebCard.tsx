@@ -48,8 +48,8 @@ export default function WebCard() {
       </label>
       <p className={HINT}>
         What {agentName} reads on the web is treated as untrusted: after it reads a page or a search result, every
-        change it wants to make in that conversation asks for your approval first. Pages on your own network are never
-        read.
+        change it wants to make in that conversation, and every further page or search, asks for your approval first.
+        Pages on your own network are never read.
       </p>
       {on && (
         <div className="flex flex-wrap gap-3">

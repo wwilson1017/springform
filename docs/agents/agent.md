@@ -199,7 +199,7 @@ CakeCRM's loop, minus Google/Odoo/QuickBooks/todo/meeting logic, plan mode, LLM 
 
 1. Compaction at **70%** of the context window, via the light model tier.
 2. Reads run immediately through `handler(user, args)`.
-3. A call confirms when the tool is `always_confirm`, or when it is a write that is not routine, is `external_effect`, runs in a tainted conversation, or whose `hides_when(args)` is true or raises. A confirming call inserts a `pending` tool run and emits `confirm`; the client continues by posting `/api/agent/chat` with the conversation id and no message.
+3. A call confirms when the tool is `always_confirm`, when it is an `untrusted_source` read in a tainted conversation (its arguments, a URL or a query, could carry conversation data out to a page's author), or when it is a write that is not routine, is `external_effect`, runs in a tainted conversation, or whose `hides_when(args)` is true or raises. A confirming call inserts a `pending` tool run and emits `confirm`; the client continues by posting `/api/agent/chat` with the conversation id and no message.
 4. Results from `untrusted_source` tools are fenced with `delimiters.wrap_untrusted_external` and taint the **conversation** (`core_agent_conversations.tainted`), permanently and across compaction: every later write in it confirms, routine ones included.
 
 The loop is `turns.TurnRunner(state, emit).run()`: it hands each event to `emit` as a dict and ends with exactly one terminal event (`done` or `error`). `dispatch.run_call` settles one tool call (refuse, `core_find_tools`, gate for approval, or run). `engine.py` keeps `chat_tools`, `needs_confirmation` and `confirm`.
@@ -297,7 +297,7 @@ A model call's tool calls count only when its stop reason is `tool_use`: a call 
 
 Further rules:
 
-1. **Handler-form tools** (external effects such as remote MCP, email and HTTP, and reads that always confirm) are claimed in one transaction, executed outside it, and resolved in another. Any failure of an `external_effect` handler, a timeout included, marks `uncertain` with the error shown to the user, since the effect may have happened; a failing handler without `external_effect` records `error`.
+1. **Handler-form tools** (external effects such as remote MCP, email and HTTP, and reads that always confirm or confirm when tainted) are claimed in one transaction, executed outside it, and resolved in another. Any failure of an `external_effect` handler, a timeout included, marks `uncertain` with the error shown to the user, since the effect may have happened; a failing handler without `external_effect` records `error`.
 2. On startup, rows left `executing` are marked `interrupted` and surfaced in the conversation.
 3. A double approve returns **`already_resolved`**; the tool runs once.
 4. A deny is recorded (`denied`, `resolved_by`, `resolved_at`).
