@@ -18,6 +18,10 @@ Conventions:
 
 ## [Unreleased]
 
+## [0.1.4] - 2026-11-21
+
+Forks can set their own colours and logo, an admin can hide the install name next to the logo, and Whisk keeps answering through dropped tabs and provider failures.
+
 ### Added
 
 - Whisk stops itself when it keeps repeating the same step, fixes simple argument slips (`"42"` for 42), suggests the right name for a mistyped tool, adds a correction when it says it sent or created something it did not, and can search your earlier conversations.
