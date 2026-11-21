@@ -167,8 +167,11 @@ def test_a_failing_reads_still_runs_the_tool_and_withholds_its_result(login_as, 
 
 def test_an_app_tool_without_reads_fails_closed(login_as, extra_tools):
     member = login_as("member")
-    bare = dict(description="d", input_schema=SCHEMA, writes=False, handler=lambda u, a: {"seen": MARKER})
-    extra_tools(ToolSpec(name="example_bare_read", app="example", **bare), ToolSpec(name="core_bare_read", **bare))
+
+    def bare(name: str, app: str) -> ToolSpec:
+        return ToolSpec(name, "d", SCHEMA, False, handler=lambda u, a: {"seen": MARKER}, app=app)
+
+    extra_tools(bare("example_bare_read", "example"), bare("core_bare_read", "core"))
     end, evs = call(member, "example_bare_read", {})  # e.g. a fork's tool written before `reads` existed
     assert stored(end["tool_run_id"])["records"] == history.UNKNOWN and MARKER not in replayed(evs[0]["id"])
     end, evs = call(member, "core_bare_read", {})  # core's own are classified by the registry guard test
