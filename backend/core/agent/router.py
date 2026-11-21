@@ -234,7 +234,7 @@ def get_conversation(conversation_id: int, user: User = Depends(current_user)) -
                     "result": _preview(run["result"] if run else None),
                     "error": run and run["error"],
                     **(
-                        engine.card_extras(spec, json.loads(run["args"]), tainted)
+                        engine.card_extras(spec, json.loads(run["args"]), tainted, m["id"])
                         if run and run["status"] == "pending" and (spec := tool_registry.get(run["tool"]))
                         else {}
                     ),

@@ -172,7 +172,7 @@ async def run_call(
                 "msg_id": message_id,
                 "args": args,
                 "summary": spec.summary,
-                **card_extras(spec, args, state.tainted),
+                **card_extras(spec, args, state.tainted, message_id),
             }
         )
         return {"tool_use_id": tool_use_id, "tool_name": name, "content": history.model_content({"status": "pending"})}

@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import json
 import logging
+import math
 
 from backend.core import db
 from backend.core.agent import approval_rules, execute, history, registry as tool_registry
@@ -76,9 +77,30 @@ def rule_skips(user_id: int, agent_id: int, spec: ToolSpec, args: dict, tainted:
         return False
 
 
-def card_extras(spec: ToolSpec, args: dict, tainted: bool) -> dict:
+MAX_BATCH_FIELDS = 12
+MAX_BATCH_VALUE_CHARS = 200
+
+
+def batch_key(spec: ToolSpec, args: dict, message_id: int | None) -> str | None:
+    """Calls with equal keys may share one Approve card: one step, one tool, the same argument names,
+    and only flat scalar values, which the card lists in full. The key pins everything about a call
+    except the values the card shows, so one card never stands for a write the user cannot see.
+    Display only: each member is still confirmed on its own."""
+    if message_id is None or not spec.writes or spec.always_confirm or not args or len(args) > MAX_BATCH_FIELDS:
+        return None
+    for value in args.values():
+        if not isinstance(value, (str, int, float, bool, type(None))):
+            return None
+        if isinstance(value, float) and not math.isfinite(value):
+            return None
+        if len(json.dumps(value)) > MAX_BATCH_VALUE_CHARS:  # never truncated: a long value keeps its own card
+            return None
+    return json.dumps([message_id, spec.name, sorted(args)])
+
+
+def card_extras(spec: ToolSpec, args: dict, tainted: bool, message_id: int | None) -> dict:
     """What an Approve card needs beyond the run, on the `confirm` event and the conversation read."""
-    return {"can_always_allow": rule_eligible(spec, args, tainted)}
+    return {"can_always_allow": rule_eligible(spec, args, tainted), "batch": batch_key(spec, args, message_id)}
 
 
 # ── Confirmation ──────────────────────────────────────────────────────────────
