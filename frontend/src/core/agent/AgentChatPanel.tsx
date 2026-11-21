@@ -1,9 +1,16 @@
 import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
-import { AgentMessageBubble } from './AgentMessageBubble';
+import { toast } from '../../shared/toast';
+import { IconX } from '../../shared/icons';
+import { AgentMessageBubble, FileChip } from './AgentMessageBubble';
 import type { ChatMessage } from './chatModel';
 import type { Decision } from './confirmState';
-import { IconArrowUp, IconSparkle, IconStop } from './icons';
+import { IconArrowUp, IconPaperclip, IconSparkle, IconStop } from './icons';
 import type { ContextUsage } from './useAgentChat';
+
+/** What the server reads (backend/core/agent/uploads.py KINDS, MAX_FILES); it stays the judge. */
+const EXTENSIONS = ['jpg', 'jpeg', 'png', 'webp', 'csv', 'xlsx', 'pdf', 'docx'];
+const MAX_FILES = 5;
+const isImage = (f: File) => /\.(jpe?g|png|webp)$/i.test(f.name);
 
 const kTokens = (n: number) => (n >= 1000 ? `${Math.round(n / 100) / 10}k` : String(n));
 
@@ -37,12 +44,12 @@ interface Props {
   header?: ReactNode;
   /** Shown instead of the composer (and of the empty state), e.g. the zero-key card. */
   blocked?: ReactNode;
-  onSend: (text: string) => void;
+  onSend: (text: string, files?: File[]) => void;
   onStop: () => void;
   onDecide: (msgId: string, toolUseId: string, decision: Decision) => void;
 }
 
-/** The message list and the composer (Chatty's AgentChatPanel without uploads, modes or playbooks). */
+/** The message list and the composer (Chatty's AgentChatPanel without modes or playbooks). */
 export function AgentChatPanel({
   agentName,
   messages,
@@ -56,6 +63,8 @@ export function AgentChatPanel({
   onDecide,
 }: Props) {
   const [draft, setDraft] = useState('');
+  const [files, setFiles] = useState<File[]>([]);
+  const fileRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const pinnedRef = useRef(true);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -79,10 +88,21 @@ export function AgentChatPanel({
   }, [draft]);
 
   function submit() {
-    if (streaming || !draft.trim()) return;
+    if (streaming || !(draft.trim() || files.length)) return;
     pinnedRef.current = true;
-    onSend(draft);
+    onSend(draft, files);
     setDraft('');
+    setFiles([]);
+  }
+
+  function pick(list: FileList | null) {
+    const picked = [...(list ?? [])];
+    const ok = picked.filter((f) => EXTENSIONS.includes(f.name.split('.').pop()?.toLowerCase() ?? ''));
+    const bad = picked.find((f) => !ok.includes(f));
+    if (bad) toast.error(`${bad.name} can't be attached. Attach photos (JPEG, PNG, WebP), PDF, Word, Excel or CSV.`);
+    const next = [...files, ...ok];
+    if (next.length > MAX_FILES) toast.error(`At most ${MAX_FILES} files per message.`);
+    setFiles(next.slice(0, MAX_FILES));
   }
 
   function onKeyDown(e: KeyboardEvent<HTMLTextAreaElement>) {
@@ -133,7 +153,46 @@ export function AgentChatPanel({
       {!blocked && (
         <div className="border-0 border-t border-solid border-sf-line bg-sf-bg px-4 pb-3 pt-3 md:px-6">
           <div className="mx-auto flex max-w-3xl flex-col gap-1.5">
+            {files.length > 0 && (
+              <ul aria-label="Attachments" className="m-0 flex list-none flex-wrap gap-1.5 p-0">
+                {files.map((f, i) => (
+                  <li key={`${f.name}-${i}`}>
+                    <FileChip filename={f.name} image={isImage(f)}>
+                      <button
+                        type="button"
+                        onClick={() => setFiles(files.filter((_, j) => j !== i))}
+                        aria-label={`Remove ${f.name}`}
+                        className="-mr-1 flex cursor-pointer items-center border-0 bg-transparent p-0.5 text-sf-ink-dim"
+                      >
+                        <IconX size={12} aria-hidden />
+                      </button>
+                    </FileChip>
+                  </li>
+                ))}
+              </ul>
+            )}
             <div className="flex items-end gap-2 rounded-lg border border-solid border-sf-line-strong bg-sf-card p-2 focus-within:border-sf-accent">
+              <input
+                ref={fileRef}
+                type="file"
+                multiple
+                hidden
+                accept={EXTENSIONS.map((e) => `.${e}`).join(',')}
+                data-testid="chat-file-input"
+                onChange={(e) => {
+                  pick(e.target.files);
+                  e.target.value = '';
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => fileRef.current?.click()}
+                aria-label="Attach files"
+                title="Attach photos or files"
+                className="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-md border-0 bg-transparent text-sf-ink-mute"
+              >
+                <IconPaperclip size={18} aria-hidden />
+              </button>
               <textarea
                 ref={inputRef}
                 value={draft}
@@ -158,7 +217,7 @@ export function AgentChatPanel({
                   type="button"
                   onClick={submit}
                   aria-label="Send"
-                  disabled={!draft.trim()}
+                  disabled={!draft.trim() && files.length === 0}
                   className="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-md border-0 bg-sf-accent text-sf-accent-ink disabled:cursor-default disabled:opacity-40"
                 >
                   <IconArrowUp size={16} aria-hidden />

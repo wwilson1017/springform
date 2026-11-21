@@ -107,7 +107,9 @@ describe('useAgentChat resume', () => {
       created_at: '2026-10-24T10:00:00Z',
       updated_at: '2026-10-24T10:00:00Z',
       compacted_at: null,
-      messages: [{ id: 1, role: 'user', text: 'hi', model: null, created_at: '2026-10-24T10:00:00Z', tool_calls: [] }],
+      messages: [
+        { id: 1, role: 'user', text: 'hi', model: null, created_at: '2026-10-24T10:00:00Z', tool_calls: [], files: [] },
+      ],
     };
     const fn = serve({
       'POST /api/agent/chat': (init) =>
@@ -182,5 +184,53 @@ describe('useAgentChat resume', () => {
       'POST /api/agent/chat',
       'POST /api/agent/chat',
     ]);
+  });
+});
+
+describe('useAgentChat attachments', () => {
+  const csv = () => new File(['a,b\n1,2\n'], 'parts.csv', { type: 'text/csv' });
+
+  it('posts the message and files as multipart to /chat/upload and applies the stream', async () => {
+    let sent: FormData | undefined;
+    const fn = serve({
+      'POST /api/agent/chat/upload': (init) => {
+        sent = init?.body as FormData;
+        return sse(
+          { type: 'conversation_id', id: 7, turn_id: 3, seq: 0 },
+          { type: 'text', text: 'Read it.', seq: 1 },
+          { type: 'done', model: 'fake', seq: 2 },
+        );
+      },
+    });
+    const { result } = renderHook(() => useAgentChat({ context: { page: '/todos' } }));
+    act(() => result.current.send('look', [csv()]));
+    await waitFor(() => expect(result.current.streaming).toBe(false));
+    expect(calls(fn)).toEqual(['POST /api/agent/chat/upload']);
+    expect(JSON.parse(String(sent?.get('payload')))).toEqual({
+      page: '/todos',
+      conversation_id: null,
+      message: 'look',
+    });
+    expect((sent?.getAll('files') as File[]).map((f) => f.name)).toEqual(['parts.csv']);
+    expect(result.current.messages[0].files).toEqual([{ filename: 'parts.csv', kind: 'document' }]);
+    expect(lastText(result.current.messages)).toBe('Read it.');
+  });
+
+  it("shows the server's sentence for a refused file", async () => {
+    serve({ 'POST /api/agent/chat/upload': () => json({ detail: "'x.csv' is larger than the 25 MB limit." }, 413) });
+    const { result } = renderHook(() => useAgentChat());
+    act(() => result.current.send('', [csv()]));
+    await waitFor(() => expect(result.current.streaming).toBe(false));
+    expect(result.current.messages.at(-1)?.error).toBe("'x.csv' is larger than the 25 MB limit.");
+    expect(result.current.messages[0].parts).toEqual([]);
+  });
+
+  it('does not retry a files-only send that meets a running turn', async () => {
+    const fn = serve({ 'POST /api/agent/chat/upload': () => json({ detail: 'turn_running' }, 409) });
+    const { result } = renderHook(() => useAgentChat());
+    act(() => result.current.send('', [csv()]));
+    await waitFor(() => expect(result.current.streaming).toBe(false));
+    expect(calls(fn)).toEqual(['POST /api/agent/chat/upload']);
+    expect(result.current.messages.at(-1)?.error).toMatch(/still answering/);
   });
 });

@@ -59,6 +59,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/agent/chat/upload": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Chat Upload
+         * @description `/chat` with attachments, as multipart: `payload` (the /chat body as JSON) and up to five
+         *     `files`. 411 without a Content-Length, 413 over the caps, 400 for a refused file (the detail
+         *     is a sentence to show), 409 `turn_running`.
+         */
+        post: operations["core_chat_upload"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/agent/confirm": {
         parameters: {
             query?: never;
@@ -5284,6 +5306,16 @@ export interface components {
             /** Merged Into */
             merged_into: number;
         };
+        /** MessageFile */
+        MessageFile: {
+            /** Filename */
+            filename: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "image" | "table" | "document";
+        };
         /** Meta */
         Meta: {
             /**
@@ -6239,6 +6271,8 @@ export interface components {
         ServerMessage: {
             /** Created At */
             created_at: string;
+            /** Files */
+            files: components["schemas"]["MessageFile"][];
             /** Id */
             id: number;
             /** Model */
@@ -7112,6 +7146,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    core_chat_upload: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
         };
