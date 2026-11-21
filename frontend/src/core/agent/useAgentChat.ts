@@ -50,9 +50,9 @@ interface Turn {
 /** Backoff for re-attaching to, or re-reading, a dropped turn. */
 export const RECONNECT_DELAYS_MS = [500, 1000, 2000, 4000, 8000];
 
-export const DROP_NOTICE = 'The connection dropped. This shows what Whisk saved.';
+export const DROP_NOTICE = 'The connection dropped. This shows what the assistant saved.';
 export const LOST_NOTICE =
-  'The connection dropped and Whisk could not be reached. Reload the page to see what was saved.';
+  'The connection dropped and the assistant could not be reached. Reload the page to see what was saved.';
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -77,10 +77,10 @@ async function cancelTurn(turn: Turn) {
 }
 
 function httpError(status: number, detail: string): string {
-  if (detail === 'no_provider') return 'Whisk needs an AI key before it can answer.';
+  if (detail === 'no_provider') return 'The assistant needs an AI key before it can answer.';
   if (status === 404) return 'This conversation was not found.';
-  if (detail === 'turn_running') return 'Whisk is still answering in this conversation. Try again in a moment.';
-  return `Whisk could not answer (${status}${detail ? `: ${detail}` : ''}).`;
+  if (detail === 'turn_running') return 'The assistant is still answering in this conversation. Try again in a moment.';
+  return `The assistant could not answer (${status}${detail ? `: ${detail}` : ''}).`;
 }
 
 function confirmFailure(e: unknown): string {

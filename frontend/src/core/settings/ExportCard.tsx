@@ -2,6 +2,7 @@ import { Link } from 'react-router';
 import { useJson } from '../api/useJson';
 import BootFallback from '../components/BootFallback';
 import { LoadError } from '../../shared/LoadError';
+import { useAgentName } from '../agent/useAgentName';
 
 interface ExportPreview {
   tables: Array<{ name: string; columns: string[]; estimated_rows: number }>;
@@ -9,11 +10,12 @@ interface ExportPreview {
 
 /** The business-data export: what the ZIP holds, and the download. */
 export default function ExportCard() {
+  const agentName = useAgentName();
   const { data, error, reload } = useJson<ExportPreview>('/api/core/export/preview');
   return (
     <div className="flex flex-col gap-4">
       <p className="m-0 text-sm text-sf-ink-mute">
-        A ZIP with one CSV per table. Passwords, sign-in secrets, stored keys and Whisk conversations are never
+        A ZIP with one CSV per table. Passwords, sign-in secrets, stored keys and {agentName} conversations are never
         included, and rows you cannot see on screen (someone else's private to-dos) are left out. For a full copy of the
         install, use{' '}
         <Link to="/backups" className="text-sf-accent-text">

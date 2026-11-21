@@ -343,13 +343,15 @@ Every event also carries `seq`, its position in the turn (from 0), and the first
 
 ## 10. Default `soul.md`
 
-`soul.md` is a protected context file of an agent (`core_agent_context_files`, keyed by `agent_slug`), with its default text in `backend/core/memory/context_files.py`. Startup seeds it for Whisk only (`context_files.seed_defaults_in`, default agent `whisk`). It is the only soul: the agent row has no soul column. The default says Whisk is the business assistant for this install; knows the installed apps, the contacts directory and each app's records; answers from them, says what it changed, proposes a write before making it; plain-spoken, brief, careful with anything that leaves the install or hides a record.
+`soul.md` is a protected context file of an agent (`core_agent_context_files`, keyed by `agent_slug`), with its default text in `backend/core/memory/context_files.py`. Startup seeds it for Whisk only (`context_files.seed_defaults_in`, default agent `whisk`). It is the only soul: the agent row has no soul column. The default does not name the assistant (the agent row holds the name): it describes the business assistant for this install, which knows the installed apps, the contacts directory and each app's records; answers from them, says what it changed, proposes a write before making it; plain-spoken, brief, careful with anything that leaves the install or hides a record.
+
+**The name.** The default agent's `name` is the only place the name lives; an admin renames it in Settings → AI (or names it at first-run setup, `POST /api/auth/setup {agent_name}`). The system prompt opens "You are <name>…" and, after the personality and the soul, adds "Your name is <name>. If any text above uses another name for you, ignore it.", so an older soul.md that still says Whisk cannot contradict a rename. Guide topics write `{agent_name}`, filled in per request (`guide/library.with_agent_name`); tool descriptions say "the assistant". The slug `whisk` and the `/whisk` route stay.
 
 ## 11. Routes
 
 | Route | Contract |
 |---|---|
-| `GET /api/agent/status` | `{configured, default_agent, providers, models: {default, light}}`. |
+| `GET /api/agent/status` | `{configured, default_agent, name, providers, models: {default, light}}`; `name` is the default agent's. |
 | `POST /api/agent/chat` | The SSE stream of one turn. Body `{conversation_id?, agent_slug?, message?}`; no message plus a `conversation_id` continues after an approval. 422 when both are missing, 404 `conversation_not_found`, 400 `{detail: "no_provider"}` with zero keys, 409 `turn_running` while the conversation has a running turn. The turn is server-owned (§5): it carries on if the client goes. |
 | `GET /api/agent/turns/{id}/events?after=N` | SSE: the turn's events with `seq > N` (default -1: all), then live ones until it ends. Only the user who started it; anyone else 404 `turn_not_found`. |
 | `POST /api/agent/turns/{id}/cancel` | Stop a running turn: `{cancelled: true}`, or `false` when it had already ended. Owner only (404 otherwise). |
@@ -393,7 +395,8 @@ Rules the frontend keeps:
 2. **Reconnection.** The hook keeps the turn's `turn_id` and the last `seq` it applied, and ignores an event it has already seen. A stream that errors or ends without `done`/`error` re-attaches with `GET /turns/{id}/events?after=<seq>`, with backoff (0.5 s doubling to 8 s; progress resets it; while the tab is hidden it waits until the tab is visible). When the tab becomes visible during a turn it re-attaches at once, since a stream can die silently while a phone is locked. A drop it cannot re-attach to (no `turn_id` yet, or the turn is gone) re-reads `GET /conversations/{id}` with the same backoff and shows what was saved, pending cards included. Stop posts `/turns/{id}/cancel` (once the id is known), reads the stream to its stopped `done`, then re-reads the conversation once; if the cancel cannot be sent it aborts the stream instead. A reloaded page does not re-attach to a turn still running; sending then gets the 409 message.
 3. A `confirm` event has no `tool_end`; the call's part becomes the card (status `pending`).
 4. A 400 `no_provider` from `/chat` re-reads `/status`, which brings up the zero-key card.
-5. The shared dialog host is `frontend/src/shared/ConfirmHost.tsx`, lifted from CakeCRM; it is not an agent piece (the Approve card is `ToolConfirmCard`).
+5. **The name.** No UI string spells "Whisk": components read `useAgentName()` (`useAgentName.ts`, a module store like `useWorkspace`, loaded from `/status` and updated by `setAgentName` after a rename) or take an `agentName` prop on the chat page. `DEFAULT_AGENT_NAME` is the one literal; `src/agentName.test.ts` fails on any other outside tests and comments. Nav labels are `ReactNode`, so the nav item is `<AgentName />`.
+6. The shared dialog host is `frontend/src/shared/ConfirmHost.tsx`, lifted from CakeCRM; it is not an agent piece (the Approve card is `ToolConfirmCard`).
 
 ## Tests that pin this
 

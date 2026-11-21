@@ -41,7 +41,7 @@ order: 31
   can be taught, scripted and supported — the insight comes from the organization, not from
   a gifted individual.
 
-## When Whisk reaches for it
+## When {agent_name} reaches for it
 
 - **They like us but nothing moves** — a deal sitting in *proposal* or *negotiation*
   carrying the *stuck in stage* flag with friendly activity and no decision.

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Link } from 'react-router';
 import type { User } from '../api/types';
 import { IconChevronDown } from '../../shared/icons';
@@ -10,7 +10,7 @@ export function UserMenu({
   onSignOut,
 }: {
   user: User;
-  items?: Array<{ to: string; label: string }>;
+  items?: Array<{ to: string; label: ReactNode }>;
   onSignOut: () => void;
 }) {
   const [open, setOpen] = useState(false);

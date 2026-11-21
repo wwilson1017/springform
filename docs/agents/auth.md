@@ -82,7 +82,7 @@ One seeded row: `id=0`, `role='system'`, email `system@springform.local`, `passw
    - printed once in the log;
    - written to `/data/setup-token`, mode 0600;
    - `deploy/setup.sh` prints it at the end.
-3. The setup page `/setup` requires the token (`POST /api/auth/setup`).
+3. The setup page `/setup` requires the token (`POST /api/auth/setup`). An optional `agent_name` (at most 80 characters) renames the default agent in the same transaction.
 4. Admin creation happens under the write lock with a re-check that there is still no human user (`WHERE role != 'system'`, the same test as the bootstrap), and the token is consumed (`core_login_tokens` purpose `setup`).
 5. After setup, `POST /api/auth/setup` returns **404** (also 404 for a wrong token).
 6. The first admin is created by password or CLI only: `python -m backend.cli create-admin EMAIL`. Google is configured afterwards in Settings and linked on the admin's next Google sign-in.
@@ -226,7 +226,7 @@ W1 contributes these cards through the settings registry W6 defines; it does not
 
 ```
 GET  /api/auth/status  -> {setup_required: bool, google: bool, preview: bool}
-POST /api/auth/setup   {token, email, name, password} -> 200 {user} + cookie; 404 when setup is not required or the token is wrong
+POST /api/auth/setup   {token, email, name, password, agent_name?} -> 200 {user} + cookie; 404 when setup is not required or the token is wrong
 POST /api/auth/login   {email, password} -> 200 {user} + cookie, or 200 {totp_required: true, challenge} with no cookie; 401 {detail:"invalid_credentials"}; 429 {detail:"rate_limited"}
 POST /api/auth/logout  -> 204, clears the cookie
 POST /api/auth/preview {role} -> 200 {user} + cookie (PREVIEW_MODE only, else 404)
