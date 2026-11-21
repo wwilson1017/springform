@@ -86,7 +86,14 @@ def confirm(user: User, tool_run_id: int, decision: str) -> dict:
         return _finish(run["id"], "error", user, "This tool is no longer available to you.")
     if tool_def_sha256(spec) != run["tool_def_sha256"]:
         return _finish(run["id"], "stale", user)
-    out = execute.run_tool(user, spec, json.loads(run["args"]), source=run["source"], run_id=run["id"])
+    out = execute.run_tool(
+        user,
+        spec,
+        json.loads(run["args"]),
+        source=run["source"],
+        run_id=run["id"],
+        conversation_id=run["conversation_id"],
+    )
     if out["status"] == "already_resolved":
         return _already(run["id"])
     if out["tainted"]:

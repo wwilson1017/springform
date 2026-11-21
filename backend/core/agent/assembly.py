@@ -8,8 +8,9 @@ server-side rather than trusted from a client transcript:
     assistant row, with tool calls  -> provider.build_tool_turn(text, calls, results from tool runs)
 
 After a compaction the aged middle is replaced by the stored gist, folded onto the first kept
-user row. One oversized row is cut for the live context only (storage stays whole), re-closing
-any fence the cut leaves open.
+user row. A big tool result gets the same head + tail view the turn it ran showed
+(`result_cap.capped`), and one oversized row is cut for the live context only (storage stays
+whole), re-closing any fence the cut leaves open.
 
 The memory seam, when `backend.core.memory` is installed:
 - `memory.instructions_for(conn, agent_slug)`: the protected files (soul.md, MEMORY.md, admin-
@@ -27,7 +28,7 @@ import logging
 import re
 
 from backend.core import db
-from backend.core.agent import agents, delimiters, history
+from backend.core.agent import agents, delimiters, history, result_cap
 from backend.core.auth.deps import User
 
 try:
@@ -99,10 +100,10 @@ def assemble_messages(provider, conversation_id: int) -> list[dict]:
                 {
                     "tool_use_id": c["tool_use_id"],
                     "tool_name": c["tool"],
-                    "content": _truncate(history.model_content(by_id[c["tool_use_id"]]), limit),
+                    "content": _truncate(result_cap.capped(history.model_content(run), run["id"]), limit),
                 }
                 for c in calls
-                if c["tool_use_id"] in by_id
+                if (run := by_id.get(c["tool_use_id"])) is not None
             ]
             bounded = [
                 {**c, "args": c["args"] if len(json.dumps(c["args"], default=str)) <= limit else {"truncated": True}}

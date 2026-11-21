@@ -18,13 +18,24 @@ import asyncio
 import logging
 from collections.abc import Callable
 
-from backend.core.agent import assembly, compaction, deferred, delimiters, dispatch, history, turn_hooks
+from backend.core.agent import (
+    assembly,
+    compaction,
+    context_shrink,
+    deferred,
+    delimiters,
+    dispatch,
+    history,
+    result_cap,
+    turn_hooks,
+)
 from backend.core.agent.aio import in_thread
 from backend.core.agent.engine import chat_tools
 from backend.core.agent.providers.windows import cache_inclusive_input_tokens, context_usage_event
 from backend.core.agent.turn_hooks import Fallback, ProviderFailure, Retry, TurnState
 
 # hook modules: a module that registers turn hooks is imported here.
+HOOK_MODULES = (result_cap, context_shrink)
 
 logger = logging.getLogger(__name__)
 

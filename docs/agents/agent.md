@@ -16,6 +16,7 @@ Base: CakeCRM `backend/assistant/` (Chatty's loop already trimmed, with server-s
 | `engine.py`, `history.py`, `assembly.py`, `compaction.py`, `delimiters.py`, `write_budget.py`, `llm.py` | CakeCRM `assistant/` (its `confirm_tier.py` folded into `spec.py` as the `ROUTINE` constant); JSONB → TEXT, array ops in Python; Gmail/page bindings cut | 1,108 |
 | `turns.py`, `dispatch.py`, `turn_hooks.py`, `detached.py`, `aio.py` | The loop (`TurnRunner`) and its per-call chain moved out of `engine.py`; the hook points are new; `detached.py` follows the shape of CakeCRM `assistant/turns.py`, cut down for one process (§5) | ~700 |
 | `deferred.py` | Chatty `deferred_tools.py`; group key = app slug, threshold 100 | 64 |
+| `result_cap.py`, `context_shrink.py`, `tools.py` | New (#87); the CSV rule after cake_os `tool_result_compression.py` (`docs/PROVENANCE.md`) | ~250 |
 | `agents.py` | CakeCRM `assistant/identity.py` prompt builder; agents are rows, not a singleton | 137 |
 | `backend/core/memory/facts.py`, `context_files.py`, `tools.py`, `router.py` | `facts.py` from CakeCRM `backend/memory/service.py` (FTS5, temporal facts, soft invalidation); `context_files.py` from CakeCRM `backend/context_files/service.py`, tsvector → FTS5 | 523 |
 | `backend/core/memory/observer.py`, `dreaming.py`, `jobs.py` | The observer from Chatty plus CakeCRM `backend/memory/observer.py`; dreaming is new, plain Python with no model call (it merges duplicate facts); nightly and setting-gated | 275 |
@@ -94,7 +95,9 @@ ToolSpec(
 
 `spec.calling_client` is a context variable holding the MCP client's self-reported name while an
 inbound MCP call runs (`None` in chat and jobs). A `handler_in` may read it for provenance (Todos
-stores it as `source_client`); a `handler` runs in a worker thread and does not see it.
+stores it as `source_client`). `spec.calling_conversation` holds the chat conversation a call runs
+for (`None` over MCP and in jobs); `execute.run_tool` sets it, approvals included. A `handler` runs
+in a worker thread started with a copy of the caller's context, so it sees both.
 
 ### Handler forms
 
@@ -181,6 +184,7 @@ Every install has these, from core packages' `tools.py`. The contacts, note and 
 | `core_memory_remember` | write | Records one business fact. |
 | `core_context_file_read` | read | One of Whisk's context files. |
 | `core_context_file_write` | write | Replaces a context file, protected ones included: admin only, `always_confirm`, not over MCP. |
+| `core_read_result` | read | A page (`offset`, 20,000 characters) or the `grep` matches of a capped tool result, by its handle (§5, "Result cap"). Only the run's user, from the conversation it ran in, for 24 hours. Chat only (`mcp_exposed=False`). |
 
 ## 5. Turn loop
 
@@ -195,7 +199,14 @@ The loop is `turns.TurnRunner(state, emit).run()`: it hands each event to `emit`
 
 ### Hook points
 
-`turn_hooks.py` holds everything a hook author needs: `TurnState`, the result types and `register(point, fn)`. A core module registers at import and is imported on the `# hook modules` line of `turns.py`; hooks run in registration order. `register` is the guard registry: an unknown point raises (so a typo stops boot), and a function already registered is not added twice. A hook is `def` or `async def` and runs on the event loop, so a `def` hook must not block; database work goes through `aio.in_thread`. A hook that raises ends the turn with the generic `error` event. The module is not `hooks.py` because a core package's `hooks.py` `HOOKS` is entity-event subscriptions. All five points ship empty. Tests swap a list with `monkeypatch.setitem(turn_hooks.REGISTERED, point, [fn])`.
+`turn_hooks.py` holds everything a hook author needs: `TurnState`, the result types and `register(point, fn)`. A core module registers at import and is imported on the `# hook modules` line of `turns.py`; hooks run in registration order. `register` is the guard registry: an unknown point raises (so a typo stops boot), and a function already registered is not added twice. A hook is `def` or `async def` and runs on the event loop, so a `def` hook must not block; database work goes through `aio.in_thread`. A hook that raises ends the turn with the generic `error` event. The module is not `hooks.py` because a core package's `hooks.py` `HOOKS` is entity-event subscriptions. Tests swap a list with `monkeypatch.setitem(turn_hooks.REGISTERED, point, [fn])`.
+
+Shipped hooks (listed in `turns.HOOK_MODULES`; `test_agent_hooks.py` pins them):
+
+| Module | Point | Does |
+|---|---|---|
+| `result_cap` | `on_tool_result` | Caps a result over 25,000 characters (below) |
+| `context_shrink` | `before_model_call` | Clears older tool results past 100,000 input tokens (below) |
 
 | Point | Signature | Runs | What the loop does with the answer |
 |---|---|---|---|
@@ -204,6 +215,12 @@ The loop is `turns.TurnRunner(state, emit).run()`: it hands each event to `emit`
 | `before_tool` | `(state, call) -> str \| None` | Before every tool call is settled (after the write-budget stop). `call` is `{id, name, args}` | First non-None string refuses the call: an `error` run with that text, `tool_end` status `error` |
 | `on_tool_result` | `(state, call, run) -> str \| None` | After a call ran through `execute.run_tool`; `run` is its outcome plus `content`, what the model will be shown | Chained: each non-None answer replaces `content`. Only the model's view of this turn changes; `tool_end` and the stored run do not, so a later turn sees the stored result |
 | `end_of_turn` | `(state) -> list[dict] \| None` | Once, when the turn ends with `done` (the model stopped, the write budget ended it, or a write waits and the narration succeeded); not on `error` or Stop | Each dict is emitted as an event, in order, just before `done` |
+
+### Result cap and in-turn clearing
+
+**Result cap** (`result_cap.py`). A tool result over `CAP_CHARS` (25,000) reaches the model as its first ~15,000 and last ~5,000 characters, cut at line breaks, then a notice: `[Result capped: N characters, ... Read the rest with core_read_result(handle="r<run id>", offset=<head length>), or search it with grep. Available for 24 hours.]`. Before cutting, a JSON list of like records (at least 3 dicts sharing at least 3 keys present in 90% of them), or such lists inside an object, becomes CSV blocks (`[CSV: <key>, n rows x m fields]`); that alone often brings it under the cap. An untrusted result is converted inside its fence, and the notice sits after the closing tag. The cap is a pure function: the hook applies it to this turn's view and `assembly.assemble_messages` to every later turn, a `Fallback` rebuild and a tool that ran after approval (which never passes `on_tool_result`), so every turn shows the same bytes. The full text is the run's own stored result (`core_agent_tool_runs.result`, CSV applied the same way), so there is no second copy: `core_read_result` reads it for 24 hours after the run, only for its user and from the conversation it ran in (`spec.calling_conversation`). `grep` is a case-insensitive literal, up to 50 matches with 150 characters either side. A page of an untrusted result comes back inside a new fence.
+
+**In-turn clearing** (`context_shrink.py`). Before a model call, when the turn's last call read more than `CLEAR_AT_TOKENS` (100,000, cache-inclusive), every tool result the model has already seen becomes `[Result cleared to save context. If you still need it, run the read again; never repeat a write.]`, except the newest `KEEP_RESULTS` (3). Results after the last assistant message (not seen yet) and results of 500 characters or less are never cleared. Only the in-memory messages change; the stored runs, and so the next turn, stay whole (compaction owns size across turns). `shrink(state, force=True)` clears regardless of the reading.
 
 `TurnState` fields are added, never renamed: `user`, `agent`, `provider`, `conversation_id`, `turn_id`, `messages` (provider-native), `system`, `iteration`, `usage` (the last call's), `tainted`, `budget`, `by_name`, `loaded`, `deferred_specs`, `pending`, `terminated`, and `scratch` (a hook's own per-turn storage, keyed by its module name). Hooks change only `messages`, `system` and `scratch`.
 
@@ -339,6 +356,7 @@ Rules the frontend keeps:
 - Zero-key status + 400.
 - FakeProvider streams text + a write tool → `confirm`, pending run, approve by a non-owner 403, stale `tool_def_sha256` → `stale`, approve executes once with args from the DB (double approve = `already_resolved`), deny recorded, `executing` at startup → `interrupted`.
 - No network or LLM call inside `transaction()`.
+- `test_agent_result_cap.py`: head + tail at line breaks, the CSV rule, a capped result paged back whole through `core_read_result` (also a confirmed tool's, and inside a fence), the same view in later turns, owner, conversation and 24-hour bounds. `test_agent_context_shrink.py`: the newest three kept in both message shapes, unseen and small results kept, storage untouched.
 - `test_agent_turns.py`: a turn survives a disconnect and saves its reply; `after=N` replays each later event once, live and from the log; cancel records `cancelled`; a second running turn is 409; startup and shutdown mark `interrupted`; the prune; a request cancelled while the turn starts still gets an answer; the final log write is retried. `test_agent_hooks.py`: each hook point's contract. `useAgentChat.test.tsx`: resume after a drop and on `visibilitychange`, and Stop.
 - `test_scenarios.py` runs `backend/tests/scenarios/*.yaml` (format in `testing.md`, "Whisk scenarios"): fencing and taint, approve then continue, compaction, a dropped turn resuming. `test_prompt_budget.py`: the static prompt plus eager tools stay under a token budget.
 - Playwright: Whisk answers with FakeProvider → write tool shows Approve and runs on approve → zero-key card.

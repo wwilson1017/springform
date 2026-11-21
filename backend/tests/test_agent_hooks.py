@@ -1,5 +1,5 @@
-"""The five turn hook points (agent.md §5, "Hook points"): each ships empty and does what its
-contract says when a hook is registered."""
+"""The five turn hook points (agent.md §5, "Hook points"): what ships on each, and each does what
+its contract says when a hook is registered."""
 
 import json
 
@@ -33,8 +33,17 @@ def hook(monkeypatch, point, fn):
     monkeypatch.setitem(turn_hooks.REGISTERED, point, [fn])
 
 
-def test_points_ship_empty_and_register_checks_the_name(monkeypatch):
-    assert turn_hooks.REGISTERED == {p: [] for p in turn_hooks.POINTS}
+SHIPPED = {
+    "before_model_call": ["backend.core.agent.context_shrink"],
+    "on_provider_error": [],
+    "before_tool": [],
+    "on_tool_result": ["backend.core.agent.result_cap"],
+    "end_of_turn": [],
+}
+
+
+def test_shipped_hooks_and_register_checks_the_name(monkeypatch):
+    assert {p: [fn.__module__ for fn in fns] for p, fns in turn_hooks.REGISTERED.items()} == SHIPPED
     monkeypatch.setitem(turn_hooks.REGISTERED, "end_of_turn", [])
     with pytest.raises(ValueError, match="unknown turn hook point"):
         turn_hooks.register("after_everything", print)
