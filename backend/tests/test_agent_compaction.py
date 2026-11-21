@@ -113,6 +113,9 @@ def test_required_puts_the_latest_ask_first_and_keeps_the_previous_gists_identif
     assert must[1:] == ["9", "https://example.com/d/9", "4521", "1250.00", "SO-7781"]  # newest rows first
     ask = [row(6, "user", "Also check deal 45210.")]
     assert compaction.required(middle + ask, runs, None)[-2:] == ["4521", "1250.00"]  # 4521 is not covered by 45210
+    upload = [row(7, "user", "", files=[{"filename": "p.csv", "kind": "table", "text": "SKU-9", "upload_id": 12}])]
+    assert compaction.required(middle + upload, runs, None)[0] == "Upload 12"  # a files-only ask: its handle, not SKU-9
+    assert "SKU-9" not in compaction.required(middle + upload, runs, None)
 
 
 def test_a_lossy_summary_is_retried_naming_what_is_missing_then_rejected(monkeypatch):

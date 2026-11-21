@@ -76,10 +76,16 @@ class ServerToolCall(Out):
     change_list: bool = False  # the run has a change list (GET /api/agent/change-lists/{tool_run_id})
 
 
+class MessageFile(Out):
+    filename: str
+    kind: Literal["image", "table", "document"]
+
+
 class ServerMessage(Out):
     id: int
     role: Literal["user", "assistant", "tool"]
     text: str
+    files: list[MessageFile]  # what the user attached (names only; the text goes to the model)
     tool_calls: list[ServerToolCall]
     model: str | None
     created_at: str

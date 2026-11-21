@@ -168,6 +168,7 @@ steps:
 | `resume: true` | `GET /api/agent/turns/{id}/events?after=<last seq seen>` for the latest turn |
 | `undo: <tool>` | `POST /api/agent/change-lists/{id}/undo` for the newest `confirm` or `tool_end` event of that tool (the Undo button); `status:` checks the answer's `status` |
 
+- `files: [{name, text} | {name, base64}]` on a `send` posts it to `/api/agent/chat/upload` as multipart, with those files (a CSV as `text`, a photo as `base64`).
 - `page: <path>` and `record: <records key>` on a `send` or `continue` send the chat's page and record context (the record as `example.widget` with that widget's id).
 - `usage: [...]` on any step: the `core_agent_usage` rows the step wrote, matched in order like `events` (a mapping matches the columns it names, others may sit between).
 - `sql:` (one statement or a list) changes the data between turns, before the step's action: a record made private, say. Use explicit ids.
