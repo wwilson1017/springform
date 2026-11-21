@@ -19,7 +19,7 @@ import threading
 import time
 
 from backend.core import clock, db, scheduler
-from backend.core.files import storage
+from backend.core.files import service, storage
 
 logger = logging.getLogger(__name__)
 
@@ -45,8 +45,7 @@ def sweep(cancel: threading.Event | None = None) -> dict:
         expired = [
             sha
             for (sha,) in conn.execute(
-                """SELECT sha256 FROM core_file_blobs b WHERE unreferenced_since < ?
-                      AND NOT EXISTS (SELECT 1 FROM core_files f WHERE f.sha256 = b.sha256)""",
+                f"SELECT sha256 FROM core_file_blobs WHERE unreferenced_since < ? AND {service.UNHELD}",
                 (clock.ago(KEEP_UNREFERENCED),),
             ).fetchall()
             if sha not in pinned

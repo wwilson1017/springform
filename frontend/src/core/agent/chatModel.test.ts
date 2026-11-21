@@ -12,6 +12,7 @@ const row = (
   role,
   text,
   tool_calls,
+  files: [],
   model: role === 'assistant' ? 'm' : null,
   created_at: '2026-10-24T10:00:00Z',
 });
@@ -255,5 +256,14 @@ describe('a card the server settles', () => {
     expect(skipped.parts[0]).toMatchObject({ status: 'error', error: 'Skipped to process your new message.' });
     expect((skipped.parts[0] as ToolPart).confirm).toBeUndefined();
     expect(renderUnits(skipped.parts).map((u) => u.kind)).toEqual(['tool']);
+  });
+});
+
+describe('fromServer attachments', () => {
+  it('keeps the files a user message carried', () => {
+    const files = [{ filename: 'shelf.png', kind: 'image' as const }];
+    const [m] = fromServer([{ ...row(1, 'user', ''), files }]);
+    expect(m.files).toEqual(files);
+    expect(m.parts).toEqual([]);
   });
 });

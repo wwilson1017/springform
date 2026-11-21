@@ -152,7 +152,7 @@ Lifted from CakeCRM `core/secret_store.py` (minus keychain) and `core/encryption
 1. `VACUUM INTO` a `.tmp` file, then `os.replace` into `/data/backups/<stamp>.sqlite`. `<stamp>` is `YYYYMMDDTHHMMSSZ`; a second set in the same second (a frozen clock, a double click) is `-2`, `-3`, …, and retention sorts the numbers as numbers.
 2. Write `/data/backups/<stamp>.manifest.json` **last**, containing:
    - the snapshot filename and its sha256;
-   - the list of blob sha256s referenced by `core_files` at snapshot time;
+   - the list of blob sha256s referenced by the blob holders (`core_files`, `core_agent_uploads`) at snapshot time;
    - the encryption-key fingerprint;
    - the Springform version.
 3. Keep the newest **7** sets.

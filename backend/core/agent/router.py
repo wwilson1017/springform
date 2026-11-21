@@ -1,5 +1,5 @@
-"""Whisk's HTTP API, mounted at /api/agent (ported from CakeCRM `assistant/router.py` minus uploads,
-plus the provider and agent admin routes).
+"""Whisk's HTTP API, mounted at /api/agent (ported from CakeCRM `assistant/router.py`, plus the
+provider and agent admin routes).
 
 Conversations are owner-only: another user's conversation answers 404 exactly as a missing one
 does. The one exception is POST /confirm, which answers 403 to a non-owner (agent.md §6).
@@ -14,9 +14,10 @@ import asyncio
 import json
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from fastapi.responses import JSONResponse, StreamingResponse
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
+from starlette.datastructures import UploadFile
 
 from backend.core.agent import (
     agents,
@@ -28,11 +29,14 @@ from backend.core.agent import (
     models,
     providers,
     registry as tool_registry,
+    uploads,
     usage,
 )
+from backend.core.agent.aio import in_thread
 from backend.core.agent.providers import ProviderError, collect_text, credentials
 from backend.core.agent.providers.base import AIProvider
 from backend.core.auth.deps import User, current_user, require_admin
+from backend.core.files import service as files_service
 
 router = APIRouter(prefix="/api/agent", tags=["core"])
 
@@ -145,6 +149,61 @@ async def chat(body: ChatIn, user: User = Depends(current_user)) -> Response:
     return StreamingResponse(stream, media_type="text/event-stream", headers=_SSE_HEADERS)
 
 
+@router.post("/chat/upload")
+async def chat_upload(request: Request, user: User = Depends(current_user)) -> StreamingResponse:
+    """`/chat` with attachments, as multipart: `payload` (the /chat body as JSON) and up to five
+    `files`. 411 without a Content-Length, 413 over the caps, 400 for a refused file (the detail
+    is a sentence to show), 409 `turn_running` while the conversation has a running turn
+    (attachments never steer it: detached.start)."""
+    cap = await asyncio.to_thread(files_service.max_bytes)
+    try:
+        length = int(request.headers["content-length"])
+    except (KeyError, ValueError):
+        raise HTTPException(411, detail="length_required") from None
+    if length > uploads.MAX_FILES * cap + uploads.ENVELOPE_BYTES:
+        raise HTTPException(413, detail="upload_too_large")
+    accepted: list[uploads.Upload] = []
+    try:
+        async with request.form(max_files=uploads.MAX_FILES, max_fields=1) as form:
+            try:
+                body = ChatIn.model_validate_json(str(form.get("payload") or "{}"))
+            except ValidationError as e:
+                raise HTTPException(422, detail=e.errors(include_url=False, include_context=False)) from None
+            files = [f for f in form.getlist("files") if isinstance(f, UploadFile)]
+            if not files:
+                raise HTTPException(422, detail="files is required")
+            agent, provider, context = await asyncio.to_thread(_chat_setup, body, user)
+            await in_thread(
+                uploads.accept_into,
+                accepted,
+                [(f.filename, f.file) for f in files],
+                vision=provider.supports_images,
+                model=provider.model,
+                cap=cap,
+            )
+    except BaseException:
+        uploads.discard(accepted)
+        raise
+    message = (body.message or "").strip() or None
+    try:  # from here the staged files are detached.start's
+        stream = await detached.start(
+            provider,
+            user,
+            message,
+            conversation_id=body.conversation_id,
+            agent=agent,
+            context=context,
+            uploads=accepted,
+        )
+    except detached.TurnRunning:
+        raise HTTPException(409, detail="turn_running") from None
+    if isinstance(stream, detached.Queued):  # start never queues attachments; this narrows the type
+        raise HTTPException(409, detail="turn_running")
+    if stream is None:
+        raise HTTPException(404, detail="conversation_not_found")
+    return StreamingResponse(stream, media_type="text/event-stream", headers=_SSE_HEADERS)
+
+
 async def _own_turn(turn_id: int, user: User) -> dict:
     turn = await asyncio.to_thread(detached.get_turn, turn_id, user.id)
     if turn is None:
@@ -252,6 +311,7 @@ def get_conversation(conversation_id: int, user: User = Depends(current_user)) -
                 "id": m["id"],
                 "role": m["role"],
                 "text": m["content"].get("text", ""),
+                "files": [{"filename": f["filename"], "kind": f["kind"]} for f in m["content"].get("files") or []],
                 "tool_calls": calls,
                 "model": m["content"].get("model"),
                 "created_at": m["created_at"],

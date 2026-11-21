@@ -1,10 +1,10 @@
-import { memo, useState } from 'react';
+import { memo, useState, type ReactNode } from 'react';
 import { MarkdownContent } from '../../shared/MarkdownContent';
-import { IconChevronDown } from '../../shared/icons';
+import { IconChevronDown, IconFile } from '../../shared/icons';
 import { BatchConfirmCard } from './BatchConfirmCard';
 import { pretty, renderUnits, type ChatMessage, type ToolPart } from './chatModel';
 import type { DecideOptions, Decision } from './confirmState';
-import { IconSparkle } from './icons';
+import { IconImage, IconSparkle } from './icons';
 import { ToolConfirmCard } from './ToolConfirmCard';
 
 const DOT: Record<string, string> = {
@@ -104,14 +104,37 @@ interface Props {
   onDecide: (msgId: string, toolUseId: string, decision: Decision, opts?: DecideOptions) => Promise<void> | void;
 }
 
+/** An attachment's name with a photo or file glyph (the composer's chips and the user bubble). */
+export function FileChip({ filename, image, children }: { filename: string; image: boolean; children?: ReactNode }) {
+  const Icon = image ? IconImage : IconFile;
+  return (
+    <span className="inline-flex max-w-60 items-center gap-1.5 rounded-md border border-solid border-sf-line bg-sf-card px-2 py-1 text-xs text-sf-ink-soft">
+      <Icon size={14} aria-hidden />
+      <span className="truncate">{filename}</span>
+      {children}
+    </span>
+  );
+}
+
 function Bubble({ message, agentName, busy, onDecide }: Props) {
   if (message.role === 'user') {
     const text = message.parts.map((p) => (p.kind === 'text' ? p.text : '')).join('');
     return (
-      <div className="flex flex-col items-end gap-1">
-        <div className="max-w-[85%] whitespace-pre-wrap break-words rounded-xl rounded-br-sm border border-solid border-sf-line bg-sf-raised px-4 py-2.5 text-[15px] leading-normal text-sf-ink">
-          {text}
-        </div>
+      <div className="flex flex-col items-end gap-1.5">
+        {message.files && message.files.length > 0 && (
+          <ul aria-label="Attached" className="m-0 flex max-w-[85%] list-none flex-wrap justify-end gap-1.5 p-0">
+            {message.files.map((f, i) => (
+              <li key={i}>
+                <FileChip filename={f.filename} image={f.kind === 'image'} />
+              </li>
+            ))}
+          </ul>
+        )}
+        {text && (
+          <div className="max-w-[85%] whitespace-pre-wrap break-words rounded-xl rounded-br-sm border border-solid border-sf-line bg-sf-raised px-4 py-2.5 text-[15px] leading-normal text-sf-ink">
+            {text}
+          </div>
+        )}
         {message.queued && <span className="text-[11px] text-sf-ink-dim">Queued until the current step finishes</span>}
       </div>
     );

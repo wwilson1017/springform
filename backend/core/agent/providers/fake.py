@@ -10,8 +10,10 @@
     a dict turn with "untrusted": True      -> an `untrusted` event first (a provider-side web search)
     {"chunks": ["a", "b"], "delay": 0.2}    -> streams each chunk as its own text event, `delay` s apart
 With nothing queued it answers from the conversation: a user message `/tool <name> <json args>`
-calls that tool, a tool result or the resume nudge gets "Done.", anything else is echoed.
-Usage is reported as characters / 4 against CONTEXT_WINDOW, so compaction can be exercised.
+calls that tool, a tool result or the resume nudge gets "Done.", anything else is echoed. A
+message with attachments is echoed by its typed text plus `[attached: N photo(s), M file(s)]`.
+Usage is reported as characters / 4 against CONTEXT_WINDOW (a photo counts as IMAGE_CHARS), so
+compaction can be exercised.
 """
 
 from __future__ import annotations
@@ -22,9 +24,11 @@ import uuid
 from collections import deque
 from collections.abc import AsyncGenerator
 
+from backend.core.agent.delimiters import UNTRUSTED_EXTERNAL_MARKER
 from backend.core.agent.providers.base import DEFAULT_MAX_TOKENS, AIProvider
 
 CONTEXT_WINDOW = 200_000
+IMAGE_CHARS = 4_000  # what a photo counts for in usage, not its base64 length
 _script: deque = deque()
 
 
@@ -36,15 +40,39 @@ def reset() -> None:
     _script.clear()
 
 
+def _typed(content: list) -> tuple[str, str] | None:
+    """(typed text, attachment note) of a user message with attachments; None for tool results."""
+    if any(isinstance(p, dict) and p.get("type") == "tool_result" for p in content):
+        return None
+    photos = sum(1 for p in content if p.get("type") == "image")
+    texts = [p.get("text", "") for p in content if p.get("type") == "text"]
+    fenced = [t for t in texts if UNTRUSTED_EXTERNAL_MARKER in t]
+    files = sum(1 for t in fenced if 'kind="image"' not in t)
+    return "\n\n".join(t for t in texts if t not in fenced), f" [attached: {photos} photo(s), {files} file(s)]"
+
+
 def _unscripted(messages: list[dict]):
     last = messages[-1] if messages else {}
-    content = last.get("content")
+    content, note = last.get("content"), ""
+    if isinstance(content, list) and (typed := _typed(content)) is not None:
+        content, note = typed
     if last.get("role") == "user" and isinstance(content, str) and not content.startswith("Please continue"):
         if content.startswith("/tool "):
             name, _, args = content[6:].strip().partition(" ")
             return {"tool": name, "args": json.loads(args or "{}")}
-        return f"You said: {content}"
+        return f"You said: {content}{note}"
     return "Done."
+
+
+def _sized(messages: list[dict]) -> list[dict]:
+    """The messages with each image part's data replaced by IMAGE_CHARS characters."""
+
+    def part(p):
+        return {**p, "data": "x" * IMAGE_CHARS} if isinstance(p, dict) and p.get("type") == "image" else p
+
+    return [
+        {**m, "content": [part(p) for p in m["content"]]} if isinstance(m.get("content"), list) else m for m in messages
+    ]
 
 
 class FakeProvider(AIProvider):
@@ -55,6 +83,10 @@ class FakeProvider(AIProvider):
     @property
     def context_window(self) -> int | None:
         return CONTEXT_WINDOW
+
+    @property
+    def supports_images(self) -> bool:
+        return True
 
     async def stream_turn(
         self,
@@ -92,7 +124,7 @@ class FakeProvider(AIProvider):
             tool_calls.append(tc)
             yield {"type": "tool_start", "tool": tc["name"], "tool_use_id": tc["id"]}
             yield {"type": "tool_args", "tool": tc["name"], "tool_use_id": tc["id"], "args": tc["args"]}
-        read = len(json.dumps(system_prompt)) + len(json.dumps(messages, default=str)) + len(json.dumps(tools))
+        read = len(json.dumps(system_prompt)) + len(json.dumps(_sized(messages), default=str)) + len(json.dumps(tools))
         yield {
             "type": "_turn_complete",
             "tool_calls": tool_calls,

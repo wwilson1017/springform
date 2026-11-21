@@ -3,7 +3,8 @@
  * approval cards in it. Lifted in shape from Chatty's useAgentChat, cut to this backend:
  *
  * - A turn is POST /api/agent/chat read as SSE (`readEvents`). Only the new message is sent;
- *   the server assembles the history from its database.
+ *   the server assembles the history from its database. A message with attachments goes to
+ *   /chat/upload as multipart instead, photos shrunk first (`shrinkImage`); the stream is the same.
  * - Approvals are server-side: a card posts /api/agent/confirm, and once every card of a
  *   message has resolved the turn resumes with POST /chat {conversation_id} and no message.
  * - Reconnection: the server owns the turn, and every event carries a `seq` (the first also
@@ -23,6 +24,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { shrinkImage } from '../../shared/shrinkImage';
 import { ApiError, fetchJson, postJson } from '../api/client';
 import { applyEvent, cardsOf, fromServer, localId, textOf, type ChatMessage, type ToolPart } from './chatModel';
 import {
@@ -113,10 +115,16 @@ async function cancelTurn(turn: Turn) {
   }
 }
 
-function httpError(status: number, detail: string): string {
+/** Attachments start a turn of their own: they are never queued onto a running one (agent.md §5). */
+export const ATTACH_WHILE_RUNNING = 'Attachments can be sent once the assistant finishes this reply.';
+
+function httpError(status: number, detail: string, upload: boolean): string {
   if (detail === 'no_provider') return 'The assistant needs an AI key before it can answer.';
   if (status === 404) return 'This conversation was not found.';
+  if (upload && detail === 'turn_running') return ATTACH_WHILE_RUNNING;
   if (detail === 'turn_running') return 'The assistant is still answering in this conversation. Try again in a moment.';
+  if (status === 413 && detail === 'upload_too_large') return 'Those files are too large to send together.';
+  if (upload && (status === 400 || status === 413) && detail) return detail; // the server's sentence about a file
   return `The assistant could not answer (${status}${detail ? `: ${detail}` : ''}).`;
 }
 
@@ -143,7 +151,9 @@ export function useAgentChat(options: Options = {}) {
   const turnRef = useRef<Turn | null>(null);
   const loadSeqRef = useRef(0);
   /** runTurn, for the follow-up turn it starts itself. */
-  const runTurnRef = useRef<(body: TurnBody, started?: Started, recovery?: boolean) => Promise<void>>(async () => {});
+  const runTurnRef = useRef<(body: TurnBody, started?: Started, recovery?: boolean, files?: File[]) => Promise<void>>(
+    async () => {},
+  );
   const optionsRef = useRef(options);
   useEffect(() => {
     optionsRef.current = options;
@@ -261,7 +271,7 @@ export function useAgentChat(options: Options = {}) {
   );
 
   const runTurn = useCallback(
-    async (body: TurnBody, started?: Started, recovery = false) => {
+    async (body: TurnBody, started?: Started, recovery = false, files: File[] = []) => {
       detach();
       const turn: Turn = {
         ctl: started?.ctl ?? new AbortController(),
@@ -325,19 +335,45 @@ export function useAgentChat(options: Options = {}) {
       };
       const payload = JSON.stringify({ ...optionsRef.current.context, ...body });
       try {
+        let form: FormData | null = null;
+        if (files.length) {
+          const shrunk: File[] = [];
+          // One at a time: five large photos decoded at once can exhaust a phone tab's memory.
+          for (const f of files) shrunk.push(await shrinkImage(f));
+          if (!turn.live) return;
+          if (turn.stopped) {
+            // Stopped before anything was sent: no server turn to cancel, so take the message back.
+            setMessages((prev) => {
+              const i = prev.findIndex((m) => m.id === asstId);
+              return i > 0 && prev[i - 1].role === 'user' ? [...prev.slice(0, i - 1), ...prev.slice(i)] : prev;
+            });
+            ended = 'terminal';
+            throw new Error('stopped before upload'); // to the cleanup below
+          }
+          form = new FormData();
+          form.append('payload', payload);
+          for (const f of shrunk) form.append('files', f, f.name);
+        }
         const post = () =>
-          fetch('/api/agent/chat', {
-            method: 'POST',
-            credentials: 'same-origin',
-            signal: turn.ctl.signal,
-            headers: { 'Content-Type': 'application/json' },
-            body: payload,
-          });
+          form
+            ? fetch('/api/agent/chat/upload', {
+                method: 'POST',
+                credentials: 'same-origin',
+                signal: turn.ctl.signal,
+                body: form,
+              })
+            : fetch('/api/agent/chat', {
+                method: 'POST',
+                credentials: 'same-origin',
+                signal: turn.ctl.signal,
+                headers: { 'Content-Type': 'application/json' },
+                body: payload,
+              });
         let res = started?.res ?? (await post());
         void steer(turn);
         // A continuation can race the turn it follows (still wrapping up, maybe in another tab):
         // its card is resolved, so nothing else would resume it. Wait for that turn to finish.
-        for (let i = 0; body.message == null && res.status === 409 && i < RECONNECT_DELAYS_MS.length; i++) {
+        for (let i = 0; !form && body.message == null && res.status === 409 && i < RECONNECT_DELAYS_MS.length; i++) {
           await sleep(RECONNECT_DELAYS_MS[i]);
           if (!turn.live) return;
           res = await post();
@@ -362,7 +398,11 @@ export function useAgentChat(options: Options = {}) {
             () => '',
           );
           if (detail === 'no_provider') optionsRef.current.onNoProvider?.();
-          updateMessage(asstId, (m) => ({ ...m, streaming: false, error: httpError(res.status, detail) }));
+          updateMessage(asstId, (m) => ({
+            ...m,
+            streaming: false,
+            error: httpError(res.status, detail, form != null),
+          }));
           ended = 'terminal';
         } else {
           await readEvents(res.body, onEvents);
@@ -461,16 +501,33 @@ export function useAgentChat(options: Options = {}) {
   });
 
   const send = useCallback(
-    (text: string) => {
+    (text: string, files: File[] = []) => {
       const message = text.trim();
-      if (!message) return;
-      const id = localId('u');
+      if (!message && !files.length) return;
       const turn = turnRef.current;
+      if (turn && files.length) return; // attachments never steer; the composer says so first
+      const id = localId('u');
+      const attached = files.map((f) => ({
+        filename: f.name,
+        kind: /\.(jpe?g|png|webp)$/i.test(f.name) ? ('image' as const) : ('document' as const),
+      }));
       setMessages((prev) => [
         ...prev,
-        { id, role: 'user', parts: [{ kind: 'text', text: message }], ...(turn ? { queued: true } : {}) },
+        {
+          id,
+          role: 'user',
+          parts: message ? [{ kind: 'text', text: message }] : [],
+          ...(attached.length ? { files: attached } : {}),
+          ...(turn ? { queued: true } : {}),
+        },
       ]);
-      if (!turn) return void runTurn({ conversation_id: convIdRef.current, message });
+      if (!turn)
+        return void runTurn(
+          { conversation_id: convIdRef.current, ...(message ? { message } : {}) },
+          undefined,
+          false,
+          files,
+        );
       turn.queued.push({ id, text: message, sent: false });
       void steer(turn);
     },

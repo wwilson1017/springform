@@ -24,6 +24,7 @@ from backend.core import db, entities
 from backend.core.auth import service as auth_service
 from backend.core.auth.deps import User, has_role
 from backend.core.clock import now_iso
+from backend.core.files import service as files_service
 
 TERMINAL = ("done", "denied", "error", "stale", "uncertain", "interrupted")
 _TITLE_MAX = 60
@@ -130,8 +131,9 @@ def update_conversation(
 
 
 def delete_conversation(conversation_id: int, user_id: int) -> bool:
-    """Delete a thread and its messages. Its tool runs stay as the audit log; any still pending
-    are recorded as denied, since nobody can approve them any more."""
+    """Delete a thread, its messages and its uploads (their blobs start the sweep's clock). Its tool
+    runs stay as the audit log; any still pending are recorded as denied, since nobody can approve
+    them any more."""
     now = now_iso()
     with db.transaction() as conn:
         if not conn.execute(
@@ -143,8 +145,15 @@ def delete_conversation(conversation_id: int, user_id: int) -> bool:
                 WHERE conversation_id = ? AND status = 'pending'""",
             (now, user_id, conversation_id),
         )
+        shas = [
+            r[0]
+            for r in conn.execute(
+                "SELECT DISTINCT sha256 FROM core_agent_uploads WHERE conversation_id = ?", (conversation_id,)
+            )
+        ]
         conn.execute("DELETE FROM core_agent_messages WHERE conversation_id = ?", (conversation_id,))
         conn.execute("DELETE FROM core_agent_conversations WHERE id = ?", (conversation_id,))
+        files_service.release_in(conn, shas)  # its uploads went with it (cascade)
     return True
 
 
@@ -227,10 +236,14 @@ def set_compaction(conversation_id: int, summary: str, first_kept_id: int) -> bo
         )
 
 
-def mark_tainted(conversation_id: int) -> None:
+def mark_tainted_in(conn: db.Conn, conversation_id: int) -> None:
     """Untrusted content entered this thread; every later write confirms (survives compaction)."""
+    conn.execute("UPDATE core_agent_conversations SET tainted = 1 WHERE id = ?", (conversation_id,))
+
+
+def mark_tainted(conversation_id: int) -> None:
     with db.transaction() as conn:
-        conn.execute("UPDATE core_agent_conversations SET tainted = 1 WHERE id = ?", (conversation_id,))
+        mark_tainted_in(conn, conversation_id)
 
 
 # ── Tool runs ─────────────────────────────────────────────────────────────────
