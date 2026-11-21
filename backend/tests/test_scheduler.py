@@ -365,3 +365,27 @@ def test_job_validation():
     with pytest.raises(ValueError, match="core.<job>"):
         scheduler.register(Job("tidy", print, every=1))
     assert clock.now_iso()
+
+
+def test_run_on_loop_runs_on_the_schedulers_loop_and_nothing_once_it_stops(db):
+    assert scheduler.run_on_loop(lambda: asyncio.sleep(0, "x")) is None  # no scheduler running
+    got, started = [], []
+
+    async def on_loop() -> asyncio.AbstractEventLoop:
+        return asyncio.get_running_loop()
+
+    def job(cancel):
+        got.append(scheduler.run_on_loop(on_loop))
+
+    async def go():
+        s = Scheduler({"core.bridge": Job("core.bridge", job, every=3600)})
+        await s.start()
+        assert await s.run_now("core.bridge")
+        await s.wait_idle()
+        loop = asyncio.get_running_loop()
+        await s.stop()
+        return loop
+
+    loop = asyncio.run(go())
+    assert got == [loop]
+    assert scheduler.run_on_loop(lambda: started.append(1) or on_loop()) is None and started == []

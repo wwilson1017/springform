@@ -16,21 +16,26 @@ import yaml
 from fastapi.testclient import TestClient
 
 from backend.core import clock, db as core_db
-from backend.core.agent import delimiters, detached, engine, registry as tool_registry
+from backend.core.agent import delimiters, detached, engine, registry as tool_registry, turns
 from backend.core.agent.providers import fake
 from backend.core.agent.spec import ToolSpec
 from backend.core.auth import service as auth_service
+from backend.core.checkins import service as checkins
 
 SCENARIOS = Path(__file__).parent / "scenarios"
 TOP_KEYS = {"name", "role", "context_window", "tools", "records", "steps"}
 FLAGS = ("confirm_tier", "always_confirm", "untrusted_source", "external_effect")
 TOOL_KEYS = {"name", "description", "writes", "returns", "repeat", "delay", *FLAGS}
-ACTIONS = {"send", "continue", "approve", "deny", "resume"}
+ACTIONS = {"send", "continue", "approve", "deny", "resume", "checkin"}
 STEP_KEYS = ACTIONS | {
     *("sql", "replies", "drop_after", "events", "request", "status", "usage", "page", "record"),
     *("reason", "always_allow"),  # the /confirm body of a deny or an approve
+    "conversations",  # how many conversations the user has after the step
 }
-REQUEST_KEYS = {"call", "messages_contain", "messages_exclude", "messages_match", "system_contains", "system_exclude"}
+REQUEST_KEYS = {
+    *("call", "messages_contain", "messages_exclude", "messages_match", "system_contains", "system_exclude"),
+    *("tools_include", "tools_exclude"),  # tool names offered to the model on that call
+}
 RECORD_KEYS = {"name", "private"}
 TERMINAL = {"done", "error"}
 
@@ -143,6 +148,19 @@ def check_request(calls: list[dict], req: dict) -> None:
         assert text in system, f"model call {at}: system prompt lacks {text!r}"
     for text in req.get("system_exclude", []):
         assert text not in system, f"model call {at}: system prompt contains {text!r}"
+    names = {t["name"] for t in call["tools"]}
+    for name in req.get("tools_include", []):
+        assert name in names, f"model call {at}: {name!r} not offered (offered: {sorted(names)})"
+    for name in req.get("tools_exclude", []):
+        assert name not in names, f"model call {at}: {name!r} was offered"
+
+
+def _job_idle(seconds: float = 5) -> None:
+    """Wait out the check-in job's first pass at startup, so the step's own run is the one that runs it."""
+    deadline = time.monotonic() + seconds
+    while not core_db.one("SELECT 1 FROM core_job_runs WHERE job = ? AND status != 'running'", (checkins.JOB,)):
+        assert time.monotonic() < deadline, "the check-in job's first pass never ended"
+        time.sleep(0.02)
 
 
 def stream(c: TestClient, method: str, url: str, drop_after: str | None = None, **kw) -> list[dict]:
@@ -198,6 +216,20 @@ def run(path: Path, app, login_as, model_requests: list[dict], monkeypatch) -> N
                             assert detached._live(turn_id) is not None, (
                                 "the turn had already ended when the client left"
                             )
+                    elif "checkin" in step:  # a scheduled check-in made due and run like the job runs it
+                        made = c.post(
+                            "/api/agent/checkins",
+                            json={"name": "Scenario check-in", "prompt": step["checkin"], "schedule": "every:60"},
+                        )
+                        assert made.status_code == 200, made.text
+                        _job_idle()
+                        with core_db.transaction() as conn:
+                            conn.execute(
+                                "UPDATE core_agent_checkins SET next_run_at = ? WHERE id = ?",
+                                ("2000-01-01T00:00:00Z", made.json()["id"]),
+                            )
+                        checkins.run_due()
+                        first = None
                     elif "resume" in step:
                         assert turn_id is not None, "resume needs an earlier turn"
                         evs = stream(c, "GET", f"/api/agent/turns/{turn_id}/events?after={last_seq}")
@@ -229,6 +261,13 @@ def run(path: Path, app, login_as, model_requests: list[dict], monkeypatch) -> N
                     check_events(evs, step.get("events", []))
                     for req in _listed(step.get("request")):
                         check_request(model_requests[mark:], req)
+                    if "conversations" in step:
+                        n = core_db.one(
+                            "SELECT count(*) AS n FROM core_agent_conversations WHERE user_id = ?", (who.principal.id,)
+                        )
+                        assert n["n"] == step["conversations"], (
+                            f"{n['n']} conversations, wanted {step['conversations']}"
+                        )
                     if "usage" in step:  # the ledger rows this step wrote, matched like `events`
                         check_events(
                             core_db.rows("SELECT * FROM core_agent_usage WHERE id > ? ORDER BY id", (ledger,)),
@@ -263,3 +302,10 @@ def test_a_rule_that_ignores_taint_fails_the_scenario(app, login_as, model_reque
     monkeypatch.setattr(engine, "rule_eligible", lambda spec, args, tainted: real(spec, args, False))
     with pytest.raises(AssertionError, match="confirm"):
         run(SCENARIOS / "always_allow_never_skips_a_tainted_turn.yaml", app, login_as, model_requests, monkeypatch)
+
+
+def test_a_checkin_offered_chat_tools_fails_the_scenario(app, login_as, model_requests, monkeypatch):
+    real = turns.chat_tools
+    monkeypatch.setattr(turns, "chat_tools", lambda user, source="chat": real(user))
+    with pytest.raises(AssertionError, match="core_scen_save_widget"):
+        run(SCENARIOS / "checkin_reads_only_and_silent_leaves_nothing.yaml", app, login_as, model_requests, monkeypatch)
