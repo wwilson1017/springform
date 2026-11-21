@@ -178,6 +178,46 @@ export interface paths {
         patch: operations["core_update_conversation"];
         trace?: never;
     };
+    "/api/agent/intents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Intents
+         * @description The caller's own topic reminders, newest first.
+         */
+        get: operations["core_list_intents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent/intents/{intent_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete Intent
+         * @description Another user's reminder answers 404, as a missing one does.
+         */
+        delete: operations["core_delete_intent"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/agent/providers": {
         parameters: {
             query?: never;
@@ -4923,6 +4963,35 @@ export interface components {
              */
             skipped: string[];
         };
+        /**
+         * Intent
+         * @description A topic reminder (`intents.public`). `status`: active, used_up (every fire spent) or expired.
+         */
+        Intent: {
+            /** Cooldown Hours */
+            cooldown_hours: number;
+            /** Created At */
+            created_at: string;
+            /** Expires At */
+            expires_at: string;
+            /** Fires */
+            fires: number;
+            /** Id */
+            id: number;
+            /** Last Fired At */
+            last_fired_at: string | null;
+            /** Max Fires */
+            max_fires: number;
+            /** Note */
+            note: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "active" | "used_up" | "expired";
+            /** Terms */
+            terms: string[];
+        };
         /** InviteIn */
         InviteIn: {
             /** Email */
@@ -7479,6 +7548,57 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Conversation"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    core_list_intents: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Intent"][];
+                };
+            };
+        };
+    };
+    core_delete_intent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                intent_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConversationDeleted"];
                 };
             };
             /** @description Validation Error */

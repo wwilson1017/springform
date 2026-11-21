@@ -56,3 +56,6 @@ export type ReminderStatus = Reminder['status'];
 export type UnreadCount = S['UnreadCount'];
 /** GET /api/core/notifications/push/public-key */
 export type PushPublicKey = S['PushPublicKey'];
+
+/** GET /api/agent/intents: the user's topic reminders ("when X comes up, remind me of Y"). */
+export type TopicReminder = S['Intent'];

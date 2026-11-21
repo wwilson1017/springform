@@ -1,6 +1,6 @@
 /**
  * /reminders: the user's own reminders, soonest first, filtered by status and a date range
- * (savable as views), with a form to add one that isn't on any record.
+ * (savable as views), with a form to add one that isn't on any record; then their topic reminders.
  */
 import { useState } from 'react';
 import { useJson } from '../api/useJson';
@@ -9,6 +9,7 @@ import { REMINDERS, fromLocalInput } from './reminders';
 import { ReminderForm } from './ReminderForm';
 import { ReminderRow } from './ReminderRow';
 import { SavedViewBar } from './SavedViewBar';
+import { TopicReminders } from './TopicReminders';
 import type { Reminder, ReminderStatus } from './types';
 import { BTN_PRIMARY, H_PAGE, INPUT, LABEL, MUTED, PAGE } from './ui';
 
@@ -120,6 +121,7 @@ export default function RemindersPage() {
           ))}
         </ul>
       )}
+      <TopicReminders />
     </div>
   );
 }

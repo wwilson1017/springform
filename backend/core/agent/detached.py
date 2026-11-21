@@ -169,7 +169,13 @@ async def _supervise(
         cid, title, turn_id = begun
         live.conversation_id, live.turn_id = cid, turn_id
         state = TurnState(
-            user=user, agent=agent, provider=provider, conversation_id=cid, turn_id=turn_id, context=context
+            user=user,
+            agent=agent,
+            provider=provider,
+            conversation_id=cid,
+            turn_id=turn_id,
+            context=context,
+            message=message or "",
         )
         if live.stopping is None:
             live.pump = asyncio.create_task(TurnRunner(state, live.emit, title=title).run())

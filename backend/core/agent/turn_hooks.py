@@ -97,6 +97,7 @@ class TurnState:
     error: str | None = None  # the error text, set before end_of_turn on an error ending
     halt: str | None = None  # why the turn was cut short, as a clause for the closing note (a hook, the round limit)
     context: str = ""  # the page and record the user has open (agents.context_note), for the volatile prompt
+    message: str = ""  # the text the user typed to start this turn; "" on a continuation
 
 
 async def _call(fn: Callable, *args: Any) -> Any:
