@@ -20,6 +20,7 @@ Conventions:
 
 ### Added
 
+- Whisk can see photos and read files: attach up to five JPEG, PNG or WebP photos, PDFs, Word documents, Excel sheets or CSVs to a message. Photos are shrunk in the browser first. Whisk sees a photo on the turn it was sent; it can read any rows of an attached spreadsheet later in the conversation. Attached text is treated as untrusted, so every later change in that conversation asks for approval.
 - Whisk can search the web and read a web page (`core_web_search`, `core_web_fetch`). What it reads is treated as untrusted, so every later change, page read or search in that conversation asks for approval. Search is DuckDuckGo by default, or Anthropic's own web search while Whisk runs on Anthropic; admins switch both in Settings, AI, Web. Page reads never reach private or local addresses, including through redirects.
 - Record pages have an "Ask {assistant}" button: the chat opens knowing which page and record you came from, and names the record to the assistant only when you can read it.
 - Settings, AI, Usage shows this month's AI spend by source (chat, compaction, the nightly run) and model, with the cache hit rate. Every model call is recorded, background ones included; costs are estimated from list prices an admin can edit.
