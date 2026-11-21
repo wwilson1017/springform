@@ -6,6 +6,9 @@ A fact is current when `valid_from <= now` and `invalid_from` is NULL or later t
 
 Privacy (docs/agents/agent.md §3): `public()` is what a member sees; `with_provenance()` adds
 the source conversation id, author and dates for admins. Nothing here reads a conversation.
+
+A write blanks secrets first (`redact.py`) and saves nothing when a current fact already has the
+same words; its result adds `removed`, `duplicate` and `size` ("84/1,000 chars").
 """
 
 from __future__ import annotations
@@ -16,6 +19,7 @@ from collections.abc import Iterable
 
 from backend.core import clock, db
 from backend.core.errors import Invalid, NotFound
+from backend.core.memory.redact import blank_secrets, removed_list
 
 TEXT_MAX = 1000
 TAGS_MAX = 10
@@ -54,6 +58,11 @@ def fts_query(text: str) -> str:
     return " OR ".join(f'"{t}"*' for t in terms[:_TERMS_MAX])
 
 
+def same_words(text: str) -> str:
+    """The duplicate key: the set of words, case, punctuation and order ignored (dreaming too)."""
+    return " ".join(sorted(set(_TOKEN.findall(text.casefold()))))
+
+
 def _clean_text(text: str) -> str:
     cleaned = " ".join(str(text or "").split())  # single line: facts reach the system prompt
     if not cleaned:
@@ -78,9 +87,13 @@ def _row(r) -> dict:
     return d
 
 
+_WRITE_KEYS = ("removed", "duplicate", "size")  # only on a write's result
+
+
 def public(fact: dict) -> dict:
     """What any member sees."""
-    return {k: fact[k] for k in ("id", "text", "tags", "valid_from", "invalid_from")}
+    keys = ("id", "text", "tags", "valid_from", "invalid_from")
+    return {k: fact[k] for k in keys} | {k: fact[k] for k in _WRITE_KEYS if k in fact}
 
 
 def with_provenance(fact: dict) -> dict:
@@ -106,18 +119,38 @@ def remember_in(
     valid_from: str | None = None,
     tags: Iterable[str] = (),
 ) -> dict:
+    """Record a fact, secrets blanked; a current fact with the same words is returned instead
+    (`duplicate`), nothing saved."""
     now = clock.now_iso()
     try:
         start = clock.normalize(valid_from) if valid_from else now
     except ValueError as e:
         raise Invalid(str(e)) from None
-    fact_id = db.insert_in(
-        conn,
-        """INSERT INTO core_agent_facts (text, tags, valid_from, source_conversation_id, author_user_id, created_at)
-           VALUES (?, ?, ?, ?, ?, ?)""",
-        (_clean_text(text), json.dumps(_clean_tags(tags)), start, source_conversation_id, author_user_id, now),
-    )
-    return get_in(conn, fact_id)
+    cleaned, removed = blank_secrets(_clean_text(text))
+    blanked_tags = []
+    for tag in tags or ():
+        tag, gone = blank_secrets(str(tag))  # before _clean_tags cuts a key short of recognition
+        blanked_tags.append(tag)
+        removed += gone
+    key = same_words(cleaned)
+    # simplification: scans every current fact per write, fine to tens of thousands; upgrade path:
+    # a stored key column with an index.
+    held = conn.execute(f"SELECT f.id, f.text FROM core_agent_facts f WHERE {_CURRENT}", {"now": now}).fetchall()
+    fact_id = next((r["id"] for r in held if same_words(r["text"]) == key), None)
+    duplicate = fact_id is not None
+    if not duplicate:
+        fact_id = db.insert_in(
+            conn,
+            """INSERT INTO core_agent_facts (text, tags, valid_from, source_conversation_id, author_user_id, created_at)
+               VALUES (?, ?, ?, ?, ?, ?)""",
+            (cleaned, json.dumps(_clean_tags(blanked_tags)), start, source_conversation_id, author_user_id, now),
+        )
+    fact = get_in(conn, fact_id)
+    return fact | {
+        "removed": removed_list(removed),
+        "duplicate": duplicate,
+        "size": f"{len(fact['text']):,}/{TEXT_MAX:,} chars",
+    }
 
 
 def remember(text: str, **kw) -> dict:

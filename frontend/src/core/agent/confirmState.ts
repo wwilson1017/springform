@@ -12,6 +12,12 @@ import type { ConfirmOutcome, ConfirmResponse, ToolStatus } from './types';
 
 export type Decision = 'approve' | 'deny';
 
+/** Sent with a decision: a deny's reason (told to the model), an approve's "Always allow". */
+export interface DecideOptions {
+  reason?: string;
+  alwaysAllow?: boolean;
+}
+
 export type ConfirmState =
   | { phase: 'pending'; failure?: string }
   | { phase: 'sending'; decision: Decision }
@@ -22,6 +28,8 @@ export type ConfirmState =
       result?: unknown;
       error?: string;
       current?: ToolStatus;
+      /** Present when the approve asked for Always allow: whether the rule was saved. */
+      ruleSaved?: boolean;
     };
 
 export type ConfirmEvent =
@@ -39,7 +47,7 @@ export function confirmReducer(state: ConfirmState, event: ConfirmEvent): Confir
       return state.phase === 'sending' ? { phase: 'pending', failure: event.message } : state;
     case 'response': {
       if (state.phase !== 'sending') return state;
-      const { status, result, error, current } = event.body;
+      const { status, result, error, current, rule_saved } = event.body;
       // An answer this client does not know is shown as an error, never as success.
       const outcome = OUTCOMES.includes(status) ? status : 'error';
       return {
@@ -49,6 +57,7 @@ export function confirmReducer(state: ConfirmState, event: ConfirmEvent): Confir
         result,
         error: error ?? undefined,
         current: current ?? undefined,
+        ...(rule_saved != null ? { ruleSaved: rule_saved } : {}),
       };
     }
   }
@@ -78,7 +87,13 @@ export function shouldResume(cards: ConfirmState[]): boolean {
 export function outcomeText(state: ConfirmState & { phase: 'resolved' }): string {
   switch (state.outcome) {
     case 'done':
-      return 'Approved and done.';
+      return `Approved and done.${
+        state.ruleSaved === true
+          ? ' This tool will not ask again in your chats; remove that in Settings, Account, Saved approvals.'
+          : state.ruleSaved === false
+            ? ' Always allow was not saved for this tool.'
+            : ''
+      }`;
     case 'denied':
       return 'Denied. Nothing was changed.';
     case 'error':

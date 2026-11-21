@@ -20,6 +20,7 @@ from backend.core import (
     VERSION,
     db,
     errors,
+    logscrub,
     preview,
     registry,
     scheduler,
@@ -74,6 +75,7 @@ def create_app(apps_dir: Path = db.APPS_DIR) -> FastAPI:
         redoc_url=None,
         openapi_url=None,  # served signed-in only, by _serve_docs()
     )
+    logscrub.install()
     errors.install(app)
     csrf.install(app)
     security_headers.install(app)

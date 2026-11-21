@@ -44,9 +44,9 @@ def test_validity_window_and_soft_forget(db, make_user, freeze):
 def test_routes_show_provenance_to_admins_only(app, login_as):
     admin, member = login_as("admin"), login_as("member")
     r = member.post("/api/core/memory/facts", json={"text": "We close  on\npublic holidays", "tags": ["hours"]})
-    assert r.status_code == 200 and set(r.json()) == MEMBER_KEYS
-    fact = r.json()
-    assert fact["text"] == "We close on public holidays"
+    assert r.status_code == 200 and set(r.json()) == MEMBER_KEYS | {"removed", "duplicate", "size"}
+    fact = {k: v for k, v in r.json().items() if k in MEMBER_KEYS}
+    assert fact["text"] == "We close on public holidays" and r.json()["size"] == "27/1,000 chars"
 
     assert member.get("/api/core/memory/facts", params={"q": "holidays"}).json() == [fact]
     seen = admin.get("/api/core/memory/facts", params={"q": "holidays"}).json()[0]

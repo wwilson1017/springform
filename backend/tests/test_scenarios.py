@@ -16,7 +16,7 @@ import yaml
 from fastapi.testclient import TestClient
 
 from backend.core import clock, db as core_db
-from backend.core.agent import delimiters, detached, registry as tool_registry
+from backend.core.agent import delimiters, detached, engine, registry as tool_registry
 from backend.core.agent.providers import fake
 from backend.core.agent.spec import ToolSpec
 from backend.core.auth import service as auth_service
@@ -26,7 +26,10 @@ TOP_KEYS = {"name", "role", "context_window", "tools", "records", "steps"}
 FLAGS = ("confirm_tier", "always_confirm", "untrusted_source", "external_effect")
 TOOL_KEYS = {"name", "description", "writes", "returns", "repeat", "delay", *FLAGS}
 ACTIONS = {"send", "continue", "approve", "deny", "resume"}
-STEP_KEYS = ACTIONS | {"sql", "replies", "drop_after", "events", "request", "status", "usage", "page", "record"}
+STEP_KEYS = ACTIONS | {
+    *("sql", "replies", "drop_after", "events", "request", "status", "usage", "page", "record"),
+    *("reason", "always_allow"),  # the /confirm body of a deny or an approve
+}
 REQUEST_KEYS = {"call", "messages_contain", "messages_exclude", "messages_match", "system_contains", "system_exclude"}
 RECORD_KEYS = {"name", "private"}
 TERMINAL = {"done", "error"}
@@ -204,9 +207,10 @@ def run(path: Path, app, login_as, model_requests: list[dict], monkeypatch) -> N
                         tool = step[decision]
                         confirms = [e for e in seen if e["type"] == "confirm" and e["tool"] == tool]
                         assert confirms, f"no confirm for {tool} to {decision}"
+                        extra = {k: step[k] for k in ("reason", "always_allow") if k in step}
                         r = c.post(
                             "/api/agent/confirm",
-                            json={"tool_run_id": confirms[-1]["tool_run_id"], "decision": decision},
+                            json={"tool_run_id": confirms[-1]["tool_run_id"], "decision": decision, **extra},
                         )
                         assert r.status_code == 200, r.text
                         if "status" in step:
@@ -252,3 +256,10 @@ def test_unknown_keys_fail_loudly(tmp_path):
     bad.write_text("name: typo\nsteps:\n  - send: hi\n    event: [done]\n")
     with pytest.raises(AssertionError, match="unknown keys"):
         load(bad)
+
+
+def test_a_rule_that_ignores_taint_fails_the_scenario(app, login_as, model_requests, monkeypatch):
+    real = engine.rule_eligible
+    monkeypatch.setattr(engine, "rule_eligible", lambda spec, args, tainted: real(spec, args, False))
+    with pytest.raises(AssertionError, match="confirm"):
+        run(SCENARIOS / "always_allow_never_skips_a_tainted_turn.yaml", app, login_as, model_requests, monkeypatch)

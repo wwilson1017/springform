@@ -71,6 +71,7 @@ class ServerToolCall(Out):
     status: ToolRunStatus | None
     result: Any
     error: str | None
+    can_always_allow: bool = False  # a pending card may offer "Always allow" (engine.rule_eligible)
 
 
 class ServerMessage(Out):
@@ -113,6 +114,21 @@ class ConfirmResponse(Out):
     current: ToolRunStatus | None = None
     result: Any = None
     error: str | None = None
+    rule_saved: bool | None = None  # only when the approve asked for always_allow
+
+
+class ApprovalRule(Out):
+    """A live always-allow rule: `tool` skips its card in this user's chats with the agent."""
+
+    id: int
+    tool: str
+    agent_slug: str
+    agent_name: str
+    created_at: str
+
+
+class RuleVoided(Out):
+    voided: bool
 
 
 class TurnCancelled(Out):

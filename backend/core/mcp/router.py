@@ -31,7 +31,7 @@ from starlette.types import Receive, Scope, Send
 from backend.core.auth.deps import User, current_user
 from backend.core.errors import Forbidden
 from backend.core.mcp import links, models, server
-from backend.core.ratelimit import RateLimiter
+from backend.core.ratelimit import RateLimiter, client_key
 
 router = APIRouter(tags=["core"])
 
@@ -79,7 +79,7 @@ async def _serve(scope: Scope, receive: Receive, send: Send, token: str, *, bear
     found = await asyncio.to_thread(links.use, token) if token else None
     if found is None:
         # A wrong token counts against the address; no token at all (a client probing /mcp) does not.
-        address = request.client.host if request.client else "unknown"
+        address = client_key(request)
         if token and not miss_limiter.allow(address):
             return await _refuse(scope, receive, send, 429, TOO_MANY_MISSES, {"Retry-After": "600"})
         if bearer:

@@ -6,6 +6,7 @@ the snapshot references; the files sweep never deletes a blob a retained manifes
 every retained set restores whole, and pruning a set is what releases its blobs.
 
 `run()` never raises: a failure is logged and recorded in `core_backups` (`ok | error | skipped`).
+After every run, skipped or failed too, the snapshots are dropped from the page cache (`_uncache`).
 """
 
 from __future__ import annotations
@@ -96,6 +97,7 @@ def run(trigger: str = "job") -> dict | None:
             logger.warning("Backup (%s) skipped: %s", trigger, fields["error"])
         elif status == "ok":
             logger.info("Backup (%s) written: %s", trigger, fields["snapshot"])
+        _uncache()  # every run, skipped or failed too: an off-site copy re-reads them between runs
         return _record(started, status, fields)
     finally:
         _running.release()
@@ -146,6 +148,30 @@ def _take(started: datetime) -> tuple[str, dict]:
     except Exception:
         logger.exception("Pruning old backups failed; the new set is complete")
     return "ok", {"snapshot": final.name, "manifest": manifest.name, "byte_size": size, "sha256": digest}
+
+
+def _uncache() -> None:
+    """Drop every snapshot from the page cache (lifted from todo-gtd `backend/backup.py`). Railway
+    bills cached file pages as the service's memory, and a snapshot is read again only to restore
+    it or copy it off. Linux only; elsewhere a no-op."""
+    if not hasattr(os, "posix_fadvise"):
+        return
+    try:
+        out = backups_dir()
+    except RuntimeError:  # no database open: the run already failed and logged why
+        return
+    for path in out.glob(f"*{SNAPSHOT}"):
+        try:
+            fd = os.open(path, os.O_RDONLY)
+        except OSError:
+            continue
+        try:
+            os.fsync(fd)  # dirty pages cannot be dropped until written
+            os.posix_fadvise(fd, 0, 0, os.POSIX_FADV_DONTNEED)
+        except OSError:
+            pass
+        finally:
+            os.close(fd)
 
 
 def _record(started: datetime, status: str, fields: dict) -> dict:
