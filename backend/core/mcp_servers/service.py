@@ -30,6 +30,7 @@ def view(r: dict) -> dict:
         "url": r["url"],
         "prefix": r["prefix"],
         "enabled": bool(r["enabled"]),
+        "trusted": bool(r["trusted"]),
         "has_token": bool(r["token_enc"]),
         "tools": json.loads(r["tools_json"]),
         "last_discovered_at": r["last_discovered_at"],
@@ -54,14 +55,15 @@ def _unique_prefix():
         raise Conflict("prefix_taken") from None
 
 
-def create_in(conn: db.Conn, *, name: str, url: str, prefix: str, token: str = "") -> int:
+def create_in(conn: db.Conn, *, name: str, url: str, prefix: str, token: str = "", trusted: bool = False) -> int:
+    """`trusted` (only the GTD suite connect sets it): the server's read-only tools need no Approve card."""
     now = now_iso()
     with _unique_prefix():
         return db.insert_in(
             conn,
-            """INSERT INTO core_agent_mcp_servers (name, url, token_enc, prefix, created_at, updated_at)
-               VALUES (?, ?, ?, ?, ?, ?)""",
-            (name, url, secrets.encrypt(token), prefix, now, now),
+            """INSERT INTO core_agent_mcp_servers (name, url, token_enc, prefix, trusted, created_at, updated_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?)""",
+            (name, url, secrets.encrypt(token), prefix, int(trusted), now, now),
         )
 
 

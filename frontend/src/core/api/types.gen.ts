@@ -1484,6 +1484,68 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/core/gtd": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Gtd State */
+        get: operations["core_gtd_state"];
+        put?: never;
+        post?: never;
+        /**
+         * Gtd Disconnect
+         * @description Remove the GTD server (its tiles and tools go with it), or cancel a connect waiting for approval.
+         */
+        delete: operations["core_gtd_disconnect"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/core/gtd/connect": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Gtd Connect
+         * @description Ask the suite for a code; a connect already waiting is returned as is (no second code).
+         */
+        post: operations["core_gtd_connect"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/core/gtd/connect/poll": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Gtd Connect Poll
+         * @description Ask the suite once whether the code was approved (no faster than its interval); on approval,
+         *     store the server and its tiles. 409 `gtd_connect_expired` when the code is gone.
+         */
+        post: operations["core_gtd_connect_poll"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/core/guide": {
         parameters: {
             query?: never;
@@ -1601,6 +1663,40 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/api/core/launcher/links": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Launcher Links List */
+        get: operations["core_launcher_links_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/core/launcher/links/{link_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Launcher Links Patch */
+        patch: operations["core_launcher_links_patch"];
         trace?: never;
     };
     "/api/core/mcp/links": {
@@ -4893,6 +4989,27 @@ export interface components {
             /** Email */
             email: string;
         };
+        /**
+         * GtdPending
+         * @description A connect waiting for approval in the GTD suite.
+         */
+        GtdPending: {
+            /** Expires In */
+            expires_in: number;
+            /** Interval */
+            interval: number;
+            /** Url */
+            url: string;
+            /** User Code */
+            user_code: string;
+        };
+        /** GtdState */
+        GtdState: {
+            /** Base Url */
+            base_url: string;
+            pending: components["schemas"]["GtdPending"] | null;
+            server: components["schemas"]["McpServer"] | null;
+        };
         /** GuideHit */
         GuideHit: {
             /** App */
@@ -5330,6 +5447,22 @@ export interface components {
              */
             key_source: "env" | "file";
         };
+        /**
+         * LauncherLink
+         * @description A launcher tile that opens another site in a new tab; admins also get hidden ones, marked hidden.
+         */
+        LauncherLink: {
+            /** Hidden */
+            hidden: boolean;
+            /** Icon */
+            icon: string;
+            /** Id */
+            id: number;
+            /** Title */
+            title: string;
+            /** Url */
+            url: string;
+        };
         /** LinkIn */
         LinkIn: {
             /** Ended On */
@@ -5362,26 +5495,6 @@ export interface components {
              * @default
              */
             role: string;
-        };
-        /** LinkPatch */
-        LinkPatch: {
-            /** Ended On */
-            ended_on?: string | null;
-            /** Is Primary */
-            is_primary?: boolean | null;
-            /** New Role */
-            new_role?: string | null;
-            /** Organization Id */
-            organization_id: number;
-            /** Person Id */
-            person_id: number;
-            /**
-             * Role
-             * @default
-             */
-            role: string;
-            /** Started On */
-            started_on?: string | null;
         };
         /** LoginIn */
         LoginIn: {
@@ -5463,6 +5576,8 @@ export interface components {
             prefix: string;
             /** Tools */
             tools: components["schemas"]["RemoteTool"][];
+            /** Trusted */
+            trusted: boolean;
             /** Updated At */
             updated_at: string;
             /** Url */
@@ -7328,12 +7443,37 @@ export interface components {
             /** Token */
             token: string;
         };
+        /** LinkPatch */
+        backend__core__contacts__router__LinkPatch: {
+            /** Ended On */
+            ended_on?: string | null;
+            /** Is Primary */
+            is_primary?: boolean | null;
+            /** New Role */
+            new_role?: string | null;
+            /** Organization Id */
+            organization_id: number;
+            /** Person Id */
+            person_id: number;
+            /**
+             * Role
+             * @default
+             */
+            role: string;
+            /** Started On */
+            started_on?: string | null;
+        };
         /** MergeIn */
         backend__core__contacts__router__MergeIn: {
             /** Source Id */
             source_id: number;
             /** Target Id */
             target_id: number;
+        };
+        /** LinkPatch */
+        backend__core__platform__router__LinkPatch: {
+            /** Hidden */
+            hidden: boolean;
         };
     };
     responses: never;
@@ -9391,7 +9531,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["LinkPatch"];
+                "application/json": components["schemas"]["backend__core__contacts__router__LinkPatch"];
             };
         };
         responses: {
@@ -10477,6 +10617,86 @@ export interface operations {
             };
         };
     };
+    core_gtd_state: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GtdState"];
+                };
+            };
+        };
+    };
+    core_gtd_disconnect: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GtdState"];
+                };
+            };
+        };
+    };
+    core_gtd_connect: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GtdState"];
+                };
+            };
+        };
+    };
+    core_gtd_connect_poll: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GtdState"];
+                };
+            };
+        };
+    };
     core_guide_list: {
         parameters: {
             query?: never;
@@ -10661,6 +10881,61 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["JobStarted"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    core_launcher_links_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LauncherLink"][];
+                };
+            };
+        };
+    };
+    core_launcher_links_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                link_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["backend__core__platform__router__LinkPatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LauncherLink"][];
                 };
             };
             /** @description Validation Error */

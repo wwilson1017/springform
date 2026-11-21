@@ -55,6 +55,16 @@ class CoreApp(Out):
     version: str
 
 
+class LauncherLink(Out):
+    """A launcher tile that opens another site in a new tab; admins also get hidden ones, marked hidden."""
+
+    id: int
+    title: str
+    url: str
+    icon: str
+    hidden: bool
+
+
 class CoreSettings(Out):
     """`values`/`defaults` for plain keys; `secrets` says only whether a secret is set."""
 
