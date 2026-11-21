@@ -72,8 +72,7 @@ async def run_calls(state: TurnState, emit: Callable[[dict], None], calls: list[
 async def _whole_batches(state, emit, calls, results, cards, message_id, was_pending) -> list:
     """A message that came in mid-step skips the calls not started yet; when that cut a batch card
     (agent.md §6), its members already waiting are skipped too, so the card never stands for part of
-    what the model proposed. The client cannot approve while the turn runs; a member approved anyway
-    (from another tab) is no longer pending, so it keeps its outcome."""
+    what the model proposed. None has run: /confirm answers 409 while the turn runs."""
     skipped = json.dumps({"status": "error", "error": SKIPPED})
     cut = {
         batch_key(spec, call.get("args") or {}, message_id)

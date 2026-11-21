@@ -129,6 +129,11 @@ def _live(turn_id: int) -> Live | None:
     return next((t for t in _running if t.turn_id == turn_id), None)
 
 
+def running(conversation_id: int) -> bool:
+    """Whether the conversation has a turn running (any thread; the copy is atomic)."""
+    return any(t.conversation_id == conversation_id for t in _running.copy())
+
+
 async def _stream(events: AsyncIterator[dict]) -> AsyncGenerator[str, None]:
     async for event in events:
         yield sse(event)
