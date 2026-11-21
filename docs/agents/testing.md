@@ -132,6 +132,7 @@ tools:                        # optional test-only core tools, added to the live
   - name: core_scen_save_widget   # core_ prefix
     writes: true                  # default false (a read)
     returns: {saved: widget-77}   # what the tool answers (default {ok: true})
+    repeat: 2000                  # optional: answer a list of that many copies of `returns` (a big result)
     # also: description, confirm_tier: routine, always_confirm, untrusted_source, external_effect
 steps:
   - send: Save the blue widget.          # one action per step (see below)

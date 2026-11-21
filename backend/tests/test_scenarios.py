@@ -21,7 +21,7 @@ from backend.core.agent.spec import ToolSpec
 SCENARIOS = Path(__file__).parent / "scenarios"
 TOP_KEYS = {"name", "role", "context_window", "tools", "steps"}
 FLAGS = ("confirm_tier", "always_confirm", "untrusted_source", "external_effect")
-TOOL_KEYS = {"name", "description", "writes", "returns", *FLAGS}
+TOOL_KEYS = {"name", "description", "writes", "returns", "repeat", *FLAGS}
 ACTIONS = {"send", "continue", "approve", "deny", "resume"}
 STEP_KEYS = ACTIONS | {"replies", "drop_after", "events", "request", "status"}
 REQUEST_KEYS = {"call", "messages_contain", "messages_exclude", "messages_match", "system_contains"}
@@ -62,8 +62,10 @@ def _listed(value) -> list:
 
 def tool_spec(t: dict) -> ToolSpec:
     """A test-only core tool: a read, a local write (`handler_in`, no targets) or an external-effect
-    write (`handler`), answering `returns` (default `{ok: true}`)."""
+    write (`handler`), answering `returns` (default `{ok: true}`), or a list of `repeat` copies of it."""
     returns = t.get("returns", {"ok": True})
+    if "repeat" in t:
+        returns = [returns] * t["repeat"]
     writes = t.get("writes", False)
     local_write = writes and not t.get("external_effect")
     flags = {k: t[k] for k in FLAGS if k in t}
