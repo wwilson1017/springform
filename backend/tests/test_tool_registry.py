@@ -157,4 +157,6 @@ def test_toolspec_fields_only_grow_at_the_end():
         "server_id",
         "server_url",
         "summary",
+        "title",
+        "destructive",
     ]

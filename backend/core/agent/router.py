@@ -1,9 +1,11 @@
-"""Whisk's HTTP API, mounted at /api/agent (ported from CakeCRM `assistant/router.py` minus uploads
-and detached turns, plus the provider and agent admin routes).
+"""Whisk's HTTP API, mounted at /api/agent (ported from CakeCRM `assistant/router.py` minus uploads,
+plus the provider and agent admin routes).
 
 Conversations are owner-only: another user's conversation answers 404 exactly as a missing one
 does. The one exception is POST /confirm, which answers 403 to a non-owner (agent.md §6).
-SSE is POST + fetch streaming: `data: {"type": ..., ...}` lines.
+SSE is POST + fetch streaming: `data: {"type": ..., ...}` lines. A turn is server-owned
+(`detached.py`): a client that drops re-attaches with GET /turns/{id}/events?after=<seq>; a turn
+is likewise visible only to the user who started it (404 otherwise).
 """
 
 from __future__ import annotations
@@ -12,12 +14,13 @@ import asyncio
 import json
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, ConfigDict, Field
 
-from backend.core.agent import agents, engine, history, models, providers
+from backend.core.agent import agents, detached, engine, history, models, providers
 from backend.core.agent.providers import ProviderError, collect_text, credentials
+from backend.core.agent.providers.base import AIProvider
 from backend.core.auth.deps import User, current_user, require_admin
 
 router = APIRouter(prefix="/api/agent", tags=["core"])
@@ -79,11 +82,7 @@ def status(user: User = Depends(current_user)) -> dict:
     }
 
 
-@router.post("/chat")
-def chat(body: ChatIn, user: User = Depends(current_user)) -> StreamingResponse:
-    """SSE stream of one turn. No message + conversation_id = continue after an approval."""
-    if not (body.message or "").strip() and body.conversation_id is None:
-        raise HTTPException(422, detail="message or conversation_id is required")
+def _chat_setup(body: ChatIn, user: User) -> tuple[dict, AIProvider]:
     if body.conversation_id is not None:
         conv = history.get_conversation(body.conversation_id, user.id)
         if conv is None:
@@ -98,8 +97,47 @@ def chat(body: ChatIn, user: User = Depends(current_user)) -> StreamingResponse:
     )
     if provider is None:
         raise HTTPException(400, detail="no_provider")
-    stream = engine.chat(provider, user, body.message, conversation_id=body.conversation_id, agent_slug=agent["slug"])
+    return agent, provider
+
+
+@router.post("/chat")
+async def chat(body: ChatIn, user: User = Depends(current_user)) -> StreamingResponse:
+    """SSE stream of one server-owned turn. No message + conversation_id = continue after an
+    approval. 409 `turn_running` while the conversation already has a running turn."""
+    if not (body.message or "").strip() and body.conversation_id is None:
+        raise HTTPException(422, detail="message or conversation_id is required")
+    agent, provider = await asyncio.to_thread(_chat_setup, body, user)
+    message = (body.message or "").strip() or None
+    try:
+        stream = await detached.start(provider, user, message, conversation_id=body.conversation_id, agent=agent)
+    except detached.TurnRunning:
+        raise HTTPException(409, detail="turn_running") from None
+    if stream is None:
+        raise HTTPException(404, detail="conversation_not_found")
     return StreamingResponse(stream, media_type="text/event-stream", headers=_SSE_HEADERS)
+
+
+async def _own_turn(turn_id: int, user: User) -> dict:
+    turn = await asyncio.to_thread(detached.get_turn, turn_id, user.id)
+    if turn is None:
+        raise HTTPException(404, detail="turn_not_found")
+    return turn
+
+
+@router.get("/turns/{turn_id}/events")
+async def turn_events(
+    turn_id: int, after: int = Query(-1, ge=-1), user: User = Depends(current_user)
+) -> StreamingResponse:
+    """SSE: the turn's events with seq > after, then live ones until it ends. Owner only."""
+    turn = await _own_turn(turn_id, user)
+    return StreamingResponse(detached.events(turn, after), media_type="text/event-stream", headers=_SSE_HEADERS)
+
+
+@router.post("/turns/{turn_id}/cancel", response_model=models.TurnCancelled)
+async def cancel_turn(turn_id: int, user: User = Depends(current_user)) -> dict:
+    """Stop a running turn: it ends with `done` + `stopped` and the status `cancelled`. Owner only;
+    `cancelled: false` when it had already ended."""
+    return {"cancelled": detached.cancel(await _own_turn(turn_id, user))}
 
 
 @router.post("/confirm", response_model=models.ConfirmResponse, response_model_exclude_unset=True)

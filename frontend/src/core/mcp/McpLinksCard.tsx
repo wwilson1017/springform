@@ -5,6 +5,7 @@ import { confirmDialog } from '../../shared/confirm';
 import { formatDate } from '../../shared/formatDate';
 import { LoadError } from '../../shared/LoadError';
 import { toast } from '../../shared/toast';
+import { CLIENTS, type ClientSetup } from './clients';
 import type { McpLink, NewMcpLink } from './types';
 import { useAgentName } from '../agent/useAgentName';
 
@@ -75,8 +76,9 @@ export default function McpLinksCard() {
   return (
     <div className="flex flex-col gap-4 text-sm">
       <p className="m-0 text-sf-ink-mute">
-        Connect Claude (claude.ai, Claude Desktop or Claude Code) to this workspace. It gets the same tools {agentName}{' '}
-        has and acts as you, so a link is as private as your password: make one per app, and revoke any you stop using.
+        Connect an AI tool (Claude, ChatGPT, Gemini, Cursor, VS Code, Codex and others) to this workspace. It gets the
+        same tools {agentName} has and acts as you, so a link is as private as your password: make one per app, and
+        revoke any you stop using.
       </p>
 
       <form onSubmit={create} className="flex flex-wrap gap-2">
@@ -132,7 +134,8 @@ export default function McpLinksCard() {
 }
 
 function NewLink({ link, onDone }: { link: NewMcpLink; onDone: () => void }) {
-  const command = `claude mcp add --transport http springform ${link.url}`;
+  const [tab, setTab] = useState(CLIENTS[0].name);
+  const client = CLIENTS.find((c) => c.name === tab) ?? CLIENTS[0];
   return (
     <div role="region" aria-label="New link" className="rounded-md border border-sf-line-strong bg-sf-raised/40 p-4">
       <p className="m-0 mb-2 font-medium text-sf-ink">“{link.label}” is ready. Copy it now: it won't be shown again.</p>
@@ -144,28 +147,58 @@ function NewLink({ link, onDone }: { link: NewMcpLink; onDone: () => void }) {
           Copy link
         </button>
       </div>
-      <ul className="mb-0 mt-3 flex list-none flex-col gap-2 p-0 text-sf-ink-mute">
-        <li>
-          <span className="text-sf-ink">claude.ai:</span> Settings → Connectors → Add custom connector, and paste the
-          link as its URL.
-        </li>
-        <li>
-          <span className="text-sf-ink">Claude Desktop:</span> Settings → Connectors → Add custom connector, and paste
-          the link.
-        </li>
-        <li>
-          <span className="text-sf-ink">Claude Code:</span> run
-          <span className="mt-1 flex flex-wrap items-center gap-2">
+      <div role="tablist" aria-label="Connect with" className="mt-4 flex flex-wrap gap-1.5">
+        {CLIENTS.map((c) => (
+          <button
+            key={c.name}
+            type="button"
+            role="tab"
+            aria-selected={tab === c.name}
+            onClick={() => setTab(c.name)}
+            className={`cursor-pointer rounded-full border-0 px-3 py-1 text-sm ${tab === c.name ? 'bg-sf-accent text-sf-accent-ink' : 'bg-sf-hover text-sf-ink-mute hover:text-sf-ink'}`}
+          >
+            {c.name}
+          </button>
+        ))}
+      </div>
+      <div role="tabpanel" aria-label={client.name} className="mt-3">
+        <Steps client={client} url={link.url} />
+      </div>
+      <button type="button" onClick={onDone} className={`${primaryClass} mt-4`}>
+        Done
+      </button>
+    </div>
+  );
+}
+
+function Steps({ client, url }: { client: ClientSetup; url: string }) {
+  const command = client.command?.(url);
+  return (
+    <div className="flex flex-col gap-2 text-sf-ink-mute">
+      {client.note && <p className="m-0 text-xs text-sf-ink-dim">{client.note}</p>}
+      {client.steps && (
+        <ol className="m-0 flex list-decimal flex-col gap-1 pl-5">
+          {client.steps.map((step) => (
+            <li key={step}>{step}</li>
+          ))}
+        </ol>
+      )}
+      {client.deeplink && (
+        <a href={client.deeplink(url)} className={`${secondaryClass} self-start no-underline`}>
+          Add to {client.name}
+        </a>
+      )}
+      {command && (
+        <div>
+          {client.commandLabel && <p className="m-0 mb-1 text-xs text-sf-ink-dim">{client.commandLabel}</p>}
+          <span className="flex flex-wrap items-center gap-2">
             <code className={`${codeClass} min-w-0 flex-1`}>{command}</code>
             <button type="button" onClick={() => copy(command)} className={secondaryClass}>
               Copy command
             </button>
           </span>
-        </li>
-      </ul>
-      <button type="button" onClick={onDone} className={`${primaryClass} mt-4`}>
-        Done
-      </button>
+        </div>
+      )}
     </div>
   );
 }

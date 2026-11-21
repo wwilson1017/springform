@@ -177,7 +177,7 @@ def _insert_in(conn: db.Conn, table: str, row: dict) -> int:
 
 
 def _save_in(conn: db.Conn, kind: str, row: dict) -> None:
-    cols = [k for k in row if k not in ("id", "rev", "created_at", "source")]
+    cols = [k for k in row if k not in ("id", "rev", "created_at", "source", "source_client")]
     conn.execute(
         f"UPDATE {TABLES[kind]} SET {', '.join(f'{k} = ?' for k in cols)} WHERE id = ?",
         (*(row[k] for k in cols), row["id"]),
@@ -331,9 +331,11 @@ def create_item_in(
     entity_type: str | None = None,
     entity_id: int | None = None,
     source: str = "ui",
+    source_client: str | None = None,
 ) -> dict:
     """Validate and insert one todo. Returns it, even to an admin who made a private todo for
-    someone else and cannot read it afterwards."""
+    someone else and cannot read it afterwards. `source_client` names the AI tool behind an
+    'agent' row made over MCP (self-reported, display only)."""
     now = clock.now_iso()
     status = choice(status, TODO_STATUSES, "status")
     row = {
@@ -356,6 +358,7 @@ def create_item_in(
         "entity_type": entity_type or None,
         "entity_id": ref(entity_id, "entity_id"),
         "source": choice(source, SOURCES, "source"),
+        "source_client": (source_client or "")[:MAX_SHORT_CHARS] or None,
         "created_at": now,
         "updated_at": now,
         "completed_at": now if status == "done" else None,
@@ -450,7 +453,8 @@ def _spawn_next_occurrence_in(conn: db.Conn, user: User, todo: dict, prior_statu
     due = next_due(todo["repeat"], todo["due_date"], day)
     now = clock.now_iso()
     keep = ("owner_user_id", "visibility", "assignee_user_id", "title", "notes", "project_id", "area_id", "context",
-            "tags", "people", "repeat", "auto_star_on_due", "entity_type", "entity_id", "source")  # fmt: skip
+            "tags", "people", "repeat", "auto_star_on_due", "entity_type", "entity_id", "source",
+            "source_client")  # fmt: skip
     row = {k: todo[k] for k in keep}
     row.update(
         status=prior_status if prior_status not in FINISHED else "next_action",
@@ -520,7 +524,7 @@ def delete_item(user: User, item_id: int) -> None:
     _write(delete_item_in, user, item_id)
 
 
-def list_items(
+def _item_filter(
     user: User,
     status: str | None = None,
     project_id: int | None = None,
@@ -536,11 +540,8 @@ def list_items(
     visibility: str | None = None,
     mine: bool = False,
     include_deferred: bool = False,
-    limit: int | None = 100,
-    offset: int = 0,
-) -> list[dict]:
-    """Todos the user can see. `mine` narrows to their work (WORK). Every ordering ends in t.id,
-    so paging by offset over an unchanged list neither skips nor repeats a row."""
+) -> tuple[str, list, str]:
+    """(where, params, order) for list_items and count_items; `where` reads `t` and `p`."""
     where: list[str] = ["1"]
     params: list = []
 
@@ -588,9 +589,28 @@ def list_items(
         order = "ORDER BY (t.status IN ('done', 'dropped')) ASC, t.id DESC"
     else:
         order = "ORDER BY t.created_at ASC, t.id ASC"
-    n = 100 if limit is None else int(limit)
-    params += [max(1, min(n, 500)), max(0, int(offset or 0))]
-    return _rows_in(db.get_conn(), user, "item", " AND ".join(where), params, f"{order} LIMIT ? OFFSET ?")
+    return " AND ".join(where), params, order
+
+
+def page_size(limit: int | None) -> int:
+    return max(1, min(100 if limit is None else int(limit), 500))
+
+
+def list_items(user: User, limit: int | None = 100, offset: int = 0, **filters) -> list[dict]:
+    """Todos the user can see (filters: `_item_filter`). `mine` narrows to their work (WORK).
+    Every ordering ends in t.id, so paging by offset over an unchanged list neither skips nor
+    repeats a row."""
+    where, params, order = _item_filter(user, **filters)
+    params = [*params, page_size(limit), max(0, int(offset or 0))]
+    return _rows_in(db.get_conn(), user, "item", where, params, f"{order} LIMIT ? OFFSET ?")
+
+
+def count_items(user: User, **filters) -> int:
+    """How many todos `list_items` with the same filters would page through."""
+    where, params, _ = _item_filter(user, **filters)
+    sql = f"""SELECT count(*) FROM todos_items t LEFT JOIN todos_projects p ON p.id = t.project_id
+               WHERE {visible("t")} AND ({where})"""
+    return db.get_conn().execute(sql, (user.id, *params)).fetchone()[0]
 
 
 def today_view(user: User) -> list[dict]:

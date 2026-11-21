@@ -13,5 +13,6 @@
   "requires_core": ">=0.1,<1",
   "settings_cards": [{ "id": "example", "title": "Example", "admin_only": true }],
   "sheets": [{ "name": "widgets", "mode": "read", "description": "A sample sheet of widgets" }],
-  "publishes": ["get_widget", "widgets_for_person"]
+  "publishes": ["get_widget", "widgets_for_person"],
+  "agent_guidance": "Widgets are sample records from the example app; use these tools only when the user asks about widgets."
 }

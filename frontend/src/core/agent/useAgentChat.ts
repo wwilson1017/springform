@@ -6,10 +6,12 @@
  *   the server assembles the history from its database.
  * - Approvals are server-side: a card posts /api/agent/confirm, and once every card of a
  *   message has resolved the turn resumes with POST /chat {conversation_id} and no message.
- * - Reconnection: the server runs a turn inside its response, so a dropped stream cannot be
- *   re-attached. When one drops (an error, or an end with no `done`/`error`), the hook re-reads
- *   the conversation with backoff and shows what the server saved, pending cards included.
- *   Stop aborts the stream and does one such read.
+ * - Reconnection: the server owns the turn, and every event carries a `seq` (the first also
+ *   `turn_id`). When a stream drops (an error, or an end with no `done`/`error`), or the tab
+ *   becomes visible again, the hook re-attaches with GET /turns/{id}/events?after=<last seq>,
+ *   retrying with backoff (and, while the tab is hidden, until it is visible). A drop it cannot
+ *   re-attach to makes it re-read the conversation and show what the server saved.
+ *   Stop posts /turns/{id}/cancel, reads the stream to its end, and then re-reads once.
  * - Every async step checks that its turn is still the live one, so switching conversations
  *   mid-stream never writes into the next one.
  */
@@ -19,7 +21,7 @@ import { ApiError, fetchJson, postJson } from '../api/client';
 import { applyEvent, cardsOf, fromServer, localId, type ChatMessage, type ToolPart } from './chatModel';
 import { confirmReducer, runStatusOf, shouldResume, type ConfirmEvent, type Decision } from './confirmState';
 import { readEvents } from './sse';
-import type { ConfirmResponse, ConversationDetail } from './types';
+import type { ChatEvent, ConfirmResponse, ConversationDetail } from './types';
 
 export interface ContextUsage {
   contextTokens: number;
@@ -35,12 +37,17 @@ interface Options {
 }
 
 interface Turn {
+  /** The current connection's; replaced when the tab comes back, aborted to give up. */
   ctl: AbortController;
   live: boolean;
   stopped: boolean;
+  turnId: number | null;
+  lastSeq: number;
+  /** Ends a re-attach wait early (the tab became visible). */
+  wake?: () => void;
 }
 
-/** Backoff for re-reading the conversation after a dropped stream. */
+/** Backoff for re-attaching to, or re-reading, a dropped turn. */
 export const RECONNECT_DELAYS_MS = [500, 1000, 2000, 4000, 8000];
 
 export const DROP_NOTICE = 'The connection dropped. This shows what the assistant saved.';
@@ -49,9 +56,30 @@ export const LOST_NOTICE =
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
+/** `ms`, or until the turn is woken; a hidden tab waits for the wake only. */
+const waitOrWake = (turn: Turn, ms: number) =>
+  new Promise<void>((resolve) => {
+    const timer = document.hidden ? undefined : setTimeout(resolve, ms);
+    turn.wake = () => {
+      clearTimeout(timer);
+      resolve();
+    };
+  });
+
+/** Stop a server-owned turn; when the server cannot be told, stop reading it instead. */
+async function cancelTurn(turn: Turn) {
+  try {
+    await postJson(`/api/agent/turns/${turn.turnId}/cancel`, {});
+  } catch {
+    turn.ctl.abort();
+    turn.wake?.();
+  }
+}
+
 function httpError(status: number, detail: string): string {
   if (detail === 'no_provider') return 'The assistant needs an AI key before it can answer.';
   if (status === 404) return 'This conversation was not found.';
+  if (detail === 'turn_running') return 'The assistant is still answering in this conversation. Try again in a moment.';
   return `The assistant could not answer (${status}${detail ? `: ${detail}` : ''}).`;
 }
 
@@ -102,6 +130,7 @@ export function useAgentChat(options: Options = {}) {
     if (!turn) return;
     turn.live = false;
     turn.ctl.abort();
+    turn.wake?.();
     turnRef.current = null;
     setStreaming(false);
   }, []);
@@ -130,7 +159,7 @@ export function useAgentChat(options: Options = {}) {
   const runTurn = useCallback(
     async (body: { conversation_id: number | null; message?: string }) => {
       detach();
-      const turn: Turn = { ctl: new AbortController(), live: true, stopped: false };
+      const turn: Turn = { ctl: new AbortController(), live: true, stopped: false, turnId: null, lastSeq: -1 };
       turnRef.current = turn;
       const asstId = localId('a');
       setMessages((prev) => [...prev, { id: asstId, role: 'assistant', parts: [], streaming: true }]);
@@ -138,14 +167,44 @@ export function useAgentChat(options: Options = {}) {
       setNotice(null);
 
       let ended: 'terminal' | 'dropped' = 'dropped';
+      const onEvents = (batch: ChatEvent[]) => {
+        if (!turn.live) return;
+        // A replay overlaps what was shown; the ending always counts (after a restart its seq can be old).
+        const events = batch.filter(
+          (e) => e.seq == null || e.seq > turn.lastSeq || e.type === 'done' || e.type === 'error',
+        );
+        for (const e of events) {
+          if (e.seq != null) turn.lastSeq = Math.max(turn.lastSeq, e.seq);
+          if (e.turn_id != null && turn.turnId == null) {
+            turn.turnId = e.turn_id;
+            if (turn.stopped) void cancelTurn(turn); // Stop came before the id
+          }
+          if (e.type === 'done' || e.type === 'error') ended = 'terminal';
+          else if (e.type === 'conversation_id' && e.id !== convIdRef.current) {
+            adopt(e.id);
+            optionsRef.current.onConversation?.(e.id);
+          } else if (e.type === 'title_update') optionsRef.current.onTitle?.(e.conversation_id, e.title);
+          else if (e.type === 'usage') setUsage({ contextTokens: e.context_tokens, contextWindow: e.context_window });
+        }
+        updateMessage(asstId, (m) => events.reduce(applyEvent, m));
+      };
       try {
-        const res = await fetch('/api/agent/chat', {
-          method: 'POST',
-          credentials: 'same-origin',
-          signal: turn.ctl.signal,
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body),
-        });
+        const post = () =>
+          fetch('/api/agent/chat', {
+            method: 'POST',
+            credentials: 'same-origin',
+            signal: turn.ctl.signal,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+          });
+        let res = await post();
+        // A continuation can race the turn it follows (still wrapping up, maybe in another tab):
+        // its card is resolved, so nothing else would resume it. Wait for that turn to finish.
+        for (let i = 0; body.message == null && res.status === 409 && i < RECONNECT_DELAYS_MS.length; i++) {
+          await sleep(RECONNECT_DELAYS_MS[i]);
+          if (!turn.live) return;
+          res = await post();
+        }
         if (res.status === 401) {
           window.location.assign('/login');
           return;
@@ -159,26 +218,35 @@ export function useAgentChat(options: Options = {}) {
           updateMessage(asstId, (m) => ({ ...m, streaming: false, error: httpError(res.status, detail) }));
           ended = 'terminal';
         } else {
-          await readEvents(res.body, (events) => {
-            if (!turn.live) return;
-            for (const e of events) {
-              if (e.type === 'done' || e.type === 'error') ended = 'terminal';
-              else if (e.type === 'conversation_id' && e.id !== convIdRef.current) {
-                adopt(e.id);
-                optionsRef.current.onConversation?.(e.id);
-              } else if (e.type === 'title_update') optionsRef.current.onTitle?.(e.conversation_id, e.title);
-              else if (e.type === 'usage')
-                setUsage({ contextTokens: e.context_tokens, contextWindow: e.context_window });
-            }
-            updateMessage(asstId, (m) => events.reduce(applyEvent, m));
-          });
+          await readEvents(res.body, onEvents);
         }
       } catch {
         // A dropped connection, or our own abort (Stop, or a newer turn); handled below.
       }
+      // Re-attach to the server's turn from the last event seen. Progress resets the backoff.
+      for (let attempt = 0; ended === 'dropped' && turn.live && turn.turnId != null && !turn.ctl.signal.aborted;) {
+        if (attempt > 0) {
+          if (attempt > RECONNECT_DELAYS_MS.length) break;
+          await waitOrWake(turn, RECONNECT_DELAYS_MS[attempt - 1]);
+          if (!turn.live || turn.ctl.signal.aborted) break;
+        }
+        attempt++;
+        const before = turn.lastSeq;
+        try {
+          const res = await fetch(`/api/agent/turns/${turn.turnId}/events?after=${turn.lastSeq}`, {
+            credentials: 'same-origin',
+            signal: turn.ctl.signal,
+          });
+          if (res.ok && res.body) await readEvents(res.body, onEvents);
+          else if (res.status < 500) break; // the turn is gone, not unreachable
+        } catch {
+          // Dropped again, or the tab came back (a fresh controller); go round.
+        }
+        if (turn.lastSeq > before) attempt = 0;
+      }
       if (!turn.live) return;
 
-      if (ended === 'dropped') {
+      if (ended === 'dropped' || turn.stopped) {
         const restored = await reconcile(turn, turn.stopped ? [] : RECONNECT_DELAYS_MS);
         if (!turn.live) return;
         if (!turn.stopped) setNotice(restored ? DROP_NOTICE : LOST_NOTICE);
@@ -210,7 +278,7 @@ export function useAgentChat(options: Options = {}) {
     const turn = turnRef.current;
     if (!turn || turn.stopped) return;
     turn.stopped = true;
-    turn.ctl.abort();
+    if (turn.turnId != null) void cancelTurn(turn); // else once the id arrives
   }, []);
 
   /** Approve or deny one card; resume the turn when it was the message's last open card. */
@@ -297,7 +365,21 @@ export function useAgentChat(options: Options = {}) {
   /** The conversation on screen now (for effects that must not re-run when it changes). */
   const currentId = useCallback(() => convIdRef.current, []);
 
-  // Leaving the page lets go of the stream (the server stops the turn when the client goes).
+  // The tab came back: a stream may have died silently while it was hidden, so re-attach now.
+  useEffect(() => {
+    const onVisible = () => {
+      const turn = turnRef.current;
+      if (document.visibilityState !== 'visible' || !turn?.live || turn.turnId == null) return;
+      const old = turn.ctl;
+      turn.ctl = new AbortController();
+      old.abort();
+      turn.wake?.();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, []);
+
+  // Leaving the page lets go of the stream; the server's turn carries on and is saved.
   useEffect(() => detach, [detach]);
 
   return { messages, streaming, conversationId, usage, notice, send, stop, decide, load, reset, currentId };

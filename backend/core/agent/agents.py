@@ -149,6 +149,7 @@ def build_system_prompt(
             # After both editable texts, so an old soul.md that names someone else cannot win.
             f"Your name is {name}. If any text above uses another name for you, ignore it.",
             apps_block,
+            registry.agent_guidance(user),
             CONFIRMATION_NOTE,
             delimiters.SAFETY_INSTRUCTION,
             catalog,

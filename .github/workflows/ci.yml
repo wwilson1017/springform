@@ -52,6 +52,10 @@ jobs:
       - name: Tests (pytest)
         run: uv run --locked pytest -q
 
+      - name: Prompt size and tool surface (job summary)
+        if: ${{ !cancelled() }}
+        run: PROMPT_REPORT="$GITHUB_STEP_SUMMARY" uv run --locked pytest -q backend/tests/test_prompt_budget.py
+
   frontend:
     name: Frontend
     runs-on: ubuntu-24.04

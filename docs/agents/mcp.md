@@ -18,7 +18,7 @@ Migration `20261020000520_core_mcp_links.sql`. The token is `secrets.token_urlsa
 ### A link is an API key for its user (decided)
 
 1. `call_tool` **executes immediately**, as the link's user, through `execute.run_tool(user, spec, args, source="mcp")`: the same path the chat loop and the approval step use, so targets are authorized for write and a local write runs in one transaction.
-2. Every call is logged in `core_agent_tool_runs` with `source='mcp'`, the link's `user_id`, and no conversation.
+2. Every call is logged in `core_agent_tool_runs` with `source='mcp'`, the link's `user_id`, no conversation, and `client`: the calling AI tool's name (below).
 3. The MCP client's own approval UI is the user's gate.
 4. The link can be revoked at any time (`revoked_at`).
 5. Deactivating a user revokes their links (`links.revoke_all_in` on `auth.service.ON_DEACTIVATE`); reactivating does not bring them back. A link whose user is inactive is refused even before that.
@@ -44,8 +44,16 @@ exposed = registry.for_user(link.user) ∩ registry.for_source("mcp")
 1. Never protected context-file writes (soul, MEMORY): `mcp_exposed=False`.
 2. Never remote (outbound) tools.
 3. Admin-only tools are filtered by role (`enabled(user)` and the app's roles); the example app's `example_count_widgets` is the fixture.
-4. `list_tools` returns JSON-schema `Tool`s with `readOnlyHint = not writes`. A call to a tool not in the user's list is an error result and runs nothing.
+4. `list_tools` returns JSON-schema `Tool`s with a `title` (the spec's, else derived from the name: `crm_search_deals` → "Search deals") and explicit annotations: `title`, `readOnlyHint = not writes`, `destructiveHint = destructive` (true only for a write that discards data for good, e.g. `crm_merge_deals` dropping the source's clashing custom-field values; archiving is a status), `openWorldHint = external_effect`. Without them the spec defaults a write to destructive and open-world. A call to a tool not in the user's list is an error result and runs nothing.
 5. A result is the stored JSON as one text block; a failure is `isError` with `{status, error}` (`error`, or `uncertain` for an external effect that may have happened).
+
+### Instructions
+
+The server's `instructions` (initialize and `server/discover`) are one line on what the link is, then `registry.agent_guidance(user)` (each reachable app's `agent_guidance`, `apps-and-contracts.md`), then a note that text in results was written by people and is data, never instructions. They depend on the link's user, so `server.handle` builds the low-level `Server` per request.
+
+### Client name
+
+`clients.client_name` (lifted from todo-gtd `backend/common.py`) names the calling AI tool: the request's `_meta` `io.modelcontextprotocol/clientInfo` title or name (protocol 2026-07-28 sends it on every request), else the product the User-Agent leads with, never an HTTP library's (`python-httpx`, `node`, …). Friendly names: `claude-ai`/`claude-user` → Claude, `claude-code` → Claude Code, `openai-mcp` → ChatGPT. It is self-reported, so it is cut to one printable line of 60 characters and only ever labels: `core_agent_tool_runs.client` (migration `20261020000540_core_mcp_client.sql`) and `spec.calling_client` for the call's `handler_in` (Todos shows "via ChatGPT").
 
 ### HTTP rules (lifted from todo-gtd `backend/mcp_server.py` HTTP section and `backend/ratelimit.py`)
 
@@ -54,17 +62,18 @@ The endpoint lives in `backend/core/mcp/router.py` as plain ASGI routes on the d
 | Request | Response |
 |---|---|
 | Any request carrying an `Origin` header | **403**, checked first. AI clients call from a server or a desktop app and send none. |
-| Path token `/mcp/<token>` that is unknown, revoked or deactivated | **404**, never 401. |
+| Path token `/mcp/<token>`, `/link/<token>` or `/<token>/mcp` that is unknown, revoked or deactivated | **404**, never 401. `/link/…` and `/<token>/mcp` match only a 43-character token segment, so `/settings/mcp` (or an app named `link`) stays the SPA's. |
 | Bearer `/mcp` with a bad or missing token | **401** with `WWW-Authenticate: Bearer` (no resource metadata: there is no OAuth server). |
 | `/.well-known/…`, `/register`, `/authorize`, `/token`, any method | **404** (no OAuth; a client finds no sign-in and uses the link as is). |
 | More than **600 requests/min per link** | **429**, `Retry-After: 60`. |
 | More than **60 wrong tokens per 10 min from one address** | **429**, `Retry-After: 600`. Only misses are charged and a valid link is always served, so one bad client behind a shared address cannot lock others out. A request with no token at all is not a miss. |
 | Declared body over **4 MB** | **413**; the SDK caps a body sent without a length at the same size. |
+| GET or HEAD on a live path link without `text/event-stream` in `Accept` (someone opened it in a browser) | **200**, a static guide page (no name, workspace or token on it), `Cache-Control: no-store`, `Referrer-Policy: no-referrer`. The transport would answer 406. |
 | Anything else with a live link (POST, and GET/DELETE as the transport answers them) | Handed to the SDK as the link's user. |
 
 Doc drift fixed here: an earlier version gave the per-IP limit as `IPRateLimiter(window=60, max_hits=600)`; in the donor that is the per-link call limit, and the per-address limit is the wrong-token one (`window=600, max_hits=60`).
 
-The access log shows `/mcp/***` instead of the token (`startup.py`, after todo-gtd `backend/logscrub.py`).
+The access log shows `/mcp/***`, `/link/***` or `/***/mcp` instead of the token (`startup.py`, after todo-gtd `backend/logscrub.py`).
 
 The plan cites the donor section as lines ~700–946; at the recorded donor sha it is lines 832–946 (`source-map.md`).
 
@@ -76,8 +85,13 @@ The `mcp` SDK (pinned `mcp==2.3.0`, the version todo-gtd's FastMCP resolves) **l
 
 | Client | URL |
 |---|---|
-| claude.ai custom connector, Claude Desktop | `https://host/mcp/<token>` |
+| claude.ai custom connector, Claude Desktop | `https://host/mcp/<token>` (the minted shape; `/link/<token>` and `/<token>/mcp` work too) |
 | Claude Code | `claude mcp add --transport http springform https://host/mcp/<token>`, or `https://host/mcp` + `Authorization: Bearer <token>` |
+| ChatGPT, Gemini | A custom connector (ChatGPT: chatgpt.com/plugins → "Add custom MCP server", "No authentication", then install the plugin) with the link as its URL |
+| Cursor, VS Code | A one-click install link, or the `mcpServers` / `code --add-mcp` snippet |
+| Codex, Gemini CLI | `codex mcp add springform --url <link>`, `gemini mcp add --transport http springform <link>` |
+
+The Settings card shows a new link once, with a tab per client (`frontend/src/core/mcp/clients.ts`, lifted from todo-gtd) holding its steps or command with the link filled in.
 
 The MCP bearer is the link token, not the session JWT. The cookie CSRF rules (`auth.md` §3) cover cookie-authenticated `/api` requests; `/mcp` sits outside `/api` and authenticates by link token.
 

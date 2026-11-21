@@ -16,11 +16,12 @@ inserted, and one somebody else claimed first comes back `already_resolved` with
 from __future__ import annotations
 
 import concurrent.futures
+import contextvars
 import json
 
 from backend.core import db, entities
 from backend.core.agent import delimiters, history
-from backend.core.agent.spec import ToolSpec, tool_def_sha256
+from backend.core.agent.spec import ToolSpec, calling_conversation, tool_def_sha256
 from backend.core.auth.deps import User
 from backend.core.errors import AppError
 
@@ -51,7 +52,9 @@ def _authorize_targets_in(conn: db.Conn, spec: ToolSpec, user: User, args: dict)
 def _call_with_timeout(spec: ToolSpec, user: User, args: dict):
     pool = concurrent.futures.ThreadPoolExecutor(max_workers=1)
     try:
-        return pool.submit(db.must(spec.handler), user, args).result(timeout=TOOL_TIMEOUT)
+        # the handler sees the caller's context variables (calling_client, calling_conversation)
+        ctx = contextvars.copy_context()
+        return pool.submit(ctx.run, db.must(spec.handler), user, args).result(timeout=TOOL_TIMEOUT)
     finally:
         pool.shutdown(wait=False)  # a timed-out handler keeps its thread; its result is dropped
 
@@ -71,7 +74,7 @@ def _outcome(
 
 def run_tool(user: User, spec: ToolSpec, args: dict, *, source: str, run_id: int | None = None, **record) -> dict:
     """Run `spec` with `args` as `user`. `record` carries the chat columns (conversation_id,
-    message_id, tool_use_id) of a new run. Sync (call through asyncio.to_thread from async code).
+    message_id, tool_use_id) or the MCP `client` of a new run. Sync (call through asyncio.to_thread from async code).
     Returns {id, status, result, stored, error, tainted}; status is done, error, uncertain, or
     already_resolved (only with run_id)."""
 
@@ -122,6 +125,7 @@ def run_tool(user: User, spec: ToolSpec, args: dict, *, source: str, run_id: int
     if rid is None:  # start_in found run_id already claimed
         return _outcome(db.must(run_id), "already_resolved")
 
+    conversation = calling_conversation.set(record.get("conversation_id"))
     try:
         result = _call_with_timeout(spec, user, args)
         stored, tainted = dump(spec, result)
@@ -129,5 +133,7 @@ def run_tool(user: User, spec: ToolSpec, args: dict, *, source: str, run_id: int
         status = "uncertain" if spec.external_effect else "error"
         history.resolve(rid, status, error=error_text(e), resolved_by=user.id, expect="executing")
         return _outcome(rid, status, error=error_text(e))
+    finally:
+        calling_conversation.reset(conversation)
     history.resolve(rid, "done", result=stored, resolved_by=user.id, expect="executing")
     return _outcome(rid, "done", result, stored, tainted=tainted)
