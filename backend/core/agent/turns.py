@@ -37,6 +37,7 @@ from backend.core.agent import (
 from backend.core.agent.aio import in_thread
 from backend.core.agent.engine import chat_tools
 from backend.core.agent.providers.windows import cache_inclusive_input_tokens, context_usage_event
+from backend.core.agent.spec import calling_tainted
 from backend.core.agent.turn_hooks import Fallback, ProviderFailure, Retry, TurnState
 
 # hook modules: a module that registers turn hooks is imported here.
@@ -170,6 +171,7 @@ class TurnRunner:
         while True:
             await turn_hooks.before_model_call(s)
             text, sent, failure = "", False, None
+            calling_tainted.set(s.tainted)
             async for event in s.provider.stream_turn(s.messages, self._tools(), s.system):
                 etype = event.get("type")
                 if etype == "text":

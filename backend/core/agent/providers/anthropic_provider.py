@@ -29,6 +29,7 @@ from typing import Any
 
 from backend.core.agent.providers.base import DEFAULT_MAX_TOKENS, AIProvider, error_event
 from backend.core.agent.providers.windows import get_context_window
+from backend.core.agent.spec import calling_tainted
 
 logger = logging.getLogger(__name__)
 
@@ -44,6 +45,16 @@ def _search_settings() -> tuple[str, int]:
     from backend.core.platform import keys
 
     return keys.get("web.search_provider"), keys.get("web.search_max_uses")
+
+
+def _searched(messages: list[dict]) -> bool:
+    """Whether these messages replay a server-side web search (this turn's, before a tool round)."""
+    return any(
+        (b.get("type") if isinstance(b, dict) else getattr(b, "type", "")) == "server_tool_use"
+        for m in messages
+        if isinstance(m.get("content"), list)
+        for b in m["content"]
+    )
 
 
 def _sources(content: list) -> str:
@@ -116,15 +127,17 @@ class AnthropicProvider(AIProvider):
             {"name": t["name"], "description": t.get("description", ""), "input_schema": t.get("input_schema", {})}
             for t in tools
         ]
+        api_messages = self._cache_last_user_message([m for m in messages if m.get("role") in ("user", "assistant")])
         if any(t["name"] == SEARCH for t in api_tools):
             provider, max_uses = await asyncio.to_thread(_search_settings)
-            if provider == "anthropic":
+            # Tainted: the free search, whose query asks first. simplification: a call that replays this
+            # turn's server search keeps the server tool so the request stays valid; the next turn gates.
+            if provider == "anthropic" and (not calling_tainted.get() or _searched(api_messages)):
                 api_tools = [{"type": SERVER_SEARCH, "name": "web_search", "max_uses": max_uses}] + [
                     t for t in api_tools if t["name"] != SEARCH
                 ]
         if api_tools:
             api_tools[-1] = {**api_tools[-1], "cache_control": _CACHE_CONTROL}
-        api_messages = self._cache_last_user_message([m for m in messages if m.get("role") in ("user", "assistant")])
         tool_calls: list[dict] = []
         content: list = []  # every block of the reply, paused pieces included
         final, searched = None, False

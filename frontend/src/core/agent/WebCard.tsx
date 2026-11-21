@@ -86,7 +86,8 @@ export default function WebCard() {
       )}
       {on && provider === 'anthropic' && (
         <p className={HINT}>
-          Claude&apos;s search is used while {agentName} runs on Anthropic; on OpenAI it uses DuckDuckGo.
+          Claude&apos;s search is used while {agentName} runs on Anthropic; on OpenAI, and after it has read a page in a
+          conversation, it uses DuckDuckGo.
         </p>
       )}
     </div>

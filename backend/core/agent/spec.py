@@ -31,6 +31,9 @@ ROUTINE = "routine"
 # The AI tool on the other end of an inbound MCP call (docs/agents/mcp.md §1), self-reported and so
 # untrusted; None in chat and jobs. Core sets it around the call; a `handler_in` may read it.
 calling_client: contextvars.ContextVar[str | None] = contextvars.ContextVar("tool_calling_client", default=None)
+# Whether the chat conversation was tainted when this model call started; `turns` sets it per call,
+# so a provider-side tool that no Approve card can gate (Anthropic's web search) stays out.
+calling_tainted: contextvars.ContextVar[bool] = contextvars.ContextVar("calling_tainted", default=False)
 # The chat conversation a tool runs for; None over MCP and in jobs. `execute.run_tool` sets it.
 calling_conversation: contextvars.ContextVar[int | None] = contextvars.ContextVar(
     "tool_calling_conversation", default=None

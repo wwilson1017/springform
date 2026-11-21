@@ -13,7 +13,7 @@ import pytest
 from backend.core import settings
 from backend.core.agent import engine, history, registry as tool_registry
 from backend.core.agent.providers import anthropic_provider, fake
-from backend.core.agent.spec import ROUTINE, ToolSpec
+from backend.core.agent.spec import ROUTINE, ToolSpec, calling_tainted
 from backend.core.errors import Invalid
 from backend.core.mcp_servers import transport
 from backend.core.web import tools as web
@@ -344,6 +344,20 @@ def test_a_provider_side_search_while_narrating_an_approval_taints_too(login_as,
     assert history.compaction_state(evs[0]["id"])["tainted"] == 1
 
 
+def test_each_model_call_knows_whether_the_conversation_is_tainted(login_as, whisk, net, monkeypatch):
+    net({"shop.example": [PUBLIC_A]}, {PUBLIC_A: http(200, b"<p>a page</p>")})
+    seen, stream = [], fake.FakeProvider.stream_turn
+
+    def spy(self, *args, **kwargs):
+        seen.append(calling_tainted.get())
+        return stream(self, *args, **kwargs)
+
+    monkeypatch.setattr(fake.FakeProvider, "stream_turn", spy)
+    fake.script({"tool": "core_web_fetch", "args": {"url": "http://shop.example/"}}, "Read it.")
+    chat(login_as("member"), "read that page")
+    assert seen == [False, True]
+
+
 def test_search_results_then_a_failure_still_taint(login_as, whisk):
     a = login_as("member")
     fake.script({"untrusted": True, "text": "Lemon tarts are", "error": "overloaded"})  # results, then the call fails
@@ -413,13 +427,13 @@ def final(stop_reason: str, *content) -> SimpleNamespace:
     return SimpleNamespace(stop_reason=stop_reason, content=list(content), usage=usage)
 
 
-def run(client: FakeAnthropic, monkeypatch, tool_names: list[str]) -> list[dict]:
+def run(client: FakeAnthropic, monkeypatch, tool_names: list[str], before: tuple[dict, ...] = ()) -> list[dict]:
     monkeypatch.setattr(anthropic_provider, "_client", lambda key: client)
     tools = [{"name": n, "description": "", "input_schema": {"type": "object"}} for n in tool_names]
     provider = anthropic_provider.AnthropicProvider("key", "claude-test")
 
     async def collect():
-        return [e async for e in provider.stream_turn([{"role": "user", "content": "hi"}], tools, "system")]
+        return [e async for e in provider.stream_turn([{"role": "user", "content": "hi"}, *before], tools, "system")]
 
     return anyio.run(collect)
 
@@ -440,6 +454,22 @@ def test_anthropic_mode_sends_the_server_tool_only_in_place_of_the_free_search(d
         ["core_web_fetch"],
     ]
     assert {k: v for k, v in client.calls[1]["tools"][0].items() if k != "cache_control"} == SERVER_TOOL
+
+
+def test_a_tainted_call_gets_the_free_search_which_asks(db, monkeypatch):
+    settings.set_setting("web.search_provider", "anthropic", None)
+    client = FakeAnthropic(*[final("end_turn") for _ in range(2)])
+    token = calling_tainted.set(True)
+    try:
+        run(client, monkeypatch, ["core_web_search"])
+        replay = ({"role": "assistant", "content": [{"type": "server_tool_use", "name": "web_search"}]},)
+        run(client, monkeypatch, ["core_web_search"], replay)  # this turn's own search: keep the request valid
+    finally:
+        calling_tainted.reset(token)
+    assert [[t.get("type", t["name"]) for t in c["tools"]] for c in client.calls] == [
+        ["core_web_search"],
+        ["web_search_20250305"],
+    ]
 
 
 def test_server_search_resumes_a_paused_reply_lists_sources_and_reports_untrusted(db, monkeypatch):
