@@ -33,7 +33,7 @@ export type ChatEvent = { seq?: number; turn_id?: number } & (
       type: 'tool_end';
       tool: string;
       tool_use_id: string;
-      tool_run_id: number;
+      tool_run_id: number | null; // null: a cut-off call that never ran
       status: ToolStatus;
       result: unknown;
       elapsed_ms: number;

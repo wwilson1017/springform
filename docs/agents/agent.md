@@ -16,6 +16,8 @@ Base: CakeCRM `backend/assistant/` (Chatty's loop already trimmed, with server-s
 | `engine.py`, `history.py`, `assembly.py`, `compaction.py`, `delimiters.py`, `write_budget.py`, `llm.py` | CakeCRM `assistant/` (its `confirm_tier.py` folded into `spec.py` as the `ROUTINE` constant); JSONB → TEXT, array ops in Python; Gmail/page bindings cut | 1,108 |
 | `turns.py`, `dispatch.py`, `turn_hooks.py`, `detached.py`, `aio.py` | The loop (`TurnRunner`) and its per-call chain moved out of `engine.py`; the hook points are new; `detached.py` follows the shape of CakeCRM `assistant/turns.py`, cut down for one process (§5) | ~700 |
 | `deferred.py` | Chatty `deferred_tools.py`; group key = app slug, threshold 100 | 64 |
+| `result_cap.py`, `context_shrink.py`, `tools.py` | New (#87); the CSV rule after cake_os `tool_result_compression.py` (`docs/PROVENANCE.md`) | ~250 |
+| `errors.py`, `endings.py` | New (#87); the closing-note texts and the retry-after parse after CakeCRM 47b743e (`docs/PROVENANCE.md`) | ~200 |
 | `agents.py` | CakeCRM `assistant/identity.py` prompt builder; agents are rows, not a singleton | 137 |
 | `backend/core/memory/facts.py`, `context_files.py`, `tools.py`, `router.py` | `facts.py` from CakeCRM `backend/memory/service.py` (FTS5, temporal facts, soft invalidation); `context_files.py` from CakeCRM `backend/context_files/service.py`, tsvector → FTS5 | 523 |
 | `backend/core/memory/observer.py`, `dreaming.py`, `jobs.py` | The observer from Chatty plus CakeCRM `backend/memory/observer.py`; dreaming is new, plain Python with no model call (it merges duplicate facts); nightly and setting-gated | 275 |
@@ -95,7 +97,9 @@ ToolSpec(
 
 `spec.calling_client` is a context variable holding the MCP client's self-reported name while an
 inbound MCP call runs (`None` in chat and jobs). A `handler_in` may read it for provenance (Todos
-stores it as `source_client`); a `handler` runs in a worker thread and does not see it.
+stores it as `source_client`). `spec.calling_conversation` holds the chat conversation a call runs
+for (`None` over MCP and in jobs); `execute.run_tool` sets it, approvals included. A `handler` runs
+in a worker thread started with a copy of the caller's context, so it sees both.
 
 ### Handler forms
 
@@ -182,6 +186,7 @@ Every install has these, from core packages' `tools.py`. The contacts, note and 
 | `core_memory_remember` | write | Records one business fact. |
 | `core_context_file_read` | read | One of Whisk's context files. |
 | `core_context_file_write` | write | Replaces a context file, protected ones included: admin only, `always_confirm`, not over MCP. |
+| `core_read_result` | read | A page (`offset`, 20,000 characters) or the `grep` matches of a capped tool result, by its handle (§5, "Result cap"). Only the run's user, from the conversation it ran in, for 24 hours. Chat only (`mcp_exposed=False`). |
 
 ## 5. Turn loop
 
@@ -196,17 +201,55 @@ The loop is `turns.TurnRunner(state, emit).run()`: it hands each event to `emit`
 
 ### Hook points
 
-`turn_hooks.py` holds everything a hook author needs: `TurnState`, the result types and `register(point, fn)`. A core module registers at import and is imported on the `# hook modules` line of `turns.py`; hooks run in registration order. `register` is the guard registry: an unknown point raises (so a typo stops boot), and a function already registered is not added twice. A hook is `def` or `async def` and runs on the event loop, so a `def` hook must not block; database work goes through `aio.in_thread`. A hook that raises ends the turn with the generic `error` event. The module is not `hooks.py` because a core package's `hooks.py` `HOOKS` is entity-event subscriptions. All five points ship empty. Tests swap a list with `monkeypatch.setitem(turn_hooks.REGISTERED, point, [fn])`.
+`turn_hooks.py` holds everything a hook author needs: `TurnState`, the result types and `register(point, fn)`. A core module registers at import and is imported on the `# hook modules` line of `turns.py`; hooks run in registration order. `register` is the guard registry: an unknown point raises (so a typo stops boot), and a function already registered is not added twice. A hook is `def` or `async def` and runs on the event loop, so a `def` hook must not block; database work goes through `aio.in_thread`. A hook that raises ends the turn with the generic `error` event. The module is not `hooks.py` because a core package's `hooks.py` `HOOKS` is entity-event subscriptions. Tests swap a list with `monkeypatch.setitem(turn_hooks.REGISTERED, point, [fn])`.
+
+Shipped hooks (listed in `turns.HOOK_MODULES`; `test_agent_hooks.py` pins them):
+
+| Module | Point | Does |
+|---|---|---|
+| `result_cap` | `on_tool_result` | Caps a result over 25,000 characters (below) |
+| `context_shrink` | `before_model_call` | Clears older tool results past 100,000 input tokens (below) |
+| `errors` | `on_provider_error` | Retries, trims, falls back or fails by error class (below) |
+| `endings` | `end_of_turn` | Saves a closing note when a turn ends without a full reply (below) |
 
 | Point | Signature | Runs | What the loop does with the answer |
 |---|---|---|---|
 | `before_model_call` | `(state) -> None` | Before every model call: each iteration, each retry, the approval narration | Nothing; the hook may edit `state.messages` and `state.system` |
-| `on_provider_error` | `(state, err: ProviderFailure) -> Retry \| Fallback \| Fail \| None` | When a model call's stream yields an `error` before any of its output reached the client (after output, the turn fails as before) | First non-None answer wins; none is `Fail()`. `Retry(delay)` sleeps (at most 30 s) and calls again; `Fallback(provider)` switches provider for the rest of the turn and rebuilds `state.messages` from the saved conversation, dropping in-memory edits made earlier in the turn; `Fail(message)` ends with `error` (`message`, or the provider's text). The third failure of one call ends the turn whatever a hook says (`MAX_PROVIDER_FAILURES`) |
+| `on_provider_error` | `(state, err: ProviderFailure) -> Retry \| Fallback \| Fail \| None`; `err` has `message`, `attempt`, and when the provider sent them `status`, `retry_after`, `code` | When a model call's stream yields an `error` before any of its output reached the client (after output, the turn fails as before) | First non-None answer wins; none is `Fail()`. `Retry(delay)` sleeps (at most 30 s) and calls again; `Fallback(provider)` switches provider for the rest of the turn and rebuilds `state.messages` from the saved conversation, dropping in-memory edits made earlier in the turn; `Fail(message)` ends with `error` (`message`, or the provider's text). The third failure of one call ends the turn whatever a hook says (`MAX_PROVIDER_FAILURES`) |
 | `before_tool` | `(state, call) -> str \| None` | Before every tool call is settled (after the write-budget stop). `call` is `{id, name, args}` | First non-None string refuses the call: an `error` run with that text, `tool_end` status `error` |
 | `on_tool_result` | `(state, call, run) -> str \| None` | After a call ran through `execute.run_tool`; `run` is its outcome plus `content`, what the model will be shown | Chained: each non-None answer replaces `content`. Only the model's view of this turn changes; `tool_end` and the stored run do not, so a later turn sees the stored result |
-| `end_of_turn` | `(state) -> list[dict] \| None` | Once, when the turn ends with `done` (the model stopped, the write budget ended it, or a write waits and the narration succeeded); not on `error` or Stop | Each dict is emitted as an event, in order, just before `done` |
+| `end_of_turn` | `(state) -> list[dict] \| None` | Once, at every ending the runner reaches: `done` (the model stopped, the write budget or the round limit ended it, or a write waits) and `error` (then `state.error` is the error text); not on Stop, shutdown or a crash | Each dict is emitted as an event, in order, just before the terminal event |
 
-`TurnState` fields are added, never renamed: `user`, `agent`, `provider`, `conversation_id`, `turn_id`, `messages` (provider-native), `system`, `iteration`, `usage` (the last call's), `tainted`, `budget`, `by_name`, `loaded`, `deferred_specs`, `pending`, `terminated`, and `scratch` (a hook's own per-turn storage, keyed by its module name). Hooks change only `messages`, `system` and `scratch`.
+A model call's tool calls count only when its stop reason is `tool_use`: a call cut off at the length limit is neither recorded nor run, and its streamed card gets a `tool_end` (status `error`, "Not run: the reply was cut off.", no run id). At `MAX_ITERATIONS` (20) tool rounds the loop makes one last call with `LAST_ANSWER` appended ("answer now, no more tools"; tools are still passed and any call is ignored, the nudge survives a Fallback), and the turn ends `done` with the closing note.
+
+### Provider errors and fallback
+
+`errors.py` classifies a failed call from the error event's `status`, `code` and text (providers build it with `providers.base.error_event`, which names the model in the text):
+
+| Class | Signals (first match wins) | Turn does |
+|---|---|---|
+| `billing` | 402, `insufficient_quota` and other quota codes, "credit balance" | Fails: out of credit |
+| `rate_limit` | 429, `rate_limit_error` | Waits `retry-after` (2 s when absent, at most 10 s) and retries once per turn, then fails |
+| `context_overflow` | 413, `context_length_exceeded`, "prompt is too long" and kin | Clears older tool results (`context_shrink.shrink(force=True)`) and repeats the same call once; no finished tool runs again |
+| `overloaded` | 408, 5xx, 529, `overloaded_error`, `api_error`, `connection_error` | Falls back for this turn only to the other enabled vendor's default model, else this vendor's light model, once; else fails |
+| `auth` | 401, 403, `authentication_error` | Fails: an admin can replace the key |
+| `model_not_found` | 404, `not_found_error`, `model_not_found` | Fails: an admin can pick another model |
+| `policy` | `content_filter`, "usage policies" | Fails: declined |
+| `other` | anything else | Fails with the provider's text |
+
+**The write rule.** No fallback once a write or external-effect tool has run, or may have (`done`, `uncertain`, `executing`, `interrupted`), since the user's latest message: an approval continuation counts the approved run, an older card approved after that message counts, and so does any run still executing. A tool no longer offered counts as a write. The turn then fails with the overload message naming the model. Every failure message names the model.
+
+### Honest endings
+
+`endings.py` saves a closing note as an assistant row and streams it as `text` when a turn ends without a full reply: an error (only when a tool ran since the user's message), the round limit, the write budget, a length cutoff (`max_tokens`; OpenAI's `length` is reported as that), a refusal (Anthropic's and OpenAI's `content_filter` stop as `refusal`, not as an error), or an empty reply. A one-shot call (`providers.collect_text`: compaction, the observer) raises on a refusal instead, so a declined summary is never kept. A write waiting for approval gets none (the card is the message). With partial text the note is `*(This reply is incomplete: <reason>…)*`, else `*(No complete reply: <reason>…)*`; when tools ran it adds `, after N tool calls (last: <tool>). Some steps may already have run; check the results above before asking again`, and only when none ran does it say `Please send your message again`. On an error ending the partial text, streamed but never saved, is saved with the note.
+
+### Result cap and in-turn clearing
+
+**Result cap** (`result_cap.py`). A tool result over `CAP_CHARS` (25,000) reaches the model as its first ~15,000 and last ~5,000 characters, cut at line breaks, then a notice: `[Result capped: N characters, ... Read the rest with core_read_result(handle="r<run id>", offset=<head length>), or search it with grep. Available for 24 hours.]`. Before cutting, a JSON list of like records (at least 3 dicts sharing at least 3 keys present in 90% of them), or such lists inside an object, becomes CSV blocks (`[CSV: <key>, n rows x m fields]`); that alone often brings it under the cap. An untrusted result is converted inside its fence, and the notice sits after the closing tag. The cap is a pure function: the hook applies it to this turn's view and `assembly.assemble_messages` to every later turn, a `Fallback` rebuild and a tool that ran after approval (which never passes `on_tool_result`), so every turn shows the same bytes. The full text is the run's own stored result (`core_agent_tool_runs.result`, CSV applied the same way), so there is no second copy: `core_read_result` reads it for 24 hours after the run, only for its user and from the conversation it ran in (`spec.calling_conversation`). `grep` is a case-insensitive literal of at most 200 characters (a linear `str.find`), every match counted, up to 50 shown with 150 characters either side (a match inside the previous context is counted, not shown again). A list of like records becomes a table only up to 200,000 cells. A page of an untrusted result comes back inside a new fence.
+
+**In-turn clearing** (`context_shrink.py`). Before a model call, when the turn's last call read more than `CLEAR_AT_TOKENS` (100,000, cache-inclusive), every tool result the model has already seen becomes `[Result cleared to save context. If you still need it, run the read again; never repeat a write.]`, except the newest `KEEP_RESULTS` (3). Results after the last assistant message (not seen yet) and results of 500 characters or less are never cleared. Only the in-memory messages change; the stored runs, and so the next turn, stay whole (compaction owns size across turns). `shrink(state, force=True)` clears regardless of the reading.
+
+`TurnState` fields are added, never renamed: `user`, `agent`, `provider`, `conversation_id`, `turn_id`, `messages` (provider-native), `system`, `iteration`, `usage` (the last call's), `tainted`, `budget`, `by_name`, `loaded`, `deferred_specs`, `pending`, `terminated`, `scratch` (a hook's own per-turn storage, keyed by its module name), `last_text` (the latest model call's text, also when it failed), `stop_reason` (the latest completed call's; None after a failure), `error` (set on an error ending) and `halt` (why the turn was cut short, as a clause: the round limit). Hooks change only `messages`, `system` and `scratch`.
 
 ### Server-owned turns
 
@@ -309,7 +352,7 @@ The routes under `/api/agent` are in `backend/core/agent/router.py`; the memory 
 
 ## 13. FakeProvider
 
-The Step 1 engine stub is gone; the full loop (`turns.py`) runs every turn. `providers/fake.py` is a scripted provider for tests and keyless local runs: `AGENT_FAKE_PROVIDER=1` makes `get_provider` return it and `/api/agent/status` report `configured: true`. With nothing scripted, a user message `/tool <name> <json args>` calls that tool, so a confirmed `handler_in` write can be driven by hand. A scripted `{"chunks": [...], "delay": s}` streams each chunk as its own `text` event `delay` seconds apart, for tests of a turn that outlives its request.
+The Step 1 engine stub is gone; the full loop (`turns.py`) runs every turn. `providers/fake.py` is a scripted provider for tests and keyless local runs: `AGENT_FAKE_PROVIDER=1` makes `get_provider` return it and `/api/agent/status` report `configured: true`. With nothing scripted, a user message `/tool <name> <json args>` calls that tool, so a confirmed `handler_in` write can be driven by hand. A scripted `{"chunks": [...], "delay": s}` streams each chunk as its own `text` event `delay` seconds apart, for tests of a turn that outlives its request. `{"error": text, "status"?, "code"?, "retry_after"?, "text"?}` fails the call (after streaming `text`), and a `"stop"` key on a reply sets its stop reason (`{"text": "Half", "stop": "max_tokens"}`).
 
 ## 14. Frontend (`frontend/src/core/agent/`)
 
@@ -340,7 +383,10 @@ Rules the frontend keeps:
 - Zero-key status + 400.
 - FakeProvider streams text + a write tool → `confirm`, pending run, approve by a non-owner 403, stale `tool_def_sha256` → `stale`, approve executes once with args from the DB (double approve = `already_resolved`), deny recorded, `executing` at startup → `interrupted`.
 - No network or LLM call inside `transaction()`.
+- `test_agent_result_cap.py`: head + tail at line breaks, the CSV rule, a capped result paged back whole through `core_read_result` (also a confirmed tool's, and inside a fence), the same view in later turns, owner, conversation and 24-hour bounds. `test_agent_context_shrink.py`: the newest three kept in both message shapes, unseen and small results kept, storage untouched.
+- `test_agent_errors.py`: the classes, the retry delay, overflow repeats the call without re-running tools, fallback for one turn, never after a write (same turn, approved, an older card approved later, still executing, uncertain), a refusal in a one-shot call, the alternative's order. `test_agent_endings.py`: each ending's note, a cut-off call is not run, nothing saved before a tool ran, the last answer at the round limit. `test_agent_provider_events.py`: error events, length cutoff, refusal.
 - `test_agent_turns.py`: a turn survives a disconnect and saves its reply; `after=N` replays each later event once, live and from the log; cancel records `cancelled`; a second running turn is 409; startup and shutdown mark `interrupted`; the prune; a request cancelled while the turn starts still gets an answer; the final log write is retried. `test_agent_hooks.py`: each hook point's contract. `useAgentChat.test.tsx`: resume after a drop and on `visibilitychange`, and Stop.
+- `test_scenarios.py` runs `backend/tests/scenarios/*.yaml` (format in `testing.md`, "Whisk scenarios"): fencing and taint, approve then continue, compaction, a dropped turn resuming. `test_prompt_budget.py`: the static prompt plus eager tools stay under a token budget.
 - Playwright: Whisk answers with FakeProvider → write tool shows Approve and runs on approve → zero-key card.
 
 ## Source

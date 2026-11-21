@@ -3,6 +3,7 @@
 Every test runs on a real temporary SQLite database; nothing in the data layer is mocked."""
 
 import contextlib
+import copy
 import itertools
 import threading
 import time
@@ -203,3 +204,20 @@ def login_as(app):
         return client
 
     return _login
+
+
+@pytest.fixture
+def model_requests(monkeypatch) -> list[dict]:
+    """Every FakeProvider call the test makes, in order, as {system, messages, tools}: what the model
+    was sent (turns, approval narrations and compaction summaries alike)."""
+    from backend.core.agent.providers.fake import FakeProvider
+
+    seen: list[dict] = []
+    original = FakeProvider.stream_turn
+
+    def record(self, messages, tools, system_prompt, **kw):
+        seen.append({"system": system_prompt, "messages": copy.deepcopy(messages), "tools": tools})
+        return original(self, messages, tools, system_prompt, **kw)
+
+    monkeypatch.setattr(FakeProvider, "stream_turn", record)
+    return seen
