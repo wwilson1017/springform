@@ -53,8 +53,9 @@ interface Queued {
 }
 
 type TurnBody = { conversation_id: number | null; message?: string };
-/** A turn whose POST was already made: its stream, the controller that aborts it, its unsent queue. */
-type Started = { res: Response; ctl: AbortController; queued: Queued[] };
+/** A turn whose POST was already made: its stream, the controller that aborts it, its unsent queue,
+ * and whether Stop came first (it is then cancelled as soon as its id arrives). */
+type Started = { res: Response; ctl: AbortController; queued: Queued[]; stopped?: boolean };
 
 interface Turn {
   /** The current connection's; replaced when the tab comes back, aborted to give up. */
@@ -257,7 +258,7 @@ export function useAgentChat(options: Options = {}) {
       const turn: Turn = {
         ctl: started?.ctl ?? new AbortController(),
         live: true,
-        stopped: false,
+        stopped: started?.stopped ?? false,
         turnId: null,
         lastSeq: -1,
         queued: started?.queued ?? [],
@@ -429,7 +430,11 @@ export function useAgentChat(options: Options = {}) {
       if (left.length)
         setMessages((prev) => prev.map((m) => (left.some((q) => q.id === m.id) ? { ...m, queued: false } : m)));
       const unsent = left.filter((q) => !q.sent);
-      if (turn.next) void runTurnRef.current({ conversation_id: id }, { ...turn.next, queued: unsent });
+      if (turn.next)
+        void runTurnRef.current(
+          { conversation_id: id },
+          { ...turn.next, queued: turn.stopped ? [] : unsent, stopped: turn.stopped },
+        );
       else if (left.length && !turn.stopped && id != null) {
         const message = unsent.map((q) => q.text).join('\n\n');
         void runTurnRef.current({ conversation_id: id, ...(message ? { message } : {}) });

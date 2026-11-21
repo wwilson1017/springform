@@ -408,4 +408,39 @@ describe('useAgentChat steering', () => {
     await waitFor(() => expect(bodies(fn)).toHaveLength(4));
     expect(bodies(fn)[3]).toEqual({ conversation_id: 7, message: 'y' });
   });
+
+  it('cancels the next turn a queued post started when Stop came first', async () => {
+    let first!: ReturnType<typeof openStream>;
+    let second!: ReturnType<typeof openStream>;
+    let answer!: (r: Response) => void;
+    const fn = serve({
+      'POST /api/agent/chat': (init) =>
+        JSON.parse(String(init?.body)).message === 'hi'
+          ? (first = openStream(init, { type: 'conversation_id', id: 7, turn_id: 3, seq: 0 })).response
+          : new Promise<Response>((resolve) => (answer = resolve)),
+      'POST /api/agent/turns/3/cancel': () => {
+        first.push({ type: 'done', stopped: true, seq: 1 });
+        first.close();
+        return json({ cancelled: true });
+      },
+      'POST /api/agent/turns/4/cancel': () => {
+        second.push({ type: 'done', stopped: true, seq: 1 });
+        second.close();
+        return json({ cancelled: true });
+      },
+      'GET /api/agent/conversations/7': () => json({ id: 7, messages: [] }),
+    });
+    const { result } = renderHook(() => useAgentChat());
+    act(() => result.current.send('hi'));
+    await waitFor(() => expect(result.current.conversationId).toBe(7));
+    act(() => result.current.send('x'));
+    await waitFor(() => expect(answer).toBeDefined());
+    act(() => result.current.stop());
+    await waitFor(() => expect(calls(fn)).toContain('POST /api/agent/turns/3/cancel'));
+    act(() =>
+      answer((second = openStream(undefined, { type: 'conversation_id', id: 7, turn_id: 4, seq: 0 })).response),
+    );
+    await waitFor(() => expect(calls(fn)).toContain('POST /api/agent/turns/4/cancel'));
+    await waitFor(() => expect(result.current.streaming).toBe(false));
+  });
 });
