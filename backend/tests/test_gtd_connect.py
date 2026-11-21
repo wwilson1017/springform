@@ -11,6 +11,7 @@ from backend.core import db as core_db
 from backend.core.agent import history, registry
 from backend.core.agent.providers import fake
 from backend.core.gtd import service as gtd
+from backend.core.mcp_servers import service as mcp_service
 from backend.tests.fixtures import gtd_stub, mcp_stub
 
 BASE = "/api/core/gtd"
@@ -183,23 +184,25 @@ def test_a_wrong_address_spends_no_code(admin, suite):
 def test_an_approved_link_survives_a_prefix_clash_until_it_is_stored(admin, suite):
     base, state, _ = suite
     admin.post(f"{BASE}/connect")
-    other = admin.post(
-        "/api/core/mcp/servers", json={"name": "Other", "url": f"{base}/nothing", "prefix": "gtd"}
-    ).json()  # added by hand while the code waits
+    other = mcp_service.create(
+        name="Other", url=f"{base}/nothing", prefix="gtd"
+    )  # a row from before `gtd` was reserved
     state.approved = True
     r = poll(admin)
     assert r.status_code == 409 and r.json()["detail"] == "prefix_taken"
     assert state.gone  # the suite has handed the link out; only this install holds it now
-    admin.delete(f"/api/core/mcp/servers/{other['id']}")
+    admin.delete(f"/api/core/mcp/servers/{other}")
     done = poll(admin).json()
     assert done["server"]["prefix"] == "gtd" and done["server"]["trusted"] is True
 
 
-def test_a_hand_added_gtd_server_blocks_connect_and_is_never_trusted(admin, suite):
+def test_gtd_is_reserved_and_a_hand_added_server_is_never_trusted(admin, suite):
     base, _, _ = suite
     body = {"name": "Mine", "url": f"{base}/nothing", "prefix": "gtd"}
-    assert admin.post("/api/core/mcp/servers", json={**body, "trusted": True}).status_code == 422
-    assert admin.post("/api/core/mcp/servers", json=body).json()["trusted"] is False
+    assert admin.post("/api/core/mcp/servers", json=body).status_code == 422  # a core namespace now
+    assert admin.post("/api/core/mcp/servers", json={**body, "prefix": "mine", "trusted": True}).status_code == 422
+    assert admin.post("/api/core/mcp/servers", json={**body, "prefix": "mine"}).json()["trusted"] is False
+    mcp_service.create(name="Older", url=f"{base}/nothing", prefix="gtd")  # made before the reservation
     r = admin.post(f"{BASE}/connect")
     assert r.status_code == 409 and r.json()["detail"] == "gtd_prefix_taken"
 
