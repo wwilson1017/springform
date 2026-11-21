@@ -14,6 +14,12 @@
  *   Stop posts /turns/{id}/cancel, reads the stream to its end, and then re-reads once.
  * - Every async step checks that its turn is still the live one, so switching conversations
  *   mid-stream never writes into the next one.
+ * - Steering: a message sent while a reply runs shows as queued and is posted to /chat, which
+ *   queues it on the running turn (202). The turn's `steer` event says the model has it: the
+ *   queued mark goes and the rest of the reply streams into a new bubble after it. One the turn
+ *   never took (it ended first) was saved by the server, so the hook continues the conversation
+ *   to have it answered. When the post races the end of the turn, the server starts the next turn
+ *   with it instead (200); the hook reads that stream once this turn is over.
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -38,6 +44,16 @@ interface Options {
   context?: ChatContext | null;
 }
 
+interface Queued {
+  /** The user message's local id. */
+  id: string;
+  text: string;
+  /** Posted and accepted onto the running turn (202). */
+  sent: boolean;
+}
+
+type TurnBody = { conversation_id: number | null; message?: string };
+
 interface Turn {
   /** The current connection's; replaced when the tab comes back, aborted to give up. */
   ctl: AbortController;
@@ -47,6 +63,11 @@ interface Turn {
   lastSeq: number;
   /** Ends a re-attach wait early (the tab became visible). */
   wake?: () => void;
+  /** Messages sent during this turn that the model has not read yet, oldest first. */
+  queued: Queued[];
+  sending: boolean;
+  /** A queued post that started the next turn (this one had ended): its stream, read after this one. */
+  next?: Response;
 }
 
 /** Backoff for re-attaching to, or re-reading, a dropped turn. */
@@ -106,6 +127,10 @@ export function useAgentChat(options: Options = {}) {
   const convIdRef = useRef<number | null>(null);
   const turnRef = useRef<Turn | null>(null);
   const loadSeqRef = useRef(0);
+  /** runTurn, for the follow-up turn it starts itself. */
+  const runTurnRef = useRef<(body: TurnBody, started?: { res: Response; queued: Queued[] }) => Promise<void>>(
+    async () => {},
+  );
   const optionsRef = useRef(options);
   useEffect(() => {
     optionsRef.current = options;
@@ -158,12 +183,81 @@ export function useAgentChat(options: Options = {}) {
     [setMessages],
   );
 
+  /** The model read the oldest queued message: unmark it, end the bubble before it and open a new
+   * one after it. A message sent elsewhere (another tab) is added. Returns the new bubble's id. */
+  const steered = useCallback(
+    (turn: Turn, asstId: string, text: string): string => {
+      const i = turn.queued.findIndex((q) => q.sent);
+      const q = i >= 0 ? turn.queued.splice(i, 1)[0] : undefined;
+      const next = localId('a');
+      setMessages((prev) => {
+        let out = prev
+          .map((m) => (m.id === asstId ? { ...m, streaming: false } : m))
+          .filter((m) => m.id !== asstId || m.parts.length > 0 || m.error);
+        let at = q ? out.findIndex((m) => m.id === q.id) : -1;
+        if (at < 0) {
+          out = [...out, { id: localId('u'), role: 'user', parts: [{ kind: 'text', text }] }];
+          at = out.length - 1;
+        } else out = out.map((m) => (m.id === q?.id ? { ...m, queued: false } : m));
+        return [
+          ...out.slice(0, at + 1),
+          { id: next, role: 'assistant', parts: [], streaming: true },
+          ...out.slice(at + 1),
+        ];
+      });
+      return next;
+    },
+    [setMessages],
+  );
+
+  /** Post the turn's unsent queued messages, in order, once the conversation has an id. */
+  const steer = useCallback(
+    async (turn: Turn) => {
+      if (turn.sending) return;
+      turn.sending = true;
+      try {
+        for (
+          let q = turn.queued.find((x) => !x.sent);
+          q && turn.live && !turn.next;
+          q = turn.queued.find((x) => !x.sent)
+        ) {
+          const id = convIdRef.current;
+          if (id == null) break; // sent once the conversation_id event arrives
+          const res = await fetch('/api/agent/chat', {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ...optionsRef.current.context, conversation_id: id, message: q.text }),
+          }).catch(() => null);
+          if (res?.status === 202) q.sent = true;
+          else if (res?.ok && res.body) {
+            turn.next = res; // the turn had ended; this one is the next turn's message
+            turn.queued = turn.queued.filter((x) => x !== q);
+            const done = q.id;
+            setMessages((prev) => prev.map((m) => (m.id === done ? { ...m, queued: false } : m)));
+          } else break; // left unsent: it goes with the next turn
+        }
+      } finally {
+        turn.sending = false;
+      }
+    },
+    [setMessages],
+  );
+
   const runTurn = useCallback(
-    async (body: { conversation_id: number | null; message?: string }) => {
+    async (body: TurnBody, started?: { res: Response; queued: Queued[] }) => {
       detach();
-      const turn: Turn = { ctl: new AbortController(), live: true, stopped: false, turnId: null, lastSeq: -1 };
+      const turn: Turn = {
+        ctl: new AbortController(),
+        live: true,
+        stopped: false,
+        turnId: null,
+        lastSeq: -1,
+        queued: started?.queued ?? [],
+        sending: false,
+      };
       turnRef.current = turn;
-      const asstId = localId('a');
+      let asstId = localId('a');
       setMessages((prev) => [...prev, { id: asstId, role: 'assistant', parts: [], streaming: true }]);
       setStreaming(true);
       setNotice(null);
@@ -175,7 +269,20 @@ export function useAgentChat(options: Options = {}) {
         const events = batch.filter(
           (e) => e.seq == null || e.seq > turn.lastSeq || e.type === 'done' || e.type === 'error',
         );
+        let run: ChatEvent[] = []; // events for the current bubble; a steer starts the next one
+        const flush = () => {
+          const these = run;
+          run = [];
+          if (these.length) updateMessage(asstId, (m) => these.reduce(applyEvent, m));
+        };
         for (const e of events) {
+          if (e.type === 'steer') {
+            if (e.seq != null) turn.lastSeq = Math.max(turn.lastSeq, e.seq);
+            flush();
+            asstId = steered(turn, asstId, e.text);
+            continue;
+          }
+          run.push(e);
           if (e.seq != null) turn.lastSeq = Math.max(turn.lastSeq, e.seq);
           if (e.turn_id != null && turn.turnId == null) {
             turn.turnId = e.turn_id;
@@ -185,10 +292,11 @@ export function useAgentChat(options: Options = {}) {
           else if (e.type === 'conversation_id' && e.id !== convIdRef.current) {
             adopt(e.id);
             optionsRef.current.onConversation?.(e.id);
+            void steer(turn);
           } else if (e.type === 'title_update') optionsRef.current.onTitle?.(e.conversation_id, e.title);
           else if (e.type === 'usage') setUsage({ contextTokens: e.context_tokens, contextWindow: e.context_window });
         }
-        updateMessage(asstId, (m) => events.reduce(applyEvent, m));
+        flush();
       };
       const payload = JSON.stringify({ ...optionsRef.current.context, ...body });
       try {
@@ -200,7 +308,8 @@ export function useAgentChat(options: Options = {}) {
             headers: { 'Content-Type': 'application/json' },
             body: payload,
           });
-        let res = await post();
+        let res = started?.res ?? (await post());
+        void steer(turn);
         // A continuation can race the turn it follows (still wrapping up, maybe in another tab):
         // its card is resolved, so nothing else would resume it. Wait for that turn to finish.
         for (let i = 0; body.message == null && res.status === 409 && i < RECONNECT_DELAYS_MS.length; i++) {
@@ -263,18 +372,41 @@ export function useAgentChat(options: Options = {}) {
       turn.live = false;
       turnRef.current = null;
       setStreaming(false);
+
+      // What the model never read: one sent was saved by the server, one unsent goes now.
+      const left = turn.queued;
+      if (left.length)
+        setMessages((prev) => prev.map((m) => (left.some((q) => q.id === m.id) ? { ...m, queued: false } : m)));
+      const unsent = left.filter((q) => !q.sent);
+      const id = convIdRef.current;
+      if (turn.next) void runTurnRef.current({ conversation_id: id }, { res: turn.next, queued: unsent });
+      else if (left.length && !turn.stopped && id != null) {
+        const message = unsent.map((q) => q.text).join('\n\n');
+        void runTurnRef.current({ conversation_id: id, ...(message ? { message } : {}) });
+      }
     },
-    [adopt, detach, reconcile, setMessages, updateMessage],
+    [adopt, detach, reconcile, setMessages, steer, steered, updateMessage],
   );
+
+  useEffect(() => {
+    runTurnRef.current = runTurn;
+  });
 
   const send = useCallback(
     (text: string) => {
       const message = text.trim();
       if (!message) return;
-      setMessages((prev) => [...prev, { id: localId('u'), role: 'user', parts: [{ kind: 'text', text: message }] }]);
-      void runTurn({ conversation_id: convIdRef.current, message });
+      const id = localId('u');
+      const turn = turnRef.current;
+      setMessages((prev) => [
+        ...prev,
+        { id, role: 'user', parts: [{ kind: 'text', text: message }], ...(turn ? { queued: true } : {}) },
+      ]);
+      if (!turn) return void runTurn({ conversation_id: convIdRef.current, message });
+      turn.queued.push({ id, text: message, sent: false });
+      void steer(turn);
     },
-    [runTurn, setMessages],
+    [runTurn, setMessages, steer],
   );
 
   const stop = useCallback(() => {

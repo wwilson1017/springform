@@ -184,3 +184,111 @@ describe('useAgentChat resume', () => {
     ]);
   });
 });
+
+describe('useAgentChat steering', () => {
+  const view = (messages: ReturnType<typeof useAgentChat>['messages']) =>
+    messages.map(
+      (m) =>
+        `${m.role}:${m.parts.map((p) => (p.kind === 'text' ? p.text : '')).join('')}${m.queued ? ' (queued)' : ''}`,
+    );
+  const bodies = (fn: ReturnType<typeof serve>) =>
+    fn.mock.calls.filter(([u]) => u === '/api/agent/chat').map(([, init]) => JSON.parse(String(init?.body)));
+
+  it('queues a message sent while the reply runs and opens a new bubble when the turn reads it', async () => {
+    let post!: ReturnType<typeof openStream>;
+    const fn = serve({
+      'POST /api/agent/chat': (init) =>
+        JSON.parse(String(init?.body)).message === 'also this'
+          ? json({ queued: true, turn_id: 3 }, 202)
+          : (post = openStream(
+              init,
+              { type: 'conversation_id', id: 7, turn_id: 3, seq: 0 },
+              { type: 'text', text: 'Looking', seq: 1 },
+            )).response,
+    });
+    const { result } = renderHook(() => useAgentChat());
+    act(() => result.current.send('hi'));
+    await waitFor(() => expect(lastText(result.current.messages)).toBe('Looking'));
+    act(() => result.current.send('also this'));
+    await waitFor(() => expect(bodies(fn)).toHaveLength(2));
+    expect(bodies(fn)[1]).toEqual({ conversation_id: 7, message: 'also this' });
+    expect(view(result.current.messages)).toEqual(['user:hi', 'assistant:Looking', 'user:also this (queued)']);
+    act(() => {
+      post.push({ type: 'steer', text: 'also this', seq: 2 });
+      post.push({ type: 'text', text: 'Both done.', seq: 3 });
+      post.push({ type: 'done', seq: 4 });
+      post.close();
+    });
+    await waitFor(() => expect(result.current.streaming).toBe(false));
+    expect(view(result.current.messages)).toEqual([
+      'user:hi',
+      'assistant:Looking',
+      'user:also this',
+      'assistant:Both done.',
+    ]);
+    expect(calls(fn)).toHaveLength(2); // nothing left over to continue
+  });
+
+  it('continues the conversation when the turn ended before reading a queued message', async () => {
+    let post!: ReturnType<typeof openStream>;
+    const fn = serve({
+      'POST /api/agent/chat': (init) => {
+        const body = JSON.parse(String(init?.body));
+        if (body.message === 'hi')
+          return (post = openStream(init, { type: 'conversation_id', id: 7, turn_id: 3, seq: 0 })).response;
+        if (body.message) return json({ queued: true, turn_id: 3 }, 202);
+        return sse(
+          { type: 'conversation_id', id: 7, turn_id: 4, seq: 0 },
+          { type: 'text', text: 'Late answer', seq: 1 },
+          { type: 'done', seq: 2 },
+        );
+      },
+    });
+    const { result } = renderHook(() => useAgentChat());
+    act(() => result.current.send('hi'));
+    await waitFor(() => expect(result.current.conversationId).toBe(7));
+    act(() => result.current.send('one more'));
+    await waitFor(() => expect(bodies(fn)).toHaveLength(2));
+    act(() => {
+      post.push({ type: 'text', text: 'First answer', seq: 1 });
+      post.push({ type: 'done', seq: 2 });
+      post.close();
+    });
+    await waitFor(() => expect(lastText(result.current.messages)).toBe('Late answer'));
+    await waitFor(() => expect(result.current.streaming).toBe(false));
+    expect(bodies(fn)[2]).toEqual({ conversation_id: 7 }); // the server saved it: continue, don't resend
+    expect(view(result.current.messages)).toEqual([
+      'user:hi',
+      'assistant:First answer',
+      'user:one more',
+      'assistant:Late answer',
+    ]);
+  });
+
+  it('reads the next turn a queued post started when the running turn had already ended', async () => {
+    let post!: ReturnType<typeof openStream>;
+    serve({
+      'POST /api/agent/chat': (init) =>
+        JSON.parse(String(init?.body)).message === 'hi'
+          ? (post = openStream(init, { type: 'conversation_id', id: 7, turn_id: 3, seq: 0 })).response
+          : sse(
+              { type: 'conversation_id', id: 7, turn_id: 4, seq: 0 },
+              { type: 'text', text: 'Next turn', seq: 1 },
+              { type: 'done', seq: 2 },
+            ),
+    });
+    const { result } = renderHook(() => useAgentChat());
+    act(() => result.current.send('hi'));
+    await waitFor(() => expect(result.current.conversationId).toBe(7));
+    act(() => result.current.send('again'));
+    await waitFor(() => expect(view(result.current.messages)).toContain('user:again'));
+    act(() => {
+      post.push({ type: 'text', text: 'First', seq: 1 });
+      post.push({ type: 'done', seq: 2 });
+      post.close();
+    });
+    await waitFor(() => expect(lastText(result.current.messages)).toBe('Next turn'));
+    await waitFor(() => expect(result.current.streaming).toBe(false));
+    expect(view(result.current.messages)).toEqual(['user:hi', 'assistant:First', 'user:again', 'assistant:Next turn']);
+  });
+});

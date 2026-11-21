@@ -52,6 +52,7 @@ export type ChatEvent = { seq?: number; turn_id?: number } & (
       args: Record<string, unknown>;
       summary: string;
     }
+  | { type: 'steer'; text: string } // a message sent while the turn ran, now shown to the model
   | { type: 'done'; model?: string; stopped?: boolean }
   | { type: 'error'; error: string; interrupted?: boolean }
 );

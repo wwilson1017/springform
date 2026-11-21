@@ -1,7 +1,8 @@
 """The tool calls of one model step: refuse a call, load deferred tools, gate it for approval, or run it.
 
 `run_calls` settles a step: lookups that need no approval run together first, then every call is
-settled in the model's order (`run_call`, the per-call chain moved unchanged from the engine). The
+settled in the model's order (`run_call`, the per-call chain moved unchanged from the engine). A
+call not yet started when the user has written again is skipped (`SKIPPED`, steering). The
 loop is in `turns.py`. Every call gets a tool-run row, or compaction would see it unsettled forever.
 """
 

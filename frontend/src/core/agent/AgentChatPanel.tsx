@@ -79,7 +79,7 @@ export function AgentChatPanel({
   }, [draft]);
 
   function submit() {
-    if (streaming || !draft.trim()) return;
+    if (!draft.trim()) return; // while a reply runs, the message is queued for it
     pinnedRef.current = true;
     onSend(draft);
     setDraft('');
@@ -144,7 +144,7 @@ export function AgentChatPanel({
                 placeholder={`Message ${agentName}…`}
                 className="max-h-[200px] min-h-6 flex-1 resize-none border-0 bg-transparent px-1.5 py-1 text-[15px] leading-6 text-sf-ink outline-none placeholder:text-sf-ink-dim"
               />
-              {streaming ? (
+              {streaming && (
                 <button
                   type="button"
                   onClick={onStop}
@@ -153,7 +153,8 @@ export function AgentChatPanel({
                 >
                   <IconStop size={16} aria-hidden />
                 </button>
-              ) : (
+              )}
+              {(!streaming || draft.trim()) && (
                 <button
                   type="button"
                   onClick={submit}
