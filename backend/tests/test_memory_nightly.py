@@ -168,7 +168,10 @@ def test_dreaming_merges_duplicates_into_the_oldest(db, make_user):
     with db.transaction() as conn:
         dup, reordered = (
             {"id": db.insert_in(conn, sql, (text, tags, keep["valid_from"], keep["valid_from"]))}
-            for text, tags in (("deliveries go out on tuesdays", '["observed"]'), ("On Tuesdays, deliveries go out", "[]"))
+            for text, tags in (
+                ("deliveries go out on tuesdays", '["observed"]'),
+                ("On Tuesdays, deliveries go out", "[]"),
+            )
         )
 
     assert dreaming.consolidate() == {"facts": 4, "merged": 2}

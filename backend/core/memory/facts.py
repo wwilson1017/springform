@@ -130,9 +130,7 @@ def remember_in(
     key = same_words(cleaned)
     # simplification: scans every current fact per write, fine to tens of thousands; upgrade path:
     # a stored key column with an index.
-    held = conn.execute(
-        f"SELECT f.id, f.text FROM core_agent_facts f WHERE {_CURRENT}", {"now": now}
-    ).fetchall()
+    held = conn.execute(f"SELECT f.id, f.text FROM core_agent_facts f WHERE {_CURRENT}", {"now": now}).fetchall()
     fact_id = next((r["id"] for r in held if same_words(r["text"]) == key), None)
     duplicate = fact_id is not None
     if not duplicate:

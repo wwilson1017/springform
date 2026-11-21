@@ -28,7 +28,13 @@ def test_access_log_lines_hide_every_token_path():
 def test_scrubbed_link_shapes_leave_ordinary_paths_alone():
     assert [
         logscrub.scrub(p)
-        for p in (f"/link/{TOKEN}", f"/{TOKEN}/mcp", f"/{TOKEN}/mcp?x=1", "/settings/mcp", "/api/auth/users/3/resend-invite")
+        for p in (
+            f"/link/{TOKEN}",
+            f"/{TOKEN}/mcp",
+            f"/{TOKEN}/mcp?x=1",
+            "/settings/mcp",
+            "/api/auth/users/3/resend-invite",
+        )
     ] == ["/link/***", "/***/mcp", "/***/mcp?x=1", "/settings/mcp", "/api/auth/users/3/resend-invite"]
 
 

@@ -42,7 +42,9 @@ def test_a_remembered_fact_is_blanked_and_a_held_one_is_not_saved_twice(db, make
 def test_a_context_file_write_is_blanked_and_reports_its_size(app, login_as):
     startup.on_startup()
     admin = login_as("admin")
-    r = admin.put("/api/core/context-files/suppliers.md", json={"content": f"# Suppliers\n\n- Flour API key {STRIPE}\n"})
+    r = admin.put(
+        "/api/core/context-files/suppliers.md", json={"content": f"# Suppliers\n\n- Flour API key {STRIPE}\n"}
+    )
     assert r.status_code == 200 and r.json()["content"] == "# Suppliers\n\n- Flour API key [removed: key]\n"
     assert r.json()["removed"] == [{"kind": "key", "count": 1}]
     assert r.json()["memory_size"].endswith("/12,000 chars")

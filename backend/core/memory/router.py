@@ -5,8 +5,8 @@ forget facts and edit unprotected context files. Protected files are refused her
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
-from backend.core.auth.deps import User, current_user, require_admin
 from backend.core import db, memory
+from backend.core.auth.deps import User, current_user, require_admin
 from backend.core.memory import context_files, facts
 
 router = APIRouter(tags=["core"])

@@ -4,6 +4,7 @@ SDK's own ClientSession over an in-process ASGI transport (no network, no AI key
 import asyncio
 import json
 from contextlib import asynccontextmanager
+from types import SimpleNamespace
 
 import httpx2
 import pytest
@@ -18,6 +19,7 @@ from backend.core.agent.spec import ToolSpec
 from backend.core.auth.deps import system_user
 from backend.core.errors import Forbidden
 from backend.core.mcp import clients, links, router as mcp_router, server
+from backend.testing.fixtures import make_client
 
 LINKS = "/api/core/mcp/links"
 
@@ -246,6 +248,27 @@ def test_last_used_is_stamped_at_most_once_a_minute(db, make_user, freeze):
     assert stamp() == "2026-11-02T09:00:00Z"
     freeze("2026-11-02T09:01:00Z")
     assert links.use(made["token"])[1].email.startswith("member") and stamp() == "2026-11-02T09:01:00Z"
+
+
+def test_behind_the_proxy_a_forged_forwarded_for_cannot_pick_the_miss_key(app, monkeypatch):
+    # The entrypoint's uvicorn --proxy-headers --forwarded-allow-ips='*' takes the leftmost
+    # X-Forwarded-For entry, which the client writes; the proxy's X-Real-IP is the key instead.
+    from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
+
+    monkeypatch.setenv("TRUST_PROXY", "1")
+    monkeypatch.setattr(mcp_router, "miss_limiter", ratelimit.RateLimiter(window=600, max_hits=2))
+    proxied = make_client(ProxyHeadersMiddleware(app, trusted_hosts="*"))
+    codes = [
+        proxied.post(
+            f"/mcp/wrong{i}", headers={"X-Forwarded-For": f"10.9.9.{i}", "X-Real-IP": "203.0.113.7"}
+        ).status_code
+        for i in range(3)
+    ]
+    assert codes == [404, 404, 429]
+    other = proxied.post("/mcp/wrong", headers={"X-Forwarded-For": "10.9.9.0", "X-Real-IP": "203.0.113.8"})
+    assert other.status_code == 404  # another real client has its own count
+    monkeypatch.delenv("TRUST_PROXY")
+    assert ratelimit.client_key(SimpleNamespace(headers={"x-real-ip": "1.2.3.4"}, client=None)) == "unknown"
 
 
 def test_instructions_carry_the_guidance_of_the_apps_the_user_reaches(app, login_as):

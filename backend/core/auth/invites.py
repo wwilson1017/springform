@@ -20,7 +20,7 @@ from urllib.parse import urlparse
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, Response
 from pydantic import BaseModel
 
-from backend.core import db, settings
+from backend.core import db, ratelimit, settings
 from backend.core.auth import google, mail, service, totp
 from backend.core.auth.deps import User, current_user, require_admin, start_session
 from backend.core.errors import Conflict, Invalid, NotFound
@@ -198,7 +198,7 @@ def accept_invite(token: str, body: AcceptIn, request: Request, response: Respon
 @router.post("/api/auth/forgot", status_code=202)
 def forgot_password(body: ForgotIn, request: Request, background: BackgroundTasks) -> dict:
     try:
-        found = forgot(body.email, request.client.host if request.client else "unknown")
+        found = forgot(body.email, ratelimit.client_key(request))
     except service.RateLimited:
         raise HTTPException(429, detail="rate_limited") from None
     if found:  # after the response, so its timing does not say whether the account exists

@@ -9,7 +9,7 @@ from typing import Literal
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel
 
-from backend.core import db, preview, settings
+from backend.core import db, preview, ratelimit, settings
 from backend.core.auth import bootstrap, google, invites, service, totp, trusted, users_router
 from backend.core.auth.deps import COOKIE, User, current_user, start_session
 
@@ -51,7 +51,7 @@ def setup(body: SetupIn, request: Request, response: Response) -> dict:
 
 @router.post("/api/auth/login")
 def login(body: LoginIn, request: Request, response: Response) -> dict:
-    ip = request.client.host if request.client else "unknown"
+    ip = ratelimit.client_key(request)
     try:
         user = service.authenticate(body.email, body.password, ip)
     except service.RateLimited:

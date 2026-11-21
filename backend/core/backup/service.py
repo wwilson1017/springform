@@ -6,6 +6,7 @@ the snapshot references; the files sweep never deletes a blob a retained manifes
 every retained set restores whole, and pruning a set is what releases its blobs.
 
 `run()` never raises: a failure is logged and recorded in `core_backups` (`ok | error | skipped`).
+After each run every snapshot is dropped from the page cache (`_uncache`).
 """
 
 from __future__ import annotations
@@ -145,7 +146,28 @@ def _take(started: datetime) -> tuple[str, dict]:
         prune()
     except Exception:
         logger.exception("Pruning old backups failed; the new set is complete")
+    _uncache(out)
     return "ok", {"snapshot": final.name, "manifest": manifest.name, "byte_size": size, "sha256": digest}
+
+
+def _uncache(out: Path) -> None:
+    """Drop every snapshot from the page cache (lifted from todo-gtd `backend/backup.py`). Railway
+    bills cached file pages as the service's memory, and a snapshot is read again only to restore
+    it or copy it off. Linux only; elsewhere a no-op."""
+    if not hasattr(os, "posix_fadvise"):
+        return
+    for path in out.glob(f"*{SNAPSHOT}"):
+        try:
+            fd = os.open(path, os.O_RDONLY)
+        except OSError:
+            continue
+        try:
+            os.fsync(fd)  # dirty pages cannot be dropped until written
+            os.posix_fadvise(fd, 0, 0, os.POSIX_FADV_DONTNEED)
+        except OSError:
+            pass
+        finally:
+            os.close(fd)
 
 
 def _record(started: datetime, status: str, fields: dict) -> dict:
