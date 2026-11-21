@@ -14,9 +14,10 @@ import asyncio
 import json
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, UploadFile
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
+from starlette.datastructures import UploadFile
 
 from backend.core.agent import agents, detached, engine, history, models, providers, uploads, usage
 from backend.core.agent.aio import in_thread

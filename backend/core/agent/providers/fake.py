@@ -46,8 +46,9 @@ def _typed(content: list) -> tuple[str, str] | None:
         return None
     photos = sum(1 for p in content if p.get("type") == "image")
     texts = [p.get("text", "") for p in content if p.get("type") == "text"]
-    files = [t for t in texts if UNTRUSTED_EXTERNAL_MARKER in t]
-    return "\n\n".join(t for t in texts if t not in files), f" [attached: {photos} photo(s), {len(files)} file(s)]"
+    fenced = [t for t in texts if UNTRUSTED_EXTERNAL_MARKER in t]
+    files = sum(1 for t in fenced if 'kind="image"' not in t)
+    return "\n\n".join(t for t in texts if t not in fenced), f" [attached: {photos} photo(s), {files} file(s)]"
 
 
 def _unscripted(messages: list[dict]):
