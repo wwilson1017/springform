@@ -77,6 +77,28 @@ def list_conversations(user_id: int, q: str | None = None, limit: int = 50, offs
     return [_conversation(r) for r in db.rows(sql, params)]
 
 
+SEARCH_LIMIT = 25
+
+
+def search_messages(user_id: int, q: str, *, exclude: int | None, limit: int = 10) -> list[dict]:
+    """The user's own messages matching `q`, best first, outside conversation `exclude` (the one
+    asking). In a conversation untrusted content has entered, only the user's own words are searched:
+    an assistant reply there may repeat a page's text."""
+    if not q.strip():
+        return []
+    return db.rows(
+        """SELECT m.conversation_id, c.title, c.updated_at, m.id AS message_id, m.role, m.created_at,
+                  snippet(core_agent_messages_fts, 0, '', '', ' … ', 40) AS snippet
+             FROM core_agent_messages_fts f
+             JOIN core_agent_messages m ON m.id = f.rowid
+             JOIN core_agent_conversations c ON c.id = m.conversation_id
+            WHERE core_agent_messages_fts MATCH ? AND c.user_id = ? AND c.id IS NOT ?
+              AND (c.tainted = 0 OR m.role = 'user')
+            ORDER BY rank LIMIT ?""",
+        (_fts_query(q), user_id, exclude, max(1, min(int(limit), SEARCH_LIMIT))),
+    )
+
+
 def update_conversation(
     conversation_id: int, user_id: int, *, title: str | None = None, is_private: bool | None = None
 ) -> dict | None:
