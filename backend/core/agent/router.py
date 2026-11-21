@@ -31,7 +31,7 @@ _SSE_HEADERS = {"Cache-Control": "no-cache", "Connection": "keep-alive", "X-Acce
 
 class RecordRef(BaseModel):
     entity_type: str = Field(max_length=100, pattern=r"^[a-z][a-z0-9_]*\.[a-z][a-z0-9_]*$")
-    entity_id: int = Field(gt=0)
+    entity_id: int = Field(gt=0, le=2**63 - 1)  # SQLite INTEGER; larger would 500, not 422
 
 
 class ChatIn(BaseModel):
