@@ -107,6 +107,9 @@ class TurnRunner:
                 return await self._end(out)
             text, stop = out["text"], out.get("stop_reason")
             calls = (out.get("tool_calls") or []) if stop == "tool_use" else []  # a cut-off call is not a call
+            for c in [] if calls else out.get("tool_calls") or []:  # settle the streamed card of each one
+                emit({"type": "tool_end", "tool": c["name"], "tool_use_id": c["id"], "tool_run_id": None,
+                      "status": "error", "result": {"error": "Not run: the reply was cut off."}, "elapsed_ms": 0})  # fmt: skip
             usage, native = s.usage, out.get("assistant_content")
             if meter := context_usage_event(usage, s.provider.context_window):
                 emit(meter)

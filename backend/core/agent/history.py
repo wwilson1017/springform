@@ -270,14 +270,15 @@ RAN = ("done", "uncertain", "executing", "interrupted")  # the tool ran, or may 
 def runs_since_user(conversation_id: int) -> list[dict]:
     """{id, tool, status} of every tool run of the conversation since its latest user message,
     oldest first: proposed after it (this turn's, and on an approval continuation, which has no
-    user message of its own, the approved ones that led to it) or resolved after it (an older card
-    approved after a newer message)."""
+    user message of its own, the approved ones that led to it), resolved after it (an older card
+    approved after a newer message), or still executing."""
     return db.rows(
         """WITH u AS (SELECT id, created_at FROM core_agent_messages
                        WHERE conversation_id = ? AND role = 'user' ORDER BY id DESC LIMIT 1)
            SELECT r.id, r.tool, r.status FROM core_agent_tool_runs r
             WHERE r.conversation_id = ?
-              AND (r.message_id > coalesce((SELECT id FROM u), 0) OR r.resolved_at >= (SELECT created_at FROM u))
+              AND (r.message_id > coalesce((SELECT id FROM u), 0) OR r.resolved_at >= (SELECT created_at FROM u)
+                   OR r.status = 'executing')
             ORDER BY r.id""",
         (conversation_id, conversation_id),
     )

@@ -7,6 +7,7 @@ from typing import cast
 
 import pytest
 
+from backend.core import db as core_db
 from backend.core.agent import errors, history, registry as tool_registry
 from backend.core.agent.providers import credentials, fake
 from backend.core.agent.providers.fake import FakeProvider
@@ -199,6 +200,14 @@ def test_wrote_ignores_reads_refusals_and_find_tools(login_as, send_tool):
         history.insert_tool_run(
             tool=tool, args={}, status=status, user_id=a.principal.id, conversation_id=cid, message_id=mid
         )
+    assert errors._wrote(state) is False
+    old = history.insert_tool_run(
+        tool="core_note_thing", args={}, status="executing", user_id=a.principal.id, conversation_id=cid
+    )
+    assert errors._wrote(state) is True  # an approval still running, whatever message it came from
+    history.resolve(old, "done", expect="executing")
+    with core_db.transaction() as conn:
+        conn.execute("UPDATE core_agent_tool_runs SET resolved_at = '2000-01-01T00:00:00Z' WHERE id = ?", (old,))
     assert errors._wrote(state) is False
     history.insert_tool_run(
         tool="gone_tool", args={}, status="done", user_id=a.principal.id, conversation_id=cid, message_id=mid

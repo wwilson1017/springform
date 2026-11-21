@@ -58,7 +58,13 @@ def test_a_cut_off_tool_call_is_neither_run_nor_recorded(login_as):
     a = login_as("member")
     fake.script({"tool": "example_list_widgets", "args": {}, "text": "Let me", "stop": "max_tokens"})
     evs = chat(a, message="list")
-    assert of(evs, "tool_end") == [] and evs[-1]["type"] == "done"
+    [end] = of(evs, "tool_end")  # the streamed card is settled as not run
+    assert (end["status"], end["result"], end["tool_run_id"]) == (
+        "error",
+        {"error": "Not run: the reply was cut off."},
+        None,
+    )
+    assert evs[-1]["type"] == "done"
     assert db.rows("SELECT 1 FROM core_agent_tool_runs WHERE conversation_id = ?", (evs[0]["id"],)) == []
     row = db.one(
         "SELECT content FROM core_agent_messages WHERE conversation_id = ? AND role = 'assistant'", (evs[0]["id"],)
