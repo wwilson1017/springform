@@ -1,5 +1,6 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { getToasts } from '../../shared/toast';
 import { callsTo, mockFetch, type Reply } from '../../testing';
 import UsageCard from './UsageCard';
 
@@ -57,5 +58,15 @@ describe('UsageCard', () => {
     await waitFor(() => expect(callsTo(fetchMock, 'PUT', SETTINGS)).toHaveLength(1));
     const body = JSON.parse(callsTo(fetchMock, 'PUT', SETTINGS)[0][1]!.body as string);
     expect(body).toEqual({ values: { 'agent.cost_rates': { 'claude-opus-5-5': { ...RATE, input: 3 } } } });
+  });
+
+  it('refuses a rate that is not a plain number instead of saving zero', async () => {
+    const fetchMock = renderCard();
+    fireEvent.change(await screen.findByLabelText('claude-opus-5-5 Input'), { target: { value: '$2.50' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save rates' }));
+    await waitFor(() =>
+      expect(getToasts().map((t) => t.message)).toContainEqual(expect.stringMatching(/plain numbers/)),
+    );
+    expect(callsTo(fetchMock, 'PUT', SETTINGS)).toHaveLength(0);
   });
 });

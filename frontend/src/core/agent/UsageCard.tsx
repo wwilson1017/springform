@@ -47,7 +47,7 @@ function fromDraft(draft: Draft, priced: Set<string>): Rates {
   const out: Rates = {};
   for (const [model, rate] of Object.entries(draft)) {
     if (!priced.has(model) && FIELDS.every(([f]) => rate[f].trim() === '')) continue;
-    out[model] = Object.fromEntries(FIELDS.map(([f]) => [f, Number(rate[f]) || 0])) as Record<Field, number>;
+    out[model] = Object.fromEntries(FIELDS.map(([f]) => [f, Number(rate[f].trim() || 0)])) as Record<Field, number>;
   }
   return out;
 }
@@ -78,6 +78,11 @@ export default function UsageCard() {
   const hit = month.data.cache_hit_rate;
 
   async function save() {
+    const typo = Object.entries(rows).find(([, r]) => FIELDS.some(([f]) => !Number.isFinite(Number(r[f].trim() || 0))));
+    if (typo) {
+      toast.error(`The rates for ${typo[0]} must be plain numbers, such as 2.5.`);
+      return;
+    }
     setBusy(true);
     try {
       settings.setData(await putJson<CoreSettings>(SETTINGS, { values: { [KEY]: fromDraft(rows, priced) } }));
