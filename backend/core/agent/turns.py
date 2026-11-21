@@ -187,15 +187,15 @@ class TurnRunner:
                             "description": spec.description if spec else "",
                         }
                     )
+                elif etype == "untrusted" and not s.tainted:  # the provider's own web search (Anthropic)
+                    s.tainted = True
+                    await in_thread(history.mark_tainted, s.conversation_id)
                 elif etype == "error":
                     failure = event
                     break
                 elif etype == "_turn_complete":
                     s.usage = event.get("usage") or {}
                     s.last_text, s.stop_reason = text, event.get("stop_reason")
-                    if event.get("untrusted") and not s.tainted:  # the provider's own web search (Anthropic)
-                        s.tainted = True
-                        await in_thread(history.mark_tainted, s.conversation_id)
                     return {**event, "text": text}
             s.last_text, s.stop_reason = text, None
             if failure is None:

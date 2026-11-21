@@ -24,6 +24,7 @@ REASONS = {
     "empty": "the model ended without writing a reply",
     "error": "the AI service returned an error",
     "budget": "it reached the limit of writes for one turn",
+    "pause_turn": "the web search did not finish",  # Anthropic paused past the provider's resumes
 }
 STEPS = ", after {n} tool call{s} (last: {tool}). Some steps may already have run; check the results above before asking again"
 INCOMPLETE = "*(This reply is incomplete: {reason}{steps}.)*"

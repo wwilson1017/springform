@@ -272,8 +272,8 @@ def whisk(app, monkeypatch):
     fake.reset()
 
 
-def chat(client, message: str) -> list[dict]:
-    r = client.post("/api/agent/chat", json={"message": message})
+def chat(client, message: str, conversation_id: int | None = None) -> list[dict]:
+    r = client.post("/api/agent/chat", json={"message": message, "conversation_id": conversation_id})
     assert r.status_code == 200, r.text
     return [json.loads(line[6:]) for line in r.text.splitlines() if line.startswith("data: ")]
 
@@ -320,6 +320,22 @@ def test_a_provider_side_search_while_narrating_an_approval_taints_too(login_as,
     assert history.compaction_state(evs[0]["id"])["tainted"] == 1
 
 
+def test_search_results_then_a_failure_still_taint(login_as, whisk):
+    a = login_as("member")
+    fake.script({"untrusted": True, "text": "Lemon tarts are", "error": "overloaded"})  # results, then the call fails
+    cid = chat(a, "look it up")[0]["id"]
+    fake.script({"tool": "core_jot_note"}, "Waiting.")
+    evs = chat(a, "note it", cid)
+    assert [e["tool"] for e in evs if e["type"] == "confirm"] == ["core_jot_note"] and whisk == []
+
+
+def test_a_search_that_never_finished_says_the_reply_is_incomplete(login_as, whisk):
+    a = login_as("member")
+    fake.script({"text": "Still searching", "stop": "pause_turn"})
+    texts = [e["text"] for e in chat(a, "look it up") if e["type"] == "text"]
+    assert any("incomplete: the web search did not finish" in t for t in texts), texts
+
+
 def test_web_off_means_the_tools_are_not_offered(login_as, whisk):
     user = login_as("member").principal
     names = {s.name for s in engine.chat_tools(user)}
@@ -345,6 +361,7 @@ class FakeAnthropic:
     def stream(self, **kwargs):
         self.calls.append(kwargs)
         final = self.finals.pop(0)
+        events = [SimpleNamespace(type="content_block_start", content_block=b) for b in final.content]
 
         class Stream:
             async def __aenter__(self):
@@ -357,7 +374,9 @@ class FakeAnthropic:
                 return self
 
             async def __anext__(self):
-                raise StopAsyncIteration
+                if not events:
+                    raise StopAsyncIteration
+                return events.pop(0)
 
             async def get_final_message(self):
                 return final
@@ -409,12 +428,17 @@ def test_server_search_resumes_a_paused_reply_lists_sources_and_reports_untruste
     events = run(client, monkeypatch, ["core_web_search"])
     assert len(client.calls) == 2
     assert client.calls[1]["messages"][-1] == {"role": "assistant", "content": [searching]}
-    assert [e["text"] for e in events if e["type"] == "text"] == [
-        "\n\nSources:\n- [Tart (shop)](https://tarts.example/)"
-    ]
-    done = events[-1]
-    assert done["type"] == "_turn_complete" and done["untrusted"] is True
-    assert done["assistant_content"] == [searching, results, answer]
+    assert [e["type"] for e in events] == ["untrusted", "text", "_turn_complete"]  # as soon as results arrive, once
+    assert events[1]["text"] == "\n\nSources:\n- [Tart (shop)](https://tarts.example/)"
+    assert events[-1]["assistant_content"] == [searching, results, answer]
 
     plain = FakeAnthropic(final("end_turn", SimpleNamespace(type="text", text="Hi.", citations=None)))
-    assert run(plain, monkeypatch, ["core_web_search"])[-1]["untrusted"] is False
+    assert [e["type"] for e in run(plain, monkeypatch, ["core_web_search"])] == ["_turn_complete"]
+
+
+def test_a_search_that_keeps_pausing_ends_after_three_resumes(db, monkeypatch):
+    settings.set_setting("web.search_provider", "anthropic", None)
+    searching = SimpleNamespace(type="server_tool_use", name="web_search")
+    client = FakeAnthropic(*[final("pause_turn", searching) for _ in range(anthropic_provider.MAX_CONTINUATIONS + 1)])
+    events = run(client, monkeypatch, ["core_web_search"])
+    assert len(client.calls) == anthropic_provider.MAX_CONTINUATIONS + 1 and events[-1]["stop_reason"] == "pause_turn"

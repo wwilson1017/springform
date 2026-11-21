@@ -11,9 +11,10 @@ Earlier turns are rebuilt from the database without thinking blocks, which the A
 
 Web search (`web.search_provider = "anthropic"`): when Whisk is offered `core_web_search`, that
 tool is swapped for Anthropic's server-side `web_search`. Anthropic runs the searches inside the
-reply, so the results never pass through the engine's fence: `_turn_complete` then carries
-`untrusted: True` and the engine taints the conversation. A `pause_turn` (the server's own loop
-limit) is continued here, replaying the paused content; the cited pages are appended to the reply
+reply, so the results never pass through the engine's fence: the provider sends an `untrusted`
+event as soon as a result block starts, and the engine taints the conversation. A `pause_turn` (the server's own loop
+limit) is continued here, replaying the paused content, up to MAX_CONTINUATIONS times (after that
+the turn ends `pause_turn`, which endings reports as incomplete); the cited pages are appended to the reply
 as a Markdown "Sources" list, so the links are shown and saved with the text.
 """
 
@@ -126,7 +127,7 @@ class AnthropicProvider(AIProvider):
         api_messages = self._cache_last_user_message([m for m in messages if m.get("role") in ("user", "assistant")])
         tool_calls: list[dict] = []
         content: list = []  # every block of the reply, paused pieces included
-        final = None
+        final, searched = None, False
         try:
             for _ in range(MAX_CONTINUATIONS + 1):
                 async with _client(self.api_key).messages.stream(
@@ -144,6 +145,13 @@ class AnthropicProvider(AIProvider):
                             block = event.content_block
                             tool_calls.append({"id": block.id, "name": block.name, "input_json": ""})
                             yield {"type": "tool_start", "tool": block.name, "tool_use_id": block.id}
+                        elif (
+                            event.type == "content_block_start"
+                            and getattr(event.content_block, "type", "") == "web_search_tool_result"
+                            and not searched
+                        ):
+                            searched = True  # before any text built on it, and before a continuation can fail
+                            yield {"type": "untrusted"}
                         elif event.type == "content_block_delta":
                             if hasattr(event.delta, "text"):
                                 yield {"type": "text", "text": event.delta.text}
@@ -191,7 +199,6 @@ class AnthropicProvider(AIProvider):
                 "cache_read_input_tokens": getattr(usage, "cache_read_input_tokens", 0) or 0,
             },
             "assistant_content": content,
-            "untrusted": any(getattr(b, "type", "") == "web_search_tool_result" for b in content),
         }
 
     def add_tool_results(self, messages: list[dict], tool_calls: list[dict], results: list[dict]) -> list[dict]:

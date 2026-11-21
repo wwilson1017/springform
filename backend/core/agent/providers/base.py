@@ -5,6 +5,8 @@ Events yielded by `stream_turn()` (dicts, not yet SSE-encoded):
     {"type": "tool_start", "tool": "name", "tool_use_id": "id"}
     {"type": "tool_args", "tool": "name", "tool_use_id": "id", "args": {...}}
     {"type": "error", "error": "message", "status"?, "retry_after"?, "code"?}   (see error_event)
+    {"type": "untrusted"}   web content entered the reply on the provider's side (Anthropic's own
+                            search), sent as soon as it arrives; the engine taints the conversation
     {"type": "_turn_complete", "tool_calls": [{"id", "name", "args"}], "stop_reason": "...",
      "usage": {...}, "assistant_content"?: native blocks to replay within this turn}
 
