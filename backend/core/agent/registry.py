@@ -48,7 +48,7 @@ class ToolRegistry:
             return self.all()
         if source == "mcp":
             return [s for s in self._specs.values() if s.mcp_exposed and not s.remote]
-        if source == "job":  # unattended: runs as the system principal with nobody to confirm
+        if source == "job":  # unattended, nobody to confirm (a check-in runs as its owner)
             return [
                 s
                 for s in self._specs.values()

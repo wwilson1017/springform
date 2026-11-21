@@ -328,6 +328,13 @@ def exercise(app, login_as, monkeypatch) -> dict[str, httpx.Response]:
     rule_id = hit(admin, "GET", "/api/agent/approval-rules")[0]["id"]  # saved by the approve above
     hit(admin, "DELETE", "/api/agent/approval-rules/{rule_id}", rule_id=rule_id)
     hit(member, "GET", "/api/agent/approval-rules", "none")
+    for c in both:
+        made = hit(
+            c, "POST", "/api/agent/checkins", json={"name": "Look", "prompt": "Overdue?", "schedule": "every:60"}
+        )
+        hit(c, "GET", "/api/agent/checkins")
+        hit(c, "POST", "/api/agent/checkins/{checkin_id}/run", checkin_id=made["id"])
+        hit(c, "PATCH", "/api/agent/checkins/{checkin_id}", checkin_id=made["id"], json={"enabled": False})
     skill = hit(admin, "POST", "/api/core/skills", json={
         "name": "weekly-count", "description": "Count the stock every Monday", "body": "1. Count each shelf.",
     })  # fmt: skip

@@ -15,7 +15,7 @@ from __future__ import annotations
 import inspect
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Literal
 
 from backend.core.agent.providers.base import AIProvider
 from backend.core.agent.spec import ToolSpec
@@ -99,6 +99,12 @@ class TurnState:
     context: str = ""  # the page and record the user has open (agents.context_note), for the volatile prompt
     steers: list[str] = field(default_factory=list)  # messages sent while the turn runs, not yet shown to the model
     message: str = ""  # the text the user typed to start this turn; "" on a continuation
+    source: Literal["chat", "checkin"] = "chat"  # the usage-ledger source; "checkin" is unattended (agent.md §5)
+
+    @property
+    def tool_source(self) -> Literal["chat", "job"]:
+        """What `for_source` and this turn's tool-run rows call it: "job" when nobody is there to approve."""
+        return "chat" if self.source == "chat" else "job"
 
 
 async def _call(fn: Callable, *args: Any) -> Any:

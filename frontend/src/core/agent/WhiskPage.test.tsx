@@ -299,3 +299,15 @@ describe('opening a conversation by URL', () => {
     expect(await screen.findByText('Conversation not found')).toBeTruthy();
   });
 });
+
+describe('check-ins', () => {
+  it('opens the Check-ins panel from the sidebar at /whisk/checkins, in place of the chat', async () => {
+    serve('member', true, { 'GET /api/agent/checkins': () => json([]) });
+    renderAt();
+    expect(await screen.findByRole('textbox', { name: 'Message Whisk' })).toBeTruthy();
+    fireEvent.click(screen.getAllByRole('button', { name: 'Check-ins' })[0]);
+    expect(await screen.findByText('No check-ins yet.')).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Check-ins' })).toBeTruthy();
+    expect(screen.queryByRole('textbox', { name: 'Message Whisk' })).toBeNull();
+  });
+});

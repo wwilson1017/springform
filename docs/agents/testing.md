@@ -169,10 +169,13 @@ steps:
 | `continue: true` | The same with no message: the resume after approvals |
 | `approve: <tool>` / `deny: <tool>` | `POST /api/agent/confirm` for the newest `confirm` event of that tool; `reason: <text>` (deny) and `always_allow: true` (approve) go in the body; `all: true` confirms every `confirm` event sharing that card's `batch` key, one request each |
 | `resume: true` | `GET /api/agent/turns/{id}/events?after=<last seq seen>` for the latest turn |
+| `checkin: <prompt>` | Creates a check-in with that prompt, makes it due and runs the job's pass (`checkins.service.run_due()`); no stream, so no event checks |
 | `undo: <tool>` | `POST /api/agent/change-lists/{id}/undo` for the newest `confirm` or `tool_end` event of that tool (the Undo button); `status:` checks the answer's `status` |
 
 - `files: [{name, text} | {name, base64}]` on a `send` posts it to `/api/agent/chat/upload` as multipart, with those files (a CSV as `text`, a photo as `base64`).
 - `page: <path>` and `record: <records key>` on a `send` or `continue` send the chat's page and record context (the record as `example.widget` with that widget's id).
+- `conversations: N` on any step: the scenario user has exactly N conversations after it (a silent check-in leaves none).
+- `tools_include` / `tools_exclude` in a `request` check: tool names that must, or must not, be offered on that model call.
 - `usage: [...]` on any step: the `core_agent_usage` rows the step wrote, matched in order like `events` (a mapping matches the columns it names, others may sit between).
 - `sql:` (one statement or a list) changes the data between turns, before the step's action: a record made private, say. Use explicit ids.
 - `steer: {after: <event>, message: <text>}` on a `send` or `continue` posts `message` to the conversation once an event matches `after` (a type or a mapping, as in `events`) and requires 202 (queued on the running turn); pair it with a slow tool (`delay`) so the turn is still mid-step.
