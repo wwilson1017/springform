@@ -360,7 +360,7 @@ def exercise(app, login_as, monkeypatch) -> dict[str, httpx.Response]:
     with gtd_stub.serve() as (base, state, _):
         before = tool_registry.current()
         try:
-            assert admin.put("/api/core/settings", json={"values": {"gtd.base_url": base}}).status_code == 200
+            assert admin.put("/api/core/settings", json={"values": {"mcp.gtd_base_url": base}}).status_code == 200
             hit(admin, "GET", "/api/core/gtd")
             hit(admin, "POST", "/api/core/gtd/connect")
             state.approved = True

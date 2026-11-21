@@ -114,7 +114,7 @@ def view() -> dict:
         left = max(int(p["expires_at"] - time.monotonic()), 0)
         pending = {"user_code": p["user_code"], "url": p["url"], "interval": p["interval"], "expires_in": left}
     return {
-        "base_url": keys.get("gtd.base_url"),
+        "base_url": keys.get("mcp.gtd_base_url"),
         "server": mcp_service.view(row) if row else None,
         "pending": pending,
     }
@@ -128,7 +128,7 @@ def start() -> dict:
         taken = db.one("SELECT trusted FROM core_agent_mcp_servers WHERE prefix = ?", (PREFIX,))
         if taken is not None:
             raise Conflict("gtd_already_connected" if taken["trusted"] else "gtd_prefix_taken")
-        base = keys.get("gtd.base_url")
+        base = keys.get("mcp.gtd_base_url")
         try:  # the hand-added server rules: https (http only with MCP_ALLOW_PRIVATE=1), and a prefix no app uses
             ServerIn(name=NAME, url=base, prefix=PREFIX)
         except ValidationError as e:

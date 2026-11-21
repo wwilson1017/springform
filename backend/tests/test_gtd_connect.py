@@ -42,7 +42,7 @@ def _clean(monkeypatch, suite):
 @pytest.fixture
 def admin(login_as, suite):
     client = login_as("admin")
-    r = client.put("/api/core/settings", json={"values": {"gtd.base_url": suite[0]}})
+    r = client.put("/api/core/settings", json={"values": {"mcp.gtd_base_url": suite[0]}})
     assert r.status_code == 200, r.text
     return client
 
@@ -223,10 +223,10 @@ def test_the_trusted_servers_address_and_prefix_are_fixed(admin, suite):
 
 def test_base_url_setting_and_admin_only_routes(admin, login_as):
     for bad in ("ftp://x.test", "https://u:p@x.test", "https://x.test/path", ""):
-        r = admin.put("/api/core/settings", json={"values": {"gtd.base_url": bad}})
+        r = admin.put("/api/core/settings", json={"values": {"mcp.gtd_base_url": bad}})
         assert r.status_code == 422, bad
-    ok = admin.put("/api/core/settings", json={"values": {"gtd.base_url": "https://x.test/"}})
-    assert ok.json()["values"]["gtd.base_url"] == "https://x.test"
+    ok = admin.put("/api/core/settings", json={"values": {"mcp.gtd_base_url": "https://x.test/"}})
+    assert ok.json()["values"]["mcp.gtd_base_url"] == "https://x.test"
 
     member = login_as("member")
     for method, path in (

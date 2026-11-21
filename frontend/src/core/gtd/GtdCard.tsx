@@ -89,7 +89,7 @@ export default function GtdCard() {
   async function saveAddress(value: string) {
     setBusy(true);
     try {
-      await putJson('/api/core/settings', { values: { 'gtd.base_url': value } });
+      await putJson('/api/core/settings', { values: { 'mcp.gtd_base_url': value } });
       setAddress(null);
       reload();
     } catch (e) {

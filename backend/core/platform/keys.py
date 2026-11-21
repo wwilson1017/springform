@@ -112,7 +112,7 @@ CORE_KEYS: dict[str, Key] = {
     "web.enabled": Key(True, _bool),  # Whisk's web search and page reading
     "web.search_provider": Key("free", _choice("free", "anthropic")),  # anthropic: Claude's own search
     "web.search_max_uses": Key(5, _int_range(1, 20)),  # Anthropic searches per reply
-    "gtd.base_url": Key("https://todogtd.com", _origin),  # the GTD suite Settings, GTD suite connects to
+    "mcp.gtd_base_url": Key("https://todogtd.com", _origin),  # the GTD suite Settings, GTD suite connects to
 }
 
 

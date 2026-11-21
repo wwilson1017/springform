@@ -154,7 +154,7 @@ The settings an admin changes through `/api/core/settings` are the core keys bel
 | `web.enabled` | `true` | Offers Whisk `core_web_search` and `core_web_fetch`. |
 | `web.search_provider` | `"free"` | `free` (DuckDuckGo via `ddgs`) or `anthropic` (Anthropic's server-side search while Whisk runs on Anthropic; OpenAI keeps the free one). |
 | `web.search_max_uses` | `5` | 1 to 20: Anthropic searches per reply. |
-| `gtd.base_url` | `"https://todogtd.com"` | The GTD suite Settings, GTD suite connects to: scheme and host only (`mcp.md` §2). |
+| `mcp.gtd_base_url` | `"https://todogtd.com"` | The GTD suite Settings, GTD suite connects to: scheme and host only (`mcp.md` §2). |
 
 `GET /api/core/settings` lists exactly these keys, so saving every listed value back succeeds. Other `core_settings` rows are internal and not listed. Some keys are written only by their own routes, never through `/api/core/settings`: `auth.google_client_id` and `auth.google_client_secret` by `PUT /api/auth/google/config`, `sheets.service_account_json` by `PUT /api/core/sheets/credentials`, and `notifications.vapid_public_key` / `notifications.vapid_private_key`, which are generated.
 

@@ -149,7 +149,7 @@ A server row with `trusted = 1` is one an admin connected through Settings, GTD 
 
 ### GTD suite connect (`backend/core/gtd/`)
 
-Settings, **GTD suite** (`gtd-suite`, order 85, admin-only; `frontend/src/core/gtd/`) links the install to a GTD suite account with the suite's device flow. The suite's address is the setting `gtd.base_url` (default `https://todogtd.com`, scheme and host only), edited on the card.
+Settings, **GTD suite** (`gtd-suite`, order 85, admin-only; `frontend/src/core/gtd/`) links the install to a GTD suite account with the suite's device flow. The suite's address is the setting `mcp.gtd_base_url` (default `https://todogtd.com`, scheme and host only), edited on the card.
 
 | Route (admin) | Does |
 |---|---|
@@ -161,7 +161,7 @@ Settings, **GTD suite** (`gtd-suite`, order 85, admin-only; `frontend/src/core/g
 Every route answers `GtdState = {base_url, server: S | null, pending: {user_code, url, interval, expires_in} | null}`; the device token never leaves the server. Every request to the suite goes through `transport.http_client()` (the address policy above, no redirects, 30 s, 1 MB) via `client.run`, never inside a transaction. The card opens `url` in a new tab and asks the server to poll every `interval` seconds.
 
 1. The waiting connect lives in process memory (one process is a platform rule); a restart means clicking Connect again. An approved link, which the suite hands out exactly once, stays there until it is stored: if a hand-added server holds `gtd` meanwhile, each poll answers 409 `prefix_taken` until it is removed, then stores it.
-2. Start answers 409 `gtd_already_connected` when connected, `gtd_prefix_taken` when a hand-added server holds `gtd`, 422 when `gtd.base_url` or the prefix breaks the hand-added server rules (`http://` without `MCP_ALLOW_PRIVATE=1`, or a fork with an app named `gtd`). `gtd` is deliberately not a reserved slug: reserving it would stop an existing fork with a `gtd` app from booting. A `gtd` app installed after connecting clashes only if it defines a tool named exactly like a remote one (`gtd__<tool>`); the registry then refuses that server's tools and records `last_error`, and nothing else breaks. The settings section id is `gtd-suite`, which no app slug can be.
+2. Start answers 409 `gtd_already_connected` when connected, `gtd_prefix_taken` when a hand-added server holds `gtd`, 422 when `mcp.gtd_base_url` or the prefix breaks the hand-added server rules (`http://` without `MCP_ALLOW_PRIVATE=1`, or a fork with an app named `gtd`). `gtd` is deliberately not a reserved slug: reserving it would stop an existing fork with a `gtd` app from booting. A `gtd` app installed after connecting clashes only if it defines a tool named exactly like a remote one (`gtd__<tool>`); the registry then refuses that server's tools and records `last_error`, and nothing else breaks. The settings section id is `gtd-suite`, which no app slug can be.
 3. Tiles: one per app among `todo`, `notes`, `projects`, `sites`, `brain` that the suite's `/api/config` lists (`apps.{key}.url`, http or https only), titled Todo, Notes, Projects, Sites and Brain, in that order, in `core_launcher_links` with the server's id (`frontend-shell.md`). The hosted suite lists all five; a self-hosted one only the apps it runs.
 4. The agent link is stored like any server URL (the token is in its path), shown to admins in the MCP servers card.
 5. The connection is install-wide, like every outbound server: the tools reach every member's Whisk with the connected account.
