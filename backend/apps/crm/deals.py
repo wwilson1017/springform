@@ -436,6 +436,17 @@ def mark_lost(user: User, deal_id: int, reason: str = "") -> dict:
         return mark_lost_in(conn, user, deal_id, reason)
 
 
+def revert_in(conn: db.Conn, user: User, deal_id: int, old: dict, new: dict) -> None:
+    """Undo of a Whisk change list (`Entity.revert_in`): put back the logged columns a person may
+    set, the lost reason a move out of lost cleared, and a won deal's day; the derived columns
+    follow `classify`, and a stage change gets its own stage event."""
+    row = _row_in(conn, deal_id)
+    if any(row[k] != v for k, v in new.items() if k in row):  # an edit the change log did not see
+        raise Conflict(entities.REVERT_CHANGED)
+    fields = {k: v for k, v in old.items() if k in USER_FIELDS or k == "lost_reason"}
+    _apply_in(conn, user, row, fields, closed_on=old.get("closed_on"))
+
+
 def _refused(msg: str) -> dict:
     return {"ok": False, "updated": 0, "updated_ids": [], "errors": [msg]}
 

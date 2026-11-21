@@ -80,6 +80,8 @@ def _problems(spec: ToolSpec) -> list[str]:
         p.append("an external_effect tool runs through handler, outside any transaction")
     if spec.writes is False and spec.handler_in is not None:
         p.append("a read runs through handler, not handler_in")
+    if spec.change_list and spec.handler_in is None:
+        p.append("a change_list tool is a local write (handler_in)")
     if spec.remote and not (spec.always_confirm and spec.untrusted_source and spec.external_effect):
         p.append("a remote tool is always_confirm, untrusted_source and external_effect")
     return [f"tool {spec.name!r}: {x}" for x in p]

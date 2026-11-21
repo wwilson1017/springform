@@ -26,7 +26,7 @@ SCENARIOS = Path(__file__).parent / "scenarios"
 TOP_KEYS = {"name", "role", "context_window", "tools", "records", "steps"}
 FLAGS = ("confirm_tier", "always_confirm", "untrusted_source", "external_effect")
 TOOL_KEYS = {"name", "description", "writes", "returns", "repeat", "delay", *FLAGS}
-ACTIONS = {"send", "continue", "approve", "deny", "resume"}
+ACTIONS = {"send", "continue", "approve", "deny", "resume", "undo"}
 STEP_KEYS = ACTIONS | {
     *("sql", "replies", "drop_after", "steer", "events", "request", "status", "usage", "page", "record", "files"),
     *("reason", "always_allow"),  # the /confirm body of a deny or an approve
@@ -228,6 +228,14 @@ def run(path: Path, app, login_as, model_requests: list[dict], monkeypatch) -> N
                         assert turn_id is not None, "resume needs an earlier turn"
                         evs = stream(c, "GET", f"/api/agent/turns/{turn_id}/events?after={last_seq}")
                         first = last_seq + 1
+                    elif "undo" in step:  # the Undo button of that tool's newest change list
+                        runs = [e for e in seen if e["type"] in ("confirm", "tool_end") and e["tool"] == step["undo"]]
+                        assert runs, f"no run of {step['undo']} to undo"
+                        r = c.post(f"/api/agent/change-lists/{runs[-1]['tool_run_id']}/undo")
+                        assert r.status_code == 200, r.text
+                        if "status" in step:
+                            assert r.json()["status"] == step["status"], r.json()
+                        first = None
                     else:
                         decision = "approve" if "approve" in step else "deny"
                         tool = step[decision]

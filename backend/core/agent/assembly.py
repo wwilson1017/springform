@@ -79,9 +79,19 @@ def assemble_messages(provider, conversation_id: int) -> list[dict]:
     """The provider messages for this conversation; [] when it has none. The caller saved the
     new user row first, so the result ends on the latest user turn."""
     state = history.compaction_state(conversation_id) or {}
-    rows = apply_compaction(history.messages(conversation_id), state.get("summary"), state.get("summary_first_kept_id"))
+    every, messages = history.tool_runs_for(conversation_id), history.messages(conversation_id)
+    summary, kept = state.get("summary"), state.get("summary_first_kept_id")
+    if summary and kept is not None:  # an Undo after its run was summarized away still reaches the model
+        head = {m["id"] for m in messages[:HEAD_ROWS]}
+        late = [
+            f"{r['tool']}: {r['undo_note']}"  # a copy of one the gist already carries is harmless
+            for r in every
+            if r.get("undo_note") and r["message_id"] not in head and (r["message_id"] or 0) < kept
+        ]
+        summary = "\n".join([summary, *late])
+    rows = apply_compaction(messages, summary, kept)
     runs: dict[int, dict[str, dict]] = {}
-    for run in history.tool_runs_for(conversation_id):
+    for run in every:
         if run["message_id"] is not None:
             runs.setdefault(run["message_id"], {})[run["tool_use_id"]] = run
     limit = int(
