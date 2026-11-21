@@ -3,6 +3,10 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { ChatEvent, ConversationDetail } from './types';
 import { ATTACH_WHILE_RUNNING, useAgentChat } from './useAgentChat';
 
+// The real shrink needs a canvas; tests that care swap in their own.
+const shrink = vi.hoisted(() => ({ impl: (f: File) => Promise.resolve(f) }));
+vi.mock('../../shared/shrinkImage', () => ({ shrinkImage: (f: File) => shrink.impl(f) }));
+
 type Handler = (init?: RequestInit) => Response | Promise<Response>;
 
 const frame = (e: ChatEvent) => new TextEncoder().encode(`data: ${JSON.stringify(e)}\n\n`);
@@ -47,7 +51,10 @@ const lastText = (messages: ReturnType<typeof useAgentChat>['messages']) =>
     ?.parts.map((p) => (p.kind === 'text' ? p.text : ''))
     .join('');
 
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => {
+  vi.unstubAllGlobals();
+  shrink.impl = (f) => Promise.resolve(f);
+});
 
 describe('useAgentChat resume', () => {
   it('re-attaches after a drop and applies each event once', async () => {
@@ -267,6 +274,26 @@ describe('useAgentChat attachments', () => {
       result.current.stop();
     });
     await waitFor(() => expect(result.current.streaming).toBe(false));
+    expect(calls(fn)).toEqual([]);
+    expect(result.current.messages).toEqual([]);
+  });
+
+  it('Stop during the second photo shrink skips the rest and sends nothing', async () => {
+    const fn = serve({});
+    const photo = (name: string) => new File(['x'], name, { type: 'image/jpeg' });
+    const started: string[] = [];
+    let finish!: () => void;
+    shrink.impl = (f) => {
+      started.push(f.name);
+      return f.name === 'b.jpg' ? new Promise((resolve) => (finish = () => resolve(f))) : Promise.resolve(f);
+    };
+    const { result } = renderHook(() => useAgentChat());
+    act(() => result.current.send('look', [photo('a.jpg'), photo('b.jpg'), photo('c.jpg')]));
+    await waitFor(() => expect(started).toEqual(['a.jpg', 'b.jpg']));
+    act(() => result.current.stop());
+    finish();
+    await waitFor(() => expect(result.current.streaming).toBe(false));
+    expect(started).toEqual(['a.jpg', 'b.jpg']);
     expect(calls(fn)).toEqual([]);
     expect(result.current.messages).toEqual([]);
   });
