@@ -295,7 +295,16 @@ def required(middle: list[dict], by_message: dict, prev_summary: str | None) -> 
     ask = next((_norm(r["content"].get("text") or "") for r in reversed(middle) if r["role"] == "user"), "")
     if len(ask) > MAX_ASK_CHARS:
         ask = ask[:MAX_ASK_CHARS].rsplit(" ", 1)[0]
-    return ([ask] if ask else []) + [i for i in out if missing(ask, [i])]  # ask covers the ones it holds as tokens
+    # A kept upload's handle, so core_read_upload can still reach it; not the file's own identifiers,
+    # which are untrusted and could crowd out the conversation's.
+    handles = [
+        f"Upload {f['upload_id']}"
+        for r in reversed(middle)
+        if r["role"] == "user"
+        for f in r["content"].get("files") or []
+        if f.get("upload_id")
+    ]
+    return ([ask] if ask else []) + handles + [i for i in out if missing(ask, [i])]  # ask covers the ones it holds
 
 
 def missing(summary: str, must: list[str]) -> list[str]:
