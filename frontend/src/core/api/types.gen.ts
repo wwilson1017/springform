@@ -3923,6 +3923,9 @@ export interface components {
             conversation_id?: number | null;
             /** Message */
             message?: string | null;
+            /** Page */
+            page?: string | null;
+            record?: components["schemas"]["RecordRef"] | null;
         };
         /** CodeIn */
         CodeIn: {
@@ -5904,6 +5907,13 @@ export interface components {
         PushRemoved: {
             /** Removed */
             removed: boolean;
+        };
+        /** RecordRef */
+        RecordRef: {
+            /** Entity Id */
+            entity_id: number;
+            /** Entity Type */
+            entity_type: string;
         };
         /** Reminder */
         Reminder: {

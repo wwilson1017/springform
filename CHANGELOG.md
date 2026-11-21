@@ -20,6 +20,7 @@ Conventions:
 
 ### Added
 
+- Record pages have an "Ask {assistant}" button: the chat opens knowing which page and record you came from, and names the record to the assistant only when you can read it.
 - Settings, AI, Usage shows this month's AI spend by source (chat, compaction, the nightly run) and model, with the cache hit rate. Every model call is recorded, background ones included; costs are estimated from list prices an admin can edit.
 
 ## [0.1.4] - 2026-11-21

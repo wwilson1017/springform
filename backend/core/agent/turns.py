@@ -102,7 +102,9 @@ class TurnRunner:
             specs, {a.slug: a.manifest.name for a in app_registry.installed()}
         )
         s.loaded = {spec.name for spec in active}
-        s.system = await in_thread(assembly.system_prompt, s.agent, s.user, query=query, catalog=catalog)
+        s.system = await in_thread(
+            assembly.system_prompt, s.agent, s.user, query=query, catalog=catalog, context=s.context
+        )
 
         for i in range(MAX_ITERATIONS):
             s.iteration = i

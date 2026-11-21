@@ -21,7 +21,7 @@ import { ApiError, fetchJson, postJson } from '../api/client';
 import { applyEvent, cardsOf, fromServer, localId, type ChatMessage, type ToolPart } from './chatModel';
 import { confirmReducer, runStatusOf, shouldResume, type ConfirmEvent, type Decision } from './confirmState';
 import { readEvents } from './sse';
-import type { ChatEvent, ConfirmResponse, ConversationDetail } from './types';
+import type { ChatContext, ChatEvent, ConfirmResponse, ConversationDetail } from './types';
 
 export interface ContextUsage {
   contextTokens: number;
@@ -34,6 +34,8 @@ interface Options {
   onTitle?: (id: number, title: string) => void;
   /** POST /chat answered 400 no_provider: the keys went away since the page loaded. */
   onNoProvider?: () => void;
+  /** The page and record the user came from; sent with every turn, read when the turn starts. */
+  context?: ChatContext | null;
 }
 
 interface Turn {
@@ -188,6 +190,7 @@ export function useAgentChat(options: Options = {}) {
         }
         updateMessage(asstId, (m) => events.reduce(applyEvent, m));
       };
+      const payload = JSON.stringify({ ...optionsRef.current.context, ...body });
       try {
         const post = () =>
           fetch('/api/agent/chat', {
@@ -195,7 +198,7 @@ export function useAgentChat(options: Options = {}) {
             credentials: 'same-origin',
             signal: turn.ctl.signal,
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(body),
+            body: payload,
           });
         let res = await post();
         // A continuation can race the turn it follows (still wrapping up, maybe in another tab):

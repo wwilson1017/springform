@@ -6,12 +6,13 @@ agent is, the admin's personality, the memory package's protected instructions (
 MEMORY.md), the name note, the installed apps, the confirmation and untrusted-content contracts, the
 deferred-tool catalog. The contracts come after both editable texts, so neither can talk the
 model out of them. The soul lives only in memory's soul.md, never on the agent row.
-Volatile: today's date in the install timezone, who is asking, and the memory block for this turn.
+Volatile: today's date in the install timezone, who is asking, the page and record they have open
+(`context_note`), and the memory block for this turn.
 """
 
 from __future__ import annotations
 
-from backend.core import db, localtime
+from backend.core import db, entities, localtime
 from backend.core.agent import delimiters
 from backend.core.auth.deps import User
 from backend.core.clock import now_iso
@@ -126,6 +127,28 @@ def user_note(user: User) -> str:
     return " ".join(parts + [_ROLE_NOTES.get(user.role, "")]).strip()
 
 
+def context_note(user: User, page: str | None, record: tuple[str, int] | None) -> str:
+    """The page and record the user has open, for the volatile half. The record is named only
+    after `entities.authorize(read)`: an unknown type, a missing record or one this user cannot
+    read is left out without a word, so the prompt never confirms it exists. `page` is a path
+    the router has already held to a plain pattern. Only the type and id are named, never the
+    title: a member can write a shared record's title, and this note is unfenced."""
+    parts = [f"The user has this page of the app open: {page}."] if page else []
+    if record:
+        entity_type, entity_id = record
+        try:
+            conn = db.get_conn()
+            entity = entities.authorize(user, conn, entity_type, entity_id, "read")
+        except NotFound:
+            return " ".join(parts)
+        parts.append(
+            f"The user is looking at {entity.label} #{entity_id} (entity type {entity_type}, id {entity_id}). "
+            f'When they say "this", "this {entity.label.lower()}" or "here", they mean that record; '
+            "read it with a tool when you need its details."
+        )
+    return " ".join(parts)
+
+
 def build_system_prompt(
     agent: dict,
     user: User,
@@ -133,6 +156,7 @@ def build_system_prompt(
     instructions: str = "",
     catalog: str = "",
     memory: str = "",
+    context: str = "",
 ) -> tuple[str, str]:
     from backend.core import registry  # registry imports this package; resolve at call time
 
@@ -162,6 +186,7 @@ def build_system_prompt(
         for p in [
             f"Today is {now.strftime('%A, %B %d, %Y')} ({now.tzinfo}).",
             user_note(user),
+            context,
             memory,
         ]
         if p
