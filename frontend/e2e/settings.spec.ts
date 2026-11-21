@@ -3,7 +3,7 @@ import { expect, test, type Session } from './fixtures';
 // Section ids (`/settings/<id>`) of core and the upstream apps. A fork's own apps may add more,
 // and an app's label is just its name, so these are subset checks on ids, never the exact list (#18).
 const MEMBER = ['account', 'notifications', 'workspace', 'apps', 'mcp', 'todos'];
-const ADMIN_ONLY = ['users', 'records', 'signin', 'integrations', 'data', 'ai', 'mcp_servers', 'crm', 'example'];
+const ADMIN_ONLY = ['users', 'records', 'signin', 'integrations', 'data', 'ai', 'mcp_servers', 'gtd', 'crm', 'example'];
 
 async function sections({ page }: Session) {
   await page.goto('/settings');

@@ -27,6 +27,8 @@ export type UserRef = S['UserRef'];
 export type SettingsCard = S['SettingsCard'];
 /** One item of GET /api/core/apps: the caller's apps; admins also get hidden ones. */
 export type CoreApp = S['CoreApp'];
+/** One item of GET /api/core/launcher/links: a tile that opens another site in a new tab. */
+export type LauncherLink = S['LauncherLink'];
 export type Badge = S['Badge'];
 export type FieldChange = S['FieldChange'];
 export type TimelineEntry = S['TimelineEntry'];

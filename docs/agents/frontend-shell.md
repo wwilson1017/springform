@@ -36,7 +36,7 @@
 
 | Screen | Contract |
 |---|---|
-| Launcher | Tiles by role from `GET /api/core/apps`; hidden tiles shown to admins (`hidden: true`); **badge polling every 60 s while visible**. |
+| Launcher | Tiles by role from `GET /api/core/apps`; hidden tiles shown to admins (`hidden: true`); **badge polling every 60 s while visible**. Then link tiles from `GET /api/core/launcher/links` (`core_launcher_links`, made by the GTD suite connect): plain anchors that open in a new tab (`rel="noopener noreferrer"`); a failing fetch shows none. Admins hide them in Settings, Apps (`PATCH /api/core/launcher/links/{id} {hidden}`); members never get hidden ones. No reordering. |
 | Layout / Nav | `src/core/shell/Layout.tsx`: the header nav is Home, People, Organizations, then core `primary` items (`nav.tsx` seam below), then apps' `nav` items from `contributions.ts` for the apps the user receives. Core `menu` items and Settings sit in the user menu; the mobile drawer shows both lists plus Settings. |
 | Settings | `/settings/<section id>`. Core sections come from each area's `settingsCards.ts` (seam below), plus one section per app from `contributions.ts` `settingsCards`, keyed by the manifest's `settings_cards[].id`; `admin_only` cards for admins only. The sections as built are in the Settings table below. Backups is a page (`/backups`), not a card. |
 | Guide | `backend/core/guide/library.py` ports CakeCRM `help/library.py`. Core topics are `backend/core/docs/*.md`, slugged by file name. An app's `docs/index.md` is the topic `<slug>`, and its other `docs/<name>.md` files are `<slug>.<name>`. Each file opens with front matter: `title` (required, at most 80 characters), `summary` (optional, at most 200) and `order` (optional integer, default 1000). The body cap is **8,000 characters**. A bad topic (too long, an unknown key, a bad file name, a duplicate slug) is skipped and logged at runtime; a test loads strictly and fails CI on it. The library loads at startup and searches deterministically: title beats summary beats body, and ties break on slug. Routes: `GET /api/core/guide` (`[{slug, title, summary, app}]`, topics of core and of the apps on the caller's launcher), `GET /api/core/guide/search?q=&limit=` (`[{slug, title, snippet, app}]`; default 10, at most 20), `GET /api/core/guide/{slug}` (`{slug, title, summary, body_markdown, app}`). Pages: `/guide` (the index with search) and `/guide/:slug` (one topic), both from `src/core/pages/Guide.tsx` through `src/core/pages/routes.tsx`, with a Guide item in the user menu. |
@@ -78,7 +78,7 @@ Settings sections as built, in the order a user sees them (a member sees only th
 | 5 | `account` | Account | Profile, Security, Saved approvals (members) | `src/core/auth/settingsCards.ts` |
 | 8 | `notifications` | Notifications | Push notifications (members) | `src/core/records/settingsCards.ts` |
 | 10 | `workspace` | Workspace | Workspace (members read, admins edit; includes the timezone) | `src/core/settings/settingsCards.ts` |
-| 20 | `apps` | Apps | Apps (members read, admins hide and order) | `src/core/settings/settingsCards.ts` |
+| 20 | `apps` | Apps | Apps (members read, admins hide and order apps and hide link tiles) | `src/core/settings/settingsCards.ts` |
 | 25 | `mcp` | MCP | MCP connector (members) | `src/core/mcp/settingsCards.ts` |
 | 30 | `users` | Users | Users (admin) | `src/core/auth/settingsCards.ts` |
 | 35 | `records` | Records | Custom fields (admin) | `src/core/records/settingsCards.ts` |
@@ -87,6 +87,7 @@ Settings sections as built, in the order a user sees them (a member sees only th
 | 60 | `data` | Data | Export, Files (`files.max_bytes`) (admin) | `src/core/settings/settingsCards.ts` |
 | 70 | `ai` | AI | Providers, Agents, Memory, Nightly run, Usage (admin) | `src/core/agent/settingsCards.ts` |
 | 80 | `mcp_servers` | MCP servers | Connected MCP servers (admin) | `src/core/mcp_servers/settingsCards.ts` |
+| 85 | `gtd` | GTD suite | GTD suite connect (admin; `mcp.md` §2) | `src/core/gtd/settingsCards.ts` |
 | after core | `<slug>` | the app's name | The manifest's `settings_cards`, in launcher order: CRM (`crm`, admin), Todos (`todos`, members), Example (`example`, admin) | `src/apps/<slug>/contributions.ts` |
 
 There is no Sheets admin page, so `sheets` stays reserved but unrouted. `/backups` is `src/core/backups/` (route plus an admin-only user-menu item). The header's install name comes from `GET /api/core/workspace` through `settings/useWorkspace.ts`. The header bar paints only with the `--color-sf-bar*` tokens (`index.css`, "Header bar"), which follow a fork's `--color-sf-header*` and `--color-sf-highlight` from `public/branding/theme.css` (`forks.md` §10); anything new in the header uses them, not the page tokens, or it vanishes on a dark bar.
@@ -134,6 +135,8 @@ POST /api/auth/logout  -> 204, clears the cookie
 POST /api/auth/preview {role} -> 200 {user} + cookie (PREVIEW_MODE only, else 404)
 GET  /api/me           -> {id, email, name, role: "admin"|"member", tz}; 401 when not signed in
 GET  /api/core/apps    -> [{slug, name, description, path, icon, roles, order, badge, hidden, settings_cards, version}] for the caller's role; admins also receive hidden apps with hidden:true
+GET  /api/core/launcher/links -> [{id, title, url, icon, hidden}] in order; admins also receive hidden ones
+PATCH /api/core/launcher/links/{id} {hidden} -> the admin's new list (admin)
 GET  /api/health       -> {version, sqlite_version, fts5, preview, apps:[slug], last_backup_at, key_mismatch}   (no auth)
 GET  /up               -> 200 "ok"   (no auth)
 GET  /api/example/widgets[?person_id=]   -> [Widget]  Widget = {id, name, color, owner_user_id, person_id, is_private, created_at, updated_at}
