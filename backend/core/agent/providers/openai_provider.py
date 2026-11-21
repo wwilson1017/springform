@@ -95,10 +95,13 @@ class OpenAIProvider(AIProvider):
         finish = None
         try:
             async for chunk in await client.chat.completions.create(**kwargs):
-                if chunk.usage:
+                if chunk.usage:  # prompt_tokens includes the cached ones; split them out as Anthropic reports them
+                    details = getattr(chunk.usage, "prompt_tokens_details", None)
+                    cached = getattr(details, "cached_tokens", 0) or 0
                     usage = {
-                        "input_tokens": chunk.usage.prompt_tokens or 0,
+                        "input_tokens": (chunk.usage.prompt_tokens or 0) - cached,
                         "output_tokens": chunk.usage.completion_tokens or 0,
+                        "cache_read_input_tokens": cached,
                     }
                 finish = (chunk.choices[0].finish_reason if chunk.choices else None) or finish
                 delta = chunk.choices[0].delta if chunk.choices else None

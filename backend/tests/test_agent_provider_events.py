@@ -74,6 +74,28 @@ def test_openai_reports_a_length_cutoff(monkeypatch, with_tool):
     assert events[-1]["type"] == "_turn_complete" and events[-1]["stop_reason"] == "max_tokens"
 
 
+def test_openai_splits_cached_tokens_out_of_input(monkeypatch):
+    """OpenAI counts cached tokens inside prompt_tokens; the provider reports them as Anthropic does."""
+    import openai
+
+    details = SimpleNamespace(cached_tokens=60)
+    tail = SimpleNamespace(
+        usage=SimpleNamespace(prompt_tokens=100, completion_tokens=7, prompt_tokens_details=details), choices=[]
+    )
+
+    async def stream():
+        for c in (chunk("Hi", finish="stop"), tail):
+            yield c
+
+    async def create(**kw):
+        return stream()
+
+    client = SimpleNamespace(chat=SimpleNamespace(completions=SimpleNamespace(create=create)))
+    monkeypatch.setattr(openai, "AsyncOpenAI", lambda api_key: client)
+    events = drain(openai_provider.OpenAIProvider("k", "gpt-x").stream_turn([], [], "sys"))
+    assert events[-1]["usage"] == {"input_tokens": 40, "output_tokens": 7, "cache_read_input_tokens": 60}
+
+
 def test_anthropic_refusal_is_a_completion(monkeypatch):
     final = SimpleNamespace(stop_reason="refusal", content=[], usage=SimpleNamespace(input_tokens=1, output_tokens=1))
 

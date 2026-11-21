@@ -13,6 +13,7 @@ from typing import Any
 from zoneinfo import ZoneInfo
 
 from backend.core import memory, settings
+from backend.core.agent import usage
 from backend.core.errors import Invalid
 
 DEFAULT_WARNING = (
@@ -95,6 +96,7 @@ CORE_KEYS: dict[str, Key] = {
     "files.max_bytes": Key(25 * 1024 * 1024, _positive_int),
     "agent.nightly_enabled": Key(False, _bool),  # off: the nightly run spends AI credits
     "agent.context_budget_chars": Key(memory.DEFAULT_BUDGET, _positive_int),  # memory block size per turn
+    "agent.cost_rates": Key(usage.DEFAULT_RATES, usage.check_rates),  # USD per million tokens, per model
     "auth.require_totp_for_google": Key(False, _bool),
     "web.enabled": Key(True, _bool),  # Whisk's web search and page reading
     "web.search_provider": Key("free", _choice("free", "anthropic")),  # anthropic: Claude's own search
