@@ -1,0 +1,21 @@
+name: A result naming a record the user can no longer read is withheld from later turns
+steps:
+  - sql: >-
+      INSERT INTO todos_items (id, owner_user_id, visibility, title, notes, created_at, updated_at)
+      VALUES (900, 0, 'team', 'Restock bin seven', 'scen-note-q7', '2026-11-01T00:00:00Z', '2026-11-01T00:00:00Z')
+    send: Show me todo 900.
+    replies:
+      - {tool: todos_get, args: {id: 900}}
+      - Here it is.
+    events:
+      - {type: tool_end, tool: todos_get, status: done}
+      - done
+    request:
+      call: 1
+      messages_contain: [scen-note-q7]
+  - sql: UPDATE todos_items SET visibility = 'private' WHERE id = 900
+    send: Anything else on it?
+    replies: [Nothing more.]
+    request:
+      messages_contain: ["[Result withheld: it names a record the user can no longer read."]
+      messages_exclude: [scen-note-q7, Restock bin seven]

@@ -3,12 +3,17 @@ theirs. A date-time without an offset is read in the install timezone, the one W
 today's date in. The write is routine (no Approve card) and runs through `handler_in`."""
 
 from backend.core import clock, db, entities, localtime, settings
-from backend.core.agent.spec import ROUTINE, ToolSpec
+from backend.core.agent.spec import ROUTINE, ToolSpec, linked, records_in
 from backend.core.errors import Invalid
 from backend.core.reminders import api as reminders
 from backend.core.timeline.tools import RECORD, human, record
 
 _WAITING = {"open": ("open", "snoozed"), "done": ("done",)}
+
+
+def _reads(args: dict, result) -> list[tuple[str, int]]:
+    """The record each reminder is about (it carries that record's title)."""
+    return records_in(result, linked)
 
 
 def _shape(r: dict) -> dict:
@@ -70,6 +75,7 @@ def get_tools() -> list[ToolSpec]:
             targets=lambda args: [],  # changes no record; create_in checks the record is readable
             enabled=human,
             summary="Set this reminder.",
+            reads=_reads,
         ),
         ToolSpec(
             name="core_list_my_reminders",
@@ -87,5 +93,6 @@ def get_tools() -> list[ToolSpec]:
             writes=False,
             handler=_list,
             enabled=human,
+            reads=_reads,
         ),
     ]

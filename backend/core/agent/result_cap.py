@@ -6,6 +6,7 @@ list of like records (or such lists inside an object) becomes CSV first, which o
 the cap on its own. The full text is the tool run's own stored result, so nothing extra is stored:
 the `on_tool_result` hook caps this turn's view, and `assembly` applies the same pure function to
 every later turn, a Fallback rebuild and a tool that ran after approval (which never passes the hook).
+A page names what its source names (`records_of`), so it is withheld whenever the source is.
 """
 
 from __future__ import annotations
@@ -169,6 +170,8 @@ def read(user: User, handle: str, *, offset: int | None = None, grep: str | None
         raise NotFound("No stored result for that handle in this conversation.")
     if (run["resolved_at"] or run["requested_at"]) < clock.ago(READABLE_HOURS * 3600):
         raise NotFound(f"That result is more than {READABLE_HOURS} hours old. Run the tool again.")
+    if run.get("withheld"):  # without this a grep would answer "0 matches" for a result it cannot see
+        raise NotFound(history.WITHHELD)
     content = history.model_content(run)
     text = full_text(content)
     if grep:
@@ -183,6 +186,13 @@ def read(user: User, handle: str, *, offset: int | None = None, grep: str | None
     if content.startswith(delimiters.UNTRUSTED_EXTERNAL_MARKER):  # a slice has lost its fence
         out = delimiters.wrap_untrusted_external(run["tool"], out)
     return out
+
+
+def records_of(handle: str) -> list:
+    """The records the run behind `handle` names, which a page of it carries too (its `reads`)."""
+    m = _HANDLE_RE.fullmatch((handle or "").strip())
+    run = history.get_tool_run(int(m.group(1))) if m else None
+    return json.loads(run["records"] or history.UNKNOWN) if run else []
 
 
 def _fold(text: str) -> str:

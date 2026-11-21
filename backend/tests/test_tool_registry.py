@@ -103,6 +103,7 @@ def test_tool_def_sha256_binds_what_was_shown_and_where_it_runs():
     digest = tool_def_sha256(base)
     assert digest == "481988952a0d1e504cd236e2bc31966dd0eb8b84bb483566f99b3fa58bb26995"
     assert digest == tool_def_sha256(read(summary=""))
+    assert digest == tool_def_sha256(read(reads=lambda args, result: []))  # provenance is not what was shown
     assert len({digest, tool_def_sha256(read(summary="x")), tool_def_sha256(read(summary="y"))}) == 3
     for changed in (
         read(description="other"),
@@ -114,18 +115,47 @@ def test_tool_def_sha256_binds_what_was_shown_and_where_it_runs():
         assert tool_def_sha256(changed) != digest
 
 
-@pytest.mark.parametrize(
-    "module",
-    [
-        "backend.core.contacts.tools",
-        "backend.core.memory.tools",
-        "backend.core.timeline.tools",
-        "backend.core.reminders.tools",
-        "backend.apps.crm.tools",
-        "backend.apps.todos.tools",
-        "backend.apps.example.tools",
-    ],
-)
+SHIPPED = [
+    "backend.core.contacts.tools",
+    "backend.core.memory.tools",
+    "backend.core.timeline.tools",
+    "backend.core.reminders.tools",
+    "backend.apps.crm.tools",
+    "backend.apps.todos.tools",
+    "backend.apps.example.tools",
+]
+# Shipped tools whose results name no record (install-shared memory, the user's own messages), so
+# they need no `reads` for the replay recheck (authorization.md §5).
+NO_RECORDS = {
+    "core_memory_search",
+    "core_memory_remember",
+    "core_context_file_read",
+    "core_context_file_write",
+    "core_search_conversations",
+}
+
+
+def unclassified(specs) -> set[str]:
+    """Local tools that neither name their records (`reads`) nor are listed as naming none, plus
+    listed names no tool has any more: either way the replay recheck could miss a record."""
+    names = {s.name for s in specs}
+    bare = {s.name for s in specs if s.reads is None and not s.remote and not s.untrusted_source}
+    return (bare - NO_RECORDS) | (NO_RECORDS - names)
+
+
+def test_the_reads_guard_catches_a_tool_that_names_nothing():
+    listed = [read(name=n) for n in NO_RECORDS]
+    assert unclassified([*listed, read(reads=lambda args, result: [])]) == set()
+    assert unclassified([*listed, read(name="core_new_read")]) == {"core_new_read"}
+    assert unclassified(listed[1:]) == {listed[0].name}
+
+
+def test_every_shipped_tool_names_the_records_it_returns():
+    specs = [spec for module in [*SHIPPED, "backend.core.agent.tools"] for spec in import_module(module).get_tools()]
+    assert unclassified(specs) == set()
+
+
+@pytest.mark.parametrize("module", SHIPPED)
 def test_shipped_write_tools_have_user_facing_summaries(module):
     writes = [spec for spec in import_module(module).get_tools() if spec.writes]
     assert writes
@@ -159,4 +189,5 @@ def test_toolspec_fields_only_grow_at_the_end():
         "summary",
         "title",
         "destructive",
+        "reads",
     ]

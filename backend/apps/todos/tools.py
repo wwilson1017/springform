@@ -2,12 +2,15 @@
 changes exactly what that person could in the app. Writes are routine (no Approve card) unless
 they would take a todo out of someone's view."""
 
+from dataclasses import replace
+
 from pydantic import ValidationError
 
 from backend.apps.todos import service
 from backend.apps.todos.common import MAX_BULK
 from backend.apps.todos.models import AreaIn, AreaPatch, ItemIn, ItemPatch, ProjectIn, ProjectPatch
-from backend.core.agent.spec import ROUTINE, ToolSpec, calling_client
+from backend.core.agent import history
+from backend.core.agent.spec import ROUTINE, ToolSpec, calling_client, records_in
 from backend.core.errors import AppError, Invalid
 
 MAX_BULK_CREATE = 100
@@ -181,7 +184,36 @@ def _the_todo(args: dict) -> list[tuple[str, int]]:
     return [("todos.item", int(args["id"]))]
 
 
+def _named(d: dict) -> list[tuple[str, int]]:
+    """The todo, project or area a row is (by its shape): what the replay recheck checks. A
+    project or area named only as a label inside a todo row is not named."""
+    if not {"id", "visibility"} <= d.keys():
+        return []
+    if {"title", "status"} <= d.keys():
+        return [(service.ENTITY, d["id"])]
+    if "name" in d:
+        return [("todos.project" if "purpose" in d else "todos.area", d["id"])]
+    return []
+
+
+def _reads(args: dict, result) -> list[tuple[str, int]]:
+    return records_in(result, _named)
+
+
+def _reader(kind: str):
+    return lambda user, conn, row_id: bool(service._container_in(conn, user, kind, row_id))
+
+
+# Projects and areas are not registered entities; their privacy is the service's (owner or team).
+history.READERS.update({"todos.project": _reader("project"), "todos.area": _reader("area")})
+
+
 def get_tools() -> list[ToolSpec]:
+    """Every tool names the todos, projects and areas its result carries."""
+    return [replace(t, reads=_reads) for t in _tools()]
+
+
+def _tools() -> list[ToolSpec]:
     return [
         ToolSpec(
             name="todos_list",

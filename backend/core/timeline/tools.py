@@ -57,6 +57,7 @@ def get_tools() -> list[ToolSpec]:
             confirm_tier=ROUTINE,
             handler_in=_add_note,
             targets=record,
+            reads=lambda args, result: record(args),
             enabled=human,
             summary="Add this note to the record's timeline.",
         ),
