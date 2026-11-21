@@ -143,6 +143,13 @@ def test_rule_eligible(spec, args, tainted, eligible):
     assert engine.rule_eligible(spec, args, tainted) is eligible
 
 
+def test_archiving_a_deal_never_offers_always_allow():
+    from backend.core.agent import registry as tool_registry
+
+    spec = tool_registry.get("crm_archive_deal")
+    assert spec is not None and engine.rule_eligible(spec, {"deal_id": 1, "reason": "duplicate"}, False) is False
+
+
 def test_failed_rule_lookup_keeps_the_card(login_as, monkeypatch):
     a = login_as("member")
     cid = save_rule(a)
