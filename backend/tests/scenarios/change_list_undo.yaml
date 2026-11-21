@@ -1,0 +1,27 @@
+name: A bulk edit that hides todos shows its changes on one card, applies on Approve, and the model reads the Undo
+steps:
+  - send: Add two team todos.
+    replies:
+      - [{tool: todos_create, args: {title: Order flour, visibility: team}}, {tool: todos_create, args: {title: Call the plumber, visibility: team}}]
+      - Added both.
+    events:
+      - {type: tool_end, tool: todos_create, status: done}
+      - {type: tool_end, tool: todos_create, status: done}
+      - done
+  - send: Make both private.
+    replies:
+      - {tool: todos_bulk_update, args: {ids: [1, 2], fields: {visibility: private}}}
+      - That needs your approval.
+    events:
+      - {type: confirm, tool: todos_bulk_update, change_list: {changes: 2, records: 2}}  # it hides them, so it asks
+      - done
+  - approve: todos_bulk_update
+    status: done
+  - continue: true
+    replies: [Both are private now.]
+  - undo: todos_bulk_update
+    status: undone
+  - send: Are they private?
+    replies: ["No, you undid that."]
+    request:
+      messages_contain: [The user undid this change list afterwards, 2 records were put back]

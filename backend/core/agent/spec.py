@@ -72,6 +72,9 @@ class ToolSpec:
     destructive: bool = False  # MCP destructiveHint: the write discards data for good. Not hashed
     # The records a result carries, for the replay recheck (history.recheck). Not hashed
     reads: Callable[[dict, Any], Iterable[tuple[str, int]]] | None = None
+    # A bulk edit: its card lists old -> new as the server reads them, and the user can undo it
+    # (agent.md §6, "Change lists and Undo"). Needs handler_in. Not hashed
+    change_list: bool = False
 
     @property
     def remote(self) -> bool:

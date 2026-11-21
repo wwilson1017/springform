@@ -13,7 +13,7 @@ import json
 import time
 from collections.abc import Callable
 
-from backend.core.agent import deferred, execute, history, turn_hooks
+from backend.core.agent import change_lists, deferred, execute, history, turn_hooks
 from backend.core.agent.aio import in_thread
 from backend.core.agent.engine import batch_key, card_extras, needs_confirmation, rule_skips
 from backend.core.agent.spec import tool_def_sha256
@@ -130,11 +130,25 @@ async def _run(state: TurnState, emit: Callable[[dict], None], call: dict, messa
     if run["tainted"] and not state.tainted:
         state.tainted = True
         await in_thread(history.mark_tainted, state.conversation_id)
-    _tool_end(emit, call, run["id"], run["status"], run["result"], elapsed)
+    listed = (
+        state.by_name[call["name"]].change_list
+        and run["status"] == "done"
+        and await in_thread(change_lists.exists, run["id"])
+    )
+    _tool_end(emit, call, run["id"], run["status"], run["result"], elapsed, change_list=listed)
     return run
 
 
-def _tool_end(emit: Callable[[dict], None], call: dict, run_id: int, status: str, result, elapsed: int = 0) -> None:
+def _tool_end(
+    emit: Callable[[dict], None],
+    call: dict,
+    run_id: int,
+    status: str,
+    result,
+    elapsed: int = 0,
+    *,
+    change_list: bool = False,
+) -> None:
     emit(
         {
             "type": "tool_end",
@@ -144,6 +158,7 @@ def _tool_end(emit: Callable[[dict], None], call: dict, run_id: int, status: str
             "status": status,
             "result": result,
             "elapsed_ms": elapsed,
+            **({"change_list": True} if change_list else {}),
         }
     )
 
@@ -198,9 +213,25 @@ async def run_call(
         state.tool_source == "chat"
         and await in_thread(rule_skips, state.user.id, state.agent["id"], spec, args, state.tainted)
     ):  # a live always-allow rule falls through and runs like a routine write; never in a check-in
-        run_id = await in_thread(
-            history.insert_tool_run, **record, tool_def_sha256=tool_def_sha256(spec), status="pending"
-        )
+        listed = None
+        if spec.change_list:  # the card lists what the call would change, read by the server
+            try:
+                rows, notes, mark = await in_thread(execute.dry_run, state.user, spec, args)
+                error = None if rows else "; ".join(notes) or change_lists.NOTHING_TO_CHANGE
+            except Exception as e:  # refused before any card, with the reason the run would give
+                rows, notes, mark, error = [], [], 0, execute.error_text(e)
+            if error is not None:
+                run_id, status, result, content = await _refuse(record, error)
+                _tool_end(emit, call, run_id, status, result)
+                return {"tool_use_id": tool_use_id, "tool_name": name, "content": content}
+            run_id = await in_thread(
+                change_lists.stage, rows, notes, mark, **record, tool_def_sha256=tool_def_sha256(spec)
+            )
+            listed = {"changes": len(rows), "records": len({(r["entity_type"], r["entity_id"]) for r in rows})}
+        else:
+            run_id = await in_thread(
+                history.insert_tool_run, **record, tool_def_sha256=tool_def_sha256(spec), status="pending"
+            )
         state.pending = True
         emit(
             {
@@ -212,6 +243,7 @@ async def run_call(
                 "args": args,
                 "summary": spec.summary,
                 **card_extras(spec, args, state.tainted, message_id),
+                **({"change_list": listed} if listed else {}),
             }
         )
         return {"tool_use_id": tool_use_id, "tool_name": name, "content": history.model_content({"status": "pending"})}
