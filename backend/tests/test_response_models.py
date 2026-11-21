@@ -316,12 +316,16 @@ def exercise(app, login_as, monkeypatch) -> dict[str, httpx.Response]:
         events = [json.loads(line[6:]) for line in stream.splitlines() if line.startswith("data: ")]
         run_id = next(e["tool_run_id"] for e in events if e["type"] == "confirm")
         hit(c, "GET", "/api/agent/conversations/{conversation_id}", "pending", conversation_id=cid)
-        hit(c, "POST", "/api/agent/confirm", decision, json={"tool_run_id": run_id, "decision": decision})
+        extra = {"always_allow": True} if decision == "approve" else {"reason": "Not that one."}
+        hit(c, "POST", "/api/agent/confirm", decision, json={"tool_run_id": run_id, "decision": decision, **extra})
         hit(c, "POST", "/api/agent/confirm", "again", json={"tool_run_id": run_id, "decision": decision})
         hit(c, "GET", "/api/agent/conversations/{conversation_id}", "resolved", conversation_id=cid)
         hit(c, "GET", "/api/agent/conversations")
         hit(c, "DELETE", "/api/agent/conversations/{conversation_id}", conversation_id=cid)
     hit(admin, "GET", "/api/agent/usage")  # after the chats above, so its rows are not empty
+    rule_id = hit(admin, "GET", "/api/agent/approval-rules")[0]["id"]  # saved by the approve above
+    hit(admin, "DELETE", "/api/agent/approval-rules/{rule_id}", rule_id=rule_id)
+    hit(member, "GET", "/api/agent/approval-rules", "none")
     skill = hit(admin, "POST", "/api/core/skills", json={
         "name": "weekly-count", "description": "Count the stock every Monday", "body": "1. Count each shelf.",
     })  # fmt: skip

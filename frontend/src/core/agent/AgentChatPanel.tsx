@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { AgentMessageBubble } from './AgentMessageBubble';
 import type { ChatMessage } from './chatModel';
-import type { Decision } from './confirmState';
+import type { DecideOptions, Decision } from './confirmState';
 import { IconArrowUp, IconSparkle, IconStop } from './icons';
 import type { ContextUsage } from './useAgentChat';
 
@@ -39,7 +39,7 @@ interface Props {
   blocked?: ReactNode;
   onSend: (text: string) => void;
   onStop: () => void;
-  onDecide: (msgId: string, toolUseId: string, decision: Decision) => void;
+  onDecide: (msgId: string, toolUseId: string, decision: Decision, opts?: DecideOptions) => void;
 }
 
 /** The message list and the composer (Chatty's AgentChatPanel without uploads, modes or playbooks). */

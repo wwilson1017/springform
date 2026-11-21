@@ -86,21 +86,28 @@ def assemble_messages(provider, conversation_id: int) -> list[dict]:
         _OVERSIZED_ROW_FRACTION * (getattr(provider, "context_window", None) or DEFAULT_BUDGET_TOKENS) * CHARS_PER_TOKEN
     )
     out: list[dict] = []
+    # simplification: an approval between denials does not reset the count, and one step with
+    # several denials counts once; upgrade: count only cards decided in a row, if that matters.
+    denials = 0  # assistant steps with a denied run since the latest user row: the breaker (history.model_content)
     for row in rows:
         text = _truncate(row["content"].get("text") or "", limit)
         calls = row["content"].get("tool_calls")
         if row["role"] == "user":
+            denials = 0
             out.append({"role": "user", "content": text})
         elif not calls:
             if text:
                 out.append({"role": "assistant", "content": text})
         else:
             by_id = runs.get(row["id"], {})
+            denials += any(r["status"] == "denied" for r in by_id.values())
             results = [
                 {
                     "tool_use_id": c["tool_use_id"],
                     "tool_name": c["tool"],
-                    "content": _truncate(result_cap.capped(history.model_content(run), run["id"]), limit),
+                    "content": _truncate(
+                        result_cap.capped(history.model_content(run, denials=denials), run["id"]), limit
+                    ),
                 }
                 for c in calls
                 if (run := by_id.get(c["tool_use_id"])) is not None

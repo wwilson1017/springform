@@ -22,6 +22,8 @@ export interface ToolPart {
   runId?: number | null;
   /** Present when the call waits (or waited) for approval in this view. */
   confirm?: ConfirmState;
+  /** Its card may offer "Always allow". */
+  canAlwaysAllow?: boolean;
 }
 
 export type Part = { kind: 'text'; text: string } | ToolPart;
@@ -76,6 +78,7 @@ export function fromServer(rows: ServerMessage[]): ChatMessage[] {
         result: c.result ?? undefined,
         error: c.error,
         runId: c.tool_run_id,
+        canAlwaysAllow: c.can_always_allow,
         ...(status === 'pending' && c.tool_run_id != null ? { confirm: { phase: 'pending' as const } } : {}),
       });
     }
@@ -137,6 +140,7 @@ export function applyEvent(m: ChatMessage, e: ChatEvent): ChatMessage {
         runId: e.tool_run_id,
         args: e.args,
         summary: e.summary || undefined,
+        canAlwaysAllow: e.can_always_allow,
         confirm: { phase: 'pending' },
       }));
     }

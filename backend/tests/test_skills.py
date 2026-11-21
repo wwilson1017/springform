@@ -155,3 +155,11 @@ def test_admin_routes(login_as):
     page = admin.get("/api/core/skills", params={"status": "proposed"}).json()
     assert page["total"] == 2 and [s["name"] for s in page["skills"]] == ["other-v2", "pricing-v2"]
     assert admin.get("/api/core/skills", params={"status": "active", "limit": 1}).json()["total"] == 2
+
+
+def test_a_skill_never_stores_a_secret(admin):
+    made = skills.create(
+        "log-in", "Sign in with password: hunter2-horse", "1. Use sk-ant-api03-" + "x" * 30 + ".", admin
+    )
+    assert "hunter2" not in made["description"] and "[removed: password]" in made["description"]
+    assert "sk-ant" not in made["body"] and "[removed: key]" in made["body"]

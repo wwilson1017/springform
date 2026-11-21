@@ -262,6 +262,13 @@ def test_the_prompt_lists_what_exists_and_fences_the_conversations(member, admin
     assert re.search(r'<(conversation_[0-9a-f]{12}) n="1">\n.*\n</\1>', prompt, re.S)
 
 
+def test_the_review_never_sends_a_secret(member):
+    conversation(member, [("user", "Log in to the supplier site, password: hunter2-horse"), *work("x")], turns=10)
+    seen = []
+    review.run(lambda s, p: seen.append(p) or '{"skills": []}')
+    assert "hunter2" not in seen[0] and "[removed: password]" in seen[0]
+
+
 def test_the_prompt_bans_the_three_shapes_and_does_not_push_for_output():
     text = review.SYSTEM_PROMPT
     assert "does not work" in text and "dead end" in text and "one-off story" in text

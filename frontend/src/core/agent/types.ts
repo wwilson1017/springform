@@ -51,6 +51,8 @@ export type ChatEvent = { seq?: number; turn_id?: number } & (
       msg_id: number | null;
       args: Record<string, unknown>;
       summary: string;
+      /** The card may offer "Always allow" (a local write in a clean conversation). */
+      can_always_allow?: boolean;
     }
   | { type: 'done'; model?: string; stopped?: boolean }
   | { type: 'error'; error: string; interrupted?: boolean }
@@ -62,6 +64,8 @@ export type ConfirmOutcome = ConfirmResponse['status'];
 /** GET /api/core/skills */
 export type SkillsPage = S['SkillsPage'];
 export type Skill = S['Skill'];
+/** GET /api/agent/approval-rules */
+export type ApprovalRule = S['ApprovalRule'];
 
 /** GET /api/core/context-files */
 export interface ContextFileMeta {

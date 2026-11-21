@@ -26,6 +26,7 @@ from collections.abc import Callable
 from backend.core import clock, db, skills
 from backend.core.agent import history
 from backend.core.errors import AppError
+from backend.core.memory.redact import blank_secrets
 
 logger = logging.getLogger(__name__)
 
@@ -128,7 +129,8 @@ def eligible_in(conn: db.Conn, conversation_id: int) -> bool:
 
 
 def _line(text) -> str:
-    return " ".join(str(text or "").split())[:MAX_ROW_CHARS]
+    """One bounded line, secrets blanked before the text leaves the install for the model."""
+    return " ".join(blank_secrets(str(text or ""))[0].split())[:MAX_ROW_CHARS]
 
 
 def transcript_in(conn: db.Conn, conversation_id: int) -> str:

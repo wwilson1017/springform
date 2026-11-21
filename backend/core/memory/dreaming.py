@@ -12,19 +12,11 @@ not lifted, since context files here are admin-edited.
 from __future__ import annotations
 
 import json
-import re
 
 from backend.core import clock, db
 from backend.core.memory import facts
 
 SYSTEM_USER_ID = 0
-_WORD = re.compile(r"\w+", re.UNICODE)
-
-
-def _key(text: str) -> str:
-    # simplification: exact word-set duplicates only; upgrade path: a light-tier model pass that
-    # merges near-duplicates and ends contradicted facts.
-    return " ".join(sorted(set(_WORD.findall(text.casefold()))))
 
 
 def consolidate() -> dict:
@@ -36,7 +28,9 @@ def consolidate() -> dict:
     )
     groups: dict[str, list[dict]] = {}
     for row in rows:
-        groups.setdefault(_key(row["text"]), []).append(row)
+        # simplification: exact word-set duplicates only; upgrade path: a light-tier model pass that
+        # merges near-duplicates and ends contradicted facts.
+        groups.setdefault(facts.same_words(row["text"]), []).append(row)
     merges = [(g[0], g[1:]) for g in groups.values() if len(g) > 1]
     merged = 0
     if merges:

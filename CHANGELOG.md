@@ -22,6 +22,8 @@ Conventions:
 
 - Whisk learns skills: short named methods it lists in its instructions and loads when a task calls for one (`core_skill_load`). Admins write them in Settings, AI, Skills, or turn on the skills review (off by default): after every ten finished turns Whisk reads recent conversations that are not private and proposes skills or edits, and nothing is used until an admin approves it. Skills unused for 60 days are archived, never deleted; pinned ones stay.
 - Whisk's conversation summaries keep what matters: a fixed outline, and a check that record ids, amounts, links, dates and the latest request survive word for word (a summary that drops them is retried twice, then not used). A summary that times out drops the oldest messages instead of making every turn wait. With the nightly memory pass on, Whisk also saves durable business facts from the messages about to leave its context just before summarizing, as the nightly observer would (never from private conversations).
+- Whisk asks less often: tick **Always allow** on an Approve card and that tool stops asking in your chats; remove it under Settings, Account, Saved approvals. It still asks for tools that always ask, for anything that reaches outside the install or deletes for good, and in any conversation that has read outside content.
+- You can say why when you deny a change. Whisk is told the reason and not to retry or work around it, and after three denied steps it is told to stop and report back.
 - Whisk can search the web and read a web page (`core_web_search`, `core_web_fetch`). What it reads is treated as untrusted, so every later change, page read or search in that conversation asks for approval. Search is DuckDuckGo by default, or Anthropic's own web search while Whisk runs on Anthropic; admins switch both in Settings, AI, Web. Page reads never reach private or local addresses, including through redirects.
 - Record pages have an "Ask {assistant}" button: the chat opens knowing which page and record you came from, and names the record to the assistant only when you can read it.
 - Settings, AI, Usage shows this month's AI spend by source (chat, compaction, the nightly run) and model, with the cache hit rate. Every model call is recorded, background ones included; costs are estimated from list prices an admin can edit.
@@ -52,6 +54,8 @@ Forks can set their own colours and logo, an admin can hide the install name nex
 - MCP tools carry titles and explicit hints, so ChatGPT and Claude no longer treat every write as destructive (merging deals still is). Apps can give AI tools a paragraph of guidance (`agent_guidance` in `app.json`), which Whisk and MCP clients both receive; Todos gives its GTD-partner rules.
 - Todos tools for AI clients cover projects, areas, bulk create and update, one todo in full, and the change feed, and `todos_list` pages compact rows with `total` and `next_offset`. Settings → MCP shows connect steps for Claude, ChatGPT, Gemini, Claude Code, Cursor, VS Code, Codex and Gemini CLI.
 - MCP tool runs record which AI tool called (`core_agent_tool_runs.client`), and a todo made over an MCP link says so: "via ChatGPT".
+- Memory keeps secrets out: a password, API key, private key or card number in a fact or a context file is saved as `[removed: <kind>]`, and Whisk says what it removed. A fact already held is not saved twice, a rewrite of a context file by Whisk that drops over a quarter of its lines is refused, and every memory write reports its size against the cap.
+- Invite, password-reset and MCP link tokens, sign-in codes and signed URLs are masked on every log line, not only MCP paths in the access log.
 
 ### Changed
 
@@ -61,6 +65,12 @@ Forks can set their own colours and logo, an admin can hide the install name nex
 ### Removed
 
 - `railway.json`. Railway stops reading it on 2026-12-01, and `.railway/railway.ts` now holds the build, health check and restart settings. Railway has no place to store the required `/data` mount, so nothing refuses a deploy without the volume any more: attach it when you create the service.
+
+### Fixed
+
+- Behind Railway's proxy, a client could pick its own rate-limit key with a forged `X-Forwarded-For`; login, forgot-password and MCP limits now count the proxy's `X-Real-IP`, which the shipped Caddyfile also sets.
+- Backups no longer hold memory on Railway: each run drops the snapshots from the page cache, which Railway bills as memory.
+- In Todos triage, Edit waits for a tags or people change to save before opening the edit sheet, so the sheet never opens on the old values.
 
 ## [0.1.3] - 2026-11-16
 

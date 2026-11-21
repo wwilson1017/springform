@@ -38,7 +38,7 @@ All lifted code is the author's sole authorship (Decisions, License); the proven
 | `scripts/restore.sh` | — | — | — | new | |
 | `backend/core/scheduler.py` | todo-gtd | `backend/main.py` `_tick` (line 75) | ~300 target (plan) | port | Loop shape only; jobs, guard, semaphore, statuses are new. |
 | `backend/core/ratelimit.py` | todo-gtd | `backend/ratelimit.py` | 58 | lift | `RateLimiter`, used by the inbound MCP endpoint (per link, and wrong tokens per address; `mcp.md` §1). Login rate limits are a sliding window over `core_login_attempts` in `backend/core/auth/service.py`. |
-| `backend/core/logscrub.py` | — | — | — | — | Not built as a module. The one token path in the access log, `/mcp/<token>`, is scrubbed by `backend/core/mcp/startup.py` (after todo-gtd `backend/logscrub.py`). |
+| `backend/core/logscrub.py` | gtd-suite | `backend/logscrub.py` | ~90 | lift | Every token path (MCP links, invites, resets), query codes and signed URLs, on all loggers; installed by `create_app`. |
 | `backend/core/registry.py`, `entities.py`, `outbox.py`, `settings.py`, `errors.py`, `security_headers.py`, `pagination.py`, `changelog.py`, `preview.py`, `platform/` | — | — | `entities.py` ~260 (plan), about 195 built | new | No `kv.py`: install settings are `settings.py` and `platform/keys.py`. |
 | `backend/main.py` | — | — | — | new | |
 
@@ -101,7 +101,7 @@ All lifted code is the author's sole authorship (Decisions, License); the proven
 | `backend/core/memory/observer.py`, `dreaming.py`, `jobs.py` | chatty, CakeCRM | `backend/core/agents/memory/observer.py` (329) and CakeCRM `backend/memory/observer.py` | 580 | lift + new | The observer is lifted; dreaming is new plain Python (merges duplicate facts, no model call); Chatty's `dreaming/` was not lifted. Nightly, setting-gated. |
 | `backend/core/skills/` | none | ideas from Hermes (`agent/background_review.py`, `agent/curator.py`) and OpenClaw (skill review in proposal mode), both MIT | ~600 | new | Re-implemented: no code or prompt text copied, so no `PROVENANCE.md` row. |
 | `backend/core/agent/router.py` | CakeCRM | `backend/assistant/router.py` | 250 (head 428) | port | Minus uploads. |
-| `backend/core/mcp/` (`router.py`, `startup.py`; `links.py`, `server.py` new) | todo-gtd | `backend/mcp_server.py` HTTP section, `backend/logscrub.py` | ~330 | new + lift | Plan cites ~700–946; at head the section is 832–946. Donor uses FastMCP; Springform uses the `mcp` low-level `Server`. Landed as a core package, not `agent/mcp_server.py`. |
+| `backend/core/mcp/` (`router.py`; `links.py`, `server.py` new) | todo-gtd | `backend/mcp_server.py` HTTP section | ~330 | new + lift | Plan cites ~700–946; at head the section is 832–946. Donor uses FastMCP; Springform uses the `mcp` low-level `Server`. Landed as a core package, not `agent/mcp_server.py`. |
 | `backend/core/mcp_servers/` (outbound client) | — | — | 320 | new | |
 | `backend/core/web/tools.py`, `transport.internal()` embedded ranges | cake_os | `backend/core/agents/tools/web_tools.py` (`_V4_EMBEDDING_NETS`, `_require_public_address`, `web_search`, `web_fetch`) | file 649 (head) | port | Refused IPv6 ranges and the fetch-and-extract shape; pinning and redirects use the existing guarded transport instead of the donor's per-hop URL pinning. |
 | `frontend/src/core/agent/WhiskPage` | chatty | `frontend/src/agent/AgentPage.tsx` | 967 → ~400 | port | |

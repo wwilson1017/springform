@@ -1,0 +1,30 @@
+name: A deny reason reaches the model with "do not retry", and the third denied step says stop and report
+tools:
+  - name: core_scen_save_widget
+    writes: true
+steps:
+  - send: Save the widget.
+    replies: [{tool: core_scen_save_widget, args: {color: red}}, Saving it needs your approval.]
+    events: [{type: confirm, tool: core_scen_save_widget}, done]
+  - deny: core_scen_save_widget
+    reason: Wrong colour, use green
+    status: denied
+  - continue: true
+    replies: [{tool: core_scen_save_widget, args: {color: red}}, Asking again.]
+    events: [{type: confirm, tool: core_scen_save_widget}, done]
+    request:
+      call: 0
+      messages_contain: [denied_by_user, "Wrong colour, use green", Do not retry it or work around it]
+      messages_exclude: [stop and report to the user]
+  - deny: core_scen_save_widget
+  - continue: true
+    replies: [{tool: core_scen_save_widget, args: {color: red}}, Asking once more.]
+    request:
+      call: 0
+      messages_exclude: [stop and report to the user]
+  - deny: core_scen_save_widget
+  - continue: true
+    replies: [I will stop and tell you.]
+    events: [{type: text, text: I will stop and tell you.}, done]
+    request:
+      messages_contain: [stop and report to the user]

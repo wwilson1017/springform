@@ -15,6 +15,7 @@ import re
 
 from backend.core import clock, db
 from backend.core.errors import Conflict, Invalid, NotFound
+from backend.core.memory.redact import blank_secrets
 
 # simplification: one set of skills for every agent; upgrade path: an agent_slug column.
 NAME_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,47}$")
@@ -48,14 +49,15 @@ def _line(value) -> str:
 
 def clean(name, description, body) -> tuple[str, str, str]:
     """The one validator (routes and the review): a lowercase slug name, a one-line description of
-    1-60 characters, a body of 1-MAX_BODY characters. Invalid names the field."""
+    1-60 characters, a body of 1-MAX_BODY characters, secrets blanked as memory blanks them
+    (`memory/redact.py`). Invalid names the field."""
     name = str(name or "").strip().lower()
     if not NAME_RE.match(name):
         raise Invalid("name: 1-48 lowercase letters, digits and hyphens, starting with a letter or digit")
-    description = _line(description)
+    description = _line(blank_secrets(str(description or ""))[0])
     if not 1 <= len(description) <= MAX_DESCRIPTION:
         raise Invalid(f"description: 1-{MAX_DESCRIPTION} characters on one line")
-    body = str(body or "").strip()
+    body = blank_secrets(str(body or ""))[0].strip()
     if not 1 <= len(body) <= MAX_BODY:
         raise Invalid(f"body: 1-{MAX_BODY:,} characters")
     return name, description, body
