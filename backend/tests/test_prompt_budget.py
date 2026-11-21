@@ -28,6 +28,10 @@ def _fake(monkeypatch):
     fake.reset()
 
 
+def tokens(static: str, tools: list[dict]) -> int:
+    return (len(static) + len(json.dumps(tools))) // CHARS_PER_TOKEN
+
+
 def report(static: str, tools: list[dict], specs) -> str:
     eager = {t["name"] for t in tools}
     p, t = len(static) // CHARS_PER_TOKEN, len(json.dumps(tools)) // CHARS_PER_TOKEN
@@ -60,5 +64,12 @@ def test_static_prompt_and_eager_tools_stay_under_the_budget(login_as, model_req
     if path := os.environ.get("PROMPT_REPORT"):
         with open(path, "a") as f:
             f.write(report(static, tools, chat_tools(a.principal)))
-    total = (len(static) + len(json.dumps(tools))) // CHARS_PER_TOKEN
+    assert len(tools) > 10, "the measured turn offered almost no tools"
+    total = tokens(static, tools)
     assert total <= BUDGET_TOKENS, f"static prompt + eager tools ~{total:,} tokens, over the {BUDGET_TOKENS:,} budget"
+
+
+def test_the_budget_check_flags_only_an_oversized_prompt():
+    tool = [{"name": "core_t", "description": "A tool.", "input_schema": {"type": "object"}}]
+    assert tokens("x" * CHARS_PER_TOKEN * (BUDGET_TOKENS + 1), tool) > BUDGET_TOKENS
+    assert tokens("x" * CHARS_PER_TOKEN * 100, tool) <= BUDGET_TOKENS

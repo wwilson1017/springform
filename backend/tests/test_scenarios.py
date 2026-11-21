@@ -7,6 +7,7 @@ and leaving a stream early is a real disconnect.
 """
 
 import json
+import re
 from pathlib import Path
 
 import pytest
@@ -23,7 +24,7 @@ FLAGS = ("confirm_tier", "always_confirm", "untrusted_source", "external_effect"
 TOOL_KEYS = {"name", "description", "writes", "returns", *FLAGS}
 ACTIONS = {"send", "continue", "approve", "deny", "resume"}
 STEP_KEYS = ACTIONS | {"replies", "drop_after", "events", "request", "status"}
-REQUEST_KEYS = {"call", "messages_contain", "messages_exclude", "system_contains"}
+REQUEST_KEYS = {"call", "messages_contain", "messages_exclude", "messages_match", "system_contains"}
 TERMINAL = {"done", "error"}
 
 
@@ -109,6 +110,8 @@ def check_request(calls: list[dict], req: dict) -> None:
         assert text in messages, f"model call {at}: messages lack {text!r}:\n{messages[-3000:]}"
     for text in req.get("messages_exclude", []):
         assert text not in messages, f"model call {at}: messages contain {text!r}"
+    for pattern in req.get("messages_match", []):
+        assert re.search(pattern, messages), f"model call {at}: messages do not match {pattern!r}:\n{messages[-3000:]}"
     for text in req.get("system_contains", []):
         assert text in system, f"model call {at}: system prompt lacks {text!r}"
 

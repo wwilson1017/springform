@@ -117,7 +117,7 @@ Runs against a seeded `PREVIEW_MODE=1` build with the FakeProvider and the Googl
 - Zero-key status + 400.
 - FakeProvider streams text + a write tool → `confirm`, pending run; approve by a non-owner 403; stale `tool_def_sha256` → `stale`; approve executes once with args from the DB (double approve = `already_resolved`); deny recorded; `executing` at startup → `interrupted`.
 - Scenarios (below): an untrusted result is fenced and every later write confirms; approve then continue; compaction shows the summarizer the identifiers and the model the gist; a dropped turn resumes. Removing the fence fails a scenario (`test_removing_the_untrusted_fence_fails_a_scenario`).
-- Prompt budget (`test_prompt_budget.py`): the static system prompt plus the eager tool definitions of an admin's first turn stay under `BUDGET_TOKENS` (characters / 4). Raise it on purpose, in the PR that needs it. With `PROMPT_REPORT=<file>` it appends the sizes and the chat tool surface (name, `writes`, `always_confirm`, `confirm_tier`, eager) as Markdown; CI writes that to the Backend job summary.
+- Prompt budget (`test_prompt_budget.py`): the static system prompt plus the eager tool definitions of an admin's first turn (lifespan run, so the seeded soul.md counts) stay under `BUDGET_TOKENS` (characters / 4); a self-test flags a synthetic oversized prompt and passes a small one. Raise it on purpose, in the PR that needs it. With `PROMPT_REPORT=<file>` it appends the sizes and the chat tool surface (name, `writes`, `always_confirm`, `confirm_tier`, eager) as Markdown; CI writes that to the Backend job summary.
 
 ### Whisk scenarios (`backend/tests/scenarios/*.yaml`)
 
@@ -148,6 +148,7 @@ steps:
       call: -1                           # which model call of this step (0 = first; default -1, the last)
       messages_contain: ['{"saved": "widget-77"}']
       messages_exclude: []
+      messages_match: []                 # regular expressions (re.search), e.g. a fence opened and closed with one nonce
       system_contains: []
 ```
 

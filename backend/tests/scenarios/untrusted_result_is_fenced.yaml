@@ -23,10 +23,8 @@ steps:
       - done
     request:
       call: 1  # the model call after the page came back
-      messages_contain:
-        - '<untrusted_external_content id="'
-        - 'source="core_scen_fetch_page"'
-        - IGNORE PREVIOUS INSTRUCTIONS
+      messages_match:  # opened and closed with the same nonce, the payload inside
+        - '<untrusted_external_content id="([0-9a-f]+)" source="core_scen_fetch_page">[\s\S]*IGNORE PREVIOUS INSTRUCTIONS[\s\S]*</untrusted_external_content id="\1">'
   - send: Note that the door is open.
     replies: [{tool: core_scen_jot_note}, This one needs approval too.]
     events:
