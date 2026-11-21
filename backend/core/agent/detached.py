@@ -197,6 +197,7 @@ async def _supervise(
             turn_id=turn_id,
             context=context,
             steers=live.steers,
+            message=message or "",
         )
         if live.stopping is None:
             live.pump = asyncio.create_task(TurnRunner(state, live.emit, title=title).run())

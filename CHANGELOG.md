@@ -20,6 +20,7 @@ Conventions:
 
 ### Added
 
+- Topic reminders: tell Whisk "when the supplier comes up, remind me to ask about the invoice" and it brings the note up the next time you mention the supplier, at most once a day and three times in all, for 90 days. Only your own messages trigger yours. The Reminders page lists them and deletes them.
 - Whisk's conversation summaries keep what matters: a fixed outline, and a check that record ids, amounts, links, dates and the latest request survive word for word (a summary that drops them is retried twice, then not used). A summary that times out drops the oldest messages instead of making every turn wait. With the nightly memory pass on, Whisk also saves durable business facts from the messages about to leave its context just before summarizing, as the nightly observer would (never from private conversations).
 - Whisk asks less often: tick **Always allow** on an Approve card and that tool stops asking in your chats; remove it under Settings, Account, Saved approvals. It still asks for tools that always ask, for anything that reaches outside the install or deletes for good, and in any conversation that has read outside content.
 - You can say why when you deny a change. Whisk is told the reason and not to retry or work around it, and after three denied steps it is told to stop and report back.

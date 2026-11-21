@@ -91,6 +91,21 @@ class ConversationDeleted(Out):
     deleted: bool
 
 
+class Intent(Out):
+    """A topic reminder (`intents.public`). `status`: active, used_up (every fire spent) or expired."""
+
+    id: int
+    terms: list[str]
+    note: str
+    fires: int
+    max_fires: int
+    cooldown_hours: int
+    last_fired_at: str | None
+    expires_at: str
+    created_at: str
+    status: Literal["active", "used_up", "expired"]
+
+
 class ConfirmResponse(Out):
     """`result` with "done"; `error` with "error", "uncertain" and a tool no longer offered;
     `current` (the run's status now) with "already_resolved"."""

@@ -98,6 +98,7 @@ class TurnState:
     halt: str | None = None  # why the turn was cut short, as a clause for the closing note (a hook, the round limit)
     context: str = ""  # the page and record the user has open (agents.context_note), for the volatile prompt
     steers: list[str] = field(default_factory=list)  # messages sent while the turn runs, not yet shown to the model
+    message: str = ""  # the text the user typed to start this turn; "" on a continuation
 
 
 async def _call(fn: Callable, *args: Any) -> Any:
