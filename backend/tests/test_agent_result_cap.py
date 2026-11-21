@@ -259,3 +259,8 @@ def test_grep_is_a_literal_and_bounded():
     assert result_cap._grep("r1", "x.*y", ".*").startswith('[r1: 1 matches for ".*"]')
     with pytest.raises(result_cap.Invalid):
         result_cap._grep("r1", "text", "x" * (result_cap.GREP_MAX_CHARS + 1))
+
+
+def test_grep_counts_dense_matches_past_the_shown_ones():
+    out = result_cap._grep("r1", "ok " * 100_000, "ok")
+    assert out.startswith('[r1: 100000 matches for "ok", 50 shown]')

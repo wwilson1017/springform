@@ -198,12 +198,14 @@ def _grep(handle: str, text: str, needle: str) -> str:
     if len(needle) > GREP_MAX_CHARS:
         raise Invalid(f"grep takes at most {GREP_MAX_CHARS} characters")
     hay, low = _fold(text), _fold(needle)
-    lines, total, shown_to, at = [], 0, -1, hay.find(low)
-    while at >= 0 and low:  # str.find is linear; a case-insensitive regex is quadratic on near-matches
+    lines, total, shown_to, at = [], 0, -1, hay.find(low) if low else -1
+    while at >= 0 and len(lines) < GREP_MAX_MATCHES:  # str.find is linear; a case-insensitive regex is not
         total += 1
-        if len(lines) < GREP_MAX_MATCHES and at >= shown_to:  # a match inside the last context is counted, not repeated
+        if at >= shown_to:  # a match inside the last context is counted, not repeated
             lo, shown_to = max(0, at - GREP_CONTEXT_CHARS), at + len(low) + GREP_CONTEXT_CHARS
             lines.append(f"@{at}: " + " ".join(text[lo:shown_to].split()))
         at = hay.find(low, at + len(low))
+    if at >= 0:
+        total += hay.count(low, at)  # the rest, counted in C (same non-overlapping steps)
     shown = f", {len(lines)} shown" if total > len(lines) else ""
     return "\n".join([f'[{handle}: {total} matches for "{needle}"{shown}]', *lines])
