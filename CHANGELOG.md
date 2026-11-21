@@ -18,6 +18,10 @@ Conventions:
 
 ## [Unreleased]
 
+## [0.1.4] - 2026-11-21
+
+Forks can set their own colours and logo, an admin can hide the install name next to the logo, and Whisk keeps answering through dropped tabs and provider failures.
+
 ### Added
 
 - Whisk can search the web and read a web page (`core_web_search`, `core_web_fetch`). What it reads is treated as untrusted, so every later change, page read or search in that conversation asks for approval. Search is DuckDuckGo by default, or Anthropic's own web search while Whisk runs on Anthropic; admins switch both in Settings, AI, Web. Page reads never reach private or local addresses, including through redirects.
