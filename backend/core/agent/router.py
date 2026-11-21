@@ -14,8 +14,8 @@ import asyncio
 import json
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query
-from fastapi.responses import StreamingResponse
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, ConfigDict, Field
 
 from backend.core.agent import agents, detached, engine, history, models, providers, usage
@@ -110,9 +110,11 @@ def _chat_setup(body: ChatIn, user: User) -> tuple[dict, AIProvider, str]:
 
 
 @router.post("/chat")
-async def chat(body: ChatIn, user: User = Depends(current_user)) -> StreamingResponse:
+async def chat(body: ChatIn, user: User = Depends(current_user)) -> Response:
     """SSE stream of one server-owned turn. No message + conversation_id = continue after an
-    approval. 409 `turn_running` while the conversation already has a running turn."""
+    approval (409 `turn_running` while the conversation has a running turn). A message while the
+    turn runs is queued on it: 202 `{queued: true, turn_id}`, and the turn shows it to the model
+    before its next call (steering, agent.md §5)."""
     if not (body.message or "").strip() and body.conversation_id is None:
         raise HTTPException(422, detail="message or conversation_id is required")
     agent, provider, context = await asyncio.to_thread(_chat_setup, body, user)
@@ -125,6 +127,8 @@ async def chat(body: ChatIn, user: User = Depends(current_user)) -> StreamingRes
         raise HTTPException(409, detail="turn_running") from None
     if stream is None:
         raise HTTPException(404, detail="conversation_not_found")
+    if isinstance(stream, detached.Queued):
+        return JSONResponse({"queued": True, "turn_id": stream.turn_id}, status_code=202)
     return StreamingResponse(stream, media_type="text/event-stream", headers=_SSE_HEADERS)
 
 

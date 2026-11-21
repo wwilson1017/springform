@@ -141,6 +141,10 @@ class TurnRunner:
                         return await self._end("Failed to save the assistant turn.")
 
             if stop != "tool_use" or not calls:
+                if s.steers:  # the user wrote while this reply streamed: answer that too
+                    if text:  # as the saved row reads back (assembly)
+                        s.messages = assembly.coalesce([*s.messages, {"role": "assistant", "content": text}])
+                    continue
                 return await self._end()
 
             s.pending = False
@@ -170,6 +174,7 @@ class TurnRunner:
         again after a Fallback rebuild). Only a failure before anything reached the client is
         offered to `on_provider_error`."""
         s, failures = self.state, 0
+        await self._take_steers()
         if nudge:
             s.messages = assembly.coalesce([*s.messages, {"role": "user", "content": nudge}])
         while True:
@@ -229,6 +234,17 @@ class TurnRunner:
                     s.messages = assembly.coalesce([*s.messages, {"role": "user", "content": nudge}])
             else:
                 return action.message or error
+
+    async def _take_steers(self) -> None:
+        """Steering (agent.md §5): each message the user sent while the turn ran is saved as a user row
+        and shown to the model after the step's results, so every call still has its result. A
+        message still queued when the turn ends is saved by `detached` instead."""
+        s = self.state
+        while s.steers:
+            text = s.steers.pop(0)
+            await in_thread(history.save_message, s.conversation_id, "user", {"text": text})
+            s.messages = assembly.coalesce([*s.messages, {"role": "user", "content": text}])
+            self.emit({"type": "steer", "text": text})
 
     async def _wrap_up(self, nudge: str | None = None) -> str | None:
         """One narration turn so the model says what is waiting for approval, or (with `nudge`) gives
