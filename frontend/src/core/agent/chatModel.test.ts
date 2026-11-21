@@ -28,6 +28,7 @@ describe('fromServer', () => {
           tool_run_id: 9,
           status: 'pending',
           can_always_allow: true,
+          change_list: false,
           result: null,
           error: null,
         },
@@ -48,6 +49,7 @@ describe('fromServer', () => {
         error: null,
         runId: 9,
         canAlwaysAllow: true,
+        changeList: false,
         confirm: { phase: 'pending' },
       },
       { kind: 'text', text: 'Waiting for you.' },
@@ -66,6 +68,7 @@ describe('fromServer', () => {
           result: null,
           error: null,
           can_always_allow: false,
+          change_list: false,
         },
       ]),
     ]);
@@ -229,10 +232,55 @@ describe('renderUnits', () => {
           result: null,
           error: null,
           can_always_allow: false,
+          change_list: false,
           batch: 'k',
         },
       ]),
     ]);
     expect(reloaded.parts[0]).toMatchObject({ batch: 'k' });
+  });
+});
+
+describe('changeList', () => {
+  it('comes from a confirm event, a tool_end and a reload', () => {
+    const start: ChatMessage = { id: 'm', role: 'assistant', parts: [] };
+    const card = applyEvent(start, {
+      type: 'confirm',
+      tool_run_id: 3,
+      tool: 'todos_bulk_update',
+      tool_use_id: 'u',
+      msg_id: 2,
+      args: {},
+      summary: '',
+      change_list: { changes: 2, records: 2 },
+    });
+    expect(card.parts[0]).toMatchObject({ changeList: true });
+    const ran = applyEvent(applyEvent(start, { type: 'tool_start', tool: 'todos_bulk_update', tool_use_id: 'u' }), {
+      type: 'tool_end',
+      tool: 'todos_bulk_update',
+      tool_use_id: 'u',
+      tool_run_id: 3,
+      status: 'done',
+      result: {},
+      elapsed_ms: 5,
+      change_list: true,
+    });
+    expect(ran.parts[0]).toMatchObject({ changeList: true });
+    const [reloaded] = fromServer([
+      row(2, 'assistant', '', [
+        {
+          tool: 'todos_bulk_update',
+          tool_use_id: 'u',
+          args: {},
+          tool_run_id: 3,
+          status: 'done',
+          result: null,
+          error: null,
+          can_always_allow: false,
+          change_list: true,
+        },
+      ]),
+    ]);
+    expect(reloaded.parts[0]).toMatchObject({ changeList: true });
   });
 });

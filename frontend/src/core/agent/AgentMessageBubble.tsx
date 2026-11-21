@@ -2,6 +2,7 @@ import { memo, useState } from 'react';
 import { MarkdownContent } from '../../shared/MarkdownContent';
 import { IconChevronDown } from '../../shared/icons';
 import { BatchConfirmCard } from './BatchConfirmCard';
+import { ChangeListView } from './ChangeListView';
 import { pretty, renderUnits, type ChatMessage, type ToolPart } from './chatModel';
 import type { DecideOptions, Decision } from './confirmState';
 import { IconSparkle } from './icons';
@@ -162,6 +163,13 @@ function Bubble({ message, agentName, busy, onDecide }: Props) {
                 />
               );
             }
+            if (part.changeList && part.status === 'done' && part.runId != null)
+              return (
+                <div key={part.toolUseId}>
+                  <ToolCallBubble part={part} />
+                  <ChangeListView runId={part.runId} />
+                </div>
+              );
             return <ToolCallBubble key={part.toolUseId} part={part} />;
           })}
         </div>

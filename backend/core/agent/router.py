@@ -21,6 +21,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from backend.core.agent import (
     agents,
     approval_rules,
+    change_lists,
     detached,
     engine,
     history,
@@ -173,6 +174,21 @@ def confirm(body: ConfirmIn, user: User = Depends(current_user)) -> dict:
     return engine.confirm(user, body.tool_run_id, body.decision, reason=body.reason, always_allow=body.always_allow)
 
 
+@router.get("/change-lists/{tool_run_id}", response_model=models.ChangeList)
+def get_change_list(tool_run_id: int, user: User = Depends(current_user)) -> dict:
+    """The caller's own change list; 404 for a missing one or anyone else's."""
+    if (out := change_lists.get(user, tool_run_id)) is None:
+        raise HTTPException(404, detail="change_list_not_found")
+    return out
+
+
+@router.post("/change-lists/{tool_run_id}/undo", response_model=models.ChangeList)
+def undo_change_list(tool_run_id: int, user: User = Depends(current_user)) -> dict:
+    """Put the records of the caller's applied list back, once (409 already_undone / not_applied).
+    A user action only: no tool wraps it."""
+    return change_lists.undo(user, tool_run_id)
+
+
 @router.get("/approval-rules", response_model=list[models.ApprovalRule])
 def list_approval_rules(user: User = Depends(current_user)) -> list[dict]:
     """The caller's live always-allow rules, newest first."""
@@ -218,6 +234,7 @@ def get_conversation(conversation_id: int, user: User = Depends(current_user)) -
         raise HTTPException(404, detail="conversation_not_found")
     runs: dict[tuple, dict] = {(r["message_id"], r["tool_use_id"]): r for r in history.tool_runs_for(conversation_id)}
     tainted = bool((history.compaction_state(conversation_id) or {"tainted": 1})["tainted"])
+    listed = change_lists.run_ids_for(conversation_id)
     out = []
     for m in history.messages(conversation_id):
         calls = []
@@ -233,6 +250,7 @@ def get_conversation(conversation_id: int, user: User = Depends(current_user)) -
                     "status": run and run["status"],
                     "result": _preview(run["result"] if run else None),
                     "error": run and run["error"],
+                    "change_list": bool(run and run["id"] in listed),
                     **(
                         engine.card_extras(spec, json.loads(run["args"]), tainted, m["id"])
                         if run and run["status"] == "pending" and (spec := tool_registry.get(run["tool"]))

@@ -26,6 +26,8 @@ export interface ToolPart {
   canAlwaysAllow?: boolean;
   /** Cards with the same key are drawn as one batch card. */
   batch?: string | null;
+  /** A bulk edit: its changes and Undo come from GET /api/agent/change-lists/{runId}. */
+  changeList?: boolean;
 }
 
 export type Part = { kind: 'text'; text: string } | ToolPart;
@@ -84,6 +86,7 @@ export function fromServer(rows: ServerMessage[]): ChatMessage[] {
         runId: c.tool_run_id,
         canAlwaysAllow: c.can_always_allow,
         batch: c.batch,
+        changeList: c.change_list,
         ...(status === 'pending' && c.tool_run_id != null ? { confirm: { phase: 'pending' as const } } : {}),
       });
     }
@@ -135,6 +138,7 @@ export function applyEvent(m: ChatMessage, e: ChatEvent): ChatMessage {
         elapsedMs: e.elapsed_ms,
         runId: e.tool_run_id,
         error: e.status === 'error' ? errorOf(e.result) : p.error,
+        changeList: e.change_list ?? p.changeList,
       }));
     case 'confirm': {
       const known = m.parts.some((p) => p.kind === 'tool' && p.toolUseId === e.tool_use_id);
@@ -147,6 +151,7 @@ export function applyEvent(m: ChatMessage, e: ChatEvent): ChatMessage {
         summary: e.summary || undefined,
         canAlwaysAllow: e.can_always_allow,
         batch: e.batch,
+        changeList: e.change_list !== undefined,
         confirm: { phase: 'pending' },
       }));
     }

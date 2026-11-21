@@ -455,7 +455,8 @@ def model_content(run: dict, *, denials: int = 0) -> str:
     if run["status"] == "done":
         stored = run["result"] or "null"
         value = json.loads(stored)
-        return value if isinstance(value, str) else stored  # a fenced result is stored as a JSON string
+        text = value if isinstance(value, str) else stored  # a fenced result is stored as a JSON string
+        return f"{text}\n{run['undo_note']}" if run.get("undo_note") else text  # change_lists.undo
     if run["status"] in ("error", "uncertain"):
         return json.dumps({"status": run["status"], "error": run["error"]})
     return json.dumps(_STATUS_FOR_MODEL[run["status"]])

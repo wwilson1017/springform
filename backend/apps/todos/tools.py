@@ -2,6 +2,7 @@
 changes exactly what that person could in the app. Writes are routine (no Approve card) unless
 they would take a todo out of someone's view."""
 
+import json
 from dataclasses import replace
 
 from pydantic import ValidationError
@@ -110,9 +111,20 @@ def _bulk_ids(args: dict) -> list[int]:
     return [int(i) for i in ids]
 
 
+REPEATS_NOTE = "{n} repeating todos get their next occurrence; Undo cannot take that back."
+
+
 def _bulk_update(conn, user, args: dict) -> dict:
     fields = ItemPatch(**(args.get("fields") or {})).model_dump(exclude_unset=True)
-    return service.bulk_update_in(conn, user, _bulk_ids(args), fields)
+    spawns = 0
+    if fields.get("status") == "done":  # an effect the change list's rows do not show
+        spawns = conn.execute(
+            """SELECT count(*) FROM todos_items WHERE id IN (SELECT value FROM json_each(?))
+                AND coalesce(repeat, '') != '' AND status != 'done'""",
+            (json.dumps(_bulk_ids(args)),),
+        ).fetchone()[0]
+    out = service.bulk_update_in(conn, user, _bulk_ids(args), fields)
+    return {**out, "notes": [REPEATS_NOTE.format(n=spawns)]} if spawns else out
 
 
 def _hides(fields: dict) -> bool:
@@ -339,6 +351,7 @@ def _tools() -> list[ToolSpec]:
             hides_when=lambda args: _hides(args.get("fields") or {}),
             handler_in=_bulk_update,
             targets=lambda args: [("todos.item", i) for i in _bulk_ids(args)],
+            change_list=True,
             summary="Apply the changes below to every listed todo.",
         ),
         *_container_tools(

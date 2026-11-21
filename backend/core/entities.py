@@ -69,6 +69,10 @@ class Entity:
     can_write: Callable[[User, Conn, int], bool] = member_can_write
     searchable: tuple[str, ...] = ()
     archived_column: str | None = None
+    # Undo of a Whisk change list (agent.md §6): put back the fields in `old`, {field: value} as this
+    # entity's own record_changes_in calls logged them, through the app's service; raise an AppError
+    # when the record cannot take them. None: its change lists cannot be undone.
+    revert_in: Callable[[Conn, User, int, dict], None] | None = None
 
     @property
     def app(self) -> str:

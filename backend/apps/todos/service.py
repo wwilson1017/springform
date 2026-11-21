@@ -512,6 +512,23 @@ def bulk_update(user: User, ids: list[int], fields: dict) -> dict:
     return _write(bulk_update_in, user, ids, fields)
 
 
+REPEAT_UNDO = "a repeating todo: completing or reopening it makes its next occurrence, so change it by hand"
+
+
+def revert_in(conn: db.Conn, user: User, item_id: int, old: dict) -> None:
+    """Undo of a Whisk change list (`Entity.revert_in`): put back `old`, the raw column values this
+    module logged. Derived stamps (completed_at) follow the status rather than being restored."""
+    fields = {k: v for k, v in old.items() if k in ITEM_FIELDS}
+    for key in ("tags", "people"):  # stored, and so logged, as JSON text
+        if isinstance(fields.get(key), str):
+            fields[key] = json.loads(fields[key])
+    row = _raw_in(conn, "item", item_id)
+    if row and row["repeat"] and "status" in fields and "done" in (row["status"], fields["status"]):
+        raise Invalid(REPEAT_UNDO)
+    if not _apply_update_in(conn, user, item_id, fields):
+        raise NotFound()
+
+
 def delete_item_in(conn: db.Conn, user: User, item_id: int) -> None:
     """Delete a todo for good (archiving is status 'dropped'): the owner's or an admin's call.
     Core's delete subscribers take its timeline and files; hooks.py writes the tombstone."""

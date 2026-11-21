@@ -199,12 +199,13 @@ def _write(
     routine: bool = True,
     destructive: bool = False,
     hides: bool = False,  # takes the record out of view: the card stays, and no always-allow rule covers it
+    change_list: bool = False,  # a bulk edit: old -> new on its card, and an Undo (agent.md §6)
 ) -> ToolSpec:
     return ToolSpec(
         name=name, description=description, input_schema={"type": "object", "properties": properties, "required": list(required)},
         writes=True, confirm_tier=ROUTINE if routine else None, handler_in=handler_in, targets=targets, summary=summary,
         destructive=destructive, reads=lambda args, result: [*targets(args), *_reads(args, result)],
-        hides_when=(lambda args: True) if hides else None,
+        hides_when=(lambda args: True) if hides else None, change_list=change_list,
     )  # fmt: skip
 
 
@@ -355,6 +356,7 @@ def get_tools() -> list[ToolSpec]:
             ("deal_ids", "stage"),
             lambda args: [(ENTITY, int(i)) for i in args.get("deal_ids") or []],
             summary="Move these deals to the selected stage.",
+            change_list=True,
         ),  # fmt: skip
         _write(
             "crm_mark_deal_won",
