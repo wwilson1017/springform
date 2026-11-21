@@ -1,0 +1,20 @@
+name: A model repeating one call is stopped on the third notice
+tools:
+  - name: core_scen_list_bins
+    returns: {bins: 4}
+steps:
+  - send: How many bins?
+    replies:
+      - {tool: core_scen_list_bins, args: {}}
+      - {tool: core_scen_list_bins, args: {}}
+      - {tool: core_scen_list_bins, args: {}}
+      - {tool: core_scen_list_bins, args: {}}
+      - {tool: core_scen_list_bins, args: {}}
+    events:
+      - {type: tool_end, tool: core_scen_list_bins, status: done}
+      - {type: tool_end, tool: core_scen_list_bins, status: done}
+      - {type: tool_end, tool: core_scen_list_bins, status: done}
+      - {type: tool_end, tool: core_scen_list_bins, status: done}
+      - {type: tool_end, tool: core_scen_list_bins, status: done}
+      - {type: text, text: "*(No complete reply: it kept repeating the same steps, after 5 tool calls (last: core_scen_list_bins). Some steps may already have run; check the results above before asking again.)*"}
+      - {type: done}
