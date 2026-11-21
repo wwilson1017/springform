@@ -1,7 +1,8 @@
 """Secrets never enter memory: each password, API key, private key and card number in a fact or a
 context file becomes `[removed: <kind>]`, and the write says what went (never the values).
 
-Lifted from gtd-suite `backend/brain.py` (`_SECRETS`, `_blank_secrets`, `_luhn`, `_removed`).
+Lifted from gtd-suite `backend/brain.py` (`_SECRETS`, `_blank_secrets`, `_luhn`, `_removed`); the
+patterns marked "added here" are Springform's own.
 """
 
 from __future__ import annotations
@@ -25,8 +26,18 @@ _SECRETS = (
     ),
     # 'password: "correct horse"': a quoted value is a password whatever it holds (added here)
     ("password", re.compile(r"(\b(?:password|passwd|passcode)\s*(?:is|:|=)\s*)([\"'])[^\"'\n]{4,}?\2", re.I)),
-    # "password: correcthorse": after a colon or equals sign any value of 6+ characters (added here)
-    ("password", re.compile(r"(\b(?:password|passwd|passcode)\s*[:=]\s*[\"']?)(?!\[removed)[^\s\"']{6,}", re.I)),
+    # "password: correct horse battery": after a colon or equals sign, the whole phrase of 6+
+    # characters up to the end of the clause (a comma, semicolon, line end or full stop) (added here)
+    (
+        "password",
+        re.compile(
+            r"(\b(?:password|passwd|passcode)\s*[:=]\s*)(?!\s*\[removed)(?=\S[^\n,;]{5})"
+            r"\S[^\n,;]*?(?=[,;\n]|\.(?:\s|$)|$)",
+            re.I,
+        ),
+    ),
+    # An AWS secret access key after its label (added here); one beside an AKIA id is below.
+    ("key", re.compile(r"(\baws_?secret_?access_?key\s*[:=]\s*[\"']?)[A-Za-z0-9/+]{40}\b", re.I)),
     # "password is hunter22", a value with a digit or a symbol, not "is in 1Password"
     (
         "password",
@@ -36,6 +47,12 @@ _SECRETS = (
             re.I,
         ),
     ),
+)
+# An AWS access key id, and a secret access key (40 base64 characters, mixed case and a digit)
+# that is blanked whenever an id sits in the same text (added here).
+_AWS_ID = re.compile(r"\bAKIA[0-9A-Z]{16}\b")
+_AWS_SECRET = re.compile(
+    r"(?<![A-Za-z0-9/+])(?=[A-Za-z0-9/+]*[A-Z])(?=[A-Za-z0-9/+]*[a-z])(?=[A-Za-z0-9/+]*\d)[A-Za-z0-9/+]{40}(?![A-Za-z0-9/+=])"
 )
 # A card number: 13 to 19 digits, single spaces or dashes between, with clean edges: not after
 # + @ : / = # _ - or a letter, nor before @ / : - or a letter, so not a phone number (+1…), a
@@ -69,8 +86,11 @@ def blank_secrets(text: str) -> tuple[str, Counter]:
 
         return repl
 
+    aws_id = bool(_AWS_ID.search(text))
     for kind, pattern in _SECRETS:
         text = pattern.sub(blank(kind), text)
+    if aws_id:
+        text = _AWS_SECRET.sub(blank("key"), text)
     card = blank("card number")
     # The URL words, found once (sorted, disjoint): a card match touching one is left alone.
     urls = [w.span() for w in re.finditer(r"\S+", text) if _URL.search(w.group())]

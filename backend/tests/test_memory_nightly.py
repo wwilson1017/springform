@@ -126,11 +126,13 @@ def test_observed_facts_are_blanked_and_held_ones_are_not_counted(llm, make_user
     u = make_user()
     facts.remember("The market stall runs every Saturday.", author_user_id=u.id)
     conversation(u.id, [("user", "The till password: Cake2026! and the stall is on Saturdays.")])
-    llm.reply = '{"facts": ["The till password: Cake2026! opens the till.", "The market stall runs every Saturday."]}'
+    llm.reply = (
+        '{"facts": ["The till password: Cake2026!, kept by the manager.", "The market stall runs every Saturday."]}'
+    )
     assert jobs.nightly()["observer"] == {"status": "ok", "conversations": 1, "facts": 1}
     assert sorted(f["text"] for f in facts.list_facts()) == [
         "The market stall runs every Saturday.",
-        "The till password: [removed: password] opens the till.",
+        "The till password: [removed: password], kept by the manager.",
     ]
 
 

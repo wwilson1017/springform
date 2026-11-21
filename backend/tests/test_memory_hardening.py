@@ -14,8 +14,8 @@ CARD = "4111 1111 1111 1111"  # Luhn-valid Visa test number
 
 
 def test_secrets_are_blanked_and_counted_but_lookalikes_stay():
-    text, removed = blank_secrets(f"Stripe key {STRIPE}, wifi password: hunter22! and card {CARD}")
-    assert text == "Stripe key [removed: key], wifi password: [removed: password] and card [removed: card number]"
+    text, removed = blank_secrets(f"Stripe key {STRIPE}, wifi password: hunter22!, card {CARD}")
+    assert text == "Stripe key [removed: key], wifi password: [removed: password], card [removed: card number]"
     assert removed == {"key": 1, "password": 1, "card number": 1}
     assert blank_secrets("Till password: \"cobalt river\" and passcode is 'horse-battery'") == (
         "Till password: [removed: password] and passcode is [removed: password]",
@@ -25,6 +25,18 @@ def test_secrets_are_blanked_and_counted_but_lookalikes_stay():
         "wifi password: [removed: password]",
         {"password": 1},
     )
+    assert blank_secrets("wifi password: correct horse battery staple, ask the office.") == (
+        "wifi password: [removed: password], ask the office.",
+        {"password": 1},
+    )
+    aws_id, aws_secret = "AKIA" + "ABCDEFGHIJKLMNOP", "wJalrXUtnFEMI/K7MDENG/bPxRfiCY" + "EXAMPLEKEY"
+    assert blank_secrets(f"S3 backup id {aws_id} secret {aws_secret}") == (
+        "S3 backup id [removed: key] secret [removed: key]",
+        {"key": 2},
+    )
+    assert blank_secrets(f"aws_secret_access_key = {aws_secret}")[0] == "aws_secret_access_key = [removed: key]"
+    sha = "0123456789abcdef0123456789abcdef01234567"  # a commit sha alone is not a key
+    assert blank_secrets(f"Deployed {sha}") == (f"Deployed {sha}", {})
     key = "-----BEGIN RSA PRIVATE KEY-----\nMIIabc\n-----END RSA PRIVATE KEY-----"
     assert blank_secrets(f"deploy key {key} done")[0] == "deploy key [removed: key] done"
     for kept in (
