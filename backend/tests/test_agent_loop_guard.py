@@ -162,3 +162,7 @@ def test_a_capped_repeat_keeps_its_table_and_gets_the_notice(login_as, app, monk
         tool_registry.set_current(before)
     last = sent[-1]
     assert last.count("[CSV: result, 30 rows x 3 fields]") == 3 and "Loop notice 1 of 3" in last
+
+
+def test_a_result_with_mixed_keys_is_still_keyed():
+    assert loop_guard._key("t", {}, {"a": 1, 2: "b"}) == loop_guard._key("t", {}, {"a": 1, 2: "b"})

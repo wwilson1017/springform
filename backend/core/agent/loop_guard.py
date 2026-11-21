@@ -36,7 +36,11 @@ SAME_TEXT = "you have written the same text three rounds in a row"
 
 
 def _key(name: str, args, outcome) -> str:
-    return hashlib.sha256(json.dumps([name, args, outcome], sort_keys=True, default=str).encode()).hexdigest()
+    try:
+        text = json.dumps([name, args, outcome], sort_keys=True, default=str)
+    except TypeError:  # mixed str and int keys cannot be sorted: key order as returned
+        text = json.dumps([name, args, outcome], default=str)
+    return hashlib.sha256(text.encode()).hexdigest()
 
 
 def observe(state: TurnState, name: str, args, outcome) -> str:
