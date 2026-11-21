@@ -114,10 +114,26 @@ def test_non_object_args_are_left_to_the_handler(login_as, echo):
     assert len(of(evs, "tool_end")) == 1 and evs[-1]["type"] == "done"  # dict(["n", 1]) would raise
 
 
-def test_an_unloaded_deferred_tool_is_left_to_dispatch():
+def test_an_unloaded_deferred_tool_keeps_its_text_and_counts_as_a_repeat():
     spec = ToolSpec(name="x_tool", description="X.", input_schema={"type": "object"}, writes=False, handler=print)
-    state = cast(TurnState, SimpleNamespace(by_name={"x_tool": spec}, deferred_specs=[spec], scratch={}))
-    assert call_repair.before_tool(state, {"name": "x_tool", "args": {}}) is None
+    state = cast(
+        TurnState,
+        SimpleNamespace(
+            by_name={"x_tool": spec},
+            deferred_specs=[spec],
+            loaded=set(),
+            scratch={},
+            iteration=0,
+            last_text="",
+            halt=None,
+        ),
+    )
+    texts = []
+    for i in range(5):
+        state.iteration = i
+        texts.append(call_repair.before_tool(state, {"name": "x_tool", "args": {}}))
+    assert texts[0] == "Tool 'x_tool' is not loaded; call core_find_tools first."
+    assert "Loop notice 3 of 3" in (texts[4] or "") and state.halt
 
 
 def test_repeating_an_unknown_tool_ends_the_turn(login_as):

@@ -77,12 +77,15 @@ def coerce(args: dict, schema: dict) -> dict:
 def before_tool(state: TurnState, call: dict) -> str | None:
     name = call["name"]
     spec = state.by_name.get(name)
+    if name == deferred.FIND_TOOLS and state.deferred_specs:
+        return None  # dispatch loads deferred tools
+    if spec is not None and name not in state.loaded:  # dispatch's own text, counted so a stuck model stops
+        text = f"Tool {name!r} is not loaded; call {deferred.FIND_TOOLS} first."
+        return text + loop_guard.observe(state, name, call.get("args") or {}, "not loaded")
     if spec is not None:
         if isinstance(args := call.get("args") or {}, dict):  # anything else is the handler's to reject
             call["args"] = coerce(args, spec.input_schema)
         return None
-    if name == deferred.FIND_TOOLS and state.deferred_specs:
-        return None  # dispatch loads deferred tools
     names = [*state.by_name, *([deferred.FIND_TOOLS] if state.deferred_specs else [])]
     match = difflib.get_close_matches(name.lower().replace("-", "_"), names, n=1, cutoff=SUGGEST_CUTOFF)
     text = f"Unknown tool {name!r}. " + (

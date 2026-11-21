@@ -255,7 +255,7 @@ A model call's tool calls count only when its stop reason is `tool_use`: a call 
 
 ### Call repair
 
-`call_repair.py`: an unknown tool name is refused with `Did you mean '<closest>'?` (`difflib`, cutoff 0.7) or `Use only the tools you were given.`; a known but unloaded deferred tool is left to dispatch's "not loaded" text. A known tool's top-level arguments that fit none of the property's types are converted when clean: `"42"` to an integer, `"2.5"` to a number, `"true"`/`"false"` to a boolean, a JSON string to an array or object, any other non-list to a one-item array. A value that already fits any allowed type is left alone, and so are keys the schema does not name, nested objects, `anyOf` and `oneOf`.
+`call_repair.py`: an unknown tool name is refused with `Did you mean '<closest>'?` (`difflib`, cutoff 0.7) or `Use only the tools you were given.`; a known but unloaded deferred tool gets dispatch's "not loaded" text, and repeating it counts toward the loop guard. A known tool's top-level arguments that fit none of the property's types are converted when clean: `"42"` to an integer, `"2.5"` to a number, `"true"`/`"false"` to a boolean, a JSON string to an array or object, any other non-list to a one-item array. A value that already fits any allowed type is left alone, and so are keys the schema does not name, nested objects, `anyOf` and `oneOf`.
 
 ### Completion claims
 
