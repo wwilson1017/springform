@@ -311,3 +311,36 @@ def test_the_final_log_write_is_retried_and_never_holds_the_reply(login_as, monk
     evs = events(a.post("/api/agent/chat", json={"message": "hi"}))
     assert evs[-1]["type"] == "done" and turn(evs[0]["turn_id"])["status"] == status
     assert len(calls) == min(failures + 1, detached.FINAL_TRIES)
+
+
+def test_the_approval_narration_leaves_a_message_for_the_next_turn(app, login_as, model_requests):
+    from backend.core.agent import registry as tool_registry
+    from backend.core.agent.spec import ToolSpec
+
+    steered = threading.Event()
+    schema = {"type": "object", "properties": {}}
+    ask = ToolSpec(name="core_ask", description="Asks first.", input_schema=schema, writes=True, always_confirm=True,
+                   handler_in=lambda conn, u, a: {"ok": True}, targets=lambda a: [])  # fmt: skip
+    jot = ToolSpec(name="core_jot", description="Jot.", input_schema=schema, writes=True, confirm_tier="routine",
+                   handler_in=lambda conn, u, a: steered.wait(5) and {"ok": True}, targets=lambda a: [])  # fmt: skip
+    before = tool_registry.current()
+    tool_registry.set_current(tool_registry.build_registry([*before.all(), ask, jot]))
+    a = login_as("member")
+    fake.script([{"tool": "core_ask"}, {"tool": "core_jot"}], "The first change waits for your approval.")
+    try:
+        with live_client(app, a) as c:
+            with c.stream("POST", "/api/agent/chat", json={"message": "change both"}) as r:
+                it = frames(r)
+                cid = next(it)["id"]
+                next(e for e in it if e["type"] == "confirm")
+                assert (
+                    c.post("/api/agent/chat", json={"conversation_id": cid, "message": "and a third"}).status_code
+                    == 202
+                )
+                steered.set()  # the second change was running: it finishes, then the narration
+                rest = list(it)
+            assert user_texts(cid) == ["change both", "and a third"]  # saved for the next turn to answer
+    finally:
+        tool_registry.set_current(before)
+    assert rest[-1]["type"] == "done" and not [e for e in rest if e["type"] == "steer"]
+    assert "and a third" not in json.dumps(model_requests[-1]["messages"])

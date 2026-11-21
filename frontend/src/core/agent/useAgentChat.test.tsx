@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { ChatEvent, ConversationDetail } from './types';
 import { useAgentChat } from './useAgentChat';
 
-type Handler = (init?: RequestInit) => Response;
+type Handler = (init?: RequestInit) => Response | Promise<Response>;
 
 const frame = (e: ChatEvent) => new TextEncoder().encode(`data: ${JSON.stringify(e)}\n\n`);
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status });
@@ -290,5 +290,47 @@ describe('useAgentChat steering', () => {
     await waitFor(() => expect(lastText(result.current.messages)).toBe('Next turn'));
     await waitFor(() => expect(result.current.streaming).toBe(false));
     expect(view(result.current.messages)).toEqual(['user:hi', 'assistant:First', 'user:again', 'assistant:Next turn']);
+  });
+
+  it('matches a steer that arrives before its post answers, and waits for a late answer before continuing', async () => {
+    let post!: ReturnType<typeof openStream>;
+    const answers: ((r: Response) => void)[] = [];
+    const fn = serve({
+      'POST /api/agent/chat': (init) => {
+        const body = JSON.parse(String(init?.body));
+        if (body.message === 'hi')
+          return (post = openStream(init, { type: 'conversation_id', id: 7, turn_id: 3, seq: 0 })).response;
+        if (body.message) return new Promise<Response>((resolve) => answers.push(resolve));
+        return sse(
+          { type: 'conversation_id', id: 7, turn_id: 4, seq: 0 },
+          { type: 'text', text: 'B', seq: 1 },
+          { type: 'done', seq: 2 },
+        );
+      },
+    });
+    const { result } = renderHook(() => useAgentChat());
+    act(() => result.current.send('hi'));
+    await waitFor(() => expect(result.current.conversationId).toBe(7));
+    act(() => result.current.send('a'));
+    await waitFor(() => expect(answers).toHaveLength(1));
+    act(() => {
+      post.push({ type: 'steer', text: 'a', seq: 1 }); // read before the 202 came back
+      post.push({ type: 'text', text: 'A', seq: 2 });
+    });
+    await waitFor(() => expect(lastText(result.current.messages)).toBe('A'));
+    act(() => result.current.send('b'));
+    act(() => answers[0](json({ queued: true, turn_id: 3 }, 202)));
+    await waitFor(() => expect(answers).toHaveLength(2));
+    act(() => {
+      post.push({ type: 'done', seq: 3 });
+      post.close();
+    });
+    await new Promise((r) => setTimeout(r, 20));
+    expect(bodies(fn)).toHaveLength(3); // the end waits for b's post
+    act(() => answers[1](json({ queued: true, turn_id: 3 }, 202)));
+    await waitFor(() => expect(lastText(result.current.messages)).toBe('B'));
+    await waitFor(() => expect(result.current.streaming).toBe(false));
+    expect(bodies(fn)[3]).toEqual({ conversation_id: 7 }); // b was accepted and saved: continue, never resend
+    expect(view(result.current.messages)).toEqual(['user:hi', 'user:a', 'assistant:A', 'user:b', 'assistant:B']);
   });
 });

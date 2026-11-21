@@ -174,7 +174,8 @@ class TurnRunner:
         again after a Fallback rebuild). Only a failure before anything reached the client is
         offered to `on_provider_error`."""
         s, failures = self.state, 0
-        await self._take_steers()
+        if not narrate:  # a narration's tool calls are ignored, so a message it took could not be acted on
+            await self._take_steers()
         if nudge:
             s.messages = assembly.coalesce([*s.messages, {"role": "user", "content": nudge}])
         while True:
@@ -236,9 +237,10 @@ class TurnRunner:
                 return action.message or error
 
     async def _take_steers(self) -> None:
-        """Steering (agent.md §5): each message the user sent while the turn ran is saved as a user row
-        and shown to the model after the step's results, so every call still has its result. A
-        message still queued when the turn ends is saved by `detached` instead."""
+        """Steering (agent.md §5): before a model call that can act (not a narration), each message the
+        user sent while the turn ran is saved as a user row and shown to the model after the step's
+        results, so every call still has its result. A message still queued when the turn ends is
+        saved by `detached` instead, and the client continues the conversation to answer it."""
         s = self.state
         while s.steers:
             text = s.steers.pop(0)

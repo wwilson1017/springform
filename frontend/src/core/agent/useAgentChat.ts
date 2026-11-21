@@ -65,7 +65,8 @@ interface Turn {
   wake?: () => void;
   /** Messages sent during this turn that the model has not read yet, oldest first. */
   queued: Queued[];
-  sending: boolean;
+  /** The posts of queued messages under way; settled before the turn's end decides what is left. */
+  posting?: Promise<void>;
   /** A queued post that started the next turn (this one had ended): its stream, read after this one. */
   next?: Response;
 }
@@ -183,11 +184,11 @@ export function useAgentChat(options: Options = {}) {
     [setMessages],
   );
 
-  /** The model read the oldest queued message: unmark it, end the bubble before it and open a new
+  /** The model read a queued message (the oldest with that text): unmark it, end the bubble before it and open a new
    * one after it. A message sent elsewhere (another tab) is added. Returns the new bubble's id. */
   const steered = useCallback(
     (turn: Turn, asstId: string, text: string): string => {
-      const i = turn.queued.findIndex((q) => q.sent);
+      const i = turn.queued.findIndex((q) => q.text === text); // also before its post has answered
       const q = i >= 0 ? turn.queued.splice(i, 1)[0] : undefined;
       const next = localId('a');
       setMessages((prev) => {
@@ -212,10 +213,9 @@ export function useAgentChat(options: Options = {}) {
 
   /** Post the turn's unsent queued messages, in order, once the conversation has an id. */
   const steer = useCallback(
-    async (turn: Turn) => {
-      if (turn.sending) return;
-      turn.sending = true;
-      try {
+    (turn: Turn): Promise<void> => {
+      if (turn.posting) return turn.posting;
+      const posts = async () => {
         for (
           let q = turn.queued.find((x) => !x.sent);
           q && turn.live && !turn.next;
@@ -237,9 +237,11 @@ export function useAgentChat(options: Options = {}) {
             setMessages((prev) => prev.map((m) => (m.id === done ? { ...m, queued: false } : m)));
           } else break; // left unsent: it goes with the next turn
         }
-      } finally {
-        turn.sending = false;
-      }
+      };
+      turn.posting = posts().finally(() => {
+        turn.posting = undefined;
+      });
+      return turn.posting;
     },
     [setMessages],
   );
@@ -254,7 +256,6 @@ export function useAgentChat(options: Options = {}) {
         turnId: null,
         lastSeq: -1,
         queued: started?.queued ?? [],
-        sending: false,
       };
       turnRef.current = turn;
       let asstId = localId('a');
@@ -369,6 +370,8 @@ export function useAgentChat(options: Options = {}) {
           .map((m) => (m.id === asstId && m.streaming ? { ...m, streaming: false } : m))
           .filter((m) => m.id !== asstId || m.parts.length > 0 || m.error),
       );
+      while (turn.posting) await turn.posting; // a post still out may be accepted, or start the next turn
+      if (!turn.live) return;
       turn.live = false;
       turnRef.current = null;
       setStreaming(false);
