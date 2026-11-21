@@ -69,6 +69,7 @@ def _bool(value: Any) -> bool:
 
 CORE_KEYS: dict[str, Key] = {
     "workspace.name": Key("Springform", _text(80, required=True)),
+    "workspace.show_name": Key(True, _bool),  # off: the header shows only the logo (a wordmark already says it)
     "timezone": Key("UTC", _timezone),
     "requests.warning_text": Key(DEFAULT_WARNING, _text(2000)),
     "github.repo": Key("", _text(140, pattern=_REPO)),  # owner/name
