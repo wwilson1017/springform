@@ -125,7 +125,7 @@ def test_a_message_that_cuts_a_batch_short_skips_the_whole_card(app, login_as, m
         return real(*args)
 
     monkeypatch.setattr(dispatch, "rule_skips", slow_second)
-    a = login_as("member")
+    a, other = login_as("member"), login_as("member")
     fake.script(
         [{"tool": "example_create_widget", "args": {"name": n}} for n in ("One", "Two", "Three")], "Changing course."
     )
@@ -140,6 +140,10 @@ def test_a_message_that_cuts_a_batch_short_skips_the_whole_card(app, login_as, m
             first = head[-1]
             approve = c.post("/api/agent/confirm", json={"tool_run_id": first["tool_run_id"], "decision": "approve"})
             assert approve.status_code == 409 and approve.json() == {"detail": "turn_running"}  # e.g. from another tab
+            stranger = other.post(
+                "/api/agent/confirm", json={"tool_run_id": first["tool_run_id"], "decision": "approve"}
+            )
+            assert stranger.status_code == 403  # a running turn is no one else's business
             assert c.post("/api/agent/chat", json={"conversation_id": cid, "message": "no widgets"}).status_code == 202
             steered.set()
             evs = head + list(lines)
