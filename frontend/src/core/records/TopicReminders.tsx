@@ -1,11 +1,12 @@
 /**
- * The user's topic reminders on /reminders: notes Whisk shows when a later message of theirs
- * mentions one of the terms (set by asking Whisk "when X comes up, remind me of Y"). Each can be
+ * The user's topic reminders on /reminders: notes the assistant shows when a later message of theirs
+ * mentions one of the terms (set by asking the assistant "when X comes up, remind me of Y"). Each can be
  * deleted; nothing else here edits them.
  */
 import { useState } from 'react';
 import { del } from '../api/client';
 import { useJson } from '../api/useJson';
+import { useAgentName } from '../agent/useAgentName';
 import { confirmDialog } from '../../shared/confirm';
 import { formatDate } from '../../shared/formatDate';
 import { LoadError } from '../../shared/LoadError';
@@ -23,6 +24,7 @@ const STATUS: Record<TopicReminder['status'], string> = {
 
 export function TopicReminders() {
   const { data, error, reload } = useJson<TopicReminder[]>(INTENTS);
+  const agent = useAgentName();
   const [busy, setBusy] = useState<number | null>(null);
 
   async function remove(t: TopicReminder) {
@@ -52,7 +54,7 @@ export function TopicReminders() {
         Topic reminders
       </h2>
       <p className={`${MUTED} mb-3`}>
-        Ask Whisk "when the supplier comes up, remind me to…" and it will bring the note up when you mention it.
+        Ask {agent} "when the supplier comes up, remind me to…" and it will bring the note up when you mention it.
       </p>
       {error ? (
         <LoadError label="Couldn't load your topic reminders" onRetry={reload} />
