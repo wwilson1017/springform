@@ -6,12 +6,14 @@ import json
 from dataclasses import replace
 from types import SimpleNamespace
 
+import anthropic
 import anyio
 import httpcore2
+import httpx2
 import pytest
 
-from backend.core import settings
-from backend.core.agent import engine, history, registry as tool_registry
+from backend.core import db as core_db, settings
+from backend.core.agent import engine, history, registry as tool_registry, usage
 from backend.core.agent.providers import anthropic_provider, fake
 from backend.core.agent.spec import ROUTINE, ToolSpec, calling_tainted
 from backend.core.errors import Invalid
@@ -399,6 +401,8 @@ class FakeAnthropic:
     def stream(self, **kwargs):
         self.calls.append(kwargs)
         final = self.finals.pop(0)
+        if isinstance(final, Exception):
+            raise final
         events = [SimpleNamespace(type="content_block_start", content_block=b) for b in final.content]
 
         class Stream:
@@ -422,8 +426,8 @@ class FakeAnthropic:
         return Stream()
 
 
-def final(stop_reason: str, *content) -> SimpleNamespace:
-    usage = SimpleNamespace(input_tokens=10, output_tokens=5)
+def final(stop_reason: str, *content, tokens: tuple[int, int] = (10, 5)) -> SimpleNamespace:
+    usage = SimpleNamespace(input_tokens=tokens[0], output_tokens=tokens[1])
     return SimpleNamespace(stop_reason=stop_reason, content=list(content), usage=usage)
 
 
@@ -482,8 +486,9 @@ def test_server_search_resumes_a_paused_reply_lists_sources_and_reports_untruste
     events = run(client, monkeypatch, ["core_web_search"])
     assert len(client.calls) == 2
     assert client.calls[1]["messages"][-1] == {"role": "assistant", "content": [searching]}
-    assert [e["type"] for e in events] == ["untrusted", "text", "_turn_complete"]  # as soon as results arrive, once
-    assert events[1]["text"] == "\n\nSources:\n- [Tart (shop)](https://tarts.example/)"
+    # untrusted as soon as results arrive, once; the paused request's usage before the resume
+    assert [e["type"] for e in events] == ["_usage", "untrusted", "text", "_turn_complete"]
+    assert events[2]["text"] == "\n\nSources:\n- [Tart (shop)](https://tarts.example/)"
     assert events[-1]["assistant_content"] == [searching, results, answer]
 
     plain = FakeAnthropic(final("end_turn", SimpleNamespace(type="text", text="Hi.", citations=None)))
@@ -496,3 +501,37 @@ def test_a_search_that_keeps_pausing_ends_after_three_resumes(db, monkeypatch):
     client = FakeAnthropic(*[final("pause_turn", searching) for _ in range(anthropic_provider.MAX_CONTINUATIONS + 1)])
     events = run(client, monkeypatch, ["core_web_search"])
     assert len(client.calls) == anthropic_provider.MAX_CONTINUATIONS + 1 and events[-1]["stop_reason"] == "pause_turn"
+    # one usage per request: each resumed one as `_usage`, the last on `_turn_complete`
+    assert [e["type"] for e in events].count("_usage") == anthropic_provider.MAX_CONTINUATIONS
+
+
+def test_a_paused_and_resumed_reply_records_each_request_in_the_usage_ledger(db, monkeypatch):
+    settings.set_setting("web.search_provider", "anthropic", None)
+    searching = SimpleNamespace(type="server_tool_use", name="web_search")
+    answer = SimpleNamespace(type="text", text="Lemon.", citations=None)
+    provider = anthropic_provider.AnthropicProvider("key", "claude-test")
+    tools = [{"name": "core_web_search", "description": "", "input_schema": {"type": "object"}}]
+
+    def metered(client: FakeAnthropic) -> list[dict]:
+        monkeypatch.setattr(anthropic_provider, "_client", lambda key: client)
+
+        async def collect():
+            stream = provider.stream_turn([{"role": "user", "content": "hi"}], tools, "system")
+            return [e async for e in usage.metered(stream, provider, "chat")]
+
+        return anyio.run(collect)
+
+    def ledger() -> list[tuple]:
+        rows = core_db.rows("SELECT provider, model, input_tokens, output_tokens FROM core_agent_usage ORDER BY id")
+        return [tuple(r.values()) for r in rows]
+
+    events = metered(FakeAnthropic(final("pause_turn", searching, tokens=(100, 7)), final("end_turn", answer)))
+    assert [e["type"] for e in events] == ["_turn_complete"]  # `_usage` stops at the ledger
+    assert events[-1]["usage"]["input_tokens"] == 10  # the context meter still reads the last request
+    assert ledger() == [("anthropic", "claude-test", 100, 7), ("anthropic", "claude-test", 10, 5)]
+
+    # A resume that fails still bills the paused request that ran.
+    lost = anthropic.APIConnectionError(request=httpx2.Request("POST", "https://api.anthropic.example/"))
+    events = metered(FakeAnthropic(final("pause_turn", searching, tokens=(30, 3)), lost))
+    assert events[-1]["stop_reason"] == "error"
+    assert ledger()[2:] == [("anthropic", "claude-test", 30, 3)]
