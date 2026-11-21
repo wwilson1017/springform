@@ -17,6 +17,10 @@ With no key, everything else works normally. The {agent_name} page shows a card 
 
 Before {agent_name} changes anything, it shows you what it wants to do with an **Approve** button. Nothing is written until you approve. A few routine changes may skip the button; anything bigger always asks.
 
+When you deny a change you can say why in the box under the buttons. {agent_name} is told your reason and not to retry it or find a way around it; after three denied steps in a row it is told to stop and report back to you.
+
+Tick **Always allow** on an Approve card and that tool stops asking in your chats with {agent_name}. See and remove these under **Settings → Account → Saved approvals**. {agent_name} still asks for tools that always ask, for anything that reaches outside the workspace or deletes data for good, for a change that would hide a record from others, and in any conversation where it has read outside content, such as a web page.
+
 If the change is no longer valid by the time you approve (for example the app was updated in between), {agent_name} tells you and does not run it.
 
 {agent_name} says what it changed after each action, and the record's timeline shows the change.

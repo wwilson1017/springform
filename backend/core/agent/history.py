@@ -393,15 +393,16 @@ def resolve_in(
     resolved_by: int | None = None,
     expect: str = "pending",
     records: str | None = None,
+    deny_reason: str | None = None,
 ) -> bool:
     """Move a run from `expect` to a final status; False when it was not in `expect`. `records` is
     the JSON of what a done result names (`execute.records`)."""
     return (
         conn.execute(
             """UPDATE core_agent_tool_runs SET status = ?, result = ?, error = ?, resolved_at = ?, resolved_by = ?,
-                      records = ?
+                      records = ?, deny_reason = ?
             WHERE id = ? AND status = ?""",
-            (status, result, error, now_iso(), resolved_by, records, run_id, expect),
+            (status, result, error, now_iso(), resolved_by, records, deny_reason, run_id, expect),
         ).rowcount
         > 0
     )
@@ -426,7 +427,6 @@ def mark_interrupted() -> int:
 _STATUS_FOR_MODEL = {
     "pending": {"status": "pending_user_approval"},
     "executing": {"status": "executing"},
-    "denied": {"status": "denied_by_user"},
     "stale": {"status": "stale", "error": "The tool changed after it was proposed, so it was not run."},
     "interrupted": {
         "status": "interrupted",
@@ -435,8 +435,23 @@ _STATUS_FOR_MODEL = {
 }
 
 
-def model_content(run: dict) -> str:
-    """What the model is shown as this run's tool result."""
+MAX_DENY_REASON = 500
+DENIAL_BREAKER_AT = 3  # assistant steps with a denial since the user's last message
+DENIED_NOTE = (
+    "The user denied this action{because}. Do not retry it or work around it until they give new instructions."
+)
+DENIED_BREAKER = " That is {n} denied steps since their last message: stop and report to the user."
+
+
+def model_content(run: dict, *, denials: int = 0) -> str:
+    """What the model is shown as this run's tool result. A denial carries the user's reason, if
+    any, and from the `DENIAL_BREAKER_AT`-th denied step on (`denials`) the instruction to stop."""
+    if run["status"] == "denied":
+        reason = run.get("deny_reason")
+        message = DENIED_NOTE.format(because=f": {reason}" if reason else "")
+        if denials >= DENIAL_BREAKER_AT:
+            message += DENIED_BREAKER.format(n=denials)
+        return json.dumps({"status": "denied_by_user", **({"reason": reason} if reason else {}), "message": message})
     if run["status"] == "done":
         stored = run["result"] or "null"
         value = json.loads(stored)
