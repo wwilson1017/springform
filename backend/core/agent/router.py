@@ -181,6 +181,9 @@ def get_conversation(conversation_id: int, user: User = Depends(current_user)) -
             calls.append(
                 {
                     **c,
+                    **(
+                        {"args": json.loads(run["args"])} if run and run["args"] else {}
+                    ),  # what ran (call_repair may coerce)
                     "tool_run_id": run and run["id"],
                     "status": run and run["status"],
                     "result": _preview(run["result"] if run else None),

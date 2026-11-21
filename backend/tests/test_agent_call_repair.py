@@ -92,8 +92,11 @@ def test_coerced_args_reach_the_handler_the_run_and_the_card(login_as, echo):
     assert end["result"] == {"n": 42, "tags": ["a"]}
     run = history.get_tool_run(end["tool_run_id"]) or {}
     assert json.loads(run["args"]) == {"n": 42, "tags": ["a"]}
-    [card] = of(chat(a, message="write"), "confirm")
+    evs = chat(a, message="write")
+    [card] = of(evs, "confirm")
     assert card["args"] == {"n": 42, "tags": ["a"]}
+    calls = [c for m in a.get(f"/api/agent/conversations/{evs[0]['id']}").json()["messages"] for c in m["tool_calls"]]
+    assert calls[-1]["args"] == {"n": 42, "tags": ["a"]}  # the reloaded card shows what approval runs
 
 
 def test_an_unknown_tool_gets_a_suggestion(login_as):
