@@ -284,3 +284,24 @@ describe('changeList', () => {
     expect(reloaded.parts[0]).toMatchObject({ changeList: true });
   });
 });
+
+describe('a card the server settles', () => {
+  it('drops its Approve card on a tool_end (a batch a new message cut short)', () => {
+    const card = applyEvent(
+      { id: 'm', role: 'assistant', parts: [] },
+      { type: 'confirm', tool_run_id: 3, tool: 'save', tool_use_id: 'u', msg_id: 2, args: {}, summary: '', batch: 'k' },
+    );
+    const skipped = applyEvent(card, {
+      type: 'tool_end',
+      tool: 'save',
+      tool_use_id: 'u',
+      tool_run_id: 3,
+      status: 'error',
+      result: { error: 'Skipped to process your new message.' },
+      elapsed_ms: 0,
+    });
+    expect(skipped.parts[0]).toMatchObject({ status: 'error', error: 'Skipped to process your new message.' });
+    expect((skipped.parts[0] as ToolPart).confirm).toBeUndefined();
+    expect(renderUnits(skipped.parts).map((u) => u.kind)).toEqual(['tool']);
+  });
+});
