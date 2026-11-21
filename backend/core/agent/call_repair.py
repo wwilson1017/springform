@@ -78,7 +78,8 @@ def before_tool(state: TurnState, call: dict) -> str | None:
     name = call["name"]
     spec = state.by_name.get(name)
     if spec is not None:
-        call["args"] = coerce(call.get("args") or {}, spec.input_schema)
+        if isinstance(args := call.get("args") or {}, dict):  # anything else is the handler's to reject
+            call["args"] = coerce(args, spec.input_schema)
         return None
     if name == deferred.FIND_TOOLS and state.deferred_specs:
         return None  # dispatch loads deferred tools

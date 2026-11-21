@@ -48,6 +48,9 @@ def of(evs, kind) -> list[dict]:
         ("Sent to: the supplier", []),
         ("I've sent it for your approval.", []),
         ("sent items are in the folder.", []),
+        ("Yes, the email was sent on November 3.", []),
+        ("The comment was added by the team on Monday.", []),
+        ("The email has been sent.", ["sent"]),
     ],
 )
 def test_claims(text, kinds):

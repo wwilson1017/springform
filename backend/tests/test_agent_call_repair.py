@@ -105,6 +105,12 @@ def test_an_unknown_tool_gets_a_suggestion(login_as):
     ]
 
 
+def test_non_object_args_are_left_to_the_handler(login_as, echo):
+    fake.script({"tool": "core_echo", "args": ["n", 1]}, "ok")
+    evs = chat(login_as("member"), message="echo")
+    assert len(of(evs, "tool_end")) == 1 and evs[-1]["type"] == "done"  # dict(["n", 1]) would raise
+
+
 def test_an_unloaded_deferred_tool_is_left_to_dispatch():
     spec = ToolSpec(name="x_tool", description="X.", input_schema={"type": "object"}, writes=False, handler=print)
     state = cast(TurnState, SimpleNamespace(by_name={"x_tool": spec}, deferred_specs=[spec], scratch={}))

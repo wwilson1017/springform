@@ -33,7 +33,7 @@ CLAIMS: dict[str, list[re.Pattern]] = {
     "sent": [
         re.compile(_FP + r"(?:sent|emailed|messaged|texted|forwarded)\b", _I),
         re.compile(r"\b(?:has|have) been (?:sent|emailed|forwarded)\b", _I),
-        re.compile(r"\b(?:message|email|invite)(?:'s| is| was| has been) sent\b", _I),
+        re.compile(r"\b(?:message|email|invite)(?:'s| is| has been) sent\b", _I),  # "was sent" reports a past one
         re.compile(_LEAD + r"(?:Sent|Emailed|Messaged)" + _LABEL),
     ],
     "filed": [
@@ -43,7 +43,7 @@ CLAIMS: dict[str, list[re.Pattern]] = {
     ],
     "posted": [
         re.compile(_FP + r"posted\b", _I),
-        re.compile(r"\b(?:note|comment)(?:'s| is| was| has been) (?:posted|added)\b", _I),
+        re.compile(r"\b(?:note|comment)(?:'s| is| has been) (?:posted|added)\b", _I),
         re.compile(_LEAD + r"Posted" + _LABEL),
     ],
     "created": [
