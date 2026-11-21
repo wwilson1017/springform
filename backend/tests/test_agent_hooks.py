@@ -5,7 +5,7 @@ import json
 
 import pytest
 
-from backend.core.agent import history, turn_hooks
+from backend.core.agent import history, turn_hooks, turns
 from backend.core.agent.providers import fake
 from backend.core.agent.providers.fake import FakeProvider
 from backend.core.agent.turn_hooks import Fail, Fallback, Retry
@@ -43,6 +43,9 @@ SHIPPED = {
 
 
 def test_shipped_hooks_and_register_checks_the_name(monkeypatch):
+    assert {m.__name__ for m in turns.HOOK_MODULES} == {
+        m for ms in SHIPPED.values() for m in ms
+    }  # importing turns loads them
     assert {p: [fn.__module__ for fn in fns] for p, fns in turn_hooks.REGISTERED.items()} == SHIPPED
     monkeypatch.setitem(turn_hooks.REGISTERED, "end_of_turn", [])
     with pytest.raises(ValueError, match="unknown turn hook point"):
