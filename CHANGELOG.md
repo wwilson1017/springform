@@ -25,6 +25,8 @@ Conventions:
 - MCP links also work at `/link/<token>` and `/<token>/mcp`, and opening one in a browser shows a short page on how to connect it instead of an error.
 - MCP tools carry titles and explicit hints, so ChatGPT and Claude no longer treat every write as destructive (merging deals still is). Apps can give AI tools a paragraph of guidance (`agent_guidance` in `app.json`), which Whisk and MCP clients both receive; Todos gives its GTD-partner rules.
 - MCP tool runs record which AI tool called (`core_agent_tool_runs.client`), and a todo made over an MCP link says so: "via ChatGPT".
+- Memory keeps secrets out: a password, API key, private key or card number in a fact or a context file is saved as `[removed: <kind>]`, and Whisk says what it removed. A fact already held is not saved twice, a rewrite of a context file by Whisk that drops over a quarter of its lines is refused, and every memory write reports its size against the cap.
+- Invite, password-reset and MCP link tokens, sign-in codes and signed URLs are masked on every log line, not only MCP paths in the access log.
 
 ### Changed
 
@@ -33,6 +35,12 @@ Conventions:
 ### Removed
 
 - `railway.json`. Railway stops reading it on 2026-12-01, and `.railway/railway.ts` now holds the build, health check and restart settings. Railway has no place to store the required `/data` mount, so nothing refuses a deploy without the volume any more: attach it when you create the service.
+
+### Fixed
+
+- Behind Railway's proxy, a client could pick its own rate-limit key with a forged `X-Forwarded-For`; login, forgot-password and MCP limits now count the proxy's `X-Real-IP`, which the shipped Caddyfile also sets.
+- Backups no longer hold memory on Railway: each run drops the snapshots from the page cache, which Railway bills as memory.
+- In Todos triage, Edit waits for a tags or people change to save before opening the edit sheet, so the sheet never opens on the old values.
 
 ## [0.1.3] - 2026-11-16
 

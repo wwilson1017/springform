@@ -55,7 +55,8 @@ def test_a_traceback_naming_a_token_is_scrubbed():
     except ValueError as e:
         record = _record("failed", None, (type(e), e, e.__traceback__), name="backend.core.auth")
     logscrub.ScrubTokens().filter(record)
-    assert "tok123" not in record.exc_text and "/reset-password/***" in record.exc_text
+    text = record.exc_text or ""
+    assert "tok123" not in text and "/reset-password/***" in text
 
 
 def test_create_app_filters_uvicorn_and_httpx(app):

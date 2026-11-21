@@ -73,7 +73,7 @@ The endpoint lives in `backend/core/mcp/router.py` as plain ASGI routes on the d
 
 Doc drift fixed here: an earlier version gave the per-IP limit as `IPRateLimiter(window=60, max_hits=600)`; in the donor that is the per-link call limit, and the per-address limit is the wrong-token one (`window=600, max_hits=60`).
 
-The access log shows `/mcp/***`, `/link/***` or `/***/mcp` instead of the token (`startup.py`, after todo-gtd `backend/logscrub.py`).
+The logs show `/mcp/***`, `/link/***` or `/***/mcp` instead of the token (`backend/core/logscrub.py`).
 
 The plan cites the donor section as lines ~700–946; at the recorded donor sha it is lines 832–946 (`source-map.md`).
 

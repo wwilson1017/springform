@@ -7,7 +7,6 @@ import time
 from pathlib import Path
 from types import SimpleNamespace
 
-import pytest
 from cryptography.fernet import Fernet
 
 from backend.core import VERSION, clock, db as core_db, scheduler, secrets
@@ -118,11 +117,18 @@ def test_runs_in_the_same_second_each_get_a_complete_set(db, freeze):
     assert service.complete_stamps() == kept[::-1]
 
 
-@pytest.mark.skipif(not hasattr(os, "posix_fadvise"), reason="Linux only, like _uncache")
 def test_each_run_drops_every_snapshot_from_the_page_cache(db, freeze, monkeypatch):
     # Railway bills cached file pages as memory; an older snapshot, read again by an off-site copy, is dropped too.
-    dropped = []
-    monkeypatch.setattr(os, "posix_fadvise", lambda fd, *a: dropped.append((os.readlink(f"/proc/self/fd/{fd}"), *a)))
+    opened, dropped, real_open = {}, [], os.open
+
+    def tracked_open(path, *a):
+        fd = real_open(path, *a)
+        opened[fd] = str(path)
+        return fd
+
+    monkeypatch.setattr(os, "open", tracked_open)
+    monkeypatch.setattr(os, "POSIX_FADV_DONTNEED", 4, raising=False)  # set on Linux only
+    monkeypatch.setattr(os, "posix_fadvise", lambda fd, *a: dropped.append((opened[fd], *a)), raising=False)
     freeze("2026-11-02T15:00:00Z")
     older = service.run()["snapshot"]
     dropped.clear()
