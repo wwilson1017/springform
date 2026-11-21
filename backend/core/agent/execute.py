@@ -50,11 +50,12 @@ def dump(spec: ToolSpec, result) -> tuple[str, bool]:
 
 
 def records(spec: ToolSpec, args: dict, result) -> str:
-    """The JSON of the records `result` names: '[]' for a tool that declares none, and
-    history.UNKNOWN (always withheld) when `reads` fails, so a provenance bug neither rolls back a
-    write nor skips the recheck."""
+    """The JSON of the records `result` names, and history.UNKNOWN (always withheld) when `reads`
+    fails, so a provenance bug neither rolls back a write nor skips the recheck. Without `reads`, a
+    core tool (each one classified by the registry guard test) or a remote one (external text) names
+    none, and an app's is unknown: a fork's tool written before `reads` existed fails closed."""
     if spec.reads is None:
-        return "[]"
+        return "[]" if spec.app == "core" or spec.remote else history.UNKNOWN
     try:
         return json.dumps(sorted({(str(t), int(i)) for t, i in spec.reads(args, result)}))
     except Exception:

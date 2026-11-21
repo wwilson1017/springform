@@ -171,6 +171,8 @@ def contract_problems(app_dir: Path, tmp_path: Path) -> list[str]:
     for tool in mods["tools"].get_tools() if "tools" in mods else []:
         if not tool.name.startswith(f"{slug}_"):
             p.append(f"tool {tool.name!r} must be named {slug}_<tool>")
+        if tool.reads is None:  # else its results replay as withheld (execute.records)
+            p.append(f"tool {tool.name!r} declares no reads (agent.md §4)")
     for hook in getattr(mods.get("hooks"), "HOOKS", {}):
         if hook not in entities.HOOKS:
             p.append(f"unknown hook {hook!r}")
@@ -219,6 +221,7 @@ def test_bad_app_breaks_every_rule(tmp_path):
         r"EXPORT 'bad_app_things' owner_column 'owner' is not a column",
         r"job 'tidy' must be named bad_app\.<job>",
         r"tool 'make_thing' must be named bad_app_<tool>",
+        r"tool 'make_thing' declares no reads",
         r"unknown hook 'on_saved'",
         r"setting 'color' must be named bad_app\.<key>",
         r"publishes 'get_thing' but api\.py has no get_thing_in",

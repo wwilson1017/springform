@@ -122,8 +122,9 @@ in a worker thread started with a copy of the caller's context, so it sees both.
 
 `reads(args, result) -> [(entity_type, id)]` names every record a result carries a copy of, so the
 replay recheck (§5) can check it again. `execute.run_tool` stores it as `records` when a run ends
-`done`: `'[]'` for a tool without `reads`, and `[["", 0]]` (always withheld) when `reads` raises,
-which never fails the run. `spec.records_in(result, match)` walks a result and collects what a
+`done`. Without `reads`, a core or remote tool stores `'[]'` and an app's tool stores `[["", 0]]`
+(always withheld), so a fork's tool written before `reads` existed fails closed; the app contract
+test flags it. `reads` raising also stores `[["", 0]]` and never fails the run. `spec.records_in(result, match)` walks a result and collects what a
 per-dict `match` names; `spec.linked` names a dict's `entity_type`/`entity_id` (notes, reminders).
 Todos, CRM, contacts and the example app recognise their rows by shape; `core_read_result` names
 what its source names. `test_every_shipped_tool_names_the_records_it_returns` fails for a shipped

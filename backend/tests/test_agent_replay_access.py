@@ -165,6 +165,16 @@ def test_a_failing_reads_still_runs_the_tool_and_withholds_its_result(login_as, 
     assert db.one("SELECT 1 FROM core_people WHERE name = 'Shelf Co'")  # the write committed
 
 
+def test_an_app_tool_without_reads_fails_closed(login_as, extra_tools):
+    member = login_as("member")
+    bare = dict(description="d", input_schema=SCHEMA, writes=False, handler=lambda u, a: {"seen": MARKER})
+    extra_tools(ToolSpec(name="example_bare_read", app="example", **bare), ToolSpec(name="core_bare_read", **bare))
+    end, evs = call(member, "example_bare_read", {})  # e.g. a fork's tool written before `reads` existed
+    assert stored(end["tool_run_id"])["records"] == history.UNKNOWN and MARKER not in replayed(evs[0]["id"])
+    end, evs = call(member, "core_bare_read", {})  # core's own are classified by the registry guard test
+    assert stored(end["tool_run_id"])["records"] == "[]" and MARKER in replayed(evs[0]["id"])
+
+
 def test_older_runs_get_their_records_at_startup(login_as):
     owner, member = login_as("member"), login_as("member")
     todo = team_todo(owner, "Sweep aisle two")
