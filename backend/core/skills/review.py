@@ -307,17 +307,22 @@ def run(complete: Callable[[str, str], str], cancel: threading.Event | None = No
     if cancel is not None and cancel.is_set():
         return {"status": "skipped", "reason": "cancelled"}
     prompt = build_prompt(conn, transcripts)
+    cancelled = {"status": "skipped", "reason": "cancelled"}
     try:
         reply = complete(SYSTEM_PROMPT, prompt)
     except ProviderMissing:
         return {"status": "skipped", "reason": "no_provider"}
     except Exception:
+        if cancel is not None and cancel.is_set():
+            return cancelled  # shutdown or the job's timeout: write nothing, the next run reviews these turns
         # simplification: a failed review is not retried, so spend stays at one call per ten turns;
         # the next window reads the newest conversations again.
         logger.warning("skills review: model call failed", exc_info=True)
         with db.transaction() as tx:
             _ledger_in(tx, through, "error")
         return {"status": "ok", "review": "error", "conversations": len(transcripts), "proposals": 0}
+    if cancel is not None and cancel.is_set():
+        return cancelled
     items = parse_reply(reply, len(transcripts))
     if items is None:
         with db.transaction() as tx:

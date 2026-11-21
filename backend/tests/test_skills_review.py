@@ -4,6 +4,7 @@ with no tools, and writes proposals nobody sees until an admin approves them."""
 
 import json
 import re
+import threading
 
 import pytest
 
@@ -277,6 +278,24 @@ def test_the_review_never_sends_a_secret(member):
     seen = []
     review.run(lambda s, p: seen.append(p) or '{"skills": []}')
     assert "hunter2" not in seen[0] and "[removed: password]" in seen[0]
+
+
+def test_a_review_cancelled_during_its_call_writes_nothing(member):
+    conversation(member, work("x"), turns=10)
+    cancel = threading.Event()
+
+    def stopped(system, prompt):
+        cancel.set()  # shutdown or the job's timeout while the model answers
+        return json.dumps({"skills": [GOOD]})
+
+    def failed(system, prompt):
+        cancel.set()
+        raise RuntimeError("connection reset")
+
+    for complete in (stopped, failed):
+        assert review.run(complete, cancel) == {"status": "skipped", "reason": "cancelled"}
+        cancel.clear()
+    assert proposals() == [] and ledger() == []  # the watermark did not move
 
 
 def test_the_prompt_bans_the_three_shapes_and_does_not_push_for_output():

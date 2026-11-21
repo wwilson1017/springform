@@ -15,6 +15,11 @@ const KEY = 'agent.skills_review_enabled';
 const PAGE = 50;
 const failure = (e: unknown, what: string) => (e instanceof ApiError ? `${what}: ${e.detail}` : `${what}.`);
 const SMALL = `${BUTTON} px-2 py-1 text-xs`;
+const REVIEW_OUTCOME: Record<string, string> = {
+  discarded: 'nothing kept, because a conversation it read was made private or changed meanwhile.',
+  bad_reply: "nothing kept, because the model's answer was not in the expected form.",
+  error: 'the model call failed; the next review reads the newest conversations.',
+};
 
 type Draft = { name: string; description: string; body: string };
 const EMPTY: Draft = { name: '', description: '', body: '' };
@@ -280,7 +285,10 @@ function ReviewSwitch() {
       </p>
       {review && (
         <p className="m-0 text-xs text-sf-ink-dim">
-          Last review {formatDate(review.ran_at)}: {review.proposals} proposed.
+          Last review {formatDate(review.ran_at)}:{' '}
+          {review.status === 'ok' || review.status === 'nothing_to_read'
+            ? `${review.proposals} proposed.`
+            : (REVIEW_OUTCOME[review.status] ?? 'nothing proposed.')}
         </p>
       )}
     </div>
