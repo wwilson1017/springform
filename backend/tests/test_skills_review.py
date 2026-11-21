@@ -146,12 +146,13 @@ def test_the_review_never_reads_private_conversations(on, member, make_user, mod
     conversation(member, work("reminder-marker"), records=[], tool="core_list_my_reminders")
     # a count over records the member can see names none of them
     conversation(member, work("count-marker"), records=[], tool="example_count_widgets")
-    conversation(member, work("memory-marker"), records=[], tool="core_memory_search")  # install-shared
+    conversation(member, work("soul-marker"), records=[], tool="core_context_file_read")  # may be admin-only
+    conversation(member, work("fact-marker"), records=[], tool="core_memory_remember")  # a member-readable fact
     fake.script('{"skills": []}')
     assert jobs.run_review()["review"] == "ok"
     (call,) = model_requests
     prompt = call["messages"][0]["content"]
-    assert "open-marker" in prompt and "plain-marker" in prompt and "memory-marker" in prompt
+    assert "open-marker" in prompt and "plain-marker" in prompt and "fact-marker" in prompt
     for marker in (
         "private-marker",
         "tainted-marker",
@@ -159,6 +160,7 @@ def test_the_review_never_reads_private_conversations(on, member, make_user, mod
         "searched-marker",
         "reminder-marker",
         "count-marker",
+        "soul-marker",
     ):
         assert marker not in prompt
 
@@ -296,6 +298,27 @@ def test_a_review_cancelled_during_its_call_writes_nothing(member):
         assert review.run(complete, cancel) == {"status": "skipped", "reason": "cancelled"}
         cancel.clear()
     assert proposals() == [] and ledger() == []  # the watermark did not move
+
+
+def test_rows_written_after_the_window_and_running_conversations_wait(member, monkeypatch):
+    done = conversation(member, work("done-marker"), turns=10)
+    busy = conversation(member, work("busy-marker"), turns=0)
+    with core_db.transaction() as conn:
+        turn(conn, busy, member, "running")
+    real_window, seen = review.window, []
+
+    def window_then_more(conn):  # a reply lands right after the window was taken
+        out = real_window(conn)
+        with core_db.transaction() as tx:
+            tx.execute(
+                "INSERT INTO core_agent_messages (conversation_id, role, content, created_at) VALUES (?, 'user', ?, ?)",
+                (done, json.dumps({"text": "late-marker"}), NOW),
+            )
+        return out
+
+    monkeypatch.setattr(review, "window", window_then_more)
+    review.run(lambda s, p: seen.append(p) or '{"skills": []}')
+    assert "done-marker" in seen[0] and "late-marker" not in seen[0] and "busy-marker" not in seen[0]
 
 
 def test_the_prompt_bans_the_three_shapes_and_does_not_push_for_output():

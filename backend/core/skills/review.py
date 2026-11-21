@@ -42,19 +42,13 @@ MAX_ACTIVE_LISTED = 50
 MAX_REJECTED_LISTED = 30
 MAX_TOKENS = 8_192  # three bodies plus headroom: thinking counts against max_tokens
 TIER = "default"  # judgement work, one call per ten finished turns, and the job is opt-in
-# A done run that names no record passes only for these tools, whose results are install-shared
-# text any member reads. Any other run naming nothing (a search of the user's other conversations,
-# their reminders, a count over records they can see) has nothing the recheck could test, so its
-# conversation is skipped: fail closed, since a reply may restate the result.
-SHARED_RESULTS = frozenset(
-    {
-        "core_memory_search",
-        "core_memory_remember",
-        "core_context_file_read",
-        "core_context_file_write",
-        "core_skill_load",
-    }
-)
+# A done run that names no record passes only for these tools, whose results any member may read:
+# a remembered fact, a context file's metadata after a write, an approved skill. Any other run naming
+# nothing (a search of the user's other conversations, their reminders, a count over records they
+# can see, a read of a context file or memory search that may return admin-only soul.md or
+# MEMORY.md) has nothing the recheck could test, so its conversation is skipped: fail closed, since
+# a reply may restate the result.
+SHARED_RESULTS = frozenset({"core_memory_remember", "core_context_file_write", "core_skill_load"})
 
 SYSTEM_PROMPT = """\
 You review conversations between the staff of a small business and its assistant, and decide \
@@ -142,15 +136,16 @@ def _line(text) -> str:
     return " ".join(blank_secrets(str(text or ""))[0].split())[:MAX_ROW_CHARS]
 
 
-def transcript_in(conn: db.Conn, conversation_id: int) -> str:
-    """The newest MAX_ROWS user and assistant rows, oldest first, within MAX_CONVERSATION_CHARS:
-    text plus the names of the tools a reply called. No arguments, no results."""
+def transcript_in(conn: db.Conn, conversation_id: int, cutoff: int) -> str:
+    """The newest MAX_ROWS user and assistant rows up to message `cutoff`, oldest first, within
+    MAX_CONVERSATION_CHARS: text plus the names of the tools a reply called. No arguments, no results."""
     rows = conn.execute(
         """SELECT m.role, m.content FROM core_agent_messages m
            JOIN core_agent_conversations c ON c.id = m.conversation_id
-           WHERE m.conversation_id = ? AND c.is_private = 0 AND c.tainted = 0 AND m.role IN ('user', 'assistant')
+           WHERE m.conversation_id = ? AND m.id <= ? AND c.is_private = 0 AND c.tainted = 0
+             AND m.role IN ('user', 'assistant')
            ORDER BY m.id DESC LIMIT ?""",
-        (conversation_id, MAX_ROWS),
+        (conversation_id, cutoff, MAX_ROWS),
     ).fetchall()
     lines: list[str] = []
     used = 0
@@ -174,15 +169,26 @@ def transcript_in(conn: db.Conn, conversation_id: int) -> str:
     return "\n".join(reversed(lines))
 
 
-def collect(conversation_ids: list[int]) -> list[tuple[int, str]]:
+def _running_in(conn: db.Conn, conversation_id: int) -> bool:
+    row = conn.execute(
+        "SELECT 1 FROM core_agent_turns WHERE conversation_id = ? AND status = 'running' LIMIT 1", (conversation_id,)
+    )
+    return row.fetchone() is not None
+
+
+def collect(conversation_ids: list[int], cutoff: int) -> list[tuple[int, str]]:
     """(conversation id, transcript) for the eligible ones, read in one snapshot so a tool result
-    or a privacy change cannot land between the check and the read. Released before any model call."""
+    or a privacy change cannot land between the check and the read. Rows after `cutoff` (written
+    since the window was taken) and conversations with a turn still running are left for a later
+    review. Released before any model call."""
     out: list[tuple[int, str]] = []
     with db.transaction() as conn:
         for cid in conversation_ids:
             if len(out) >= MAX_CONVERSATIONS:
                 break
-            if eligible_in(conn, cid) and (text := transcript_in(conn, cid)):
+            if _running_in(conn, cid):
+                continue
+            if eligible_in(conn, cid) and (text := transcript_in(conn, cid, cutoff)):
                 out.append((cid, text))
     return out
 
@@ -296,10 +302,11 @@ def run(complete: Callable[[str, str], str], cancel: threading.Event | None = No
     pending = conn.execute("SELECT count(*) FROM core_agent_skills WHERE status = 'proposed'").fetchone()[0]
     if pending >= MAX_PENDING:
         return {"status": "skipped", "reason": "queue_full"}
+    cutoff = conn.execute("SELECT coalesce(max(id), 0) FROM core_agent_messages").fetchone()[0]  # before the window
     _, through, conversation_ids = window(conn)
     if not conversation_ids:
         return {"status": "skipped", "reason": "not_due"}
-    transcripts = collect(conversation_ids)
+    transcripts = collect(conversation_ids, cutoff)
     if not transcripts:
         with db.transaction() as tx:
             _ledger_in(tx, through, "nothing_to_read")
