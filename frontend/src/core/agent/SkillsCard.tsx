@@ -192,10 +192,16 @@ function Section({
   onChanged: () => void;
 }) {
   const page = useSkills(status);
-  const { reload } = page;
+  const { reload, offset, setOffset } = page;
+  const total = page.data?.total;
   useEffect(() => {
     if (reloadKey) reload(); // a change in any section can move a skill into this one
   }, [reloadKey, reload]);
+  useEffect(() => {
+    // a page emptied by an action moves back to the last page that has rows
+    if (total !== undefined && offset > 0 && offset >= total)
+      setOffset(Math.max(0, Math.ceil(total / PAGE) - 1) * PAGE);
+  }, [total, offset, setOffset]);
   return (
     <section aria-label={title} className="flex flex-col gap-2">
       <h3 className="m-0 text-sm font-medium text-sf-ink">
@@ -214,7 +220,7 @@ function Section({
           </SkillRow>
         ))}
       </ul>
-      {page.data && page.data.total > PAGE && (
+      {page.data && (page.data.total > PAGE || page.offset > 0) && (
         <div className="flex items-center gap-2 text-xs text-sf-ink-dim">
           <button
             type="button"

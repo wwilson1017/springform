@@ -142,12 +142,13 @@ def test_the_review_never_reads_private_conversations(on, member, make_user, mod
     conversation(member, work("plain-marker"))  # no tool run at all
     # a reply that restates a search of the user's other conversations (private ones included)
     conversation(member, work("searched-marker"), records=[], tool="core_search_conversations")
+    conversation(member, work("reminder-marker"), records=[], tool="core_list_my_reminders")
     fake.script('{"skills": []}')
     assert jobs.run_review()["review"] == "ok"
     (call,) = model_requests
     prompt = call["messages"][0]["content"]
     assert "open-marker" in prompt and "plain-marker" in prompt
-    for marker in ("private-marker", "tainted-marker", "hidden-marker", "searched-marker"):
+    for marker in ("private-marker", "tainted-marker", "hidden-marker", "searched-marker", "reminder-marker"):
         assert marker not in prompt
 
 
