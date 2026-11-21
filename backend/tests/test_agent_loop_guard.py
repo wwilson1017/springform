@@ -4,7 +4,7 @@ import json
 
 import pytest
 
-from backend.core.agent import loop_guard, registry as tool_registry, turn_hooks
+from backend.core.agent import dispatch, loop_guard, registry as tool_registry, turn_hooks
 from backend.core.agent.providers import fake
 from backend.core.agent.spec import ToolSpec
 
@@ -119,7 +119,8 @@ def test_repeated_text_counts(login_as, seen):
     assert not any(notices(m) for m in seen)
 
 
-def test_identical_untrusted_results_still_match(login_as, tools):
+def test_identical_untrusted_results_still_match(login_as, tools, monkeypatch):
+    monkeypatch.setattr(dispatch, "needs_confirmation", lambda *a: False)  # a tainted untrusted read would ask
     fake.script(*[{"tool": "core_page"}] * 6)
     evs = chat(login_as("member"), message="read")
     assert len(of(evs, "tool_end")) == 5 and "kept repeating" in of(evs, "text")[-1]["text"]

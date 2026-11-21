@@ -187,7 +187,8 @@ def run_tool(user: User, spec: ToolSpec, args: dict, *, source: str, run_id: int
     except Exception as e:
         status = "uncertain" if spec.external_effect else "error"
         history.resolve(rid, status, error=error_text(e), resolved_by=user.id, expect="executing")
-        return _outcome(rid, status, error=error_text(e))
+        # an untrusted source's error may carry its text too, so it taints like a result
+        return _outcome(rid, status, error=error_text(e), tainted=spec.untrusted_source)
     finally:
         calling_conversation.reset(conversation)
     history.resolve(
