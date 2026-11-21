@@ -172,6 +172,8 @@ def write_in(
     if is_protected and not allow_protected:
         raise Forbidden("protected_file")
     before = len(entries(existing["content"])) if existing else 0
+    # Counts entries, not which ones survive: rewording a line or a paragraph (soul.md is one) is
+    # an edit, not a loss, and an always-confirmed write shows the admin the new text anyway.
     lost = before - len(entries(content))
     if keep_entries and before and lost / before > MAX_LOSS:
         raise Invalid(
