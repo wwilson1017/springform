@@ -63,6 +63,8 @@ export type ConfirmResponse = S['ConfirmResponse'];
 export type ConfirmOutcome = ConfirmResponse['status'];
 /** GET /api/agent/approval-rules */
 export type ApprovalRule = S['ApprovalRule'];
+/** GET /api/agent/checkins */
+export type Checkin = S['Checkin'];
 
 /** GET /api/core/context-files */
 export interface ContextFileMeta {

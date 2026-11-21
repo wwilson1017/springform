@@ -9,6 +9,7 @@ import asyncio
 import json
 import time
 from datetime import datetime, timezone
+from typing import Literal
 from zoneinfo import ZoneInfo
 
 import pytest
@@ -21,6 +22,7 @@ from backend.core.agent.providers.fake import FakeProvider
 from backend.core.agent.turn_hooks import TurnState
 from backend.core.checkins import schedule, service
 from backend.core.errors import Invalid, NotFound
+from backend.testing.fixtures import Client
 
 CHICAGO = ZoneInfo("America/Chicago")
 
@@ -52,7 +54,7 @@ def _job_idle() -> bool:
 def live(app, login_as):
     """(client, owner): a signed-in member inside a running lifespan, after the job's first pass."""
     who = login_as("member")
-    with TestClient(app, headers={"Authorization": f"Bearer {who.cookies.get('sf_session')}"}) as c:
+    with Client(app, headers={"Authorization": f"Bearer {who.cookies.get('sf_session')}"}) as c:
         _wait(_job_idle)
         c.principal = who.principal
         yield c
@@ -305,10 +307,10 @@ def test_always_allow_rules_never_apply_in_a_checkin(live):
     assert count("example_widgets") == 0
 
     # Even a write forced into a check-in turn's tool set waits for a card no one can approve.
-    spec = registry.current().get("example_create_widget")
+    spec = core_db.must(registry.current().get("example_create_widget"))
     cid = core_db.must(core_db.one("SELECT id FROM core_agent_conversations WHERE user_id = ?", (owner.id,)))["id"]
 
-    def settle(source: str) -> tuple[list[dict], dict]:
+    def settle(source: Literal["chat", "checkin"]) -> tuple[list[dict], dict]:
         state = TurnState(
             user=owner, agent=agent, provider=FakeProvider("fake"), conversation_id=cid, turn_id=0, source=source
         )

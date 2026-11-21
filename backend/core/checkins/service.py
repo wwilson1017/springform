@@ -85,12 +85,12 @@ def list_for(user: User) -> list[dict]:
 def create_in(conn: db.Conn, user: User, name: str, prompt: str, schedule_text: str) -> dict:
     name, prompt = " ".join((name or "").split())[:NAME_MAX], (prompt or "").strip()[:PROMPT_MAX]
     if not name or not prompt:
-        raise Invalid("name and prompt are required")
+        raise Invalid("A check-in needs a name and a prompt.")
     text = schedule.normalize(schedule_text)
     if conn.execute("SELECT count(*) FROM core_agent_checkins WHERE owner_user_id = ?", (user.id,)).fetchone()[0] >= (
         MAX_PER_USER
     ):
-        raise Invalid(f"at most {MAX_PER_USER} check-ins per person")
+        raise Invalid(f"You can have at most {MAX_PER_USER} check-ins.")
     checkin_id = db.insert_in(
         conn,
         """INSERT INTO core_agent_checkins (owner_user_id, name, prompt, schedule, next_run_at, created_at)

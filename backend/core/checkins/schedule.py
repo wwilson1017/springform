@@ -15,8 +15,8 @@ MIN_EVERY, MAX_EVERY = 15, 7 * 24 * 60  # minutes
 _HHMM = r"((?:[01]\d|2[0-3]):[0-5]\d)"
 _RE = re.compile(rf"^(?:every:(\d{{1,5}})|daily@{_HHMM}|weekly:({'|'.join(DAYS)})@{_HHMM})$")
 HELP = (
-    "schedule must be every:<minutes> (15 to 10080), daily@HH:MM or weekly:<mon..sun>@HH:MM, "
-    "e.g. every:60, daily@09:00, weekly:mon@09:00"
+    "The schedule must be every 15 minutes to 7 days (every:60), daily at a time (daily@09:00) or "
+    "weekly on a day at a time (weekly:mon@09:00)."
 )
 
 
