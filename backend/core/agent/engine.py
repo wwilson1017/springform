@@ -86,7 +86,9 @@ def batch_key(spec: ToolSpec, args: dict, message_id: int | None) -> str | None:
     and only flat scalar values, which the card lists in full. The key pins everything about a call
     except the values the card shows, so one card never stands for a write the user cannot see.
     Display only: each member is still confirmed on its own."""
-    if message_id is None or not spec.writes or spec.always_confirm or not args or len(args) > MAX_BATCH_FIELDS:
+    if not isinstance(args, dict) or message_id is None or not spec.writes or spec.always_confirm:
+        return None  # a model can send a list or a number as the arguments; the handler rejects those
+    if not args or len(args) > MAX_BATCH_FIELDS:
         return None
     for value in args.values():
         if not isinstance(value, (str, int, float, bool, type(None))):

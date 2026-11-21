@@ -37,8 +37,23 @@ def _spec(**kw) -> ToolSpec:
         (_spec(), {"n": float("nan")}, 7, False),
         (_spec(always_confirm=True), {"name": "A"}, 7, False),
         (_spec(writes=False), {"name": "A"}, 7, False),
+        (_spec(), ["A", "B"], 7, False),
+        (_spec(), 3, 7, False),
     ],
-    ids=["flat", "no-args", "no-step", "too-many", "list", "nested", "long", "nan", "always-ask", "read"],
+    ids=[
+        "flat",
+        "no-args",
+        "no-step",
+        "too-many",
+        "list",
+        "nested",
+        "long",
+        "nan",
+        "always-ask",
+        "read",
+        "args-list",
+        "args-number",
+    ],
 )
 def test_batch_key(spec, args, message_id, batched):
     assert (engine.batch_key(spec, args, message_id) is not None) is batched
