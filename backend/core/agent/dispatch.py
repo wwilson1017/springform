@@ -121,7 +121,7 @@ async def _run(state: TurnState, emit: Callable[[dict], None], call: dict, messa
         state.user,
         state.by_name[call["name"]],
         call.get("args") or {},
-        source="chat",
+        source=state.tool_source,
         conversation_id=state.conversation_id,
         message_id=message_id,
         tool_use_id=call["id"],
@@ -182,6 +182,7 @@ async def run_call(
         "tool": name,
         "args": args,
         "user_id": state.user.id,
+        "source": state.tool_source,
     }
     spec = state.by_name.get(name)
 
@@ -208,9 +209,10 @@ async def run_call(
     elif spec.writes and (action := state.budget.check_write()) != BudgetAction.ALLOW:
         state.terminated = action == BudgetAction.TERMINATE
         outcome = await _refuse(record, "Write budget exceeded for this turn; not run.")
-    elif needs_confirmation(spec, args, state.tainted) and not await in_thread(
-        rule_skips, state.user.id, state.agent["id"], spec, args, state.tainted
-    ):  # a live always-allow rule falls through and runs like a routine write
+    elif needs_confirmation(spec, args, state.tainted) and not (
+        state.tool_source == "chat"
+        and await in_thread(rule_skips, state.user.id, state.agent["id"], spec, args, state.tainted)
+    ):  # a live always-allow rule falls through and runs like a routine write; never in a check-in
         listed = None
         if spec.change_list:  # the card lists what the call would change, read by the server
             try:

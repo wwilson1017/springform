@@ -58,6 +58,7 @@ springform/
       requests/    github.py service.py jobs.py router.py
       agent/       providers/ spec.py registry.py engine.py history.py assembly.py compaction.py llm.py delimiters.py write_budget.py
                    deferred.py agents.py execute.py router.py startup.py
+      checkins/    schedule.py service.py router.py jobs.py      (Whisk's scheduled check-ins, agent.md §5)
       mcp/         links.py server.py router.py startup.py      (the inbound MCP server, mcp.md §1)
       mcp_servers/ the outbound MCP client: client.py transport.py service.py router.py jobs.py
       memory/      facts.py context_files.py observer.py dreaming.py jobs.py tools.py router.py startup.py

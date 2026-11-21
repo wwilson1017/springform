@@ -8,6 +8,7 @@ import { IconMenu, IconX } from '../../shared/icons';
 import { LoadError } from '../../shared/LoadError';
 import { toast } from '../../shared/toast';
 import { AgentChatPanel } from './AgentChatPanel';
+import CheckinsPanel from './CheckinsPanel';
 import { ConversationSidebar } from './ConversationSidebar';
 import { IconLock } from './icons';
 import type { AgentStatus, ChatContext, Conversation } from './types';
@@ -28,7 +29,7 @@ function contextFromState(state: unknown): ChatContext | null {
  * 404 from the server and shows as not found. With no AI key the chat is replaced by the
  * zero-key card (the list and old threads still open). Opened from a record's "Ask" button, it
  * keeps that page and record (router state) and sends them with every turn until the chip is
- * dismissed or a new chat starts.
+ * dismissed or a new chat starts. `/whisk/checkins` shows the scheduled check-ins in place of the chat.
  */
 export default function WhiskPage() {
   const { isAdmin } = useAuth();
@@ -37,6 +38,7 @@ export default function WhiskPage() {
   const [context, setContext] = useState<ChatContext | null>(() => contextFromState(location.state));
   const splat = useParams()['*'] ?? '';
   const urlId = /^\d+$/.test(splat) ? Number(splat) : null;
+  const showCheckins = splat === 'checkins';
 
   const status = useJson<AgentStatus>('/api/agent/status');
   const conversations = useConversations();
@@ -136,23 +138,40 @@ export default function WhiskPage() {
   if (!status.data) return <BootFallback variant="panel" />;
 
   const sidebar = (
-    <ConversationSidebar
-      list={conversations.list}
-      failed={conversations.failed}
-      activeId={chat.conversationId}
-      query={conversations.query}
-      onQuery={conversations.setQuery}
-      onRetry={() => void reloadList()}
-      onNew={newChat}
-      onSelect={(id) => {
-        setDrawer(false);
-        navigate(`/whisk/${id}`);
-      }}
-      onRename={rename}
-      onTogglePrivate={(c) => void togglePrivate(c)}
-      onDelete={(c) => void remove(c)}
-      agentName={agentName}
-    />
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="min-h-0 flex-1">
+        <ConversationSidebar
+          list={conversations.list}
+          failed={conversations.failed}
+          activeId={chat.conversationId}
+          query={conversations.query}
+          onQuery={conversations.setQuery}
+          onRetry={() => void reloadList()}
+          onNew={newChat}
+          onSelect={(id) => {
+            setDrawer(false);
+            navigate(`/whisk/${id}`);
+          }}
+          onRename={rename}
+          onTogglePrivate={(c) => void togglePrivate(c)}
+          onDelete={(c) => void remove(c)}
+          agentName={agentName}
+        />
+      </div>
+      <button
+        type="button"
+        aria-current={showCheckins ? 'page' : undefined}
+        onClick={() => {
+          setDrawer(false);
+          navigate('/whisk/checkins');
+        }}
+        className={`shrink-0 cursor-pointer border-0 border-t border-solid border-sf-line px-4 py-3 text-left text-sm ${
+          showCheckins ? 'bg-sf-raised text-sf-ink' : 'bg-transparent text-sf-ink-mute hover:bg-sf-hover'
+        }`}
+      >
+        Check-ins
+      </button>
+    </div>
   );
 
   const header = (
@@ -166,7 +185,7 @@ export default function WhiskPage() {
         <IconMenu size={18} aria-hidden />
       </button>
       <h1 className="m-0 min-w-0 truncate font-display text-sm font-medium text-sf-ink">
-        {active?.title || (chat.conversationId ? 'Conversation' : 'New chat')}
+        {showCheckins ? 'Check-ins' : active?.title || (chat.conversationId ? 'Conversation' : 'New chat')}
       </h1>
       {active?.is_private && (
         <span
@@ -221,7 +240,14 @@ export default function WhiskPage() {
           />
         </div>
       )}
-      {failedOpen ? (
+      {showCheckins ? (
+        <div className="flex min-w-0 flex-1 flex-col">
+          {header}
+          <div className="min-h-0 flex-1 overflow-y-auto">
+            <CheckinsPanel configured={status.data.configured} agentName={agentName} />
+          </div>
+        </div>
+      ) : failedOpen ? (
         <div className="flex min-w-0 flex-1 flex-col">
           {header}
           <div className="mx-auto mt-16 max-w-md px-4 text-center">

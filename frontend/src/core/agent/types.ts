@@ -73,6 +73,8 @@ export type SkillsPage = S['SkillsPage'];
 export type Skill = S['Skill'];
 /** GET /api/agent/approval-rules */
 export type ApprovalRule = S['ApprovalRule'];
+/** GET /api/agent/checkins */
+export type Checkin = S['Checkin'];
 /** GET /api/agent/change-lists/{tool_run_id}, and its Undo */
 export type ChangeList = S['ChangeList'];
 

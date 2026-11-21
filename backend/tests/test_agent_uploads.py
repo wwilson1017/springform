@@ -175,6 +175,7 @@ def test_a_running_turn_refuses_and_discards_the_staged_files(login_as, monkeypa
     # a turn taking messages, where a text message would be queued (steering)
     class Busy:
         conversation_id, user_id, turn_id, steers = cid, a.principal.id, 99, []
+        unattended = False  # a chat turn, not a check-in's
 
         def accepting(self) -> bool:
             return True
