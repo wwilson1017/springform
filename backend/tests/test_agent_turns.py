@@ -7,6 +7,7 @@ every request shares one event loop; leaving a `c.stream(...)` block early is a 
 
 import asyncio
 import json
+import threading
 import time
 
 import pytest
@@ -133,23 +134,84 @@ def test_cancel_stops_the_turn_and_records_cancelled(app, login_as):
         assert after[-1]["type"] == "done"
 
 
-def test_a_second_running_turn_on_a_conversation_is_refused(app, login_as):
+def user_texts(cid: int) -> list[str]:
+    rows = core_db.rows(
+        "SELECT content FROM core_agent_messages WHERE conversation_id = ? AND role = 'user' ORDER BY id", (cid,)
+    )
+    return [json.loads(r["content"])["text"] for r in rows]
+
+
+def test_a_message_sent_while_a_turn_runs_is_answered_in_that_turn(app, login_as, model_requests):
     a = login_as("member")
-    first = events(a.post("/api/agent/chat", json={"message": "one"}))
-    cid = first[0]["id"]
-    fake.script(SLOW)
+    cid = events(a.post("/api/agent/chat", json={"message": "one"}))[0]["id"]
+    fake.script(SLOW, "Three it is.")
     with live_client(app, a) as c:
         with c.stream("POST", "/api/agent/chat", json={"conversation_id": cid, "message": "two"}) as r:
             it = frames(r)
-            next(it)
-            refused = c.post("/api/agent/chat", json={"conversation_id": cid, "message": "three"})
-            assert (refused.status_code, refused.json()) == (409, {"detail": "turn_running"})
-            assert list(it)[-1]["type"] == "done"
-        texts = core_db.rows(
-            "SELECT content FROM core_agent_messages WHERE conversation_id = ? AND role = 'user'", (cid,)
-        )
-        assert [json.loads(t["content"])["text"] for t in texts] == ["one", "two"]
+            tid = next(it)["turn_id"]
+            next(e for e in it if e["type"] == "text")  # the model call is under way
+            queued = c.post("/api/agent/chat", json={"conversation_id": cid, "message": "three"})
+            assert (queued.status_code, queued.json()) == (202, {"queued": True, "turn_id": tid})
+            again = c.post("/api/agent/chat", json={"conversation_id": cid})  # a continuation still waits
+            assert (again.status_code, again.json()) == (409, {"detail": "turn_running"})
+            rest = list(it)
+        assert [e["type"] for e in rest][-4:] == ["steer", "text", "usage", "done"] and rest[-4]["text"] == "three"
+        assert user_texts(cid) == ["one", "two", "three"] and replies(cid)[-2:] == ["abc", "Three it is."]
+        assert "three" in json.dumps(model_requests[-1]["messages"][-1])
         assert c.post("/api/agent/chat", json={"conversation_id": cid, "message": "four"}).status_code == 200
+
+
+def test_a_skipped_write_never_runs_and_its_call_keeps_a_result(app, login_as, model_requests):
+    from backend.core.agent import registry as tool_registry
+    from backend.core.agent.spec import ToolSpec
+
+    started, steered, wrote = threading.Event(), threading.Event(), []
+    schema = {"type": "object", "properties": {}}
+    look = ToolSpec(name="core_look", description="A lookup.", input_schema=schema, writes=False,
+                    handler=lambda u, a: (started.set(), steered.wait(5)) and {"looked": True})  # fmt: skip
+    jot = ToolSpec(name="core_jot", description="Jot.", input_schema=schema, writes=True, confirm_tier="routine",
+                   handler_in=lambda conn, u, a: wrote.append(1) or {"ok": True}, targets=lambda a: [])  # fmt: skip
+    before = tool_registry.current()
+    tool_registry.set_current(tool_registry.build_registry([*before.all(), look, jot]))
+    a = login_as("member")
+    fake.script([{"tool": "core_look"}, {"tool": "core_jot"}], "Not jotting.")
+    try:
+        with live_client(app, a) as c:
+            with c.stream("POST", "/api/agent/chat", json={"message": "look, then jot"}) as r:
+                it = frames(r)
+                cid = next(it)["id"]
+                assert started.wait(5)  # the lookup is running
+                assert c.post("/api/agent/chat", json={"conversation_id": cid, "message": "no jot"}).status_code == 202
+                steered.set()  # the lookup was running when the message came: it finishes
+                rest = list(it)
+            assert user_texts(cid) == ["look, then jot", "no jot"]
+    finally:
+        tool_registry.set_current(before)
+    ends = {e["tool"]: e for e in rest if e["type"] == "tool_end"}
+    assert ends["core_look"]["status"] == "done" and wrote == []
+    assert ends["core_jot"]["result"] == {"error": "Skipped to process your new message."}
+    sent = json.dumps(model_requests[-1]["messages"][-1])
+    assert sent.index("looked") < sent.index("Skipped to process") < sent.index("no jot")
+
+
+def test_a_message_the_turn_never_took_is_saved_and_the_next_turn_answers_it(app, login_as, model_requests):
+    a = login_as("member")
+    fake.script(SLOW)
+    with live_client(app, a) as c:
+        with c.stream("POST", "/api/agent/chat", json={"message": "two"}) as r:
+            it = frames(r)
+            first = next(it)
+            next(e for e in it if e["type"] == "text")  # stopped before this model call ends
+            assert (
+                c.post("/api/agent/chat", json={"conversation_id": first["id"], "message": "three"}).status_code == 202
+            )
+            assert c.post(f"/api/agent/turns/{first['turn_id']}/cancel").json() == {"cancelled": True}
+            rest = list(it)
+        assert rest[-1]["stopped"] and not [e for e in rest if e["type"] == "steer"]
+        assert user_texts(first["id"]) == ["two", "three"]
+        fake.script("About three.")
+        assert events(c.post("/api/agent/chat", json={"conversation_id": first["id"]}))[-1]["type"] == "done"
+    assert "three" in json.dumps(model_requests[-1]["messages"][-1])
 
 
 def test_a_turn_left_running_is_interrupted_at_startup(login_as):
@@ -249,3 +311,52 @@ def test_the_final_log_write_is_retried_and_never_holds_the_reply(login_as, monk
     evs = events(a.post("/api/agent/chat", json={"message": "hi"}))
     assert evs[-1]["type"] == "done" and turn(evs[0]["turn_id"])["status"] == status
     assert len(calls) == min(failures + 1, detached.FINAL_TRIES)
+
+
+def test_the_approval_narration_leaves_a_message_for_the_next_turn(app, login_as, model_requests):
+    from backend.core.agent import registry as tool_registry
+    from backend.core.agent.spec import ToolSpec
+
+    steered = threading.Event()
+    schema = {"type": "object", "properties": {}}
+    ask = ToolSpec(name="core_ask", description="Asks first.", input_schema=schema, writes=True, always_confirm=True,
+                   handler_in=lambda conn, u, a: {"ok": True}, targets=lambda a: [])  # fmt: skip
+    jot = ToolSpec(name="core_jot", description="Jot.", input_schema=schema, writes=True, confirm_tier="routine",
+                   handler_in=lambda conn, u, a: steered.wait(5) and {"ok": True}, targets=lambda a: [])  # fmt: skip
+    before = tool_registry.current()
+    tool_registry.set_current(tool_registry.build_registry([*before.all(), ask, jot]))
+    a = login_as("member")
+    fake.script([{"tool": "core_ask"}, {"tool": "core_jot"}], "The first change waits for your approval.")
+    try:
+        with live_client(app, a) as c:
+            with c.stream("POST", "/api/agent/chat", json={"message": "change both"}) as r:
+                it = frames(r)
+                cid = next(it)["id"]
+                next(e for e in it if e["type"] == "confirm")
+                assert (
+                    c.post("/api/agent/chat", json={"conversation_id": cid, "message": "and a third"}).status_code
+                    == 202
+                )
+                steered.set()  # the second change was running: it finishes, then the narration
+                rest = list(it)
+            assert user_texts(cid) == ["change both", "and a third"]  # saved for the next turn to answer
+    finally:
+        tool_registry.set_current(before)
+    assert rest[-1]["type"] == "done" and not [e for e in rest if e["type"] == "steer"]
+    assert "and a third" not in json.dumps(model_requests[-1]["messages"])
+
+
+def test_a_message_sent_during_a_provider_retry_reaches_the_retried_call(app, login_as, model_requests):
+    a = login_as("member")
+    fake.script({"error": "slow down", "status": 429, "retry_after": 1}, "Answering both.")
+    with live_client(app, a) as c:
+        with c.stream("POST", "/api/agent/chat", json={"message": "one"}) as r:
+            it = frames(r)
+            cid = next(it)["id"]
+            deadline = time.monotonic() + 5
+            while not model_requests and time.monotonic() < deadline:  # the first attempt was made: now in backoff
+                time.sleep(0.02)
+            assert c.post("/api/agent/chat", json={"conversation_id": cid, "message": "two"}).status_code == 202
+            rest = list(it)
+    assert len(model_requests) == 2 and "two" in json.dumps(model_requests[1]["messages"])
+    assert [e for e in rest if e["type"] == "steer"] and rest[-1]["type"] == "done"
