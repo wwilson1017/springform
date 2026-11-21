@@ -118,6 +118,7 @@ Runs against a seeded `PREVIEW_MODE=1` build with the FakeProvider and the Googl
 - FakeProvider streams text + a write tool → `confirm`, pending run; approve by a non-owner 403; stale `tool_def_sha256` → `stale`; approve executes once with args from the DB (double approve = `already_resolved`); deny recorded; `executing` at startup → `interrupted`.
 - Scenarios (below): an untrusted result is fenced and every later write confirms; approve then continue; compaction shows the summarizer the identifiers and the model the gist; a dropped turn resumes. Removing the fence fails a scenario (`test_removing_the_untrusted_fence_fails_a_scenario`).
 - Prompt budget (`test_prompt_budget.py`): the static system prompt plus the eager tool definitions of an admin's first turn (lifespan run, so the seeded soul.md counts) stay under `BUDGET_TOKENS` (characters / 4); a self-test flags a synthetic oversized prompt and passes a small one. Raise it on purpose, in the PR that needs it. With `PROMPT_REPORT=<file>` it appends the sizes and the chat tool surface (name, `writes`, `always_confirm`, `confirm_tier`, eager) as Markdown; CI writes that to the Backend job summary.
+- Turn reliability (`agent.md` §5): a result over 25,000 characters is capped and fully readable through `core_read_result`; older results clear past 100,000 input tokens, the newest three kept. A fallback never happens after a write ran; each unfinished ending saves a note; the round limit gets a last answer.
 
 ### Whisk scenarios (`backend/tests/scenarios/*.yaml`)
 
@@ -131,6 +132,7 @@ tools:                        # optional test-only core tools, added to the live
   - name: core_scen_save_widget   # core_ prefix
     writes: true                  # default false (a read)
     returns: {saved: widget-77}   # what the tool answers (default {ok: true})
+    repeat: 2000                  # optional: answer a list of that many copies of `returns` (a big result)
     # also: description, confirm_tier: routine, always_confirm, untrusted_source, external_effect
 steps:
   - send: Save the blue widget.          # one action per step (see below)
