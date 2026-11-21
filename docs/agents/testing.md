@@ -18,7 +18,7 @@ The fixtures and guards live in a pytest plugin, `backend/testing/fixtures.py`, 
 4. **`login_as(role, email=None, on=app)`**: a fixture that creates a new user of that role and returns a new signed-in `TestClient` with `.user` (the `/api/me` shape) and `.principal` (the `User`). The first account goes through the real setup-token path as an admin; later ones sign in through `/api/auth/login`. **`make_user(role, email=None, password=…)`** creates a user directly, without HTTP.
 5. **Skip/xfail ban**: the plugin fails collection when a test carries a `skip`, `skipif` or `xfail` marker (lifted from CakeCRM). `ALLOWED_SUPPRESSIONS` lists node ids allowed one, each with a reason; it is empty. `test_conftest_guards.py` self-tests it.
 6. Two-member tests create two real members and one restrictive record: every `login_as("member")` call makes a new, distinct member.
-7. Providers: a **FakeProvider** stands in for LLM providers; nothing calls a real model.
+7. Providers: a **FakeProvider** stands in for LLM providers; nothing calls a real model. **`model_requests`** records every FakeProvider call of the test, in order, as `{system, messages, tools}`.
 8. HTTP to external services is mocked (Google token endpoint) or served locally: inbound MCP runs through `httpx2.ASGITransport`, and the outbound client talks to `backend/tests/fixtures/mcp_stub.py`, a two-tool `MCPServer` on a loopback port (with `MCP_ALLOW_PRIVATE=1`); `with mcp_stub.serve() as (url, calls):` stops it when the block ends.
 9. The contract test runs against every app in `backend/apps/` and against `backend/tests/fixtures/bad_app`, which it must fail.
 10. **Typed routes**: `test_routes_are_typed.py` fails when a `/api/core/*`, `/api/agent/*` or `/api/health` route answers without a response model, unless its `UNTYPED` allow-list names the route with a reason (streams, downloads and a few bodies not typed yet). `test_response_models.py` pins each typed route's keys in `fixtures/response_shapes.json`.
@@ -116,6 +116,54 @@ Runs against a seeded `PREVIEW_MODE=1` build with the FakeProvider and the Googl
 - `for_source("job")` excludes writes; `for_source("mcp")` excludes protected and remote tools.
 - Zero-key status + 400.
 - FakeProvider streams text + a write tool → `confirm`, pending run; approve by a non-owner 403; stale `tool_def_sha256` → `stale`; approve executes once with args from the DB (double approve = `already_resolved`); deny recorded; `executing` at startup → `interrupted`.
+- Scenarios (below): an untrusted result is fenced and every later write confirms; approve then continue; compaction shows the summarizer the identifiers and the model the gist; a dropped turn resumes. Removing the fence fails a scenario (`test_removing_the_untrusted_fence_fails_a_scenario`).
+- Prompt budget (`test_prompt_budget.py`): the static system prompt plus the eager tool definitions of an admin's first turn (lifespan run, so the seeded soul.md counts) stay under `BUDGET_TOKENS` (characters / 4); a self-test flags a synthetic oversized prompt and passes a small one. Raise it on purpose, in the PR that needs it. With `PROMPT_REPORT=<file>` it appends the sizes and the chat tool surface (name, `writes`, `always_confirm`, `confirm_tier`, eager) as Markdown; CI writes that to the Backend job summary.
+
+### Whisk scenarios (`backend/tests/scenarios/*.yaml`)
+
+`test_scenarios.py` runs every YAML file in `backend/tests/scenarios/` as one test (the id is the file name). A scenario signs in a new user, scripts the FakeProvider's replies for each step, drives real turns over HTTP through the server-owned turn (`detached.py` running `turns.TurnRunner`) on a client that runs the lifespan, and checks the events each step emits and what the model was sent. A feature that changes what the model sees or what the turn emits adds a scenario: a new YAML file, and a new key in the runner only when no existing one can say it. Unknown keys fail the test, so a typo never passes silently.
+
+```yaml
+name: An approved write runs, and continuing shows the model its result   # required
+role: member                  # optional (default member); admin sees admin-only tools
+context_window: 1000          # optional: the FakeProvider's window in tokens (small forces compaction)
+tools:                        # optional test-only core tools, added to the live registry for this file
+  - name: core_scen_save_widget   # core_ prefix
+    writes: true                  # default false (a read)
+    returns: {saved: widget-77}   # what the tool answers (default {ok: true})
+    # also: description, confirm_tier: routine, always_confirm, untrusted_source, external_effect
+steps:
+  - send: Save the blue widget.          # one action per step (see below)
+    replies:                             # queued for the FakeProvider: one entry per model call
+      - {tool: core_scen_save_widget, args: {color: blue}}
+      - Saving the widget needs your approval.
+    events:                              # must appear in this order; others may sit between
+      - {type: confirm, tool: core_scen_save_widget}   # a mapping matches the keys it names
+      - done                             # a string matches the type
+  - approve: core_scen_save_widget       # the newest confirm event for that tool
+    status: done                         # optional: the /confirm response status
+  - continue: true
+    replies: [Saved widget-77.]
+    request:                             # one check, or a list of them
+      call: -1                           # which model call of this step (0 = first; default -1, the last)
+      messages_contain: ['{"saved": "widget-77"}']
+      messages_exclude: []
+      messages_match: []                 # regular expressions (re.search), e.g. a fence opened and closed with one nonce
+      system_contains: []
+```
+
+| Action | Does |
+|---|---|
+| `send: <text>` | `POST /api/agent/chat` with the message, in the scenario's conversation once it has one |
+| `continue: true` | The same with no message: the resume after approvals |
+| `approve: <tool>` / `deny: <tool>` | `POST /api/agent/confirm` for the newest `confirm` event of that tool |
+| `resume: true` | `GET /api/agent/turns/{id}/events?after=<last seq seen>` for the latest turn |
+
+- `drop_after: <event type>` on a `send` or `continue` disconnects once that event arrives, and checks the turn is still running then (script slow `chunks` so it is); the turn carries on, and a later `resume` reads the rest.
+- `replies` entries are FakeProvider turns (`providers/fake.py`): a string streams text, `{tool, args, text?}` calls a tool, a list makes several calls, `{error}` fails the call, `{chunks, delay}` streams slowly. A compaction summary is a model call too: it takes the next reply, before the turn's own. A step that leaves a reply unused fails (except a `drop_after` step, whose turn is still going).
+- Every step that streams a turn also checks that the events are numbered without gaps (a resume continues from the last seq seen) and end on `done` or `error` (or on the `drop_after` event).
+- Request checks look at the strings of the call's `messages` and `system`, so a fence reads as the model gets it, not JSON-escaped. Another test can read those calls with the `model_requests` fixture.
+- Files and tools a scenario makes up use generic names (no people, businesses or real records).
 
 ### MCP
 
@@ -224,6 +272,8 @@ CI job (beside Frontend in `.github/workflows/ci.yml`):
 ## 6. CI (`.github/workflows/ci.yml`)
 
 Structure copied from CakeCRM: SHA-pinned actions, ruff check and ruff format, pyright, an import check, pytest, frontend build / lint / Prettier / test + the types diff, the browser smoke (§4), gitleaks, the image test. Required checks for branch protection: **Backend**, **Frontend**, **Secret scan**, and **Fork scope** (which always runs and passes upstream, where there is no `FORK.md`; `forks.md`).
+
+The Backend job ends by writing the Whisk prompt size and chat tool surface to its job summary (`test_prompt_budget.py` with `PROMPT_REPORT`, §2 Whisk).
 
 `scripts/check.sh` runs the Backend and Frontend jobs' checks locally; run it before a PR.
 

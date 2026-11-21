@@ -340,6 +340,7 @@ Rules the frontend keeps:
 - FakeProvider streams text + a write tool → `confirm`, pending run, approve by a non-owner 403, stale `tool_def_sha256` → `stale`, approve executes once with args from the DB (double approve = `already_resolved`), deny recorded, `executing` at startup → `interrupted`.
 - No network or LLM call inside `transaction()`.
 - `test_agent_turns.py`: a turn survives a disconnect and saves its reply; `after=N` replays each later event once, live and from the log; cancel records `cancelled`; a second running turn is 409; startup and shutdown mark `interrupted`; the prune; a request cancelled while the turn starts still gets an answer; the final log write is retried. `test_agent_hooks.py`: each hook point's contract. `useAgentChat.test.tsx`: resume after a drop and on `visibilitychange`, and Stop.
+- `test_scenarios.py` runs `backend/tests/scenarios/*.yaml` (format in `testing.md`, "Whisk scenarios"): fencing and taint, approve then continue, compaction, a dropped turn resuming. `test_prompt_budget.py`: the static prompt plus eager tools stay under a token budget.
 - Playwright: Whisk answers with FakeProvider → write tool shows Approve and runs on approve → zero-key card.
 
 ## Source

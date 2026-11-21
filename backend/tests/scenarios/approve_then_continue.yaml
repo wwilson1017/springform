@@ -1,0 +1,25 @@
+name: An approved write runs, and continuing shows the model its result
+tools:
+  - name: core_scen_save_widget
+    writes: true
+    returns: {saved: widget-77}
+steps:
+  - send: Save the blue widget.
+    replies:
+      - {tool: core_scen_save_widget, args: {color: blue}}
+      - Saving the widget needs your approval.
+    events:
+      - {type: confirm, tool: core_scen_save_widget, args: {color: blue}}
+      - {type: text, text: Saving the widget needs your approval.}
+      - done
+  - approve: core_scen_save_widget
+    status: done
+  - continue: true
+    replies: [Saved widget-77.]
+    events:
+      - {type: text, text: Saved widget-77.}
+      - done
+    request:
+      messages_contain:
+        - '{"saved": "widget-77"}'
+        - Please continue based on the results shown above.
