@@ -68,6 +68,18 @@ def _sources(content: list) -> str:
     return "\n\nSources:\n" + "\n".join(f"- [{title}]({url})" for url, title in seen.items()) if seen else ""
 
 
+def _api_content(content):
+    """Neutral image parts as Anthropic base64 image blocks; everything else as it is."""
+    if not isinstance(content, list):
+        return content
+    return [
+        {"type": "image", "source": {"type": "base64", "media_type": p["media_type"], "data": p["data"]}}
+        if isinstance(p, dict) and p.get("type") == "image"
+        else p
+        for p in content
+    ]
+
+
 def _client(api_key: str) -> Any:
     import anthropic
 
@@ -85,6 +97,10 @@ class AnthropicProvider(AIProvider):
     @property
     def provider_name(self) -> str:
         return "anthropic"
+
+    @property
+    def supports_images(self) -> bool:
+        return self.model.startswith("claude-")
 
     @property
     def context_window(self) -> int | None:
@@ -127,7 +143,13 @@ class AnthropicProvider(AIProvider):
             {"name": t["name"], "description": t.get("description", ""), "input_schema": t.get("input_schema", {})}
             for t in tools
         ]
-        api_messages = self._cache_last_user_message([m for m in messages if m.get("role") in ("user", "assistant")])
+        api_messages = self._cache_last_user_message(
+            [
+                {**m, "content": _api_content(m.get("content"))}
+                for m in messages
+                if m.get("role") in ("user", "assistant")
+            ]
+        )
         if any(t["name"] == SEARCH for t in api_tools):
             provider, max_uses = await asyncio.to_thread(_search_settings)
             # Tainted: the free search, whose query asks first. simplification: a call that replays this

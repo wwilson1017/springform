@@ -33,7 +33,7 @@ import time
 from backend.core import settings
 from backend.core.agent import delimiters, history, usage
 from backend.core.agent.aio import in_thread
-from backend.core.agent.assembly import CHARS_PER_TOKEN, DEFAULT_BUDGET_TOKENS, HEAD_ROWS
+from backend.core.agent.assembly import CHARS_PER_TOKEN, DEFAULT_BUDGET_TOKENS, HEAD_ROWS, _truncate
 from backend.core.agent.llm import acomplete
 from backend.core.agent.providers import get_provider
 
@@ -216,7 +216,10 @@ def _render(row: dict, by_message: dict) -> str:
     """One row for the summarizer, bounded; every tool result fenced as data (clipped raw first)."""
     text = (row["content"].get("text") or "").strip()
     if row["role"] == "user":
-        return "USER: " + _clip(text, MAX_ROW_CHARS) if text else ""
+        files = row["content"].get("files") or []
+        lines = [f"USER: {_clip(text, MAX_ROW_CHARS // 2 if files else MAX_ROW_CHARS)}"] if text else []
+        share = MAX_ROW_CHARS // 2 // max(1, len(files))
+        return "\n".join(lines + [f"USER ATTACHED: {_truncate(f['text'], share)}" for f in files])
     lines = [f"ASSISTANT: {_clip(text, MAX_ROW_CHARS // 2)}"] if text else []
     runs = {r["tool_use_id"]: r for r in by_message.get(row["id"], [])}
     budget = MAX_ROW_CHARS // 2
@@ -292,7 +295,16 @@ def required(middle: list[dict], by_message: dict, prev_summary: str | None) -> 
     ask = next((_norm(r["content"].get("text") or "") for r in reversed(middle) if r["role"] == "user"), "")
     if len(ask) > MAX_ASK_CHARS:
         ask = ask[:MAX_ASK_CHARS].rsplit(" ", 1)[0]
-    return ([ask] if ask else []) + [i for i in out if missing(ask, [i])]  # ask covers the ones it holds as tokens
+    # A kept upload's handle, so core_read_upload can still reach it; not the file's own identifiers,
+    # which are untrusted and could crowd out the conversation's.
+    handles = [
+        f"Upload {f['upload_id']}"
+        for r in reversed(middle)
+        if r["role"] == "user"
+        for f in r["content"].get("files") or []
+        if f.get("upload_id")
+    ]
+    return ([ask] if ask else []) + handles + [i for i in out if missing(ask, [i])]  # ask covers the ones it holds
 
 
 def missing(summary: str, must: list[str]) -> list[str]:

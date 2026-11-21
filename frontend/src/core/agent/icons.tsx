@@ -44,3 +44,18 @@ export function IconStop(p: IconProps) {
     </Ico>
   );
 }
+export function IconPaperclip(p: IconProps) {
+  return (
+    <Ico {...p}>
+      <path d="M20 11.5l-7.8 7.8a5 5 0 0 1-7-7L13 4.5a3.4 3.4 0 0 1 4.8 4.8l-7.7 7.7a1.7 1.7 0 0 1-2.4-2.4l7-7" />
+    </Ico>
+  );
+}
+export function IconImage(p: IconProps) {
+  return (
+    <Ico {...p}>
+      <rect x="4" y="5" width="16" height="14" rx="2" />
+      <path d="M4 16l4.5-4.5 4 4 2.5-2.5 5 5M15.5 9.5h.01" />
+    </Ico>
+  );
+}

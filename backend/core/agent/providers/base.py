@@ -11,6 +11,11 @@ Events yielded by `stream_turn()` (dicts, not yet SSE-encoded):
      "usage": {...}, "assistant_content"?: native blocks to replay within this turn}
 
 `_turn_complete` is internal: the engine intercepts it to run tools and loop.
+
+A user message's content is a string, or a list of neutral parts (a message with attachments):
+    {"type": "text", "text": "..."}
+    {"type": "image", "media_type": "image/jpeg", "data": "<base64>"}
+Adapters translate image parts; one whose model cannot take them says so with `supports_images`.
 """
 
 from __future__ import annotations
@@ -77,6 +82,12 @@ class AIProvider(ABC):
     def context_window(self) -> int | None:
         """Tokens, or None when unknown (the meter hides; compaction assumes a default budget)."""
         return None
+
+    @property
+    def supports_images(self) -> bool:
+        """Whether this model takes photos: a photo upload is refused, and assembly leaves the
+        image parts out (the placeholder stays), when it does not."""
+        return False
 
     def build_tool_turn(
         self,

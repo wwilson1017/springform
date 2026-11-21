@@ -12,6 +12,7 @@ const row = (
   role,
   text,
   tool_calls,
+  files: [],
   model: role === 'assistant' ? 'm' : null,
   created_at: '2026-10-24T10:00:00Z',
 });
@@ -180,5 +181,14 @@ describe('applyEvent', () => {
       { type: 'error', error: 'Provider error' },
     );
     expect(m).toMatchObject({ streaming: false, error: 'Provider error' });
+  });
+});
+
+describe('fromServer attachments', () => {
+  it('keeps the files a user message carried', () => {
+    const files = [{ filename: 'shelf.png', kind: 'image' as const }];
+    const [m] = fromServer([{ ...row(1, 'user', ''), files }]);
+    expect(m.files).toEqual(files);
+    expect(m.parts).toEqual([]);
   });
 });
