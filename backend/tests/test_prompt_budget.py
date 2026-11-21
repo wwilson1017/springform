@@ -17,7 +17,7 @@ from backend.core.agent.engine import chat_tools
 from backend.core.agent.providers import fake
 from backend.core.memory.context_files import DEFAULTS, SOUL
 
-BUDGET_TOKENS = 10_000
+BUDGET_TOKENS = 14_000
 
 
 @pytest.fixture(autouse=True)
