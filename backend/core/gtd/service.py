@@ -14,12 +14,10 @@ import threading
 import time
 from urllib.parse import urlsplit
 
-from pydantic import ValidationError
-
 from backend.core import db
 from backend.core.errors import AppError, Conflict, Invalid
 from backend.core.mcp_servers import client, service as mcp_service, transport
-from backend.core.mcp_servers.router import ServerIn
+from backend.core.mcp_servers.router import check_url
 from backend.core.platform import keys, service as platform_service
 
 PREFIX, NAME = "gtd", "GTD suite"
@@ -129,10 +127,10 @@ def start() -> dict:
         if taken is not None:
             raise Conflict("gtd_already_connected" if taken["trusted"] else "gtd_prefix_taken")
         base = keys.get("gtd.base_url")
-        try:  # the same rules as a hand-added server: https (http only with MCP_ALLOW_PRIVATE=1), a usable prefix
-            ServerIn(name=NAME, url=base, prefix=PREFIX)
-        except ValidationError as e:
-            raise Invalid(e.errors()[0]["msg"].removeprefix("Value error, ")) from None
+        try:  # the hand-added server rules: https (http only with MCP_ALLOW_PRIVATE=1), no login
+            check_url(base)
+        except ValueError as e:
+            raise Invalid(str(e)) from None
         tiles, r = _call(_start, base)
         if r.status_code == 429:
             minutes = -(-_retry_after(r, 3600) // 60)
@@ -195,8 +193,8 @@ def _poll_once() -> int | None:
         if body.get("status") != "approved":
             return None
         try:
-            p["agent_url"] = ServerIn(name=NAME, url=str(body.get("agent_url", "")), prefix=PREFIX).url
-        except ValidationError:
+            p["agent_url"] = check_url(str(body.get("agent_url", "")))
+        except ValueError:
             _pending = None
             raise GtdError("The GTD suite returned an address this install will not call.") from None
     # The link is sent only once: it stays in memory until this commits (e.g. while a hand-added
