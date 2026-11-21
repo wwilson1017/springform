@@ -81,13 +81,14 @@ SUMMARY_SYSTEM = (
 )
 
 # Literal strings a summary must keep. One alternation scanned left to right, so a date or URL is
-# taken whole and the numbers inside it are not matched again.
+# taken whole and the numbers inside it are not matched again. Possessive quantifiers keep the id
+# pattern linear on hostile input (user text and tool results reach it).
 _IDENTIFIER_RE = re.compile(
     r"https?://[^\s<>\"'`)\]]+"  # URL
     r"|(?<!\d)\d{4}-\d{2}-\d{2}(?!\d)"  # ISO date, also the date of a timestamp
     r"|(?<![\w.,])[$€£]?\d[\d,]*\.\d{2}(?!\w)"  # amount with cents: 1250.00, $1,250.00
     r"|(?<![\w.,])[$€£]\d[\d,]*(?!\w)"  # amount with a currency sign: $40
-    r"|(?<![\w-])[A-Za-z][A-Za-z0-9]*[-_#]?\d{2,}[A-Za-z0-9]*(?:-[A-Za-z0-9]+)*(?![\w-])"  # INV-0042, SO123
+    r"|(?<![\w-])[A-Za-z]++[-_#]?+\d{2,}+[A-Za-z0-9]*+(?:-[A-Za-z0-9]++)*+(?![\w-])"  # INV-0042, SO123
     r"|#\d+(?!\w)"  # #17
     r"|(?<![\w.,$€£#-])\d{3,}(?![\w,]|\.\d)"  # a bare number of 3+ digits: deal 4521
 )
@@ -311,7 +312,7 @@ async def _summarize(middle: list[dict], by_message: dict, prev_summary: str | N
     transcript = "\n".join(reversed(chunks)).strip()
     if not transcript:
         return "", "failed"
-    must = required(middle, by_message, prev_summary)
+    must = await in_thread(required, middle, by_message, prev_summary)  # regex work off the event loop
     prompt = "MUST APPEAR VERBATIM:\n" + "".join(f"- {m}\n" for m in must) + "\n" if must else ""
     prompt += "PRIOR SUMMARY (of even older messages; fold this in):\n" + prev_summary + "\n\n" if prev_summary else ""
     prompt += "MIDDLE MESSAGES TO COMPACT:\n" + transcript

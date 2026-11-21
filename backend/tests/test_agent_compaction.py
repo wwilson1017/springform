@@ -3,6 +3,7 @@ memory flush before it. The end-to-end paths are the `compaction_*` scenarios.""
 
 import asyncio
 import json
+import time
 
 import pytest
 
@@ -61,6 +62,12 @@ def test_identifiers_in_json_are_read_decoded_not_from_escapes():
     found = compaction.identifiers([args, result, fenced, "1250.00"])
     assert found == ["INV-0042", "2026-12-01", "SO-7781", "7", "INV-0043", "1250.00"]
     assert not any(t.startswith(("n", "u00", "ud8")) for t in found)
+
+
+def test_identifier_extraction_stays_linear_on_hostile_input():
+    start = time.monotonic()
+    assert compaction.identifiers(["a" + "1" * 20_000 + "_x", "INV-" + "0" * 20_000 + "-" * 20_000]) == []
+    assert time.monotonic() - start < 1
 
 
 def test_missing_matches_whole_tokens():
