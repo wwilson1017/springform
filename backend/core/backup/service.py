@@ -1,9 +1,9 @@
 """Recovery sets: `<data>/backups/<stamp>.sqlite` plus `<stamp>.manifest.json`, written last.
 A stamp is the start second (`20261102T150000Z`); a second set in the same second gets `-2`, `-3`, ….
 
-A set is complete iff its manifest exists. The manifest lists every blob (`core_files.sha256`)
-the snapshot references; the files sweep never deletes a blob a retained manifest lists, so
-every retained set restores whole, and pruning a set is what releases its blobs.
+A set is complete iff its manifest exists. The manifest lists every blob the snapshot's holding
+rows reference (`files.service.BLOB_HOLDERS`); the files sweep never deletes a blob a retained
+manifest lists, so every retained set restores whole, and pruning a set is what releases its blobs.
 
 `run()` never raises: a failure is logged and recorded in `core_backups` (`ok | error | skipped`).
 """
@@ -23,6 +23,7 @@ from pathlib import Path
 
 from backend.core import VERSION, clock, db, secrets, settings
 from backend.core.errors import AppError, NotFound
+from backend.core.files import service as files_service
 
 logger = logging.getLogger(__name__)
 
@@ -122,7 +123,7 @@ def _take(started: datetime) -> tuple[str, dict]:
         db.get_conn().execute("VACUUM INTO ?", (str(tmp),))
         snap = db.sqlite3.connect(f"file:{tmp}?mode=ro", uri=True)
         try:  # the blobs this snapshot references, read from the snapshot itself
-            blobs = [r[0] for r in snap.execute("SELECT DISTINCT sha256 FROM core_files ORDER BY sha256")]
+            blobs = [r[0] for r in snap.execute(f"{files_service.HELD_SHAS} ORDER BY sha256")]
         finally:
             snap.close()
         with open(tmp, "rb+") as f:

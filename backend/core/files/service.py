@@ -98,13 +98,27 @@ def _authorized_row_in(conn: db.Conn, user: User, file_id: int, action: entities
     return dict(row)
 
 
-def _release_in(conn: db.Conn, shas: list[str]) -> None:
-    """Start the clock on blobs that just lost their last row."""
+# The tables whose rows hold a blob: the release check, the sweep and the backup manifest read them.
+BLOB_HOLDERS = ("core_files", "core_agent_uploads")
+UNHELD = " AND ".join(f"NOT EXISTS (SELECT 1 FROM {t} h WHERE h.sha256 = core_file_blobs.sha256)" for t in BLOB_HOLDERS)
+HELD_SHAS = " UNION ".join(f"SELECT sha256 FROM {t}" for t in BLOB_HOLDERS)
+
+
+def release_in(conn: db.Conn, shas: list[str]) -> None:
+    """Start the clock on blobs that just lost their last holding row."""
     conn.execute(
-        """UPDATE core_file_blobs SET unreferenced_since = ?
-            WHERE sha256 IN (SELECT value FROM json_each(?)) AND unreferenced_since IS NULL
-              AND NOT EXISTS (SELECT 1 FROM core_files f WHERE f.sha256 = core_file_blobs.sha256)""",
+        f"""UPDATE core_file_blobs SET unreferenced_since = ?
+             WHERE sha256 IN (SELECT value FROM json_each(?)) AND unreferenced_since IS NULL AND {UNHELD}""",
         (clock.now_iso(), json.dumps(shas)),
+    )
+
+
+def hold_blob_in(conn: db.Conn, staged: storage.Staged) -> None:
+    """Record the staged bytes' blob (or revive an existing one) before a holding row is inserted."""
+    conn.execute(
+        """INSERT INTO core_file_blobs (sha256, byte_size, created_at) VALUES (?, ?, ?)
+           ON CONFLICT (sha256) DO UPDATE SET unreferenced_since = NULL, missing_at = NULL""",
+        (staged.sha256, staged.byte_size, clock.now_iso()),
     )
 
 
@@ -149,11 +163,7 @@ def _publish_in(
 ) -> tuple[dict, bool]:
     entities.authorize(user, conn, entity_type, entity_id, "write")
     now, name = clock.now_iso(), normalize_filename(filename)
-    conn.execute(
-        """INSERT INTO core_file_blobs (sha256, byte_size, created_at) VALUES (?, ?, ?)
-           ON CONFLICT (sha256) DO UPDATE SET unreferenced_since = NULL, missing_at = NULL""",
-        (staged.sha256, staged.byte_size, now),
-    )
+    hold_blob_in(conn, staged)
     cur = conn.execute(
         """INSERT INTO core_files (entity_type, entity_id, filename, mime_type, byte_size, sha256, thumb, uploaded_by, created_at)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (entity_type, entity_id, sha256) DO NOTHING""",
@@ -264,7 +274,7 @@ def thumb(user: User, file_id: int) -> bytes:
 def delete_in(conn: db.Conn, user: User, file_id: int) -> None:
     row = _authorized_row_in(conn, user, file_id, "write")
     conn.execute("DELETE FROM core_files WHERE id = ?", (file_id,))
-    _release_in(conn, [row["sha256"]])
+    release_in(conn, [row["sha256"]])
 
 
 def delete(user: User, file_id: int) -> None:
@@ -276,7 +286,7 @@ def on_entity_deleted_in(conn: db.Conn, entity_type: str, entity_id: int) -> Non
     shas = conn.execute(
         "DELETE FROM core_files WHERE entity_type = ? AND entity_id = ? RETURNING sha256", (entity_type, entity_id)
     ).fetchall()
-    _release_in(conn, [r[0] for r in shas])
+    release_in(conn, [r[0] for r in shas])
 
 
 def move_to_in(conn: db.Conn, entity_type: str, source_id: int, target_id: int) -> None:

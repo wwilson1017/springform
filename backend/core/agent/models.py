@@ -73,10 +73,16 @@ class ServerToolCall(Out):
     error: str | None
 
 
+class MessageFile(Out):
+    filename: str
+    kind: Literal["image", "table", "document"]
+
+
 class ServerMessage(Out):
     id: int
     role: Literal["user", "assistant", "tool"]
     text: str
+    files: list[MessageFile]  # what the user attached (names only; the text goes to the model)
     tool_calls: list[ServerToolCall]
     model: str | None
     created_at: str
