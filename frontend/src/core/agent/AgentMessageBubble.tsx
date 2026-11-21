@@ -1,7 +1,8 @@
 import { memo, useState, type ReactNode } from 'react';
 import { MarkdownContent } from '../../shared/MarkdownContent';
 import { IconChevronDown, IconFile } from '../../shared/icons';
-import { pretty, type ChatMessage, type ToolPart } from './chatModel';
+import { BatchConfirmCard } from './BatchConfirmCard';
+import { pretty, renderUnits, type ChatMessage, type ToolPart } from './chatModel';
 import type { DecideOptions, Decision } from './confirmState';
 import { IconImage, IconSparkle } from './icons';
 import { ToolConfirmCard } from './ToolConfirmCard';
@@ -100,7 +101,7 @@ interface Props {
   agentName: string;
   /** A turn is streaming: approval buttons wait for it to finish. */
   busy: boolean;
-  onDecide: (msgId: string, toolUseId: string, decision: Decision, opts?: DecideOptions) => void;
+  onDecide: (msgId: string, toolUseId: string, decision: Decision, opts?: DecideOptions) => Promise<void> | void;
 }
 
 /** An attachment's name with a photo or file glyph (the composer's chips and the user bubble). */
@@ -158,7 +159,16 @@ function Bubble({ message, agentName, busy, onDecide }: Props) {
           </p>
         )}
         <div className="flex flex-col gap-2 text-[15px] text-sf-ink">
-          {message.parts.map((part, i) => {
+          {renderUnits(message.parts).map((part, i) => {
+            if (part.kind === 'batch')
+              return (
+                <BatchConfirmCard
+                  key={part.key}
+                  members={part.members}
+                  disabled={busy}
+                  onDecide={(t, d, o) => onDecide(message.id, t, d, o)}
+                />
+              );
             if (part.kind === 'text')
               return (
                 <div key={i}>

@@ -132,6 +132,7 @@ function confirmFailure(e: unknown): string {
   if (e instanceof ApiError) {
     if (e.status === 403) return 'Only the person who started this conversation can approve it.';
     if (e.status === 404) return 'This request no longer exists.';
+    if (e.status === 409) return 'Wait until the current reply finishes, then try again.';
     return `The server refused (${e.status}). Try again.`;
   }
   return 'Could not reach the server. Try again.';

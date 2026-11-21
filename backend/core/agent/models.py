@@ -72,6 +72,7 @@ class ServerToolCall(Out):
     result: Any
     error: str | None
     can_always_allow: bool = False  # a pending card may offer "Always allow" (engine.rule_eligible)
+    batch: str | None = None  # pending cards with the same key share one card (engine.batch_key)
 
 
 class MessageFile(Out):

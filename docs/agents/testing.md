@@ -164,7 +164,7 @@ steps:
 |---|---|
 | `send: <text>` | `POST /api/agent/chat` with the message, in the scenario's conversation once it has one |
 | `continue: true` | The same with no message: the resume after approvals |
-| `approve: <tool>` / `deny: <tool>` | `POST /api/agent/confirm` for the newest `confirm` event of that tool; `reason: <text>` (deny) and `always_allow: true` (approve) go in the body |
+| `approve: <tool>` / `deny: <tool>` | `POST /api/agent/confirm` for the newest `confirm` event of that tool; `reason: <text>` (deny) and `always_allow: true` (approve) go in the body; `all: true` confirms every `confirm` event sharing that card's `batch` key, one request each |
 | `resume: true` | `GET /api/agent/turns/{id}/events?after=<last seq seen>` for the latest turn |
 
 - `files: [{name, text} | {name, base64}]` on a `send` posts it to `/api/agent/chat/upload` as multipart, with those files (a CSV as `text`, a photo as `base64`).

@@ -30,6 +30,7 @@ ACTIONS = {"send", "continue", "approve", "deny", "resume"}
 STEP_KEYS = ACTIONS | {
     *("sql", "replies", "drop_after", "steer", "events", "request", "status", "usage", "page", "record", "files"),
     *("reason", "always_allow"),  # the /confirm body of a deny or an approve
+    "all",  # approve or deny every member of that card's batch, one /confirm each (what the client does)
 }
 STEER_KEYS = {"after", "message"}
 FILE_KEYS = {"name", "text", "base64"}
@@ -233,13 +234,18 @@ def run(path: Path, app, login_as, model_requests: list[dict], monkeypatch) -> N
                         confirms = [e for e in seen if e["type"] == "confirm" and e["tool"] == tool]
                         assert confirms, f"no confirm for {tool} to {decision}"
                         extra = {k: step[k] for k in ("reason", "always_allow") if k in step}
-                        r = c.post(
-                            "/api/agent/confirm",
-                            json={"tool_run_id": confirms[-1]["tool_run_id"], "decision": decision, **extra},
-                        )
-                        assert r.status_code == 200, r.text
-                        if "status" in step:
-                            assert r.json()["status"] == step["status"], r.json()
+                        newest = confirms[-1]
+                        if step.get("all"):
+                            assert newest.get("batch"), f"the newest confirm for {tool} has no batch"
+                        members = [e for e in seen if e["type"] == "confirm" and e.get("batch") == newest.get("batch")]
+                        for card in members if step.get("all") else [newest]:
+                            r = c.post(
+                                "/api/agent/confirm",
+                                json={"tool_run_id": card["tool_run_id"], "decision": decision, **extra},
+                            )
+                            assert r.status_code == 200, r.text
+                            if "status" in step:
+                                assert r.json()["status"] == step["status"], r.json()
                         first = None
                     if first is not None:  # one turn's events: numbered without gaps, then a terminal one
                         assert [e["seq"] for e in evs] == list(range(first, first + len(evs))), evs

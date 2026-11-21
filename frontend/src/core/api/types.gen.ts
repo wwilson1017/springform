@@ -133,7 +133,12 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Confirm */
+        /**
+         * Confirm
+         * @description 409 `turn_running` while the run's conversation has a turn running: that turn may still be
+         *     making the cards of one step, and a step a new message cuts short skips its whole batch (agent.md §6).
+         *     Only the owner learns that; anyone else gets the engine's 404 or 403.
+         */
         post: operations["core_confirm"];
         delete?: never;
         options?: never;
@@ -6506,6 +6511,8 @@ export interface components {
             args: {
                 [key: string]: unknown;
             };
+            /** Batch */
+            batch?: string | null;
             /**
              * Can Always Allow
              * @default false
