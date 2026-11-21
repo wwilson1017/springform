@@ -1,4 +1,4 @@
-name: Compaction shows the summarizer the record identifiers and the model the fenced gist in place of the aged rows
+name: Compaction keeps the record id, the amount and the latest ask verbatim in the fenced gist that replaces the aged rows
 context_window: 1000  # tiny, so the fourth turn compacts
 steps:
   - send: Hello.
@@ -9,14 +9,14 @@ steps:
     replies: [Noted INV-0042.]
   - send: What do we know about the deal?
     replies:
-      - "Deal 4521, worth 1250.00, closes 2026-12-01; invoice INV-0042."  # the summary (light tier)
+      - "## Goal\nTrack deal 4521.\n## Constraints\nNone.\n## Decisions\nNone.\n## Done / In progress / Blocked\nNoted the deal and its invoice.\n## Pending user asks\nInvoice INV-0042 belongs to it. (answered)\n## Exact identifiers\nDeal 4521, 1250.00, 2026-12-01"  # the summary
       - Deal 4521 closes 2026-12-01.
     events: [compacted, {type: text, text: Deal 4521 closes 2026-12-01.}, done]
     usage: [{source: compaction, model: fake-light}, {source: chat, model: fake-default}]
     request:
-      - call: 0  # the summarizer
-        system_contains: [concrete identifiers (names, record ids, amounts, dates)]
-        messages_contain: [Deal 4521 is worth 1250.00 and closes 2026-12-01., INV-0042]
+      - call: 0  # the summarizer (light tier), told what must survive; no memory flush while the nightly pass is off
+        system_contains: [Exact identifiers, MUST APPEAR VERBATIM]
+        messages_contain: ["- 4521\n- 1250.00\n- 2026-12-01", "- Invoice INV-0042 belongs to it.", Noted INV-0042.]
       - call: 1  # the turn, after compaction
-        messages_contain: ['<conversation_summary id="', "Deal 4521, worth 1250.00", Hello., "What do we know about the deal?"]
-        messages_exclude: [Invoice INV-0042 belongs to it.]
+        messages_contain: ['<conversation_summary id="', "Deal 4521, 1250.00, 2026-12-01", Hello., "What do we know about the deal?"]
+        messages_exclude: [Noted INV-0042.]

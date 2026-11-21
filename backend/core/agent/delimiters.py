@@ -17,7 +17,7 @@ UNTRUSTED_EXTERNAL_TAG = "untrusted_external_content"
 UNTRUSTED_EXTERNAL_MARKER = f"<{UNTRUSTED_EXTERNAL_TAG}"
 CONVERSATION_SUMMARY_TAG = "conversation_summary"
 _SUMMARY_BLOCK_RE = re.compile(
-    rf'<{CONVERSATION_SUMMARY_TAG} id="([0-9a-f]+)"[^>]*>.*?</{CONVERSATION_SUMMARY_TAG} id="\1">', re.DOTALL
+    rf'<{CONVERSATION_SUMMARY_TAG} id="([0-9a-f]+)"[^>]*>(.*?)</{CONVERSATION_SUMMARY_TAG} id="\1">', re.DOTALL
 )
 
 
@@ -37,6 +37,12 @@ def wrap_untrusted_memory(text: str) -> str:
 def wrap_conversation_summary(text: str) -> str:
     """Callers cap the text BEFORE wrapping: a cut after wrapping could sever the closing tag."""
     return _wrap(CONVERSATION_SUMMARY_TAG, ' reference_only="true"', text)
+
+
+def conversation_summary_text(text: str) -> str:
+    """The inner text of a stored gist (`wrap_conversation_summary`), or "" when there is none."""
+    m = _SUMMARY_BLOCK_RE.search(text or "")
+    return m.group(2).strip() if m else ""
 
 
 def strip_conversation_summary(text: str) -> str:
