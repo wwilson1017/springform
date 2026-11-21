@@ -134,9 +134,15 @@ def test_a_message_that_cuts_a_batch_short_skips_the_whole_card(app, login_as, m
             lines = (json.loads(line[6:]) for line in r.iter_lines() if line.startswith("data: "))
             cid = next(lines)["id"]
             assert second.wait(5)
+            head = []
+            while not head or head[-1]["type"] != "confirm":
+                head.append(next(lines))
+            first = head[-1]
+            approve = c.post("/api/agent/confirm", json={"tool_run_id": first["tool_run_id"], "decision": "approve"})
+            assert approve.status_code == 409 and approve.json() == {"detail": "turn_running"}  # e.g. from another tab
             assert c.post("/api/agent/chat", json={"conversation_id": cid, "message": "no widgets"}).status_code == 202
             steered.set()
-            evs = list(lines)
+            evs = head + list(lines)
         runs = [r["status"] for r in history.tool_runs_for(cid) if r["tool"] == "example_create_widget"]
         widgets = core_db.one("SELECT count(*) AS n FROM example_widgets")["n"]
     ends = [e for e in evs if e["type"] == "tool_end" and e["tool"] == "example_create_widget"]
