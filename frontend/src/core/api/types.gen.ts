@@ -6917,6 +6917,8 @@ export interface components {
             preview: boolean;
             /** Public Url */
             public_url: string;
+            /** Show Name */
+            show_name: boolean;
             /** Timezone */
             timezone: string;
             /** Version */

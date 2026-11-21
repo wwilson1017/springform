@@ -140,6 +140,7 @@ The settings an admin changes through `/api/core/settings` are the core keys bel
 | Key | Default | Notes |
 |---|---|---|
 | `workspace.name` | `"Springform"` | Text, required, at most 80 characters. |
+| `workspace.show_name` | `true` | Off: the header shows only the logo, not the name beside it (`forks.md` §10). |
 | `timezone` | `"UTC"` | An IANA timezone; the install timezone. |
 | `requests.warning_text` | A default warning | Shown on the Requests form; at most 2,000 characters. |
 | `github.repo` | `""` | `owner/name` for Requests. |
@@ -158,7 +159,7 @@ The settings an admin changes through `/api/core/settings` are the core keys bel
 GET    /api/core/settings        (admin) -> {values, secrets: {key: bool}, defaults}; never a secret value
 PUT    /api/core/settings        (admin) {values: {key: value}} -> the same view; every key is validated first, so one bad value writes nothing
 DELETE /api/core/settings/{key}  (admin) -> back to the default
-GET    /api/core/workspace       -> {name, timezone, version, preview, public_url}
+GET    /api/core/workspace       -> {name, show_name, timezone, version, preview, public_url}
 ```
 
 ## Roles
