@@ -75,18 +75,29 @@ def create_in(conn: db.Conn, user: User, terms: object, note: str) -> dict:
     return public(dict(conn.execute("SELECT * FROM core_agent_intents WHERE id = ?", (new_id,)).fetchone()))
 
 
+def create(user: User, terms: object, note: str) -> dict:
+    with db.transaction() as conn:
+        return create_in(conn, user, terms, note)
+
+
+def list_mine_in(conn: db.Conn, user: User) -> list[dict]:
+    rows = conn.execute("SELECT * FROM core_agent_intents WHERE user_id = ? ORDER BY id DESC", (user.id,))
+    return [public(dict(r)) for r in rows]
+
+
 def list_mine(user: User) -> list[dict]:
-    rows = db.rows("SELECT * FROM core_agent_intents WHERE user_id = ? ORDER BY id DESC", (user.id,))
-    return [public(r) for r in rows]
+    return list_mine_in(db.get_conn(), user)
+
+
+def delete_in(conn: db.Conn, user: User, intent_id: int) -> None:
+    """Another user's intent answers NotFound, exactly as a missing one does."""
+    if not conn.execute("DELETE FROM core_agent_intents WHERE id = ? AND user_id = ?", (intent_id, user.id)).rowcount:
+        raise NotFound("intent_not_found")
 
 
 def delete(user: User, intent_id: int) -> None:
-    """Another user's intent answers NotFound, exactly as a missing one does."""
     with db.transaction() as conn:
-        if not conn.execute(
-            "DELETE FROM core_agent_intents WHERE id = ? AND user_id = ?", (intent_id, user.id)
-        ).rowcount:
-            raise NotFound("intent_not_found")
+        delete_in(conn, user, intent_id)
 
 
 def _phrase(term: str) -> str:
