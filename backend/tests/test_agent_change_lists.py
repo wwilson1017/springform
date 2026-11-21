@@ -201,6 +201,22 @@ def test_the_repeat_note_counts_the_repeat_the_call_sets(login_as):
         )
 
 
+def test_the_repeat_note_counts_only_todos_the_caller_can_see(login_as):
+    a, b = login_as("member"), login_as("member")
+    hidden = todos.create_item(a.principal, "Water the plants", repeat="daily", visibility="private")["id"]
+    daily, plain = todo(b.principal, "Feed the starter", repeat="daily"), todo(b.principal, "Order flour")
+    _, evs = bulk(b, [hidden, plain], {"status": "done"})
+    assert of(evs, "tool_end")[0]["result"] == {"error": "not_found"}  # dispatch refuses an unseen target first
+    # The handler must not lean on that: its note counts only what it updated.
+    handler = core_db.must(registry.current().get("todos_bulk_update")).handler_in
+    for ids, notes in (([hidden, plain], 0), ([hidden, daily, plain], 1)):
+        with core_db.transaction() as conn:
+            out = core_db.must(handler)(conn, b.principal, {"ids": ids, "fields": {"status": "done"}})
+            assert out.get("notes", []) == (
+                [f"{notes} repeating todos get their next occurrence; Undo cannot take that back."] if notes else []
+            )
+
+
 def test_undo_refuses_a_status_that_would_repeat_once_put_back(login_as):
     a = login_as("member")
     daily = todo(a.principal, "Water the plants", repeat="daily")

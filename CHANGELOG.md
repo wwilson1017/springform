@@ -18,6 +18,10 @@ Conventions:
 
 ## [Unreleased]
 
+### Fixed
+
+- A bulk todo complete's note about repeating todos now counts only the todos it actually completed, never someone else's private ones.
+
 ## [0.2.0] - 2026-11-21
 
 Whisk can search and read the web, see photos and attached files, learn skills, run scheduled check-ins and take a new message mid-reply, and an admin can connect a GTD suite account.
