@@ -133,6 +133,7 @@ tools:                        # optional test-only core tools, added to the live
     writes: true                  # default false (a read)
     returns: {saved: widget-77}   # what the tool answers (default {ok: true})
     repeat: 2000                  # optional: answer a list of that many copies of `returns` (a big result)
+    delay: 0.5                    # optional: seconds a read or external-effect tool waits before it answers
     # also: description, confirm_tier: routine, always_confirm, untrusted_source, external_effect
 records:                      # optional: example widgets owned by another user, by key
   shared: {name: Blue widget}             # readable by the scenario's user

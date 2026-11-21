@@ -8,6 +8,7 @@ and leaving a stream early is a real disconnect.
 
 import json
 import re
+import time
 from pathlib import Path
 
 import pytest
@@ -23,7 +24,7 @@ from backend.core.auth import service as auth_service
 SCENARIOS = Path(__file__).parent / "scenarios"
 TOP_KEYS = {"name", "role", "context_window", "tools", "records", "steps"}
 FLAGS = ("confirm_tier", "always_confirm", "untrusted_source", "external_effect")
-TOOL_KEYS = {"name", "description", "writes", "returns", "repeat", *FLAGS}
+TOOL_KEYS = {"name", "description", "writes", "returns", "repeat", "delay", *FLAGS}
 ACTIONS = {"send", "continue", "approve", "deny", "resume"}
 STEP_KEYS = ACTIONS | {"sql", "replies", "drop_after", "events", "request", "status", "usage", "page", "record"}
 REQUEST_KEYS = {"call", "messages_contain", "messages_exclude", "messages_match", "system_contains", "system_exclude"}
@@ -67,7 +68,8 @@ def _listed(value) -> list:
 
 def tool_spec(t: dict) -> ToolSpec:
     """A test-only core tool: a read, a local write (`handler_in`, no targets) or an external-effect
-    write (`handler`), answering `returns` (default `{ok: true}`), or a list of `repeat` copies of it."""
+    write (`handler`), answering `returns` (default `{ok: true}`), or a list of `repeat` copies of it,
+    after `delay` seconds when it runs through `handler`."""
     returns = t.get("returns", {"ok": True})
     if "repeat" in t:
         returns = [returns] * t["repeat"]
@@ -79,7 +81,7 @@ def tool_spec(t: dict) -> ToolSpec:
         description=t.get("description", "A scenario tool."),
         input_schema={"type": "object", "properties": {}},
         writes=writes,
-        handler=None if local_write else (lambda user, args: returns),
+        handler=None if local_write else (lambda user, args: time.sleep(t.get("delay", 0)) or returns),
         handler_in=(lambda conn, user, args: returns) if local_write else None,
         targets=(lambda args: []) if local_write else None,
         **flags,
