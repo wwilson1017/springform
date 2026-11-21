@@ -1,0 +1,26 @@
+name: A check-in turn is offered only read tools, and a [SILENT] reply leaves no conversation
+tools:
+  - name: core_scen_lookup
+    returns: {overdue: 0}
+  - name: core_scen_save_widget
+    writes: true
+  - name: core_scen_fetch_page
+    untrusted_source: true
+steps:
+  - checkin: Is anything overdue?
+    replies:
+      - {tool: core_scen_lookup}
+      - "[SILENT]"
+    request:
+      call: 0
+      tools_include: [core_scen_lookup]
+      tools_exclude: [core_scen_save_widget, core_scen_fetch_page]
+      system_contains: ["Scheduled check-in"]
+    usage:
+      - {source: checkin, provider: fake}
+      - {source: checkin, provider: fake}
+    conversations: 0
+  - checkin: Is anything overdue?
+    replies: ["Two invoices are overdue."]
+    usage: [{source: checkin}]
+    conversations: 1

@@ -101,6 +101,62 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/agent/checkins": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Checkins */
+        get: operations["core_list_checkins"];
+        put?: never;
+        /** Create Checkin */
+        post: operations["core_create_checkin"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent/checkins/{checkin_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Checkin */
+        delete: operations["core_delete_checkin"];
+        options?: never;
+        head?: never;
+        /** Update Checkin */
+        patch: operations["core_update_checkin"];
+        trace?: never;
+    };
+    "/api/agent/checkins/{checkin_id}/run": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Run Checkin
+         * @description Make it due now and start the job; the reply arrives as a notification.
+         */
+        post: operations["core_run_checkin"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/agent/confirm": {
         parameters: {
             query?: never;
@@ -4077,6 +4133,45 @@ export interface components {
             page?: string | null;
             record?: components["schemas"]["RecordRef"] | null;
         };
+        /** Checkin */
+        Checkin: {
+            /** Created At */
+            created_at: string;
+            /** Enabled */
+            enabled: boolean;
+            /** Failures */
+            failures: number;
+            /** Id */
+            id: number;
+            /** Last Error */
+            last_error: string | null;
+            /** Last Run At */
+            last_run_at: string | null;
+            /** Last Status */
+            last_status: ("ok" | "silent" | "error") | null;
+            /** Name */
+            name: string;
+            /** Next Run At */
+            next_run_at: string;
+            /** Prompt */
+            prompt: string;
+            /** Schedule */
+            schedule: string;
+        };
+        /** CheckinIn */
+        CheckinIn: {
+            /** Name */
+            name: string;
+            /** Prompt */
+            prompt: string;
+            /** Schedule */
+            schedule: string;
+        };
+        /** CheckinPatch */
+        CheckinPatch: {
+            /** Enabled */
+            enabled: boolean;
+        };
         /** CodeIn */
         CodeIn: {
             /** Code */
@@ -7435,6 +7530,154 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    core_list_checkins: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Checkin"][];
+                };
+            };
+        };
+    };
+    core_create_checkin: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CheckinIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Checkin"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    core_delete_checkin: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                checkin_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    core_update_checkin: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                checkin_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CheckinPatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Checkin"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    core_run_checkin: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                checkin_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Checkin"];
                 };
             };
             /** @description Validation Error */

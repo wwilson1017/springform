@@ -25,6 +25,10 @@ If the change is no longer valid by the time you approve (for example the app wa
 
 {agent_name} says what it changed after each action, and the record's timeline shows the change.
 
+## Check-ins
+
+A check-in is a question {agent_name} asks for you on a schedule: every so many minutes, every day at a time, or one day a week. Set them up with **Check-ins** under the conversation list on the {agent_name} page. {agent_name} runs each one as you, with look-up tools only, so a check-in can read but never change anything. Its answer arrives as a notification that opens the conversation; when there is nothing worth telling you, it sends nothing. Pause, resume, run now or delete one from the same list. If one fails three times in a row you get a notification, and after ten it is paused until you resume it. Check-ins use your AI key.
+
 ## Skills
 
 A skill is a short, named method, such as how your business does its weekly stock count. {agent_name} sees the name and a one-line description of every active skill, and reads its steps when a task calls for one. Admins manage them in Settings, AI, Skills: write one by hand, or turn on the skills review, and {agent_name} proposes skills from conversations that are not private. A proposal is never used until an admin approves it. Skills nobody has used for 60 days are archived (never deleted) unless pinned.
