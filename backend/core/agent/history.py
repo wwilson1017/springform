@@ -22,7 +22,7 @@ from collections.abc import Callable
 
 from backend.core import db, entities
 from backend.core.auth import service as auth_service
-from backend.core.auth.deps import User
+from backend.core.auth.deps import User, has_role
 from backend.core.clock import now_iso
 
 TERMINAL = ("done", "denied", "error", "stale", "uncertain", "interrupted")
@@ -304,7 +304,12 @@ def _can_read(user: User | None, conn: db.Conn, entity_type: str, entity_id: int
         return False
     try:
         if reader := READERS.get(entity_type):
-            return bool(reader(user, conn, entity_id))
+            from backend.core import registry  # lazy: the app registry imports the agent package
+
+            # the owning app's roles first, as registered entities get them (registry._role_scoped);
+            # an app no longer installed raises, so its rows fail closed
+            roles = registry.get_app(entity_type.split(".", 1)[0]).manifest.roles
+            return has_role(user, roles, "read") and bool(reader(user, conn, entity_id))
         entities.authorize(user, conn, entity_type, entity_id, "read")
         return True
     except Exception:  # not readable, deleted, or a type no longer installed: fail closed

@@ -129,7 +129,7 @@ Todos, CRM, contacts and the example app recognise their rows by shape; `core_re
 what its source names. `test_every_shipped_tool_names_the_records_it_returns` fails for a shipped
 local tool that declares no `reads` and is not on its short list of tools that name no record.
 `history.READERS` takes a `can_read(user, conn, id)` for a kind of row that is not a registered
-entity (Todos projects and areas).
+entity (Todos projects and areas), applied after the owning app's roles, as for its entities.
 
 ### `confirm_tier`
 

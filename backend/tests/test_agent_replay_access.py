@@ -6,7 +6,7 @@ import json
 
 import pytest
 
-from backend.core import clock, db
+from backend.core import clock, db, registry
 from backend.core.agent import assembly, execute, history, registry as tool_registry
 from backend.core.agent.providers import fake
 from backend.core.agent.providers.fake import FakeProvider
@@ -106,6 +106,15 @@ def test_a_project_that_goes_private_is_withheld(login_as):
     end, evs = call(member, "todos_list_projects", {})
     assert ["todos.project", project] in json.loads(stored(end["tool_run_id"])["records"])
     assert owner.patch(f"/api/todos/projects/{project}", json={"visibility": "private"}).status_code == 200
+    assert MARKER not in replayed(evs[0]["id"])
+
+
+def test_a_project_is_withheld_once_the_user_loses_the_app_s_role(login_as, monkeypatch):
+    member = login_as("member")
+    r = member.post("/api/todos/projects", json={"name": "Shelf plan", "purpose": MARKER, "visibility": "team"})
+    end, evs = call(member, "todos_list_projects", {})
+    assert r.status_code == 200 and MARKER in replayed(evs[0]["id"])
+    monkeypatch.setattr(registry.get_app("todos").manifest, "roles", ["admin"])  # an admin-only Todos fork
     assert MARKER not in replayed(evs[0]["id"])
 
 
