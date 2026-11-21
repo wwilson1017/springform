@@ -46,7 +46,7 @@ interface Props {
   blocked?: ReactNode;
   onSend: (text: string, files?: File[]) => void;
   onStop: () => void;
-  onDecide: (msgId: string, toolUseId: string, decision: Decision, opts?: DecideOptions) => void;
+  onDecide: (msgId: string, toolUseId: string, decision: Decision, opts?: DecideOptions) => Promise<void> | void;
 }
 
 /** The message list and the composer (Chatty's AgentChatPanel without modes or playbooks). */

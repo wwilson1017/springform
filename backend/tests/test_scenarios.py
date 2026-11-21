@@ -30,10 +30,11 @@ TOP_KEYS = {"name", "role", "context_window", "tools", "records", "steps"}
 FLAGS = ("confirm_tier", "always_confirm", "untrusted_source", "external_effect")
 TOOL_KEYS = {"name", "description", "writes", "returns", "repeat", "delay", "remote", *FLAGS}
 REMOTE_KEYS = {"trusted"}
-ACTIONS = {"send", "continue", "approve", "deny", "resume"}
+ACTIONS = {"send", "continue", "approve", "deny", "resume", "undo"}
 STEP_KEYS = ACTIONS | {
     *("sql", "replies", "drop_after", "steer", "events", "request", "status", "usage", "page", "record", "files"),
     *("reason", "always_allow"),  # the /confirm body of a deny or an approve
+    "all",  # approve or deny every member of that card's batch, one /confirm each (what the client does)
 }
 STEER_KEYS = {"after", "message"}
 FILE_KEYS = {"name", "text", "base64"}
@@ -260,19 +261,32 @@ def run(path: Path, app, login_as, model_requests: list[dict], monkeypatch) -> N
                         assert turn_id is not None, "resume needs an earlier turn"
                         evs = stream(c, "GET", f"/api/agent/turns/{turn_id}/events?after={last_seq}")
                         first = last_seq + 1
+                    elif "undo" in step:  # the Undo button of that tool's newest change list
+                        runs = [e for e in seen if e["type"] in ("confirm", "tool_end") and e["tool"] == step["undo"]]
+                        assert runs, f"no run of {step['undo']} to undo"
+                        r = c.post(f"/api/agent/change-lists/{runs[-1]['tool_run_id']}/undo")
+                        assert r.status_code == 200, r.text
+                        if "status" in step:
+                            assert r.json()["status"] == step["status"], r.json()
+                        first = None
                     else:
                         decision = "approve" if "approve" in step else "deny"
                         tool = step[decision]
                         confirms = [e for e in seen if e["type"] == "confirm" and e["tool"] == tool]
                         assert confirms, f"no confirm for {tool} to {decision}"
                         extra = {k: step[k] for k in ("reason", "always_allow") if k in step}
-                        r = c.post(
-                            "/api/agent/confirm",
-                            json={"tool_run_id": confirms[-1]["tool_run_id"], "decision": decision, **extra},
-                        )
-                        assert r.status_code == 200, r.text
-                        if "status" in step:
-                            assert r.json()["status"] == step["status"], r.json()
+                        newest = confirms[-1]
+                        if step.get("all"):
+                            assert newest.get("batch"), f"the newest confirm for {tool} has no batch"
+                        members = [e for e in seen if e["type"] == "confirm" and e.get("batch") == newest.get("batch")]
+                        for card in members if step.get("all") else [newest]:
+                            r = c.post(
+                                "/api/agent/confirm",
+                                json={"tool_run_id": card["tool_run_id"], "decision": decision, **extra},
+                            )
+                            assert r.status_code == 200, r.text
+                            if "status" in step:
+                                assert r.json()["status"] == step["status"], r.json()
                         first = None
                     if first is not None:  # one turn's events: numbered without gaps, then a terminal one
                         assert [e["seq"] for e in evs] == list(range(first, first + len(evs))), evs

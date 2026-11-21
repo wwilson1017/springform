@@ -218,5 +218,6 @@ def test_toolspec_fields_only_grow_at_the_end():
         "title",
         "destructive",
         "reads",
+        "change_list",
         "trusted",
     ]

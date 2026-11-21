@@ -13,9 +13,9 @@ import json
 import time
 from collections.abc import Callable
 
-from backend.core.agent import deferred, execute, history, turn_hooks
+from backend.core.agent import change_lists, deferred, execute, history, turn_hooks
 from backend.core.agent.aio import in_thread
-from backend.core.agent.engine import card_extras, needs_confirmation, rule_skips
+from backend.core.agent.engine import batch_key, card_extras, needs_confirmation, rule_skips
 from backend.core.agent.spec import tool_def_sha256
 from backend.core.agent.turn_hooks import TurnState
 from backend.core.agent.write_budget import BudgetAction
@@ -57,7 +57,44 @@ async def run_calls(state: TurnState, emit: Callable[[dict], None], calls: list[
     async with asyncio.TaskGroup() as group:  # left only when every lookup has ended, also on a cancel
         for i in picked:
             group.create_task(one(i))
-    return [await run_call(state, emit, call, message_id, early.get(i)) for i, call in enumerate(calls)]
+    cards: dict[str, dict] = {}  # tool_use_id -> this step's confirm event with a batch key
+
+    def watch(e: dict) -> None:
+        if e["type"] == "confirm" and e.get("batch"):
+            cards[e["tool_use_id"]] = e
+        emit(e)
+
+    was_pending = state.pending
+    results = [await run_call(state, watch, call, message_id, early.get(i)) for i, call in enumerate(calls)]
+    return await _whole_batches(state, emit, calls, results, cards, message_id, was_pending)
+
+
+async def _whole_batches(state, emit, calls, results, cards, message_id, was_pending) -> list:
+    """A message that came in mid-step skips the calls not started yet; when that cut a batch card
+    (agent.md §6), its members already waiting are skipped too, so the card never stands for part of
+    what the model proposed. None has run: /confirm answers 409 while the turn runs."""
+    skipped = json.dumps({"status": "error", "error": SKIPPED})
+    cut = {
+        batch_key(spec, call.get("args") or {}, message_id)
+        for call, res in zip(calls, results)
+        if res["content"] == skipped and (spec := state.by_name.get(call["name"])) is not None
+    } - {None}
+    if not cut:
+        return results
+    out = []
+    for call, res in zip(calls, results):
+        card = cards.get(call["id"])
+        if (
+            card
+            and card["batch"] in cut
+            and await in_thread(history.resolve, card["tool_run_id"], "error", error=SKIPPED)
+        ):
+            _tool_end(emit, call, card["tool_run_id"], "error", {"error": SKIPPED})
+            res = {**res, "content": skipped}
+        out.append(res)
+    waiting = history.model_content({"status": "pending"})
+    state.pending = was_pending or any(r["content"] == waiting for r in out)
+    return out
 
 
 def _together(state: TurnState, calls: list[dict]) -> list[int]:
@@ -93,11 +130,25 @@ async def _run(state: TurnState, emit: Callable[[dict], None], call: dict, messa
     if run["tainted"] and not state.tainted:
         state.tainted = True
         await in_thread(history.mark_tainted, state.conversation_id)
-    _tool_end(emit, call, run["id"], run["status"], run["result"], elapsed)
+    listed = (
+        state.by_name[call["name"]].change_list
+        and run["status"] == "done"
+        and await in_thread(change_lists.exists, run["id"])
+    )
+    _tool_end(emit, call, run["id"], run["status"], run["result"], elapsed, change_list=listed)
     return run
 
 
-def _tool_end(emit: Callable[[dict], None], call: dict, run_id: int, status: str, result, elapsed: int = 0) -> None:
+def _tool_end(
+    emit: Callable[[dict], None],
+    call: dict,
+    run_id: int,
+    status: str,
+    result,
+    elapsed: int = 0,
+    *,
+    change_list: bool = False,
+) -> None:
     emit(
         {
             "type": "tool_end",
@@ -107,6 +158,7 @@ def _tool_end(emit: Callable[[dict], None], call: dict, run_id: int, status: str
             "status": status,
             "result": result,
             "elapsed_ms": elapsed,
+            **({"change_list": True} if change_list else {}),
         }
     )
 
@@ -159,9 +211,25 @@ async def run_call(
     elif needs_confirmation(spec, args, state.tainted) and not await in_thread(
         rule_skips, state.user.id, state.agent["id"], spec, args, state.tainted
     ):  # a live always-allow rule falls through and runs like a routine write
-        run_id = await in_thread(
-            history.insert_tool_run, **record, tool_def_sha256=tool_def_sha256(spec), status="pending"
-        )
+        listed = None
+        if spec.change_list:  # the card lists what the call would change, read by the server
+            try:
+                rows, notes, mark = await in_thread(execute.dry_run, state.user, spec, args)
+                error = None if rows else "; ".join(notes) or change_lists.NOTHING_TO_CHANGE
+            except Exception as e:  # refused before any card, with the reason the run would give
+                rows, notes, mark, error = [], [], 0, execute.error_text(e)
+            if error is not None:
+                run_id, status, result, content = await _refuse(record, error)
+                _tool_end(emit, call, run_id, status, result)
+                return {"tool_use_id": tool_use_id, "tool_name": name, "content": content}
+            run_id = await in_thread(
+                change_lists.stage, rows, notes, mark, **record, tool_def_sha256=tool_def_sha256(spec)
+            )
+            listed = {"changes": len(rows), "records": len({(r["entity_type"], r["entity_id"]) for r in rows})}
+        else:
+            run_id = await in_thread(
+                history.insert_tool_run, **record, tool_def_sha256=tool_def_sha256(spec), status="pending"
+            )
         state.pending = True
         emit(
             {
@@ -172,7 +240,8 @@ async def run_call(
                 "msg_id": message_id,
                 "args": args,
                 "summary": spec.summary,
-                **card_extras(spec, args, state.tainted),
+                **card_extras(spec, args, state.tainted, message_id),
+                **({"change_list": listed} if listed else {}),
             }
         )
         return {"tool_use_id": tool_use_id, "tool_name": name, "content": history.model_content({"status": "pending"})}

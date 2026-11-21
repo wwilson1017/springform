@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
+import { ChangeListView } from './ChangeListView';
 import { pretty, type ToolPart } from './chatModel';
 import { outcomeText, type ConfirmState, type DecideOptions, type Decision } from './confirmState';
 import { useAgentName } from './useAgentName';
@@ -49,8 +50,11 @@ export function ToolConfirmCard({
   const agentName = useAgentName();
   const [reason, setReason] = useState('');
   const [alwaysAllow, setAlwaysAllow] = useState(false);
+  const [listed, setListed] = useState(false); // a change list's rows loaded: Approve waits for them
+  const onReady = useCallback(() => setListed(true), []);
   const state = part.confirm;
   const key = state.phase === 'resolved' ? state.outcome : 'pending';
+  const changeList = part.changeList && part.runId != null;
   return (
     <div className={`rounded-md border border-solid p-3 ${TONE[key]}`} data-testid="tool-confirm-card">
       <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
@@ -62,9 +66,13 @@ export function ToolConfirmCard({
         <code className="break-all font-mono text-xs text-sf-ink-soft">{part.tool}</code>
       </div>
       {part.summary && <p className="mb-0 mt-1.5 text-sm text-sf-ink">{part.summary}</p>}
-      <pre className="mb-0 mt-2 max-h-56 overflow-auto whitespace-pre-wrap break-all rounded bg-sf-card p-2 font-mono text-xs text-sf-ink-mute">
-        {pretty(part.args ?? {})}
-      </pre>
+      {changeList ? (
+        <ChangeListView key={key} runId={part.runId!} onReady={onReady} />
+      ) : (
+        <pre className="mb-0 mt-2 max-h-56 overflow-auto whitespace-pre-wrap break-all rounded bg-sf-card p-2 font-mono text-xs text-sf-ink-mute">
+          {pretty(part.args ?? {})}
+        </pre>
+      )}
 
       {state.phase !== 'resolved' && (
         <>
@@ -76,7 +84,7 @@ export function ToolConfirmCard({
           <div className="mt-3 flex gap-2">
             <button
               type="button"
-              disabled={disabled || state.phase === 'sending'}
+              disabled={disabled || state.phase === 'sending' || (changeList && !listed)}
               onClick={() => onDecide('approve', { alwaysAllow })}
               className="cursor-pointer rounded border-0 bg-sf-accent px-3.5 py-1.5 text-sm font-medium text-sf-accent-ink disabled:cursor-default disabled:opacity-60"
             >
@@ -120,7 +128,7 @@ export function ToolConfirmCard({
       {state.phase === 'resolved' && (
         <>
           <p className={`mb-0 mt-2 text-sm ${OUTCOME_TEXT_COLOR[key]}`}>{outcomeText(state)}</p>
-          {state.outcome === 'done' && state.result !== undefined && (
+          {state.outcome === 'done' && state.result !== undefined && !changeList && (
             <details className="mt-2" open>
               <summary className="cursor-pointer text-xs text-sf-ink-dim">Result</summary>
               <pre className="mb-0 mt-1 max-h-56 overflow-auto whitespace-pre-wrap break-all rounded bg-sf-card p-2 font-mono text-xs text-sf-ink-mute">

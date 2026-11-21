@@ -1,3 +1,4 @@
+from backend.apps.todos import service
 from backend.core.entities import Entity, title_from
 
 
@@ -21,5 +22,6 @@ ENTITIES = [
         can_read=can_read,
         can_write=can_read,
         searchable=("title", "notes"),
+        revert_in=service.revert_in,
     ),
 ]

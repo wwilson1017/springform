@@ -19,7 +19,13 @@ Before {agent_name} changes anything, it shows you what it wants to do with an *
 
 When you deny a change you can say why in the box under the buttons. {agent_name} is told your reason and not to retry it or find a way around it; after three denied steps in a row it is told to stop and report back to you.
 
+When {agent_name} proposes several changes of the same kind at once (say, three new widgets), they share one card that lists each one, with **Approve all** and **Deny all**. Each change is still approved on its own, so one that has gone out of date does not stop the others.
+
 Tick **Always allow** on an Approve card and that tool stops asking in your chats with {agent_name}. See and remove these under **Settings → Account → Saved approvals**. {agent_name} still asks for tools that always ask, for anything that reaches outside the workspace or deletes data for good, for a change that would hide a record from others, and in any conversation where it has read outside content, such as a web page.
+
+## Bulk changes and Undo
+
+When {agent_name} changes many records in one go (several todos at once, or deals moved to a stage), the chat lists every change as "record · field: old → new", read from the records themselves. If it needs your approval, nothing changes until you approve, and if one of the listed records was edited while you were looking, nothing is changed and {agent_name} is asked to try again. Once applied, an **Undo** button puts every record back as it was, once. A record someone edited after the change is left as it is, and the list says so. {agent_name} cannot undo for you; use the button.
 
 If the change is no longer valid by the time you approve (for example the app was updated in between), {agent_name} tells you and does not run it.
 

@@ -24,6 +24,10 @@ export interface ToolPart {
   confirm?: ConfirmState;
   /** Its card may offer "Always allow". */
   canAlwaysAllow?: boolean;
+  /** Cards with the same key are drawn as one batch card. */
+  batch?: string | null;
+  /** A bulk edit: its changes and Undo come from GET /api/agent/change-lists/{runId}. */
+  changeList?: boolean;
 }
 
 export type Part = { kind: 'text'; text: string } | ToolPart;
@@ -88,6 +92,8 @@ export function fromServer(rows: ServerMessage[]): ChatMessage[] {
         error: c.error,
         runId: c.tool_run_id,
         canAlwaysAllow: c.can_always_allow,
+        batch: c.batch,
+        changeList: c.change_list,
         ...(status === 'pending' && c.tool_run_id != null ? { confirm: { phase: 'pending' as const } } : {}),
       });
     }
@@ -146,6 +152,8 @@ export function applyEvent(m: ChatMessage, e: ChatEvent): ChatMessage {
         elapsedMs: e.elapsed_ms,
         runId: e.tool_run_id,
         error: e.status === 'error' ? errorOf(e.result) : p.error,
+        changeList: e.change_list ?? p.changeList,
+        confirm: undefined, // a card the server settled itself (a batch a new message cut short)
       }));
     case 'confirm': {
       const known = m.parts.some((p) => p.kind === 'tool' && p.toolUseId === e.tool_use_id);
@@ -157,6 +165,8 @@ export function applyEvent(m: ChatMessage, e: ChatEvent): ChatMessage {
         args: e.args,
         summary: e.summary || undefined,
         canAlwaysAllow: e.can_always_allow,
+        batch: e.batch,
+        changeList: e.change_list !== undefined,
         confirm: { phase: 'pending' },
       }));
     }
@@ -180,3 +190,21 @@ function errorOf(result: unknown): string | null {
 /** Every approval card in a message, for the resume decision. */
 export const cardsOf = (m: ChatMessage): ConfirmState[] =>
   m.parts.flatMap((p) => (p.kind === 'tool' && p.confirm ? [p.confirm] : []));
+
+export type CardPart = ToolPart & { confirm: ConfirmState };
+export type Unit = Part | { kind: 'batch'; key: string; members: CardPart[] };
+
+/** Parts in render order: card parts sharing a `batch` key become one unit at the first member's
+ * place; a group of one stays a plain part. */
+export function renderUnits(parts: Part[]): Unit[] {
+  const groups = new Map<string, CardPart[]>();
+  for (const p of parts)
+    if (p.kind === 'tool' && p.confirm && p.batch) groups.set(p.batch, [...(groups.get(p.batch) ?? []), p as CardPart]);
+  const out: Unit[] = [];
+  for (const p of parts) {
+    const members = p.kind === 'tool' && p.confirm && p.batch ? groups.get(p.batch) : undefined;
+    if (!members || members.length < 2) out.push(p);
+    else if (members[0] === p) out.push({ kind: 'batch', key: String(p.batch), members });
+  }
+  return out;
+}

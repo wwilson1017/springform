@@ -1,3 +1,4 @@
+from backend.apps.crm import deals
 from backend.core.entities import Entity, title_from
 
 # Any active member reads and writes any deal (the Entity defaults); the registry adds the
@@ -12,5 +13,6 @@ ENTITIES = [
         title_fn=title_from("crm_deals", "title"),
         searchable=("title", "notes"),
         archived_column="archived_at",
+        revert_in=deals.revert_in,
     ),
 ]

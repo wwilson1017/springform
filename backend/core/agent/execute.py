@@ -12,6 +12,9 @@ the chat loop's ungated calls, the approval step (`engine.confirm`) and inbound 
 Given `run_id` (an approved pending run), the run is claimed (pending -> executing) instead of
 inserted, and one somebody else claimed first comes back `already_resolved` without running.
 
+A change-list tool (`spec.change_list`) run from chat also records the change-log rows its handler
+wrote (`change_lists.record_applied_in`); `dry_run` reads them without keeping the write.
+
 A `done` run also stores `records`, what its result names (the tool's `reads`), which
 `history.recheck` checks against the user's current read access whenever the result is shown again.
 """
@@ -24,7 +27,7 @@ import json
 import logging
 
 from backend.core import db, entities
-from backend.core.agent import deferred, delimiters, history, registry
+from backend.core.agent import change_lists, deferred, delimiters, history, registry
 from backend.core.agent.spec import ToolSpec, calling_conversation, tool_def_sha256
 from backend.core.auth.deps import User
 from backend.core.errors import AppError
@@ -163,7 +166,10 @@ def run_tool(user: User, spec: ToolSpec, args: dict, *, source: str, run_id: int
             if rid is not None:
                 _authorize_targets_in(conn, spec, user, args)
                 if spec.handler_in is not None:
+                    mark = change_lists.mark_in(conn) if spec.change_list and source == "chat" else None
                     result = spec.handler_in(conn, user, args)
+                    if mark is not None:  # a Conflict here rolls the run back like a handler error
+                        change_lists.record_applied_in(conn, rid, user.id, mark, result)
                     stored, tainted = dump(spec, result)
                     history.resolve_in(
                         conn,
@@ -195,3 +201,26 @@ def run_tool(user: User, spec: ToolSpec, args: dict, *, source: str, run_id: int
         rid, "done", result=stored, resolved_by=user.id, expect="executing", records=records(spec, args, result)
     )
     return _outcome(rid, "done", result, stored, tainted=tainted)
+
+
+class _DryRun(Exception):
+    pass
+
+
+def dry_run(user: User, spec: ToolSpec, args: dict) -> tuple[list[dict], list[str], int]:
+    """What a change-list call would change, without keeping it: authorize the targets, run
+    `handler_in` for real, read the change-log rows it wrote, roll the transaction back.
+    (rows, the result's notes, the change-log mark it started from); raises what the run would."""
+    # simplification: staging holds the write lock for one extra run of the handler; upgrade: a
+    # read-only preview seam per tool if a bulk tool is ever slow.
+    out: tuple[list[dict], list[str], int] = ([], [], 0)
+    try:
+        with db.transaction() as conn:
+            mark = change_lists.mark_in(conn)
+            _authorize_targets_in(conn, spec, user, args)
+            result = db.must(spec.handler_in)(conn, user, args)
+            out = (change_lists.rows_since_in(conn, mark), change_lists.notes_of(result), mark)
+            raise _DryRun
+    except _DryRun:
+        pass
+    return out

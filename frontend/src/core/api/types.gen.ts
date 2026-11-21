@@ -78,6 +78,47 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/agent/change-lists/{tool_run_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Change List
+         * @description The caller's own change list; 404 for a missing one or anyone else's.
+         */
+        get: operations["core_get_change_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent/change-lists/{tool_run_id}/undo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Undo Change List
+         * @description Put the records of the caller's applied list back, once (409 already_undone / not_applied).
+         *     A user action only: no tool wraps it.
+         */
+        post: operations["core_undo_change_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/agent/chat": {
         parameters: {
             query?: never;
@@ -133,7 +174,12 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Confirm */
+        /**
+         * Confirm
+         * @description 409 `turn_running` while the run's conversation has a turn running: that turn may still be
+         *     making the cards of one step, and a step a new message cuts short skips its whole batch (agent.md §6).
+         *     Only the owner learns that; anyone else gets the engine's 404 or 403.
+         */
         post: operations["core_confirm"];
         delete?: never;
         options?: never;
@@ -4072,6 +4118,60 @@ export interface components {
             updated: number[];
         };
         /**
+         * ChangeList
+         * @description A bulk run's changes (agent.md §6). `staged` waits on its card; `not_applied` was denied,
+         *     stale or refused; `reverted`/`skipped` come with `undone`. Records the caller cannot read now
+         *     are left out and counted in `hidden`.
+         */
+        ChangeList: {
+            /** Hidden */
+            hidden: number;
+            /** Notes */
+            notes: string[];
+            /** Reverted */
+            reverted: number | null;
+            /** Rows */
+            rows: components["schemas"]["ChangeListRow"][];
+            /** Skipped */
+            skipped: components["schemas"]["ChangeListSkip"][];
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "staged" | "applied" | "undone" | "not_applied";
+            /** Tool Run Id */
+            tool_run_id: number;
+        };
+        /**
+         * ChangeListRow
+         * @description One field of one record: `old` and `new` as the change log holds them.
+         */
+        ChangeListRow: {
+            /** Entity Id */
+            entity_id: number;
+            /** Entity Type */
+            entity_type: string;
+            /** Field */
+            field: string;
+            /** New */
+            new: unknown;
+            /** Old */
+            old: unknown;
+            /** Title */
+            title: string;
+        };
+        /** ChangeListSkip */
+        ChangeListSkip: {
+            /** Entity Id */
+            entity_id: number;
+            /** Entity Type */
+            entity_type: string;
+            /** Reason */
+            reason: string;
+            /** Title */
+            title: string;
+        };
+        /**
          * ChangeRow
          * @description `title` and `url` are None when the record is gone (shown only to the user who wrote it).
          */
@@ -6621,11 +6721,18 @@ export interface components {
             args: {
                 [key: string]: unknown;
             };
+            /** Batch */
+            batch?: string | null;
             /**
              * Can Always Allow
              * @default false
              */
             can_always_allow: boolean;
+            /**
+             * Change List
+             * @default false
+             */
+            change_list: boolean;
             /** Error */
             error: string | null;
             /** Result */
@@ -7577,6 +7684,68 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RuleVoided"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    core_get_change_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tool_run_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChangeList"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    core_undo_change_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tool_run_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChangeList"];
                 };
             };
             /** @description Validation Error */

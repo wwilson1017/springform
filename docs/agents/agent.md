@@ -20,6 +20,7 @@ Base: CakeCRM `backend/assistant/` (Chatty's loop already trimmed, with server-s
 | `errors.py`, `endings.py` | New (#87); the closing-note texts and the retry-after parse after CakeCRM 47b743e (`docs/PROVENANCE.md`) | ~200 |
 | `loop_guard.py`, `call_repair.py`, `completion_claims.py` | New (#87); the claim guards and sentence rules after cake_os `completion_claims.py` (`docs/PROVENANCE.md`) | ~300 |
 | `approval_rules.py` | New (#91): always-allow rules; the rule shape and the decline wording after cake_os `approval_rules.py` (`docs/PROVENANCE.md`) | ~60 |
+| `change_lists.py` | New (#91): change lists and Undo; the card, apply and once-only Undo model after CakeCRM `crm/change_list.py` (`docs/PROVENANCE.md`); staging by a rolled-back run and the change-log check are new | ~230 |
 | `usage.py` | New (#89): the usage ledger and its rates; the idea after cake_os `token_tracker.py` and `cost_service.py`, re-implemented | ~140 |
 | `agents.py` | CakeCRM `assistant/identity.py` prompt builder; agents are rows, not a singleton | 137 |
 | `backend/core/memory/facts.py`, `context_files.py`, `tools.py`, `router.py` | `facts.py` from CakeCRM `backend/memory/service.py` (FTS5, temporal facts, soft invalidation); `context_files.py` from CakeCRM `backend/context_files/service.py`, tsvector → FTS5 | 523 |
@@ -58,6 +59,10 @@ core_agent_providers(provider PK, api_key_enc, model_default, model_light, enabl
 core_agent_approval_rules(id, user_id, agent_id, tool, created_at, voided_at, void_reason)
   -- always-allow rules (§6); voided, never deleted; one live rule per (user_id, agent_id, tool)
   -- core_agent_tool_runs also has deny_reason: the user's reason for a denial (§6), at most 500 characters
+core_agent_change_lists(tool_run_id PK, user_id, rows JSON, notes JSON, created_at, staged_mark, applied_at,
+                        last_change_id, undone_at, undo_result JSON)
+  -- one bulk run's field changes, read from core_change_log (§6, "Change lists and Undo")
+  -- core_agent_tool_runs also has undo_note: what the model reads after the run's result once it was undone
 core_agent_turns(id, conversation_id, user_id, status, started_at, ended_at)
   -- status CHECK (running | done | error | cancelled | interrupted); one row per turn (§5)
 core_agent_turn_events(turn_id, seq, event JSON, PRIMARY KEY (turn_id, seq))
@@ -117,6 +122,7 @@ ToolSpec(
     title: str = "",    # MCP display title; empty derives one from the name. Not in tool_def_sha256
     destructive: bool = False,  # MCP destructiveHint: the write discards data for good. Not in tool_def_sha256
     reads=None,         # reads(args, result) -> [(entity_type, id)] the result carries. Not in tool_def_sha256
+    change_list: bool = False,  # a bulk edit: old -> new on its card and an Undo (§6). handler_in only. Not in tool_def_sha256
 )
 ```
 
@@ -167,6 +173,7 @@ entity (Todos projects and areas), applied after the owning app's roles, as for 
 8. `input_schema` is a JSON schema of type `object`.
 9. A spec gives exactly one of `handler` and `handler_in`.
 10. An `external_effect` tool runs through `handler`; a read runs through `handler`, never `handler_in`.
+11. A `change_list` tool is a local write (`handler_in`).
 
 `hides_when(args)` puts the Approve card back on a routine write whose args would take a record out of view. It confirms when it returns true, and also when it raises (it fails closed).
 
@@ -419,7 +426,23 @@ A deny may carry `reason` (at most 500 characters, whitespace collapsed), stored
 
 The box is a request, not a grant: `confirm(..., always_allow=True)` saves the rule only after the run is `done` and only if `rule_eligible` holds for the conversation's stored taint at that moment; the answer then carries `rule_saved`. The `confirm` event and the conversation read carry `can_always_allow` for a pending card. Settings, Account, Saved approvals lists the caller's live rules (`GET /api/agent/approval-rules`); Remove voids one (`DELETE /api/agent/approval-rules/{id}`, `void_reason` "removed in settings"), and the row stays. A run a rule allowed is not marked on its row; the rule's `created_at` and `voided_at` bracket it.
 
-`POST /api/agent/confirm {tool_run_id, decision: "approve" | "deny", reason?, always_allow?}` answers **200** with `{status, result?, error?, rule_saved?}` (`rule_saved` only when `always_allow` was sent). `status` is one of `done`, `error`, `uncertain`, `stale`, `denied` or `already_resolved`; `already_resolved` comes with `current`, the run's actual status. `already_resolved` is a response status, never a row status. A missing run, or one that is not a chat run, is 404, and a conversation the caller does not own is 403 `not_your_conversation`.
+### Batch cards
+
+Pending calls of one model step that share a tool and argument names, and whose every value is a flat scalar (string, number, boolean or null, finite, at most 200 characters as JSON, at most 12 arguments), get the same `batch` key (`engine.batch_key`: `[message_id, tool, sorted names]`) on their `confirm` events and on the conversation read; reads and `always_confirm` (so remote) tools get none. The client draws one card for equal keys, listing every member's every value as JSON (so `"1"` and `1` read differently; nothing is truncated, which is why a long or nested value keeps its own card), with Approve all and Deny all. The key pins everything about a call except the values the card lists, so one card never stands for a write the user cannot see. It is display only: Approve all posts `/api/agent/confirm` once per pending member, in order, so (a)–(d), the args from the database and the idempotency stay per run, and a stale or failed member does not stop the others. The usual resume rule then continues the turn once, after the last member. No member cap: the write budget already bounds a step's proposed writes. A message sent mid-step (steering, §5) that skips a member not yet settled also skips the members already waiting on that card (`dispatch._whole_batches`: their runs become `error` "Skipped to process your new message." and each gets a `tool_end`, which drops its card), so a card never stands for part of what the model proposed. None of them can have run: `/confirm` answers 409 `turn_running` while the conversation's turn runs, from any tab.
+
+### Change lists and Undo
+
+A bulk tool opts in with `change_list=True` (`todos_bulk_update`, `crm_bulk_move_deals`). Its rows are what its own write path reports to `core_change_log` (`timeline.record_changes_in`), read by the server: `{entity_type, entity_id, field, old, new}`, with titles looked up per read.
+
+- **A card** (the call needs one: taint, `hides_when`, or not routine): `execute.dry_run` authorizes the targets, runs `handler_in`, reads the change-log rows it wrote and rolls the transaction back. A call that raises, or changes nothing, is refused with the reason before any card (`NOTHING_TO_CHANGE`, or the result's `errors` when only those came back). Otherwise `change_lists.stage` inserts the pending run and its list in one transaction with the change-log mark the dry run started from, and the `confirm` event carries `change_list: {changes, records}`. The card lists the rows (`GET /api/agent/change-lists/{tool_run_id}`), and Approve waits until they loaded.
+- **Apply**: Approve runs the tool for real in (d)'s transaction; `record_applied_in` then refuses the whole run (`error`, "These records changed since the card was shown, so nothing was changed. Ask again.") when a listed record has a change-log row since the mark, or the run's rows differ from the listed ones (old values compared; new ones may carry a fresh stamp). A call that runs at once records its rows as applied, and its `tool_end` carries `change_list: true`. MCP runs record none.
+- **Notes**: what the change log cannot show comes from the tool's result: `errors` (records it will not change) and `notes` (a repeating todo's next occurrence) are listed with the rows.
+- **Undo** (`POST /api/agent/change-lists/{tool_run_id}/undo`), one transaction, once, for the run's own user: a record with a change-log row since the apply is left alone ("changed since it was applied"), checked for every record before any revert writes; the rest go back through the entity's `revert_in` (`authorization.md`), which also leaves alone a record that no longer holds the values the list applied (an edit the change log did not see, such as a Todos context rename), each in its own SAVEPOINT, so a refusal after a partial write keeps none of that record's writes and skips it with the reason. It sets `core_agent_tool_runs.undo_note`, which the model reads after that run's result ("The user undid this change list afterwards: …"), and which `assemble_messages` adds to the gist when the run was already summarized.
+- A list's status: `staged` (its run waits), `applied`, `undone`, or `not_applied` (denied, stale, refused). GET and Undo show only the records the caller can read now and count the other records in `hidden`.
+
+Undo is a REST route, never a tool: the model cannot undo a list or be tricked into it, and `CONFIRMATION_NOTE` tells it to point the user to the button. Simplifications: staging runs the handler one extra time under the write lock; any later change to a record skips the whole record, not just the fields the list wrote; Undo restores field values, not derived stamps (a todo put back to done gets a new `completed_at`).
+
+`POST /api/agent/confirm {tool_run_id, decision: "approve" | "deny", reason?, always_allow?}` answers **200** with `{status, result?, error?, rule_saved?}` (`rule_saved` only when `always_allow` was sent). `status` is one of `done`, `error`, `uncertain`, `stale`, `denied` or `already_resolved`; `already_resolved` comes with `current`, the run's actual status. `already_resolved` is a response status, never a row status. A missing run, or one that is not a chat run, is 404, a conversation the caller does not own is 403 `not_your_conversation`, and a conversation whose turn is running is 409 `turn_running` (that turn may still be making the cards of a step; try again once it ends).
 
 ## 7. Tool-run status enum
 
@@ -447,9 +470,9 @@ Every event also carries `seq`, its position in the turn (from 0), and the first
 | `text` | `{text}` |
 | `tool_start` | `{tool, tool_use_id}` |
 | `tool_args` | `{tool, tool_use_id, args, description}` |
-| `tool_end` | `{tool, tool_use_id, tool_run_id, status, result, elapsed_ms}`; the lookups of one step end in the order they finish, so match by `tool_use_id` |
+| `tool_end` | `{tool, tool_use_id, tool_run_id, status, result, elapsed_ms, change_list?}`; the lookups of one step end in the order they finish, so match by `tool_use_id`. `change_list: true` when the run recorded a change list (§6) |
 | `usage` | `{input_tokens, output_tokens, context_tokens, context_window}` |
-| `confirm` | `{tool_run_id, tool, tool_use_id, msg_id, args, summary, can_always_allow}` |
+| `confirm` | `{tool_run_id, tool, tool_use_id, msg_id, args, summary, can_always_allow, batch, change_list?}`; `change_list: {changes, records}` on a staged bulk edit (§6) |
 | `steer` | `{text}`: a message sent while the turn ran, saved as a user row and now in the model's messages (§5, "Steering") |
 | `done` | `{model}`, or `{stopped: true}` after Stop |
 | `error` | `{error}`, plus `interrupted: true` when the server stopped or restarted mid-turn |
@@ -479,6 +502,7 @@ Every event also carries `seq`, its position in the turn (from 0), and the first
 | `POST /api/agent/turns/{id}/cancel` | Stop a running turn: `{cancelled: true}`, or `false` when it had already ended. Owner only (404 otherwise). |
 | `POST /api/agent/confirm` | §6. |
 | `GET /api/agent/approval-rules`, `DELETE /api/agent/approval-rules/{id}` | The caller's live always-allow rules, newest first (`{id, tool, agent_slug, agent_name, created_at}`); DELETE voids the caller's own rule (`{voided: true}`), 404 `rule_not_found` otherwise (§6). |
+| `GET /api/agent/change-lists/{tool_run_id}`, `POST /api/agent/change-lists/{tool_run_id}/undo` | The caller's own change list (§6): `{tool_run_id, status, rows: [{entity_type, entity_id, title, field, old, new}], notes, hidden, reverted, skipped: [{entity_type, entity_id, title, reason}]}`; 404 `change_list_not_found` for a missing list or anyone else's. Undo answers the list, now `undone`; 409 `already_undone` or `not_applied`. A conversation read marks each call with `change_list`. |
 | `GET` / `POST /api/agent/conversations`; `GET` / `PATCH {title, is_private}` / `DELETE /api/agent/conversations/{id}` | The caller's own conversations only. |
 | `GET /api/agent/agents`; `PATCH /api/agent/agents/{slug}` (admin) | The PATCH takes `name`, `personality`, `provider_override` (`anthropic` or `openai`), `model_override` and `model_tier` (`default` or `light`). |
 | `GET /api/agent/providers`, `PUT /api/agent/providers/{provider}`, `POST /api/agent/providers/{provider}/test` (admin) | Provider keys and default and light models, one `core_agent_providers` row per vendor. |
@@ -518,6 +542,8 @@ The Step 1 engine stub is gone; the full loop (`turns.py`) runs every turn. `pro
 | `useAgentChat`, `chatModel`, `sse` | Chatty `useAgentChat.ts` | POST /chat read as SSE over `fetch` (with files, multipart to `/chat/upload` after `shared/shrinkImage` shrinks each photo to about 300 KB; never retried on 409; a refused file shows the server's sentence); an assistant message is ordered text and tool parts, so a reloaded thread (consecutive assistant rows merged) looks like the streamed one. |
 | `AgentMessageBubble` | Chatty `AgentMessageBubble.tsx` | Markdown text, collapsible tool calls (args, result, status), compaction note, stream errors. |
 | `ToolConfirmCard`, `confirmState` | Chatty card, CakeCRM resolve rule | The Approve card: tool, summary (or nothing), full args. Reloaded threads have no summary because conversation reads do not carry one; collapsed tool calls still use the model-facing description. `pending → sending → resolved`; a failed request returns to pending. Each of `done`, `error`, `uncertain`, `stale`, `denied`, `already_resolved` has its own words. An optional reason box goes with Deny; an "Always allow" box goes with Approve when the card carries `can_always_allow`, and the done text says whether the rule was saved. |
+| `BatchConfirmCard`, `chatModel.renderUnits` | new | Cards sharing a `batch` key render as one card at the first member's place: a table of every member's values with a status per row, Approve all / Deny all (each member confirmed on its own, in order), the reason box, and Always allow only when every member offers it. A group of one stays a plain card. |
+| `ChangeListView` | CakeCRM change-list card | A bulk run's changes from the server: "N changes on M records", the first 20 rows as "title · field: old → new" with Show all, the tool's notes, and once applied an Undo; undone, what was put back and each record left alone with why. The Approve card shows it in place of the args (Approve waits until it loaded); a tool call that ran at once shows it under its line. |
 | `SavedApprovalsCard` (Settings, Account) | new | The caller's always-allow rules with Remove (voids the rule). |
 | `ConversationSidebar`, `useConversations` | Chatty | Search (`?q=` over message text), new, inline rename, private toggle, delete with confirm. |
 | `MarkdownContent` | shared with the Guide (`src/shared/`) | GFM, no highlighting; in-app links stay in the tab through `Link`, external ones open a new tab; images never load. |
@@ -549,6 +575,8 @@ Rules the frontend keeps:
 - `test_agent_parallel_reads.py`: two lookups inside their handlers at once, a write of the step after both, results in call order, at most four at once, hooks in call order and a refused lookup not run, the taint seen by a write and a second web read, a halt or a hook that halts, the start deadline, Stop waits for running lookups. Scenario `lookups_run_together_before_a_write`.
 - `test_agent_turns.py`: a turn survives a disconnect and saves its reply; `after=N` replays each later event once, live and from the log; cancel records `cancelled`; a second running turn is 409; startup and shutdown mark `interrupted`; the prune; a request cancelled while the turn starts still gets an answer; the final log write is retried. `test_agent_hooks.py`: each hook point's contract. `useAgentChat.test.tsx`: resume after a drop and on `visibilitychange`, and Stop.
 - `test_agent_usage.py`: a priced row per chat call, compaction and observer run, the model that answered after a fallback, the rates setting and its checks, a ledger failure never fails the turn, the month in the install timezone. `UsageCard.test.tsx`: the total, the no-rate line, saving a rate.
+- `test_agent_change_lists.py`: the card's rows read by the server with nothing written, Approve all or nothing (a record edited while the card waits), a routine bulk edit applied at once with Undo, `test_undo_skips_a_record_edited_after_apply`, once and owner only (and not a tool), a call that fails or changes nothing shows no card, the tool's notes on the card, the repeating-todo refusal, the SAVEPOINT per record, the undo note after a compaction, a CRM bulk move undone, the registry check, MCP records none. Scenario `change_list_undo.yaml`.
+- `test_agent_batch_cards.py`: a message that cuts a batch short skips the whole card; the batch key's every refusal (no args, no step, over 12 names, a list or object, a long value, NaN, always-ask, a read) and what it pins (step, tool, names), the same key on events and on reload, each member confirmed on its own (one stale, one done, a repeat `already_resolved`). Scenario `same_shape_writes_share_a_card.yaml`.
 - `test_agent_approval_rules.py`: a rule skips the card for its tool only and for its user only, a voided rule stops applying (and the row stays), never in a tainted conversation, re-validated at approve (taint after the card, an always-ask tool), `rule_eligible` per flag, a failed lookup keeps the card; a deny reason is stored bounded and read by the model, the breaker counts denied steps since the user's message. Scenarios `deny_reason_reaches_the_model.yaml` and `always_allow_never_skips_a_tainted_turn.yaml` (and `test_a_rule_that_ignores_taint_fails_the_scenario`).
 - `test_agent_intents.py`: the phrase match (stemmed, accents, word order, FTS syntax inert), one fire then the 24-hour cooldown and the third fire the last, expiry, another user's message and routes, validation and the 50 cap, a fire that lost a race, a note that tries to close its fence.
 - `test_scenarios.py` runs `backend/tests/scenarios/*.yaml` (format in `testing.md`, "Whisk scenarios"): fencing and taint, a topic reminder firing once then held by its cooldown, approve then continue, compaction keeping identifiers, a lossy summary retried then rejected, a dropped turn resuming, the usage rows a turn writes, a readable record named in the prompt and an unreadable one left out, two slow lookups together before a write. `test_agent_compaction.py`: identifier extraction and matching, the outline check, retries, the timeout fallback, the flush and its privacy checks. `test_prompt_budget.py`: the static prompt plus eager tools stay under a token budget.
