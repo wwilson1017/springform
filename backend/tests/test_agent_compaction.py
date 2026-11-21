@@ -57,8 +57,9 @@ def test_identifiers_are_taken_whole():
 def test_identifiers_in_json_are_read_decoded_not_from_escapes():
     args = json.dumps({"customer": "Zoé Márquez", "note": "line1\nINV-0042", "due": "a\n2026-12-01"})
     result = json.dumps({"order_id": 7, "memo": "paid\tSO-7781 😀"})
-    found = compaction.identifiers([args, result])
-    assert found == ["INV-0042", "2026-12-01", "SO-7781", "7"]
+    fenced = delimiters.wrap_untrusted_external("t", json.dumps({"note": "x\nINV-0043", "by": "José"}))
+    found = compaction.identifiers([args, result, fenced, "1250.00"])
+    assert found == ["INV-0042", "2026-12-01", "SO-7781", "7", "INV-0043", "1250.00"]
     assert not any(t.startswith(("n", "u00", "ud8")) for t in found)
 
 

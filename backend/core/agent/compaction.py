@@ -250,10 +250,13 @@ def _leaves(value):
 
 
 def _decoded(text: str) -> list[str]:
+    """A JSON object or array (fenced or not) as its leaves; any other text as itself."""
+    text = _FENCE_TAG_RE.sub(" ", text)
     try:
-        return list(_leaves(json.loads(text)))
+        value = json.loads(text)
     except ValueError:
         return [text]
+    return list(_leaves(value)) if isinstance(value, dict | list) else [text]
 
 
 def identifiers(texts: list[str]) -> list[str]:
@@ -262,7 +265,7 @@ def identifiers(texts: list[str]) -> list[str]:
     seen: dict[str, None] = {}
     for text in texts:
         for leaf in _decoded(text):
-            for m in _IDENTIFIER_RE.finditer(_FENCE_TAG_RE.sub(" ", leaf)):
+            for m in _IDENTIFIER_RE.finditer(leaf):
                 seen.setdefault(m.group(0).rstrip(_URL_TAIL) if m.group(0).startswith("http") else m.group(0))
         for m in _JSON_ID_RE.finditer(text):
             seen.setdefault(m.group(1))
