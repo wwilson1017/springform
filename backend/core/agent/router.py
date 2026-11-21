@@ -24,6 +24,7 @@ from backend.core.agent import (
     detached,
     engine,
     history,
+    intents,
     models,
     providers,
     registry as tool_registry,
@@ -260,6 +261,22 @@ def update_conversation(conversation_id: int, body: ConversationPatch, user: Use
 def delete_conversation(conversation_id: int, user: User = Depends(current_user)) -> dict:
     if not history.delete_conversation(conversation_id, user.id):
         raise HTTPException(404, detail="conversation_not_found")
+    return {"deleted": True}
+
+
+# ── Topic reminders ───────────────────────────────────────────────────────────
+
+
+@router.get("/intents", response_model=list[models.Intent])
+def list_intents(user: User = Depends(current_user)) -> list[dict]:
+    """The caller's own topic reminders, newest first."""
+    return intents.list_mine(user)
+
+
+@router.delete("/intents/{intent_id}", response_model=models.ConversationDeleted)
+def delete_intent(intent_id: int, user: User = Depends(current_user)) -> dict:
+    """Another user's reminder answers 404, as a missing one does."""
+    intents.delete(user, intent_id)
     return {"deleted": True}
 
 

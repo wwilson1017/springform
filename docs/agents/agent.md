@@ -64,6 +64,9 @@ core_agent_turn_events(turn_id, seq, event JSON, PRIMARY KEY (turn_id, seq))
 core_agent_usage(id, at, user_id, source, conversation_id, provider, model,
                  input_tokens, output_tokens, cache_read, cache_write, cost_micros)
   -- the usage ledger: one row per completed model call (§5, "Usage ledger"); no FK on the conversation
+core_agent_intents(id, user_id, trigger_terms JSON, note, cooldown_hours DEFAULT 24, max_fires DEFAULT 3,
+                   fires DEFAULT 0, last_fired_at, expires_at, created_at)
+  -- topic reminders (§5, "Topic reminders"): one user's, matched only against that user's typed text
 core_agent_mcp_links           -- mcp.md §1
 core_agent_mcp_servers         -- mcp.md §2
 ```
@@ -207,6 +210,7 @@ Every install has these, from core packages' `tools.py`. The contacts, note and 
 | `core_add_note` | routine write | A timeline note on any registered record, authored by the user; the record is the target, so it needs write access. An unknown `entity_type` is refused with the registered types listed. |
 | `core_set_reminder` | routine write | A reminder on a readable record, owned by the user and titled with the record's name; a `due_at` without an offset is read in the install timezone. No targets (the record does not change). |
 | `core_list_my_reminders` | read | The user's reminders, soonest first: `open` (default, snoozed included) or `done`, with `due_local`. |
+| `core_remind_on_topic` | routine write | A topic reminder for the user: `terms` (1–5 words or phrases, any one fires it) and `note`; `intents.py` (§5, "Topic reminders"). At most 50 active per user. Chat only. |
 | `core_memory_search` | read | Facts and Whisk's context files. |
 | `core_memory_remember` | write | Records one business fact. |
 | `core_context_file_read` | read | One of Whisk's context files. |
@@ -258,6 +262,7 @@ Shipped hooks (listed in `turns.HOOK_MODULES`; `test_agent_hooks.py` pins them):
 | `loop_guard` | `on_tool_result` | Notices a repeating call or reply; the third notice stops the turn (below) |
 | `call_repair` | `before_tool` | Suggests the right name for an unknown tool; coerces arguments to the schema (below) |
 | `completion_claims` | `end_of_turn` | Adds a correction when the reply claims a send or a write no tool backs (below) |
+| `intents` | `before_model_call` | On a turn's first model call, fires the user's topic reminders its typed text mentions (below) |
 
 Within a point, hooks run in import order. Only `on_tool_result`'s is load-bearing: `result_cap` must see the handler's text before `loop_guard` appends its notice, so `loop_guard` imports `result_cap` and asserts it registered first.
 
@@ -345,6 +350,10 @@ memory facts, and the context of a turn already running.
 ### Page and record context
 
 `POST /chat` may carry `page` (the path the user came from, held to `^/[A-Za-z0-9/_.~%-]*$`, at most 300 characters) and `record {entity_type, entity_id}`. The router turns them into one note (`agents.context_note`) in its setup thread: the record is named ("The user is looking at Deal #12 (entity type crm.deal, id 12)…; read it with a tool when you need its details") only after `entities.authorize(read)`, and an unknown type, a missing record or one the user cannot read is left out without a word, so the prompt never confirms it exists. The note is built from a fixed template, the entity label, the type and the integer id, never the title: a member can write a shared record's title, and this note is unfenced, so free text there could pose as instructions. The note rides `TurnState.context` into the volatile half of the system prompt, after who is asking; it is per turn and never stored, so the client sends it with every turn, continuations included.
+
+### Topic reminders
+
+`intents.py`. `core_remind_on_topic` saves "when X comes up, remind me of Y" as a `core_agent_intents` row owned by the acting user, expiring in 90 days. The `before_model_call` hook runs once per turn, on its first model call, and only on `TurnState.message`, the text the user typed for this turn (`""` on a continuation, so the message that set a reminder never fires it on the resume after an approval). It reads that user's active intents (fires left, not expired, last fire at least `cooldown_hours` ago) and matches the text with FTS5 without a model call: the message goes into a one-row FTS5 table (`porter unicode61 remove_diacritics 2`) in a throwaway in-memory database, and each term runs against it as a quoted phrase of its words, so "bakery supplier" matches "the Bakery Suppliers" but not "supplier of the bakery". The message is indexed rather than the intents because the question is whether the message contains the term. At most three hits fire per turn; each is claimed by an UPDATE that re-checks the fire count and last fire it read, so two turns at once fire it once; a turn that then fails has still spent that fire (a simplification). The hits go at the end of the volatile half under a fixed `## Topic reminder` line, the terms and notes inside a `topic_reminder` fence (listed in `SAFETY_INSTRUCTION`): the user wrote them, but a note can quote anything. `GET /api/agent/intents` lists the caller's own and `DELETE /api/agent/intents/{id}` deletes one (another user's answers 404); the Reminders page shows them under "Topic reminders". Expired and used-up rows stay until deleted.
 
 ## 6. Server-side confirmation
 
@@ -437,6 +446,7 @@ Every event also carries `seq`, its position in the turn (from 0), and the first
 | `GET /api/agent/agents`; `PATCH /api/agent/agents/{slug}` (admin) | The PATCH takes `name`, `personality`, `provider_override` (`anthropic` or `openai`), `model_override` and `model_tier` (`default` or `light`). |
 | `GET /api/agent/providers`, `PUT /api/agent/providers/{provider}`, `POST /api/agent/providers/{provider}/test` (admin) | Provider keys and default and light models, one `core_agent_providers` row per vendor. |
 | `GET /api/agent/usage` (admin) | This month (install timezone): `{month, rows: [{source, model, calls, input_tokens, output_tokens, cache_read, cache_write, cost_micros, unpriced}], cost_micros, cache_hit_rate}`. `unpriced` counts calls on a model with no rate, which are not in `cost_micros`; the hit rate is cache reads over all input tokens (null with none). |
+| `GET /api/agent/intents`, `DELETE /api/agent/intents/{id}` | The caller's topic reminders, newest first (`{id, terms, note, fires, max_fires, cooldown_hours, last_fired_at, expires_at, created_at, status}`, status `active`, `used_up` or `expired`); delete answers `{deleted: true}`, 404 for another user's (§5, "Topic reminders"). |
 | `GET /api/core/context-files[?agent=<slug>]`, `GET` / `PUT /api/core/context-files/{filename}[?agent=<slug>]` | Context files per agent (default `whisk`). Members list them and read the unprotected ones; admins read all and write through `PUT`. Protected files (`soul.md`, `MEMORY.md`) refuse the REST editor: they change only through the confirmed chat tool. |
 | `GET /api/core/memory/facts[?q=&limit=&offset=&history=]`, `POST /api/core/memory/facts {text, tags, valid_from?}`, `DELETE /api/core/memory/facts/{id}` (admin) | Install-shared facts, not per agent. Any signed-in user may list and add; only admins end one. Admins see provenance, and `history=true` (admins only) adds ended facts. `offset` applies only without `q`. `DELETE` ends the fact's validity (§3). |
 | MCP links | `GET` / `POST /api/core/mcp/links`, `DELETE /api/core/mcp/links/{id}` (`mcp.md` §1). |
@@ -492,7 +502,8 @@ Rules the frontend keeps:
 - `test_agent_turns.py`: a turn survives a disconnect and saves its reply; `after=N` replays each later event once, live and from the log; cancel records `cancelled`; a second running turn is 409; startup and shutdown mark `interrupted`; the prune; a request cancelled while the turn starts still gets an answer; the final log write is retried. `test_agent_hooks.py`: each hook point's contract. `useAgentChat.test.tsx`: resume after a drop and on `visibilitychange`, and Stop.
 - `test_agent_usage.py`: a priced row per chat call, compaction and observer run, the model that answered after a fallback, the rates setting and its checks, a ledger failure never fails the turn, the month in the install timezone. `UsageCard.test.tsx`: the total, the no-rate line, saving a rate.
 - `test_agent_approval_rules.py`: a rule skips the card for its tool only and for its user only, a voided rule stops applying (and the row stays), never in a tainted conversation, re-validated at approve (taint after the card, an always-ask tool), `rule_eligible` per flag, a failed lookup keeps the card; a deny reason is stored bounded and read by the model, the breaker counts denied steps since the user's message. Scenarios `deny_reason_reaches_the_model.yaml` and `always_allow_never_skips_a_tainted_turn.yaml` (and `test_a_rule_that_ignores_taint_fails_the_scenario`).
-- `test_scenarios.py` runs `backend/tests/scenarios/*.yaml` (format in `testing.md`, "Whisk scenarios"): fencing and taint, approve then continue, compaction keeping identifiers, a lossy summary retried then rejected, a dropped turn resuming, the usage rows a turn writes, a readable record named in the prompt and an unreadable one left out, two slow lookups together before a write. `test_agent_compaction.py`: identifier extraction and matching, the outline check, retries, the timeout fallback, the flush and its privacy checks. `test_prompt_budget.py`: the static prompt plus eager tools stay under a token budget.
+- `test_agent_intents.py`: the phrase match (stemmed, accents, word order, FTS syntax inert), one fire then the 24-hour cooldown and the third fire the last, expiry, another user's message and routes, validation and the 50 cap, a fire that lost a race, a note that tries to close its fence.
+- `test_scenarios.py` runs `backend/tests/scenarios/*.yaml` (format in `testing.md`, "Whisk scenarios"): fencing and taint, a topic reminder firing once then held by its cooldown, approve then continue, compaction keeping identifiers, a lossy summary retried then rejected, a dropped turn resuming, the usage rows a turn writes, a readable record named in the prompt and an unreadable one left out, two slow lookups together before a write. `test_agent_compaction.py`: identifier extraction and matching, the outline check, retries, the timeout fallback, the flush and its privacy checks. `test_prompt_budget.py`: the static prompt plus eager tools stay under a token budget.
 - Playwright: Whisk answers with FakeProvider → write tool shows Approve and runs on approve → zero-key card.
 
 ## Source
