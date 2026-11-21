@@ -1,3 +1,6 @@
 {$DOMAIN} {
-	reverse_proxy app:{$PORT:8000}
+	reverse_proxy app:{$PORT:8000} {
+		# The client address the app's rate limits count (auth.md §8); overwrites any the client sent.
+		header_up X-Real-IP {remote_host}
+	}
 }

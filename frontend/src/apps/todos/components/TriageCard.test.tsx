@@ -246,6 +246,32 @@ describe('tags typed just before filing', () => {
   });
 });
 
+describe('tags typed just before Edit', () => {
+  it('are saved before the edit sheet opens', async () => {
+    let answer!: (v: unknown) => void;
+    updateTodoMock.mockImplementationOnce(
+      () =>
+        new Promise((r) => {
+          answer = r;
+        }),
+    );
+    render();
+    const tags = container.querySelector<HTMLInputElement>('input[aria-label="Tags"]')!;
+    setValue(tags, 'errand');
+    act(() => {
+      tags.dispatchEvent(new FocusEvent('focusout', { bubbles: true }));
+    });
+    click(button('Edit'));
+    await act(async () => {});
+    expect(onEdit).not.toHaveBeenCalled();
+    await act(async () => {
+      answer({ ...TODO, tags: ['errand'] });
+    });
+    expect(onEdit).toHaveBeenCalledTimes(1);
+    expect(onEdit.mock.calls[0][0].tags).toEqual(['errand']);
+  });
+});
+
 describe('step 2 — every field says what it is', () => {
   it('labels project, due date, notes, tags and people', () => {
     render();

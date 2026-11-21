@@ -35,7 +35,7 @@ The **CI image test** runs the container and asserts `/api/health` reports `sqli
 | File | Contract |
 |---|---|
 | `compose.yml` | The app service with `/srv/springform/data` mounted at `/data`, bound **only on the compose network** (its port is never published), plus `caddy:2` publishing 80/443. Image from `IMAGE=` in `.env`, default the upstream `ghcr.io/wwilson1017/springform:latest`; a fork sets its own (`setup.sh` takes `IMAGE=`; `forks.md`). |
-| `Caddyfile` | `{$DOMAIN} { reverse_proxy app:{$PORT:8000} }` (automatic HTTPS); compose passes `PORT` from `.env` to the caddy service. |
+| `Caddyfile` | `{$DOMAIN} { reverse_proxy app:{$PORT:8000} }` (automatic HTTPS) with `header_up X-Real-IP {remote_host}`, the client address the rate limits count (`auth.md` §8); compose passes `PORT` from `.env` to the caddy service. |
 | `.env.example` | The environment template (`setup.sh` generates `.env`). |
 | `setup.sh` | Fresh VPS bootstrap (below). |
 | `deploy.sh` | Update an install (below). |

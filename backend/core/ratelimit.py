@@ -1,8 +1,8 @@
 """In-process rate limits (lifted from todo-gtd `backend/ratelimit.py`); the inbound MCP endpoint uses them.
 
 One process serves the install (`platform.md`), so an in-memory counter is the whole truth. Keys
-are any string: a link id for the call limit, the client address for wrong-token misses (behind
-the proxy, uvicorn's proxy headers make `request.client` the real client; `auth.md` §8).
+are any string: a link id for the call limit, `client_key(request)` for wrong-token misses and
+logins (`auth.md` §8).
 """
 
 from __future__ import annotations
@@ -10,6 +10,8 @@ from __future__ import annotations
 import threading
 import time
 from collections import OrderedDict
+
+from backend.core import settings
 
 # Above this many tracked keys, whole expired buckets are dropped, so a flood from ever-new
 # addresses cannot grow the dict without bound. At the hard cap the least recently touched
@@ -24,6 +26,15 @@ def clear_all() -> None:
     """Empty every limiter (tests)."""
     for limiter in _limiters:
         limiter.clear()
+
+
+def client_key(request) -> str:
+    """The client address a limit counts against. Behind `TRUST_PROXY`, uvicorn trusts every hop and
+    takes the leftmost `X-Forwarded-For` entry, which the client can write itself; the proxy's own
+    `X-Real-IP` (Railway sets it, so does `deploy/Caddyfile`) wins when present."""
+    if settings.trust_proxy() and (real := request.headers.get("x-real-ip", "").strip()):
+        return real
+    return request.client.host if request.client else "unknown"
 
 
 class RateLimiter:

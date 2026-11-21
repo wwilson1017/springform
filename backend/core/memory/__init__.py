@@ -66,6 +66,14 @@ def context_for(conn: db.Conn, user: User, agent_slug: str, query: str, *, inclu
     return _fit(sections, budget)
 
 
+def context_size(conn: db.Conn, agent_slug: str) -> str:
+    """How much of the per-turn budget the context files take ("1,800/12,000 chars"): facts get
+    what is left, and past the budget the prompt is cut."""
+    budget = int(settings.get_setting(BUDGET_SETTING, DEFAULT_BUDGET))
+    used = len("\n\n".join(_render(f) for f in context_files.prompt_files_in(conn, agent_slug)))
+    return f"{used:,}/{budget:,} chars"
+
+
 def after_turn(conn: db.Conn, conversation_id: int) -> None:
     """Mark a conversation for the nightly observer (one upsert). Runs in the caller's
     transaction when there is one, else in its own."""
