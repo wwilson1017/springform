@@ -344,3 +344,19 @@ def test_the_approval_narration_leaves_a_message_for_the_next_turn(app, login_as
         tool_registry.set_current(before)
     assert rest[-1]["type"] == "done" and not [e for e in rest if e["type"] == "steer"]
     assert "and a third" not in json.dumps(model_requests[-1]["messages"])
+
+
+def test_a_message_sent_during_a_provider_retry_reaches_the_retried_call(app, login_as, model_requests):
+    a = login_as("member")
+    fake.script({"error": "slow down", "status": 429, "retry_after": 1}, "Answering both.")
+    with live_client(app, a) as c:
+        with c.stream("POST", "/api/agent/chat", json={"message": "one"}) as r:
+            it = frames(r)
+            cid = next(it)["id"]
+            deadline = time.monotonic() + 5
+            while not model_requests and time.monotonic() < deadline:  # the first attempt was made: now in backoff
+                time.sleep(0.02)
+            assert c.post("/api/agent/chat", json={"conversation_id": cid, "message": "two"}).status_code == 202
+            rest = list(it)
+    assert len(model_requests) == 2 and "two" in json.dumps(model_requests[1]["messages"])
+    assert [e for e in rest if e["type"] == "steer"] and rest[-1]["type"] == "done"

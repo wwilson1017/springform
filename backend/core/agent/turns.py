@@ -174,11 +174,11 @@ class TurnRunner:
         again after a Fallback rebuild). Only a failure before anything reached the client is
         offered to `on_provider_error`."""
         s, failures = self.state, 0
-        if not narrate:  # a narration's tool calls are ignored, so a message it took could not be acted on
-            await self._take_steers()
         if nudge:
             s.messages = assembly.coalesce([*s.messages, {"role": "user", "content": nudge}])
         while True:
+            if not narrate:  # every attempt, retries included; a narration's tool calls are ignored, so it takes none
+                await self._take_steers()
             await turn_hooks.before_model_call(s)
             text, sent, failure = "", False, None
             calling_tainted.set(s.tainted)

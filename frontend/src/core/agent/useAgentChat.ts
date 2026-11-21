@@ -53,6 +53,8 @@ interface Queued {
 }
 
 type TurnBody = { conversation_id: number | null; message?: string };
+/** A turn whose POST was already made: its stream, the controller that aborts it, its unsent queue. */
+type Started = { res: Response; ctl: AbortController; queued: Queued[] };
 
 interface Turn {
   /** The current connection's; replaced when the tab comes back, aborted to give up. */
@@ -71,7 +73,7 @@ interface Turn {
    * read only for `steer` and the end, then the view re-reads the conversation. */
   quiet?: boolean;
   /** A queued post that started the next turn (this one had ended): its stream, read after this one. */
-  next?: Response;
+  next?: Started;
 }
 
 /** Backoff for re-attaching to, or re-reading, a dropped turn. */
@@ -132,9 +134,7 @@ export function useAgentChat(options: Options = {}) {
   const turnRef = useRef<Turn | null>(null);
   const loadSeqRef = useRef(0);
   /** runTurn, for the follow-up turn it starts itself. */
-  const runTurnRef = useRef<(body: TurnBody, started?: { res: Response; queued: Queued[] }) => Promise<void>>(
-    async () => {},
-  );
+  const runTurnRef = useRef<(body: TurnBody, started?: Started) => Promise<void>>(async () => {});
   const optionsRef = useRef(options);
   useEffect(() => {
     optionsRef.current = options;
@@ -226,15 +226,17 @@ export function useAgentChat(options: Options = {}) {
         ) {
           const id = convIdRef.current;
           if (id == null) break; // sent once the conversation_id event arrives
+          const ctl = new AbortController(); // becomes the next turn's, should this post start it
           const res = await fetch('/api/agent/chat', {
             method: 'POST',
             credentials: 'same-origin',
+            signal: ctl.signal,
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ ...optionsRef.current.context, conversation_id: id, message: q.text }),
           }).catch(() => null);
           if (res?.status === 202) q.sent = true;
           else if (res?.ok && res.body) {
-            turn.next = res; // the turn had ended; this one is the next turn's message
+            turn.next = { res, ctl, queued: [] }; // the turn had ended; this one is the next turn's message
             turn.queued = turn.queued.filter((x) => x !== q);
             const done = q.id;
             setMessages((prev) => prev.map((m) => (m.id === done ? { ...m, queued: false } : m)));
@@ -250,10 +252,10 @@ export function useAgentChat(options: Options = {}) {
   );
 
   const runTurn = useCallback(
-    async (body: TurnBody, started?: { res: Response; queued: Queued[] }) => {
+    async (body: TurnBody, started?: Started) => {
       detach();
       const turn: Turn = {
-        ctl: new AbortController(),
+        ctl: started?.ctl ?? new AbortController(),
         live: true,
         stopped: false,
         turnId: null,
@@ -405,7 +407,7 @@ export function useAgentChat(options: Options = {}) {
         setMessages((prev) => prev.map((m) => (left.some((q) => q.id === m.id) ? { ...m, queued: false } : m)));
       const unsent = left.filter((q) => !q.sent);
       const id = convIdRef.current;
-      if (turn.next) void runTurnRef.current({ conversation_id: id }, { res: turn.next, queued: unsent });
+      if (turn.next) void runTurnRef.current({ conversation_id: id }, { ...turn.next, queued: unsent });
       else if (left.length && !turn.stopped && id != null) {
         const message = unsent.map((q) => q.text).join('\n\n');
         void runTurnRef.current({ conversation_id: id, ...(message ? { message } : {}) });
