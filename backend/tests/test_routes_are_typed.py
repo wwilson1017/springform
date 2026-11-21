@@ -15,6 +15,7 @@ SCOPE = ("/api/core/", "/api/agent/", "/api/health")
 
 UNTYPED = {  # "METHOD /path": why it answers without a response model
     "POST /api/agent/chat": "a server-sent event stream, not one JSON body",
+    "POST /api/agent/chat/upload": "a server-sent event stream, not one JSON body",
     "GET /api/agent/turns/{turn_id}/events": "a server-sent event stream, not one JSON body",
     "GET /api/core/backups/{stamp}/download": "a file download",
     "GET /api/core/files/{file_id}/download": "a file download",

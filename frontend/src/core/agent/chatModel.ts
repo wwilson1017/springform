@@ -28,10 +28,17 @@ export interface ToolPart {
 
 export type Part = { kind: 'text'; text: string } | ToolPart;
 
+/** A file or photo the user attached; the server keeps its text for the model, the thread its name. */
+export interface Attachment {
+  filename: string;
+  kind: 'image' | 'table' | 'document';
+}
+
 export interface ChatMessage {
   id: string;
   role: 'user' | 'assistant';
   parts: Part[];
+  files?: Attachment[];
   model?: string | null;
   createdAt?: string;
   streaming?: boolean;
@@ -90,7 +97,14 @@ export function fromServer(rows: ServerMessage[]): ChatMessage[] {
       prev.model = row.model ?? prev.model;
       continue;
     }
-    out.push({ id: `m${row.id}`, role: row.role, parts, model: row.model, createdAt: row.created_at });
+    out.push({
+      id: `m${row.id}`,
+      role: row.role,
+      parts,
+      model: row.model,
+      createdAt: row.created_at,
+      ...(row.files?.length ? { files: row.files } : {}),
+    });
   }
   return out;
 }

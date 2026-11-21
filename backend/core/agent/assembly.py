@@ -4,6 +4,8 @@ Rebuilds the provider `messages` for a turn from the database, so context is bui
 server-side rather than trusted from a client transcript:
 
     user row                        -> {"role": "user", "content": text}
+    user row with attachments       -> {"role": "user", "content": [image parts (newest user row
+                                       only), one text part per file, the typed text]}
     assistant row, no tool calls    -> {"role": "assistant", "content": text}
     assistant row, with tool calls  -> provider.build_tool_turn(text, calls, results from tool runs)
 
@@ -28,7 +30,7 @@ import logging
 import re
 
 from backend.core import db, skills
-from backend.core.agent import agents, delimiters, history, result_cap
+from backend.core.agent import agents, delimiters, history, result_cap, uploads
 from backend.core.auth.deps import User
 
 try:
@@ -85,6 +87,7 @@ def assemble_messages(provider, conversation_id: int) -> list[dict]:
     limit = int(
         _OVERSIZED_ROW_FRACTION * (getattr(provider, "context_window", None) or DEFAULT_BUDGET_TOKENS) * CHARS_PER_TOKEN
     )
+    newest_user = next((r for r in reversed(rows) if r["role"] == "user"), None)
     out: list[dict] = []
     # simplification: an approval between denials does not reset the count, and one step with
     # several denials counts once; upgrade: count only cards decided in a row, if that matters.
@@ -94,7 +97,10 @@ def assemble_messages(provider, conversation_id: int) -> list[dict]:
         calls = row["content"].get("tool_calls")
         if row["role"] == "user":
             denials = 0
-            out.append({"role": "user", "content": text})
+            files = row["content"].get("files")
+            out.append(
+                {"role": "user", "content": _with_files(provider, row, row is newest_user, limit) if files else text}
+            )
         elif not calls:
             if text:
                 out.append({"role": "assistant", "content": text})
@@ -118,6 +124,17 @@ def assemble_messages(provider, conversation_id: int) -> list[dict]:
             ]
             out.extend(provider.build_tool_turn(text, bounded, results))
     return coalesce(out)
+
+
+def _with_files(provider, row: dict, newest: bool, limit: int) -> list[dict]:
+    """Photos only for the newest user row (a later turn keeps just the placeholder), each file's
+    fenced block, then the typed text; the parts share the one-row limit."""
+    files, typed = row["content"]["files"], row["content"].get("text") or ""
+    share = limit // (len(files) + 1)
+    photos = newest and getattr(provider, "supports_images", False) and any(f["kind"] == "image" for f in files)
+    parts = uploads.image_parts(row["id"]) if photos else []
+    parts += [{"type": "text", "text": _truncate(f["text"], share)} for f in files]
+    return parts + ([{"type": "text", "text": _truncate(typed, share)}] if typed else [])
 
 
 def coalesce(messages: list[dict]) -> list[dict]:
