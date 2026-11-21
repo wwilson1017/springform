@@ -5,7 +5,7 @@ import SkillsCard from './SkillsCard';
 import type { Skill } from './types';
 
 const SETTINGS = '/api/core/settings';
-const list = (status: string, limit = 50) => `GET /api/core/skills?status=${status}&limit=${limit}`;
+const list = (status: string, limit = 50) => `GET /api/core/skills?status=${status}&limit=${limit}&offset=0`;
 const skill = (over: Partial<Skill>): Skill => ({
   id: 7,
   name: 'weekly-count',
@@ -33,7 +33,7 @@ afterEach(() => vi.unstubAllGlobals());
 function renderCard() {
   const routes: Record<string, Reply> = {
     [list('proposed')]: page([skill({})]),
-    [list('proposed', 1)]: {
+    'GET /api/core/skills?status=proposed&limit=1': {
       body: { skills: [], total: 1, last_review: { ran_at: '2026-11-20T10:00:00Z', status: 'ok', proposals: 1 } },
     },
     [list('active')]: page([
@@ -66,7 +66,9 @@ describe('SkillsCard', () => {
     expect(screen.getByText(/Last review .*: 1 proposed\./)).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Approve' }));
     await waitFor(() => expect(callsTo(fetchMock, 'POST', '/api/core/skills/7/approve')).toHaveLength(1));
-    await waitFor(() => expect(callsTo(fetchMock, 'GET', '/api/core/skills?status=active&limit=50')).toHaveLength(2));
+    await waitFor(() =>
+      expect(callsTo(fetchMock, 'GET', '/api/core/skills?status=active&limit=50&offset=0')).toHaveLength(2),
+    );
   });
 
   it('turns the review on', async () => {

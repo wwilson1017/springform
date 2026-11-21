@@ -40,7 +40,9 @@ def member(make_user, app):
     return make_user("member")
 
 
-def conversation(user, messages, *, private=False, tainted=False, turns=1, records=None) -> int:
+def conversation(
+    user, messages, *, private=False, tainted=False, turns=1, records=None, tool="example_get_widget"
+) -> int:
     """A conversation with its rows and `turns` finished turns; `records` adds a done tool run
     naming them (None: no run)."""
     with core_db.transaction() as conn:
@@ -59,8 +61,8 @@ def conversation(user, messages, *, private=False, tainted=False, turns=1, recor
         if records is not None:
             conn.execute(
                 """INSERT INTO core_agent_tool_runs (conversation_id, tool_use_id, tool, status, user_id, source,
-                       requested_at, records) VALUES (?, 'tu1', 'example_get_widget', 'done', ?, 'chat', ?, ?)""",
-                (cid, user.id, NOW, json.dumps(records)),
+                       requested_at, records) VALUES (?, 'tu1', ?, 'done', ?, 'chat', ?, ?)""",
+                (cid, tool, user.id, NOW, json.dumps(records)),
             )
         for _ in range(turns):
             turn(conn, cid, user)
@@ -138,12 +140,14 @@ def test_the_review_never_reads_private_conversations(on, member, make_user, mod
     conversation(member, work("tainted-marker"), tainted=True, turns=3)
     conversation(member, work("hidden-marker"), records=[["example.widget", widget(other, private=True)]])
     conversation(member, work("plain-marker"))  # no tool run at all
+    # a reply that restates a search of the user's other conversations (private ones included)
+    conversation(member, work("searched-marker"), records=[], tool="core_search_conversations")
     fake.script('{"skills": []}')
     assert jobs.run_review()["review"] == "ok"
     (call,) = model_requests
     prompt = call["messages"][0]["content"]
     assert "open-marker" in prompt and "plain-marker" in prompt
-    for marker in ("private-marker", "tainted-marker", "hidden-marker"):
+    for marker in ("private-marker", "tainted-marker", "hidden-marker", "searched-marker"):
         assert marker not in prompt
 
 

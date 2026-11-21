@@ -40,7 +40,12 @@ MAX_PENDING = 20
 MAX_ACTIVE_LISTED = 50
 MAX_REJECTED_LISTED = 30
 MAX_TOKENS = 8_192  # three bodies plus headroom: thinking counts against max_tokens
-TIER = "default"  # judgement work, one call per ten finished turns, and the job is opt-in
+TIER = "default"
+# A tool whose result quotes the user's other conversations, private ones included (agent.md §3
+# rule 2), names no record, so the reply that restates it could carry private text here.
+SEARCHES_OTHER_CONVERSATIONS = frozenset(
+    {"core_search_conversations"}
+)  # judgement work, one call per ten finished turns, and the job is opt-in
 
 SYSTEM_PROMPT = """\
 You review conversations between the staff of a small business and its assistant, and decide \
@@ -103,8 +108,8 @@ def window(conn: db.Conn) -> tuple[int, int, list[int]]:
 
 
 def eligible_in(conn: db.Conn, conversation_id: int) -> bool:
-    """Not private, not tainted, and every record its done tool runs name is one the system
-    principal can read (a run of unknown provenance counts as unreadable)."""
+    """Not private, not tainted, no search of the user's other conversations, and every record its
+    done tool runs name is one the system principal can read (unknown provenance is unreadable)."""
     row = conn.execute(
         "SELECT is_private, tainted FROM core_agent_conversations WHERE id = ?", (conversation_id,)
     ).fetchone()
@@ -113,11 +118,11 @@ def eligible_in(conn: db.Conn, conversation_id: int) -> bool:
     runs = [
         dict(r)
         for r in conn.execute(
-            "SELECT id, status, records FROM core_agent_tool_runs WHERE conversation_id = ? AND status = 'done'",
+            "SELECT id, tool, status, records FROM core_agent_tool_runs WHERE conversation_id = ? AND status = 'done'",
             (conversation_id,),
         )
     ]
-    if any(r["records"] is None for r in runs):
+    if any(r["records"] is None or r["tool"] in SEARCHES_OTHER_CONVERSATIONS for r in runs):
         return False
     checked = history.recheck([{**r, "user_id": SYSTEM_USER_ID} for r in runs])
     return not any(r.get("withheld") for r in checked)

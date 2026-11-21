@@ -95,11 +95,11 @@ function SkillForm({
   );
 }
 
-/** One status's skills, a page at a time ("Show more"). */
+/** One status's skills, PAGE at a time (Previous / Next, so no list is ever cut short). */
 function useSkills(status: Skill['status']) {
-  const [limit, setLimit] = useState(PAGE);
-  const page = useJson<SkillsPage>(`/api/core/skills?status=${status}&limit=${limit}`);
-  return { ...page, more: () => setLimit(limit + PAGE) };
+  const [offset, setOffset] = useState(0);
+  const page = useJson<SkillsPage>(`/api/core/skills?status=${status}&limit=${PAGE}&offset=${offset}`);
+  return { ...page, offset, setOffset };
 }
 
 function SkillRow({
@@ -214,10 +214,26 @@ function Section({
           </SkillRow>
         ))}
       </ul>
-      {page.data && page.data.skills.length < page.data.total && (
-        <button type="button" className={`${BUTTON} self-start`} onClick={page.more}>
-          Show more
-        </button>
+      {page.data && page.data.total > PAGE && (
+        <div className="flex items-center gap-2 text-xs text-sf-ink-dim">
+          <button
+            type="button"
+            className={SMALL}
+            disabled={page.offset === 0}
+            onClick={() => page.setOffset(Math.max(0, page.offset - PAGE))}
+          >
+            Previous
+          </button>
+          <button
+            type="button"
+            className={SMALL}
+            disabled={page.offset + PAGE >= page.data.total}
+            onClick={() => page.setOffset(page.offset + PAGE)}
+          >
+            Next
+          </button>
+          {page.offset + 1}-{Math.min(page.offset + PAGE, page.data.total)} of {page.data.total}
+        </div>
       )}
     </section>
   );
