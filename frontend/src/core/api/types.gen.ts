@@ -2213,6 +2213,58 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/core/skills": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Skills List */
+        get: operations["core_skills_list"];
+        put?: never;
+        /** Skills Create */
+        post: operations["core_skills_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/core/skills/{skill_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Skills Update */
+        patch: operations["core_skills_update"];
+        trace?: never;
+    };
+    "/api/core/skills/{skill_id}/{action}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Skills Move */
+        post: operations["core_skills_move"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/core/timeline": {
         parameters: {
             query?: never;
@@ -6611,6 +6663,89 @@ export interface components {
             rows: string[][];
             /** Stale */
             stale: boolean;
+        };
+        /** Skill */
+        Skill: {
+            /** Approved At */
+            approved_at: string | null;
+            /** Approved By */
+            approved_by: number | null;
+            /** Author */
+            author: string;
+            /** Author Name */
+            author_name: string | null;
+            /** Body */
+            body: string;
+            /** Created At */
+            created_at: string;
+            /** Description */
+            description: string;
+            /** Id */
+            id: number;
+            /** Last Used At */
+            last_used_at: string | null;
+            /** Name */
+            name: string;
+            /** Pinned */
+            pinned: boolean;
+            /** Revises Id */
+            revises_id: number | null;
+            /** Revises Name */
+            revises_name: string | null;
+            /** Source Conversation Id */
+            source_conversation_id: number | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "proposed" | "active" | "archived" | "rejected";
+            /** Updated At */
+            updated_at: string;
+            /** Use Count */
+            use_count: number;
+        };
+        /** SkillIn */
+        SkillIn: {
+            /** Body */
+            body: string;
+            /** Description */
+            description: string;
+            /** Name */
+            name: string;
+        };
+        /**
+         * SkillPatch
+         * @description Omitted fields stay as they are.
+         */
+        SkillPatch: {
+            /** Body */
+            body?: string | null;
+            /** Description */
+            description?: string | null;
+            /** Name */
+            name?: string | null;
+            /** Pinned */
+            pinned?: boolean | null;
+        };
+        /** SkillReview */
+        SkillReview: {
+            /** Proposals */
+            proposals: number;
+            /** Ran At */
+            ran_at: string;
+            /** Status */
+            status: string;
+        };
+        /**
+         * SkillsPage
+         * @description One status's skills, a page at a time; `last_review` is the newest review's ledger row.
+         */
+        SkillsPage: {
+            last_review: components["schemas"]["SkillReview"] | null;
+            /** Skills */
+            skills: components["schemas"]["Skill"][];
+            /** Total */
+            total: number;
         };
         /** SnoozeIn */
         SnoozeIn: {
@@ -11950,6 +12085,139 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ConnectedSheet"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    core_skills_list: {
+        parameters: {
+            query?: {
+                status?: "proposed" | "active" | "archived" | "rejected";
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SkillsPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    core_skills_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SkillIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Skill"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    core_skills_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                skill_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SkillPatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Skill"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    core_skills_move: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                skill_id: number;
+                action: "approve" | "reject" | "archive" | "restore";
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Skill"];
                 };
             };
             /** @description Validation Error */

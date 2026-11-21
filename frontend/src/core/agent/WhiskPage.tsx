@@ -105,8 +105,8 @@ export default function WhiskPage() {
       const updated = await conversations.patch(c.id, { is_private: !c.is_private });
       toast.success(
         updated.is_private
-          ? `Private: ${agentName} will not learn business facts from this conversation.`
-          : `No longer private: ${agentName} may learn business facts from it overnight.`,
+          ? `Private: ${agentName} will not learn facts or skills from this conversation.`
+          : `No longer private: ${agentName} may learn facts and skills from it.`,
       );
     } catch {
       toast.error("Couldn't change the conversation.");
@@ -190,7 +190,7 @@ export default function WhiskPage() {
       {active?.is_private && (
         <span
           className="flex shrink-0 items-center gap-1 rounded-full bg-sf-raised px-2 py-0.5 text-[11px] text-sf-ink-soft"
-          title={`${agentName} does not learn business facts from a private conversation.`}
+          title={`${agentName} does not learn facts or skills from a private conversation.`}
         >
           <IconLock size={11} aria-hidden /> Private
         </span>
