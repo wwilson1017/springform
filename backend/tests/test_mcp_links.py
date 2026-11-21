@@ -369,3 +369,19 @@ def test_a_todo_made_over_a_link_says_which_ai_made_it(app, login_as):
 )
 def test_client_name(declared, user_agent, expected):
     assert clients.client_name(declared, user_agent) == expected
+
+
+def test_bulk_created_todos_say_which_ai_made_them(app, login_as):
+    path = at(mint(login_as("member")))
+    tools = list_tools(app, path)
+    assert tools["todos_bulk_create"].title == "Add several todos" and tools["todos_changes"].annotations.read_only_hint
+    made = call_tool(
+        app,
+        path,
+        "todos_bulk_create",
+        {"todos": [{"title": "One"}, {"title": "Two"}]},
+        **{"User-Agent": "openai-mcp/1.0"},
+    )
+    assert result_json(made)["created"] == 2
+    rows = core_db.rows("SELECT source, source_client FROM todos_items ORDER BY id")
+    assert [(r["source"], r["source_client"]) for r in rows] == [("agent", "ChatGPT")] * 2
