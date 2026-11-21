@@ -21,6 +21,7 @@ from __future__ import annotations
 import base64
 import csv
 import io
+import itertools
 import json
 import re
 import zipfile
@@ -230,7 +231,7 @@ def _docx_text(path: Path) -> str:
     doc = docx.Document(str(path))
     rows = (p.text for p in doc.paragraphs)
     cells = ("\t".join(c.text.strip() for c in r.cells) for t in doc.tables for r in t.rows)
-    return _bounded(t for t in (*rows, *cells) if t)
+    return _bounded(t for t in itertools.chain(rows, cells) if t)  # lazy, so the cap stops the reading
 
 
 def discard(uploads: Iterable[Upload]) -> None:
