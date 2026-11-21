@@ -79,3 +79,27 @@ describe('AppsCard', () => {
     expect(screen.queryByRole('button')).toBeNull();
   });
 });
+
+describe('AppsCard links', () => {
+  it('hides a link tile: PATCHes hidden and shows the answer', async () => {
+    const todo = { id: 7, title: 'Todo', url: 'https://todo.example.test', icon: 'check-square', hidden: false };
+    const fetchMock = renderCard('admin', {
+      'GET /api/core/launcher/links': { body: [todo] },
+      'PATCH /api/core/launcher/links/7': { body: [{ ...todo, hidden: true }] },
+    });
+    fireEvent.click(await screen.findByRole('button', { name: 'Hide Todo' }));
+    expect(await screen.findByRole('button', { name: 'Show Todo' })).toBeTruthy();
+    const [, init] = callsTo(fetchMock, 'PATCH', '/api/core/launcher/links/7')[0];
+    expect(JSON.parse(init!.body as string)).toEqual({ hidden: true });
+  });
+
+  it('shows members the links without buttons', async () => {
+    renderCard('member', {
+      'GET /api/core/launcher/links': {
+        body: [{ id: 7, title: 'Todo', url: 'https://todo.example.test', icon: 'check-square', hidden: false }],
+      },
+    });
+    expect(await screen.findByText('Todo')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Hide Todo' })).toBeNull();
+  });
+});

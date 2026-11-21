@@ -90,6 +90,14 @@ function ServerRow({
         <span className="flex min-w-0 items-baseline gap-2">
           <span className="font-display text-base text-sf-ink">{s.name}</span>
           <code className="text-xs text-sf-ink-dim">{s.prefix}.*</code>
+          {s.trusted && (
+            <span
+              className="rounded bg-sf-ink/6 px-1.5 py-0.5 text-xs text-sf-ink-soft"
+              title="Its read-only tools run without asking"
+            >
+              Trusted
+            </span>
+          )}
         </span>
         <label className="flex cursor-pointer items-center gap-1.5 text-xs text-sf-ink-mute">
           <input type="checkbox" checked={s.enabled} disabled={busy} onChange={() => void toggle()} />
@@ -246,8 +254,9 @@ export default function McpServersCard() {
     <div className="flex flex-col gap-4">
       <p className="m-0 text-sm text-sf-ink-soft">
         {agentName} can call tools on other MCP servers. Every remote tool call asks for approval first, whatever the
-        server says about the tool, and what comes back is treated as untrusted. These tools appear in every member's{' '}
-        {agentName}; each member approves their own calls.
+        server says about the tool, except the read-only tools of a server marked Trusted (the connected GTD suite).
+        What comes back is always treated as untrusted. These tools appear in every member's {agentName}; each member
+        approves their own calls.
       </p>
       {data.length === 0 ? (
         <p className="m-0 text-sm text-sf-ink-dim">No servers connected yet.</p>

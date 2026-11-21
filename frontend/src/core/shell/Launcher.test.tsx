@@ -89,3 +89,23 @@ describe('Launcher', () => {
     expect(badgeCalls()).toBe(3);
   });
 });
+
+describe('Launcher link tiles', () => {
+  it('shows link tiles after the apps, opening in a new tab, with hidden ones marked for admins', async () => {
+    renderLauncher('admin', [app('example')], {
+      'GET /api/core/launcher/links': {
+        body: [
+          { id: 1, title: 'Todo', url: 'https://todo.example.test', icon: 'check-square', hidden: false },
+          { id: 2, title: 'Notes', url: 'https://notes.example.test', icon: 'file', hidden: true },
+        ],
+      },
+    });
+    const todo = await screen.findByRole('link', { name: 'Todo (opens in a new tab)' });
+    expect(todo.getAttribute('href')).toBe('https://todo.example.test');
+    expect(todo.getAttribute('target')).toBe('_blank');
+    expect(todo.getAttribute('rel')).toBe('noopener noreferrer');
+    const links = screen.getAllByRole('link').map((a) => a.getAttribute('aria-label'));
+    expect(links).toEqual(['Example', 'Todo (opens in a new tab)', 'Notes (opens in a new tab)']);
+    expect(screen.getByRole('link', { name: 'Notes (opens in a new tab)' }).textContent).toContain('hidden');
+  });
+});
