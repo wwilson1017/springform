@@ -16,7 +16,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from backend.core import clock, db as core_db, scheduler
-from backend.core.agent import agents, approval_rules, detached, dispatch, engine, registry
+from backend.core.agent import agents, approval_rules, detached, dispatch, engine, intents, registry
 from backend.core.agent.providers import fake
 from backend.core.agent.providers.fake import FakeProvider
 from backend.core.agent.turn_hooks import TurnState
@@ -329,6 +329,16 @@ def test_always_allow_rules_never_apply_in_a_checkin(live):
     assert count("example_widgets") == 0
     emitted, run = settle("chat")  # the control: in chat the rule skips the card and it runs
     assert run["status"] == "done" and count("example_widgets") == 1
+
+
+def test_a_checkin_prompt_does_not_fire_topic_reminders(live, model_requests):
+    intents.create(live.principal, ["overdue"], "Ask about the supplier invoice.")
+    c = make(live, prompt="Anything overdue?")
+    due(c["id"])
+    fake.script("[SILENT]")
+    service.run_due()
+    assert "Topic reminder" not in str(model_requests[0]["system"])
+    assert core_db.must(core_db.one("SELECT fires FROM core_agent_intents"))["fires"] == 0
 
 
 def test_the_third_failure_notifies_and_the_tenth_pauses(live, model_requests):
