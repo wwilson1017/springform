@@ -524,7 +524,7 @@ def delete_item(user: User, item_id: int) -> None:
     _write(delete_item_in, user, item_id)
 
 
-def list_items(
+def _item_filter(
     user: User,
     status: str | None = None,
     project_id: int | None = None,
@@ -540,11 +540,8 @@ def list_items(
     visibility: str | None = None,
     mine: bool = False,
     include_deferred: bool = False,
-    limit: int | None = 100,
-    offset: int = 0,
-) -> list[dict]:
-    """Todos the user can see. `mine` narrows to their work (WORK). Every ordering ends in t.id,
-    so paging by offset over an unchanged list neither skips nor repeats a row."""
+) -> tuple[str, list, str]:
+    """(where, params, order) for list_items and count_items; `where` reads `t` and `p`."""
     where: list[str] = ["1"]
     params: list = []
 
@@ -592,9 +589,28 @@ def list_items(
         order = "ORDER BY (t.status IN ('done', 'dropped')) ASC, t.id DESC"
     else:
         order = "ORDER BY t.created_at ASC, t.id ASC"
-    n = 100 if limit is None else int(limit)
-    params += [max(1, min(n, 500)), max(0, int(offset or 0))]
-    return _rows_in(db.get_conn(), user, "item", " AND ".join(where), params, f"{order} LIMIT ? OFFSET ?")
+    return " AND ".join(where), params, order
+
+
+def page_size(limit: int | None) -> int:
+    return max(1, min(100 if limit is None else int(limit), 500))
+
+
+def list_items(user: User, limit: int | None = 100, offset: int = 0, **filters) -> list[dict]:
+    """Todos the user can see (filters: `_item_filter`). `mine` narrows to their work (WORK).
+    Every ordering ends in t.id, so paging by offset over an unchanged list neither skips nor
+    repeats a row."""
+    where, params, order = _item_filter(user, **filters)
+    params = [*params, page_size(limit), max(0, int(offset or 0))]
+    return _rows_in(db.get_conn(), user, "item", where, params, f"{order} LIMIT ? OFFSET ?")
+
+
+def count_items(user: User, **filters) -> int:
+    """How many todos `list_items` with the same filters would page through."""
+    where, params, _ = _item_filter(user, **filters)
+    sql = f"""SELECT count(*) FROM todos_items t LEFT JOIN todos_projects p ON p.id = t.project_id
+               WHERE {visible("t")} AND ({where})"""
+    return db.get_conn().execute(sql, (user.id, *params)).fetchone()[0]
 
 
 def today_view(user: User) -> list[dict]:

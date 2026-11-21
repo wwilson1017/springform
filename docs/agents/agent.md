@@ -323,7 +323,7 @@ The Step 1 engine stub is gone; the full loop (`turns.py`) runs every turn. `pro
 | `MarkdownContent` | shared with the Guide (`src/shared/`) | GFM, no highlighting; in-app links stay in the tab through `Link`, external ones open a new tab; images never load. |
 | `ZeroKeyCard` | new | `status.configured:false`: replaces the composer; admins get a link to Settings, AI, members are told to ask an admin. Old threads still open. |
 | `settingsCards.ts`, section `ai` (admin, order 70) | CakeCRM `ProviderSetup` (Providers), Chatty `AgentContextEditor` (Memory) | Providers (key set/replace/remove via `has_key`, both model tiers, enabled, Test), Agents (name, personality, provider and model override, tier), Memory (context files with protected ones read-only; facts with provenance and "End validity"), Nightly run (`agent.nightly_enabled`). |
-| `McpLinksCard` (`src/core/mcp/`), `McpServersCard` (`src/core/mcp_servers/`) | new | Settings → MCP (member-visible: the caller's links; a new link's URL is shown once, with a `claude mcp add` command) and Settings → MCP servers (admin: add, edit, enable, Refresh, Test, Remove). Each area has its own `settingsCards.ts`; see `mcp.md`. |
+| `McpLinksCard` (`src/core/mcp/`), `McpServersCard` (`src/core/mcp_servers/`) | new | Settings → MCP (member-visible: the caller's links; a new link's URL is shown once, with a tab of setup steps per AI client: `clients.ts`) and Settings → MCP servers (admin: add, edit, enable, Refresh, Test, Remove). Each area has its own `settingsCards.ts`; see `mcp.md`. |
 
 Rules the frontend keeps:
 
