@@ -24,6 +24,7 @@ Conventions:
 - Whisk keeps answering when the tab drops or the phone locks: the turn runs on the server, the page picks the reply back up where it left off (`GET /api/agent/turns/{id}/events?after=<seq>`; every chat event now carries `seq`, the first also `turn_id`), and Stop ends the turn on the server (`POST /api/agent/turns/{id}/cancel`). A message sent while Whisk is still answering in that conversation is refused (409 `turn_running`). Hook points in the turn loop (`backend/core/agent/turn_hooks.py`) ship empty, for later harness changes.
 - MCP links also work at `/link/<token>` and `/<token>/mcp`, and opening one in a browser shows a short page on how to connect it instead of an error.
 - MCP tools carry titles and explicit hints, so ChatGPT and Claude no longer treat every write as destructive (merging deals still is). Apps can give AI tools a paragraph of guidance (`agent_guidance` in `app.json`), which Whisk and MCP clients both receive; Todos gives its GTD-partner rules.
+- Todos tools for AI clients cover projects, areas, bulk create and update, one todo in full, and the change feed, and `todos_list` pages compact rows with `total` and `next_offset`. Settings → MCP shows connect steps for Claude, ChatGPT, Gemini, Claude Code, Cursor, VS Code, Codex and Gemini CLI.
 - MCP tool runs record which AI tool called (`core_agent_tool_runs.client`), and a todo made over an MCP link says so: "via ChatGPT".
 
 ### Changed
