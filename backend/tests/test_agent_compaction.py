@@ -76,6 +76,21 @@ def test_identifier_extraction_stays_linear_on_hostile_input():
     assert time.monotonic() - start < 1
 
 
+def test_dates_in_common_formats_are_taken_whole():
+    text = "Due 12/01/2026 or 1.12.26, then Dec 1, 2026 and 1 December 2026."
+    assert compaction.identifiers([text]) == ["12/01/2026", "1.12.26", "Dec 1, 2026", "1 December 2026"]
+
+
+def test_the_outline_needs_each_heading_on_its_own_line_in_order():
+    assert compaction.outline_missing(outline()) == []
+    echoed = "Sections: " + ", ".join(f"## {h}" for h in compaction.SECTIONS)
+    assert len(compaction.outline_missing(echoed)) == len(compaction.SECTIONS)
+    swapped = (
+        outline().replace("## Goal", "## Tmp").replace("## Decisions", "## Goal").replace("## Tmp", "## Decisions")
+    )
+    assert compaction.outline_missing(swapped) == ["## Constraints", "## Decisions"]  # out of order
+
+
 def test_missing_matches_whole_tokens():
     assert compaction.missing("deal 45210, invoice inv-0042", ["4521", "INV-0042"]) == ["4521", "INV-0042"]
     assert compaction.missing("Deal 4521 (INV-0042).", ["4521", "INV-0042"]) == []

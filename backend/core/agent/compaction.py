@@ -86,6 +86,9 @@ SUMMARY_SYSTEM = (
 _IDENTIFIER_RE = re.compile(
     r"https?://[^\s<>\"'`)\]]+"  # URL
     r"|(?<!\d)\d{4}-\d{2}-\d{2}(?!\d)"  # ISO date, also the date of a timestamp
+    r"|(?<![\d/.])\d{1,2}[/.]\d{1,2}[/.]\d{2,4}(?![\d/.]\d|\d)"  # 12/01/2026, 1.12.26
+    r"|\b(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.? \d{1,2}(?:st|nd|rd|th)?,? \d{4}\b"  # Dec 1, 2026
+    r"|\b\d{1,2} (?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]* \d{4}\b"  # 1 December 2026
     r"|(?<![\w.,-])-?[$€£]?\d[\d,]*\.\d{2}(?!\w)"  # amount with cents: 1250.00, -$1,250.00
     r"|(?<![\w.,-])-?[$€£]\d[\d,]*(?!\w)"  # amount with a currency sign: $40
     r"|(?<![\w-])[A-Za-z]++[-_#]?+\d{2,}+[A-Za-z0-9]*+(?:-[A-Za-z0-9]++)*+(?![\w-])"  # INV-0042, SO123
@@ -298,6 +301,18 @@ def missing(summary: str, must: list[str]) -> list[str]:
     return [m for m in must if not re.search(r"(?<![A-Za-z0-9])" + re.escape(_norm(m)) + r"(?![A-Za-z0-9])", text)]
 
 
+def outline_missing(summary: str) -> list[str]:
+    """The template's heading lines absent from `summary`, each looked for on a line of its own
+    after the previous one."""
+    lines, at, out = [line.strip() for line in summary.splitlines()], 0, []
+    for heading in (f"## {h}" for h in SECTIONS):
+        if heading in lines[at:]:
+            at = lines.index(heading, at) + 1
+        else:
+            out.append(heading)
+    return out
+
+
 async def _summarize(middle: list[dict], by_message: dict, prev_summary: str | None) -> tuple[str, str]:
     """(gist, status): status is ok, timeout, rejected (still missing required strings after the
     retries) or failed (no key, provider error, nothing to summarize). The gist is "" unless ok."""
@@ -313,8 +328,7 @@ async def _summarize(middle: list[dict], by_message: dict, prev_summary: str | N
     transcript = "\n".join(reversed(chunks)).strip()
     if not transcript:
         return "", "failed"
-    must = [f"## {h}" for h in SECTIONS]  # the template's headings
-    must += await in_thread(required, middle, by_message, prev_summary)  # regex work off the event loop
+    must = await in_thread(required, middle, by_message, prev_summary)  # regex work off the event loop
     prompt = "MUST APPEAR VERBATIM:\n" + "".join(f"- {m}\n" for m in must) + "\n" if must else ""
     prompt += "PRIOR SUMMARY (of even older messages; fold this in):\n" + prev_summary + "\n\n" if prev_summary else ""
     prompt += "MIDDLE MESSAGES TO COMPACT:\n" + transcript
@@ -331,7 +345,7 @@ async def _summarize(middle: list[dict], by_message: dict, prev_summary: str | N
             logger.warning("compaction summary failed: %s", e)
             return "", "failed"
         summary = reply.strip()[:MAX_SUMMARY_CHARS]
-        lost = missing(summary, must)
+        lost = outline_missing(summary) + missing(summary, must)
         if not lost:
             return summary, "ok"
         ask = (

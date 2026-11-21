@@ -271,6 +271,11 @@ def test_conversations_are_private(login_as):
 def test_compaction_triggers_at_the_threshold(login_as, monkeypatch):
     a = login_as("member")
     monkeypatch.setattr(fake, "CONTEXT_WINDOW", 20_000)
+
+    async def summarize(system, prompt, **kw):  # the outline plus everything it was told to keep
+        return "\n".join(f"## {h}\nNone." for h in compaction.SECTIONS) + "\n" + prompt.split("MIDDLE MESSAGES")[0]
+
+    monkeypatch.setattr(compaction, "acomplete", summarize)
     cid, reading = None, 0
     for i in range(12):
         body = {"message": f"turn {i} " + "lorem ipsum " * 300, **({"conversation_id": cid} if cid else {})}
