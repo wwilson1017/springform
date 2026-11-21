@@ -1,7 +1,8 @@
 """The tool calls of one model step: refuse a call, load deferred tools, gate it for approval, or run it.
 
 `run_calls` settles a step: lookups that need no approval run together first, then every call is
-settled in the model's order (`run_call`, the per-call chain moved unchanged from the engine). The
+settled in the model's order (`run_call`, the per-call chain moved unchanged from the engine). A
+call not yet started when the user has written again is skipped (`SKIPPED`, steering). The
 loop is in `turns.py`. Every call gets a tool-run row, or compaction would see it unsettled forever.
 """
 
@@ -25,6 +26,7 @@ MAX_PARALLEL = 4  # lookups of one step running at once
 # process-wide thread cap for handlers.
 BATCH_SECONDS = 120  # a lookup that has not started by then is not run
 LATE = "Not run: the lookups of this step took too long."
+SKIPPED = "Skipped to process your new message."  # a call not yet started when a message came in (steering)
 # simplification: the 120 s bounds when a lookup may start; one already running keeps its own
 # execute.TOOL_TIMEOUT, so a step's lookups can take 150 s; upgrade: pass the time left as its timeout.
 
@@ -47,7 +49,10 @@ async def run_calls(state: TurnState, emit: Callable[[dict], None], calls: list[
 
     async def one(i: int) -> None:
         async with gate:
-            early[i] = LATE if time.monotonic() >= deadline else await _run(state, emit, calls[i], message_id)
+            if time.monotonic() >= deadline:
+                early[i] = LATE
+            else:  # a lookup already running finishes; one still waiting for a slot gives way to a new message
+                early[i] = SKIPPED if state.steers else await _run(state, emit, calls[i], message_id)
 
     async with asyncio.TaskGroup() as group:  # left only when every lookup has ended, also on a cancel
         for i in picked:
@@ -114,8 +119,8 @@ async def run_call(
     name, tool_use_id = call["name"], call["id"]
     if isinstance(early, dict):  # it ran with the step's other lookups: whatever stopped the turn since, it stands
         return await _shown(state, call, early)
-    refusal = early
-    if early is None and not (state.terminated or state.halt):
+    refusal = SKIPPED if early is None and state.steers else early  # not started, and the user wrote again
+    if refusal is None and not (state.terminated or state.halt):
         refusal = await turn_hooks.before_tool(state, call)
     args = call.get("args") or {}
     record = {
