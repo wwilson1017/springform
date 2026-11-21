@@ -67,6 +67,9 @@ core_agent_usage(id, at, user_id, source, conversation_id, provider, model,
 core_agent_intents(id, user_id, trigger_terms JSON, note, cooldown_hours DEFAULT 24, max_fires DEFAULT 3,
                    fires DEFAULT 0, last_fired_at, expires_at, created_at)
   -- topic reminders (§5, "Topic reminders"): one user's, matched only against that user's typed text
+core_agent_checkins(id, owner_user_id, name, prompt, schedule, enabled, next_run_at, failures,
+                    last_run_at, last_status, last_error, created_at)
+  -- scheduled check-ins (§5, "Check-ins"); schedule every:<minutes> | daily@HH:MM | weekly:<day>@HH:MM
 core_agent_mcp_links           -- mcp.md §1
 core_agent_mcp_servers         -- mcp.md §2
 ```
@@ -82,7 +85,7 @@ Memory search is FTS5 only; there is no vector table.
 5. **An admin sees that provenance metadata and can "delete" the fact; nobody but its user can read the conversation itself.** Deleting a fact ends its validity (`invalid_from`, `invalidated_by`); the row and its text stay, and an admin's history search still finds it.
 6. **Memory writes keep secrets out and say so.** A fact or context-file write turns passwords, API keys, private keys and Luhn-valid card numbers into `[removed: <kind>]` (`redact.py`, the observer's facts included) and lists what went in `removed`. A fact with the same words as a current one is not saved again (`duplicate: true`, the held fact returned). Results report size against the cap: a fact against its 1,000 characters, a context-file write as `memory_size`, the context files loaded every turn against `agent.context_budget_chars`. Whisk's whole-file rewrite (`core_context_file_write`) is refused when it drops over a quarter of the file's entries (non-blank, non-heading lines) unless `drop_entries` is true; an admin's own edit in the editor is not gated.
 7. Context files are admin-edited. `is_protected` files (soul, MEMORY) are writable **only through a confirmed chat tool by an admin**, never through MCP or jobs. That tool acts on Whisk's files only (`backend/core/memory/tools.py`), so another agent's protected files cannot be written yet.
-8. Unattended runs (`source='job'`) run as the **system principal** (`core_users.id=0`, role `system`, member-level reads only, no private records, cannot authenticate) and may only call tools that are `writes=False`, not `always_confirm`, not remote, and not `untrusted_source`. **Enforced in `registry.for_source`, not by convention.** No job runs tools yet: the nightly job calls the model directly, so the filter is exercised only by tests.
+8. Unattended runs (`source='job'`) run as the **system principal** (`core_users.id=0`, role `system`, member-level reads only, no private records, cannot authenticate) and may only call tools that are `writes=False`, not `always_confirm`, not remote, and not `untrusted_source`. **Enforced in `registry.for_source`, not by convention.** The nightly job calls the model directly. A check-in (§5, "Check-ins") is the one unattended turn that calls tools: it runs as its **owner**, with `for_user(owner)` ∩ `for_source("job")`, its tool runs are stamped `job` (so `/confirm`, which accepts only `chat` runs, can never approve one), and always-allow rules are never consulted.
 
 ## 4. Tool contract
 
@@ -319,7 +322,7 @@ A model call's tool calls count only when its stop reason is `tool_use`: a call 
 
 ### Usage ledger
 
-`usage.py` records every completed model call in `core_agent_usage`, so an owner can see what the install's keys spend. One wrapper, `usage.metered(stream, provider, source, conversation_id)`, sits around the provider stream at the only places that call a model: the turn loop's `_model_call` (`chat`, the approval narration and the last answer included), `llm.acomplete` (`compaction` with its conversation, `observer` from the nightly job, and `app` by default for app callers such as the CRM's touch count and smart import) and the provider Test button (`test`). It writes the row just before passing `_turn_complete` on, since every consumer stops reading there. The row names the provider object that made the call, so after a `Fallback` it carries the model that answered; a failed call (an `error` event, no usage) and a call cancelled mid-stream write none. `user_id` comes from the conversation (NULL for background calls). `source` is free text, so a later source needs no migration.
+`usage.py` records every completed model call in `core_agent_usage`, so an owner can see what the install's keys spend. One wrapper, `usage.metered(stream, provider, source, conversation_id)`, sits around the provider stream at the only places that call a model: the turn loop's `_model_call` (`chat`, the approval narration and the last answer included), `llm.acomplete` (`compaction` with its conversation, `observer` from the nightly job, and `app` by default for app callers such as the CRM's touch count and smart import) and the provider Test button (`test`). It writes the row just before passing `_turn_complete` on, since every consumer stops reading there. The row names the provider object that made the call, so after a `Fallback` it carries the model that answered; a failed call (an `error` event, no usage) and a call cancelled mid-stream write none. `user_id` comes from the conversation (NULL for background calls). `source` is free text, so a later source needs no migration; a check-in turn records `checkin` (`TurnState.source`).
 
 Tokens are stored as the ledger's four counts: uncached input, output, cache reads and cache writes. OpenAI counts cached tokens inside `prompt_tokens`; its provider reports them as `cache_read_input_tokens` and the rest as `input_tokens`, as Anthropic does, so the cost and the cache hit rate mean the same for both. The cost is fixed at write time from the setting `agent.cost_rates` (USD per million tokens per exact model name; the default is list prices as of 2026-11, an estimate): tokens x rate is micro-dollars, `cost_micros`. A model with no rate is stored with `cost_micros` NULL and shown as "no rate"; editing a rate prices later calls only. A ledger failure is logged and never fails the call. `GET /api/agent/usage` sums the current month in the install timezone by source and model.
 
@@ -346,6 +349,18 @@ memory facts, and the context of a turn already running.
 - Stop (`POST /turns/{id}/cancel`) cancels the runner; the turn ends with `{type: "done", stopped: true}` and status `cancelled`. Shutdown does the same with `{type: "error", interrupted: true}` and status `interrupted`, and the lifespan closes the database only when every turn has ended (`scheduler.md` §4). Neither saves the iteration that was cut off; the iterations before it are already saved.
 - A worker thread cannot be stopped: turn-owned database calls go through `aio.in_thread`, which lets the current call finish before a cancel goes on (a tool already running finishes, up to its timeout).
 - Startup marks turns left `running` `interrupted`, with a terminal `interrupted` event in their log.
+
+### Check-ins
+
+`backend/core/checkins/`: a saved prompt Whisk runs on a schedule as its owner. The schedule is one text, `every:<minutes>` (15 to 10,080), `daily@HH:MM` or `weekly:<mon..sun>@HH:MM`, in the install timezone (`schedule.next_run`, DST-safe through `reminders/recurrence.py`). Up to 20 per user.
+
+- Job `core.agent_checkins` (every 60 s, timeout 1,800 s) runs the due ones one after another. With zero keys it returns `skipped: no_provider` and claims nothing. An inactive owner's check-ins are never claimed; a row whose schedule no longer parses is paused.
+- **Claim before dispatch.** One transaction moves `next_run_at` to the next slot strictly after now, then the turn runs. A second pass or a restart never runs that slot again (a crash mid-turn loses it), and a backlog of missed slots runs once.
+- **The turn.** The job thread calls `scheduler.run_on_loop(...)`, which runs `detached.run_unattended(...)` on the app's loop: the server-owned turn of "Server-owned turns", with no reader, in a new conversation whose first message is the prompt, `TurnState.source = "checkin"` and a fixed "Scheduled check-in" note in the volatile prompt (`context`). `source` decides three things through `TurnState.tool_source` (`job`): the tools offered, the tool-run rows' source, and that always-allow rules are skipped. A write tool is unknown to the turn, so a call to one is refused. The turn is stopped like a Stop click after 300 s; the job waits for it to end, a running tool included.
+- **Delivery.** A reply that is exactly `[SILENT]` (at most wrapped once in `**`, `__` or a backtick) sends nothing; an empty reply or a failed turn is a failure. Either way the conversation is deleted. Any other reply keeps it and notifies the owner (title: the check-in's name, message: the text after the last tool, closing notes included; link `/whisk/<id>`), unless the check-in or the conversation was deleted while it ran. Pausing stops later runs, not one already running. `# simplification:` the conversation is in the owner's list while the turn runs; upgrade: a column that hides it until delivery.
+- **Failures** in a row are counted on the row: the 3rd notifies the owner, the 10th sets `enabled = 0` and notifies again. A success or a resume clears the count.
+- **Shutdown.** `scheduler.stop()` clears the loop `run_on_loop` reads before anything else (so nothing starts behind it) and `detached.shutdown()` interrupts a running check-in turn. The job then hands the slot back (unless a Run now or resume moved it since) and deletes the conversation, so it runs once after the restart. `main.py` gathers `stop()` before `shutdown()`; that order matters.
+- Run now (`POST …/{id}/run`) sets `next_run_at` to now and starts the job through `scheduler.run_now`, under the job's in-flight guard.
 
 ### Page and record context
 
@@ -442,6 +457,7 @@ Every event also carries `seq`, its position in the turn (from 0), and the first
 | `POST /api/agent/turns/{id}/cancel` | Stop a running turn: `{cancelled: true}`, or `false` when it had already ended. Owner only (404 otherwise). |
 | `POST /api/agent/confirm` | §6. |
 | `GET /api/agent/approval-rules`, `DELETE /api/agent/approval-rules/{id}` | The caller's live always-allow rules, newest first (`{id, tool, agent_slug, agent_name, created_at}`); DELETE voids the caller's own rule (`{voided: true}`), 404 `rule_not_found` otherwise (§6). |
+| `GET` / `POST /api/agent/checkins`; `PATCH {enabled}` / `DELETE /api/agent/checkins/{id}`; `POST /api/agent/checkins/{id}/run` | The caller's own check-ins (§5, "Check-ins"), 404 `checkin_not_found` otherwise. POST `{name, prompt, schedule}`, 422 for a bad schedule or the 21st. PATCH pauses or resumes (resume clears the failure count and counts the next slot from now). Run is 202, 409 `checkin_paused` when paused. In `backend/core/checkins/router.py`. |
 | `GET` / `POST /api/agent/conversations`; `GET` / `PATCH {title, is_private}` / `DELETE /api/agent/conversations/{id}` | The caller's own conversations only. |
 | `GET /api/agent/agents`; `PATCH /api/agent/agents/{slug}` (admin) | The PATCH takes `name`, `personality`, `provider_override` (`anthropic` or `openai`), `model_override` and `model_tier` (`default` or `light`). |
 | `GET /api/agent/providers`, `PUT /api/agent/providers/{provider}`, `POST /api/agent/providers/{provider}/test` (admin) | Provider keys and default and light models, one `core_agent_providers` row per vendor. |
@@ -456,7 +472,7 @@ The routes under `/api/agent` are in `backend/core/agent/router.py`; the memory 
 
 ## 12. Jobs
 
-`core.agent_nightly` at 02:00 (timeout 1,800 s), gated by the setting `agent.nightly_enabled`: the observer, then dreaming. With zero keys it is skipped only when the observer reaches a model call (§9). `core.agent_turn_events_prune` every 24 h drops the events of turns that ended over 7 days ago (the turn rows stay). See `scheduler.md`.
+`core.agent_nightly` at 02:00 (timeout 1,800 s), gated by the setting `agent.nightly_enabled`: the observer, then dreaming. With zero keys it is skipped only when the observer reaches a model call (§9). `core.agent_turn_events_prune` every 24 h drops the events of turns that ended over 7 days ago (the turn rows stay). `core.agent_checkins` every 60 s runs the due check-ins (§5). See `scheduler.md`.
 
 ## 13. FakeProvider
 
@@ -472,6 +488,7 @@ The Step 1 engine stub is gone; the full loop (`turns.py`) runs every turn. `pro
 | `AgentMessageBubble` | Chatty `AgentMessageBubble.tsx` | Markdown text, collapsible tool calls (args, result, status), compaction note, stream errors. |
 | `ToolConfirmCard`, `confirmState` | Chatty card, CakeCRM resolve rule | The Approve card: tool, summary (or nothing), full args. Reloaded threads have no summary because conversation reads do not carry one; collapsed tool calls still use the model-facing description. `pending → sending → resolved`; a failed request returns to pending. Each of `done`, `error`, `uncertain`, `stale`, `denied`, `already_resolved` has its own words. An optional reason box goes with Deny; an "Always allow" box goes with Approve when the card carries `can_always_allow`, and the done text says whether the rule was saved. |
 | `SavedApprovalsCard` (Settings, Account) | new | The caller's always-allow rules with Remove (voids the rule). |
+| `CheckinsPanel`, `checkinSchedule` | new | `/whisk/checkins`, from the Check-ins button under the conversation list: create (name, prompt, every N minutes / daily / weekly at a time), Run now, Pause/Resume, Delete; each row shows its schedule, next run and last result. |
 | `ConversationSidebar`, `useConversations` | Chatty | Search (`?q=` over message text), new, inline rename, private toggle, delete with confirm. |
 | `MarkdownContent` | shared with the Guide (`src/shared/`) | GFM, no highlighting; in-app links stay in the tab through `Link`, external ones open a new tab; images never load. |
 | `AskAgentButton` | new | "Ask {name}" on every record page (in `RecordServices`, and the todo page): opens `/whisk` with router state `agentContext {page, record}`. `WhiskPage` keeps it, shows a dismissable chip, sends it with every turn through `useAgentChat`'s `context` option, and drops it on New chat. |

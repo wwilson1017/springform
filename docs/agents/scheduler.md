@@ -44,6 +44,7 @@ Apps declare `JOBS = [Job(name="<slug>.<job>", fn, every=…|at="HH:MM")]` in `j
 
 1. Shutdown sets every `cancel_event` (a run still queued for a slot then never starts), waits up to **10 s** (matching uvicorn's `--timeout-graceful-shutdown 10`, `deploy.md`), then marks what is still running `interrupted`. When a job's thread is still running at that point (a timeout cannot stop a thread), the lifespan leaves the database open and lets the process exit close it, because closing a connection under a running statement crashes SQLite (#52). Running Whisk turns are stopped at the same time (`detached.shutdown`, same 10 s grace, `agent.md` §5), and the database closes only when every job and every turn has ended.
 2. On startup, stale `running` and `timed_out` rows become `interrupted`.
+3. `run_on_loop(start)` lets a job run a coroutine on the scheduler's event loop and wait for it (a check-in's Whisk turn, which `detached` owns there). It starts nothing when no scheduler is running or once `stop()` has begun: `stop()` clears that loop first, before any await.
 
 ## 5. `core_job_runs`
 
@@ -88,6 +89,7 @@ Timezone: `core_settings.timezone` (IANA, default `UTC`). Nothing hardcoded.
 | `core.login_attempts_prune` | hourly | Prune `core_login_attempts`. |
 | `core.agent_nightly` | `at` 02:00, gated by the setting `agent.nightly_enabled` | Observer + dreaming; exits early with zero keys (`agent.md`). |
 | `core.agent_turn_events_prune` | every 24 h | Drop the stored events of Whisk turns that ended over 7 days ago (`agent.md` §5). |
+| `core.agent_checkins` | every 60 s, `timeout=1800` | Run the due Whisk check-ins, each as its owner with look-up tools only (`agent.md` §5, "Check-ins"). |
 | `core.mcp_discover` | every 1 h and at every boot (`on_boot`) | Rediscover every outbound MCP server's tools (`mcp.md` §2); servers one after another, `timeout=900`. |
 
 CRM jobs (`backend/apps/crm/jobs.py`): `crm.touch_count` every 120 s takes up to 20 deals, each committed on its own, with the LLM call outside the transaction; it returns `skipped: disabled` when the `crm.touch_count_enabled` setting is off and `skipped: no_provider` when no light-tier provider is configured (a keyless install writes no counts, not even zeros). `crm.scores_refresh` hourly rescores the stalest deals and people without an LLM.

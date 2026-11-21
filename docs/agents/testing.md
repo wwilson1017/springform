@@ -166,8 +166,11 @@ steps:
 | `continue: true` | The same with no message: the resume after approvals |
 | `approve: <tool>` / `deny: <tool>` | `POST /api/agent/confirm` for the newest `confirm` event of that tool; `reason: <text>` (deny) and `always_allow: true` (approve) go in the body |
 | `resume: true` | `GET /api/agent/turns/{id}/events?after=<last seq seen>` for the latest turn |
+| `checkin: <prompt>` | Creates a check-in with that prompt, makes it due and runs the job's pass (`checkins.service.run_due()`); no stream, so no event checks |
 
 - `page: <path>` and `record: <records key>` on a `send` or `continue` send the chat's page and record context (the record as `example.widget` with that widget's id).
+- `conversations: N` on any step: the scenario user has exactly N conversations after it (a silent check-in leaves none).
+- `tools_include` / `tools_exclude` in a `request` check: tool names that must, or must not, be offered on that model call.
 - `usage: [...]` on any step: the `core_agent_usage` rows the step wrote, matched in order like `events` (a mapping matches the columns it names, others may sit between).
 - `sql:` (one statement or a list) changes the data between turns, before the step's action: a record made private, say. Use explicit ids.
 - `drop_after: <event type>` on a `send` or `continue` disconnects once that event arrives, and checks the turn is still running then (script slow `chunks` so it is); the turn carries on, and a later `resume` reads the rest.

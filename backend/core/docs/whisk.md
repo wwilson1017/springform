@@ -25,6 +25,10 @@ If the change is no longer valid by the time you approve (for example the app wa
 
 {agent_name} says what it changed after each action, and the record's timeline shows the change.
 
+## Check-ins
+
+A check-in is a question {agent_name} asks for you on a schedule: every so many minutes, every day at a time, or one day a week. Set them up with **Check-ins** under the conversation list on the {agent_name} page. {agent_name} runs each one as you, with look-up tools only, so a check-in can read but never change anything. Its answer arrives as a notification that opens the conversation; when there is nothing worth telling you, it sends nothing. Pause, resume, run now or delete one from the same list. If one fails three times in a row you get a notification, and after ten it is paused until you resume it. Check-ins use your AI key.
+
 ## Nightly work
 
 When an admin turns it on, {agent_name} reviews the day's conversations overnight to keep its notes up to date. This uses your AI key, so it is off until switched on in Settings. Unattended work can only read, never change records.
