@@ -18,6 +18,10 @@ Conventions:
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-21
+
+Whisk can search and read the web, see photos and attached files, learn skills, run scheduled check-ins and take a new message mid-reply, and an admin can connect a GTD suite account.
+
 ### Added
 
 - Whisk can see photos and read files: attach up to five JPEG, PNG or WebP photos, PDFs, Word documents, Excel sheets or CSVs to a message. Photos are shrunk in the browser first. Attachments go with a new message, not one sent while Whisk is still working. Whisk sees a photo on the turn it was sent; it can read any rows of an attached spreadsheet later in the conversation. Attached text is treated as untrusted, so every later change in that conversation asks for approval.
