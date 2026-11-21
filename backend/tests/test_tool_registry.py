@@ -5,6 +5,7 @@ from typing import Any
 
 import pytest
 
+from backend.core.agent.engine import needs_confirmation
 from backend.core.agent.registry import ToolSpecError, build_registry
 from backend.core.agent.spec import ToolSpec, tool_def_sha256
 
@@ -50,6 +51,29 @@ def write(name="core_write", **kw) -> ToolSpec:
 def test_invalid_specs_fail_the_build(specs, message):
     with pytest.raises(ToolSpecError, match=message):
         build_registry(specs)
+
+
+REMOTE = {"untrusted_source": True, "external_effect": True, "server_id": "1", "server_url": "https://x"}
+
+
+@pytest.mark.parametrize(
+    "specs, message",
+    [
+        ([read(trusted=True)], "trusted is only valid on a remote tool"),
+        ([read(**REMOTE)], "only a trusted server's read may skip always_confirm"),
+        (
+            [ToolSpec("core_x", "x", SCHEMA, writes=True, handler=lambda u, a: None, trusted=True, **REMOTE)],
+            "only a trusted server's read may skip always_confirm",
+        ),
+    ],
+)
+def test_only_a_trusted_servers_read_skips_always_confirm(specs, message):
+    with pytest.raises(ToolSpecError, match=message):
+        build_registry(specs)
+    trusted_read = read(trusted=True, **REMOTE)
+    assert build_registry([trusted_read]).get("core_read") is trusted_read
+    assert needs_confirmation(trusted_read, {}, tainted=True) is False  # the one condition in the gate
+    assert needs_confirmation(read(untrusted_source=True), {}, tainted=True) is True
 
 
 def test_valid_shapes():
@@ -190,4 +214,5 @@ def test_toolspec_fields_only_grow_at_the_end():
         "title",
         "destructive",
         "reads",
+        "trusted",
     ]

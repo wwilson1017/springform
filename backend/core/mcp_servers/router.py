@@ -12,7 +12,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from backend.core import registry as app_registry
 from backend.core.auth.deps import require_admin
-from backend.core.errors import NotFound
+from backend.core.errors import Conflict, NotFound
 from backend.core.mcp_servers import client, models, service, transport
 
 router = APIRouter(prefix="/api/core/mcp/servers", tags=["core"], dependencies=[Depends(require_admin)])
@@ -91,6 +91,8 @@ def mcp_servers_update(server_id: int, body: ServerPatch) -> dict:
         for k, v in body.model_dump(exclude_unset=True).items()
         if v is not None
     }
+    if fields.keys() & {"url", "prefix"} and _row(server_id)["trusted"]:
+        raise Conflict("trusted_server_fixed")  # trust was given to this address under this prefix: reconnect instead
     if fields:
         service.update(server_id, **fields)
     client.refresh(_row(server_id)["id"])

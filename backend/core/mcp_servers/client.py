@@ -8,13 +8,14 @@ registry as remote ToolSpecs, and call them.
   and records last_error, never more.
 - A remote tool's wire name is `<prefix>__<tool>` (providers forbid `.`), shown as `<prefix>.<tool>`.
   Remote annotations are untrusted metadata: `readOnlyHint` sets `writes` and is shown, but every
-  remote call confirms (always_confirm), its result is fenced by the engine (untrusted_source), it
+  remote call confirms (always_confirm), except a trusted server's read-only tools; its result is fenced by the engine (untrusted_source), it
   runs outside any transaction (external_effect), and it is never exposed inbound or to jobs.
   tool_def_sha256 covers the server id and URL, so a URL change makes a pending approval stale.
 """
 
 from __future__ import annotations
 
+import contextvars
 import logging
 import re
 import threading
@@ -44,7 +45,7 @@ class RemoteError(Exception):
 # ── One MCP exchange ──────────────────────────────────────────────────────────
 
 
-def _run(exchange, *args):
+def run(exchange, *args):
     """Run an async exchange to completion from sync code (a worker thread), bounded by the
     timeout, raising its first real error instead of anyio's exception group."""
 
@@ -53,7 +54,9 @@ def _run(exchange, *args):
             return await exchange(*args)
 
     try:
-        return anyio.run(bounded)
+        # A fresh context: a tool call that runs without a card starts from the turn loop's thread and
+        # inherits its "running asyncio" marker (a context variable), which anyio.run would refuse.
+        return contextvars.Context().run(anyio.run, bounded)
     except BaseExceptionGroup as group:
         error: BaseException = group
         while isinstance(error, BaseExceptionGroup):
@@ -93,13 +96,13 @@ async def _call(url: str, token: str, tool: str, args: dict) -> types.CallToolRe
 
 
 def list_tools(url: str, token: str) -> list[types.Tool]:
-    return _run(_list, url, token)
+    return run(_list, url, token)
 
 
 def call_tool(url: str, token: str, tool: str, args: dict):
     """The remote result as the model will see it (the engine fences it): the text blocks, or the
     structured content when there is no text; `{"error": ...}` when the server flags an error."""
-    result = _run(_call, url, token, tool, args)
+    result = run(_call, url, token, tool, args)
     texts = [b.text for b in result.content if isinstance(b, types.TextContent)]
     if skipped := len(result.content) - len(texts):
         texts.append(f"[{skipped} non-text content block(s) omitted]")
@@ -130,6 +133,7 @@ def _specs(row: dict, tools: list[types.Tool]) -> tuple[list[ToolSpec], list[dic
             logger.warning("MCP server %s: skipped tool %r (name or schema unusable)", row["id"], tool.name[:80])
             continue
         hint = tool.annotations.read_only_hint if tool.annotations else None
+        trusted = bool(row["trusted"])
         description = (tool.description or "").strip()[:MAX_DESCRIPTION]
         specs.append(
             ToolSpec(
@@ -139,13 +143,14 @@ def _specs(row: dict, tools: list[types.Tool]) -> tuple[list[ToolSpec], list[dic
                 input_schema=tool.input_schema,
                 writes=hint is not True,
                 handler=_handler(row["id"], row["url"], tool.name),
-                always_confirm=True,
+                always_confirm=not (trusted and hint is True),  # a trusted server's read runs without a card
                 untrusted_source=True,
                 external_effect=True,
                 mcp_exposed=False,
                 app=row["prefix"],
                 server_id=str(row["id"]),
                 server_url=row["url"],
+                trusted=trusted,
             )
         )
         shown.append({"name": tool.name, "description": description, "read_only_hint": hint is True})
