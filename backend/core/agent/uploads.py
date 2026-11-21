@@ -201,6 +201,8 @@ def _xlsx_text(path: Path) -> str:
             many = len(wb.sheetnames) > 1
 
             def lines() -> Iterator[str]:
+                if many:  # every name up front, so a long first sheet cannot cut the others out of view
+                    yield "--- Sheets: " + " | ".join(wb.sheetnames) + " ---"
                 for ws in wb.worksheets:
                     if many:
                         yield f"--- Sheet: {ws.title} ---"
@@ -383,7 +385,9 @@ def read(user, args: dict) -> str:
             if r2 is not None and n > r2:
                 return
             line = f"{n}\t" + "\t".join(_cell(c) for c in list(cells)[c1 - 1 : c2])
-            if len(lines) >= READ_ROWS or size + len(line) > READ_CHARS:
+            if not lines and len(line) > READ_CHARS:  # one row over a page: show its start, then move on
+                line = line[:READ_CHARS] + f" …[row cut at {READ_CHARS:,} characters]"
+            elif len(lines) >= READ_ROWS or size + len(line) > READ_CHARS:
                 more = True
                 return
             lines.append(line)
@@ -397,11 +401,9 @@ def read(user, args: dict) -> str:
             try:
                 sheet = args.get("sheet")
                 if sheet and sheet not in wb.sheetnames:
-                    # the names are the file's own text, so they stay inside its fenced block, never in an error
-                    raise Invalid(
-                        f"No sheet {sheet!r} in upload {upload_id}. Its sheet names head the parts of its block "
-                        "(--- Sheet: ... ---); leave sheet out for the first."
-                    )
+                    # the names are the file's own text, so they come back fenced, never in an error
+                    names = delimiters.wrap_untrusted_upload(row["filename"], "\n".join(wb.sheetnames))
+                    return f"[Upload {upload_id}: no sheet by that name; its sheets are listed below.]\n{names}"
                 ws = wb[sheet] if sheet else wb.worksheets[0]
                 page(ws.iter_rows(min_row=r1, max_row=r2, values_only=True), r1)
             finally:

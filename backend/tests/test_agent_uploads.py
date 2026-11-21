@@ -214,6 +214,9 @@ def test_read_upload_ranges(login_as, monkeypatch):
     monkeypatch.setattr(uploads, "READ_ROWS", 2)
     assert 'more rows follow, continue with range="3:"' in _read(u, cid, id=uid)
     assert 'continue with range="B3:C"' in _read(u, cid, id=uid, range="B1:C")
+    monkeypatch.setattr(uploads, "READ_CHARS", 12)  # a row longer than a page shows its start and moves on
+    cut = _read(u, cid, id=uid)
+    assert "[row cut at 12 characters]" in cut and 'continue with range="2:"' in cut
     for bad in ("Z", "5:2", ":", "A1:B2:C3"):
         with pytest.raises(Exception, match="range"):
             _read(u, cid, id=uid, range=bad)
@@ -258,9 +261,9 @@ def test_read_upload_xlsx_sheets(login_as):
     assert "--- Sheet: Prices ---" in first and "A-1\\t3" in first
     assert "\n2\tA-1\t3\n" in _read(a.principal, cid, id=uid)
     assert "\n1\tsku\tcents\n" in _read(a.principal, cid, id=uid, sheet="Prices")
-    with pytest.raises(Exception, match="No sheet 'Nope'") as refused:
-        _read(a.principal, cid, id=uid, sheet="Nope")
-    assert "Prices" not in str(refused.value)  # the file's own names never leave its fence
+    listed = _read(a.principal, cid, id=uid, sheet="Nope")  # the file's own names come back fenced
+    assert listed.startswith(f"[Upload {uid}: no sheet by that name") and '">\nStock\nPrices\n</untrusted' in listed
+    assert "--- Sheets: Stock | Prices ---" in first
 
 
 # ── Blobs ─────────────────────────────────────────────────────────────────────
