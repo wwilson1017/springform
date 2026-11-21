@@ -37,7 +37,9 @@ PROMPT_HEAD = (
 
 
 def _one_line(text: str, limit: int) -> str:
-    return " ".join(str(text or "").split())[:limit].strip()
+    """One line of printable text: control characters (NUL included, which FTS5 refuses) go."""
+    text = "".join(c if c.isprintable() else " " for c in str(text or ""))
+    return " ".join(text.split())[:limit].strip()
 
 
 _ACTIVE = "fires < max_fires AND expires_at > ?"

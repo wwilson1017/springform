@@ -124,6 +124,7 @@ def test_validation_and_the_active_cap(member, monkeypatch):
         end = inline(member, "core_remind_on_topic", terms=terms, note=note)
         assert end["status"] == "error" and end["result"]["error"].startswith(wanted), end
     assert remind(member, ["Oven", "oven ", "multi\nline"], note="one\nline")["terms"] == ["Oven", "multi line"]
+    assert remind(member, ["fryer\x00"], note="a\x00b")["terms"] == ["fryer"]  # FTS5 refuses a NUL
     monkeypatch.setattr(intents, "ACTIVE_MAX", 1)
     end = inline(member, "core_remind_on_topic", terms=["more"], note=NOTE)
     assert end["status"] == "error" and "delete one" in end["result"]["error"]
