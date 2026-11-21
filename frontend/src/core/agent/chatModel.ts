@@ -42,6 +42,8 @@ export interface ChatMessage {
   model?: string | null;
   createdAt?: string;
   streaming?: boolean;
+  /** A user message sent while a reply ran, not yet read by the assistant. */
+  queued?: boolean;
   /** The context was summarized before this reply. */
   compacted?: boolean;
   error?: string;

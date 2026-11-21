@@ -20,7 +20,7 @@ Conventions:
 
 ### Added
 
-- Whisk can see photos and read files: attach up to five JPEG, PNG or WebP photos, PDFs, Word documents, Excel sheets or CSVs to a message. Photos are shrunk in the browser first. Whisk sees a photo on the turn it was sent; it can read any rows of an attached spreadsheet later in the conversation. Attached text is treated as untrusted, so every later change in that conversation asks for approval.
+- Whisk can see photos and read files: attach up to five JPEG, PNG or WebP photos, PDFs, Word documents, Excel sheets or CSVs to a message. Photos are shrunk in the browser first. Attachments go with a new message, not one sent while Whisk is still working. Whisk sees a photo on the turn it was sent; it can read any rows of an attached spreadsheet later in the conversation. Attached text is treated as untrusted, so every later change in that conversation asks for approval.
 - Topic reminders: tell Whisk "when the supplier comes up, remind me to ask about the invoice" and it brings the note up the next time you mention the supplier, at most once a day and three times in all, for 90 days. Only your own messages trigger yours. The Reminders page lists them and deletes them.
 - Whisk's conversation summaries keep what matters: a fixed outline, and a check that record ids, amounts, links, dates and the latest request survive word for word (a summary that drops them is retried twice, then not used). A summary that times out drops the oldest messages instead of making every turn wait. With the nightly memory pass on, Whisk also saves durable business facts from the messages about to leave its context just before summarizing, as the nightly observer would (never from private conversations).
 - Whisk asks less often: tick **Always allow** on an Approve card and that tool stops asking in your chats; remove it under Settings, Account, Saved approvals. It still asks for tools that always ask, for anything that reaches outside the install or deletes for good, and in any conversation that has read outside content.
@@ -31,6 +31,7 @@ Conventions:
 
 ### Changed
 
+- You can write to Whisk while it is working. The message shows as queued; once the step it is on finishes, the steps it had not started yet are skipped and Whisk reads your message before going on, so you can change course mid-reply. A change it had not started is never made.
 - Whisk runs the lookups of one step at the same time (up to four), so a question that needs several is answered sooner. A change asked for in the same step runs after them, and asks for approval when one of them read the web.
 - Outbound MCP also refuses NAT64, 6to4 and IPv4-compatible IPv6 addresses.
 

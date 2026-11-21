@@ -90,7 +90,9 @@ export interface paths {
         /**
          * Chat
          * @description SSE stream of one server-owned turn. No message + conversation_id = continue after an
-         *     approval. 409 `turn_running` while the conversation already has a running turn.
+         *     approval (409 `turn_running` while the conversation has a running turn). A message while the
+         *     turn runs is queued on it: 202 `{queued: true, turn_id}`, and the turn shows it to the model
+         *     before its next call (steering, agent.md §5).
          */
         post: operations["core_chat"];
         delete?: never;
@@ -112,7 +114,8 @@ export interface paths {
          * Chat Upload
          * @description `/chat` with attachments, as multipart: `payload` (the /chat body as JSON) and up to five
          *     `files`. 411 without a Content-Length, 413 over the caps, 400 for a refused file (the detail
-         *     is a sentence to show), 409 `turn_running`.
+         *     is a sentence to show), 409 `turn_running` while the conversation has a running turn
+         *     (attachments never steer it: detached.start).
          */
         post: operations["core_chat_upload"];
         delete?: never;

@@ -171,9 +171,19 @@ def test_a_photo_needs_a_model_that_can_see(login_as, monkeypatch):
 def test_a_running_turn_refuses_and_discards_the_staged_files(login_as, monkeypatch):
     a = login_as("member")
     cid = events(post(a, [("parts.csv", CSV)], message="one"))[0]["id"]
-    monkeypatch.setattr(detached, "_running", {type("Busy", (), {"conversation_id": cid, "turn_id": None})()})
+
+    # a turn taking messages, where a text message would be queued (steering)
+    class Busy:
+        conversation_id, user_id, turn_id, steers = cid, a.principal.id, 99, []
+
+        def accepting(self) -> bool:
+            return True
+
+    busy = Busy()
+    monkeypatch.setattr(detached, "_running", {busy})
     r = post(a, [("parts.csv", CSV + b"more,1,x\n")], conversation_id=cid, message="two")
-    assert (r.status_code, r.json()["detail"]) == (409, "turn_running")
+    assert (r.status_code, r.json()["detail"]) == (409, "turn_running")  # attachments never steer
+    assert busy.steers == []
     assert leftovers()["tmp"] == [] and leftovers()["uploads"] == 1
 
 

@@ -26,6 +26,7 @@ import json
 import logging
 import threading
 from collections.abc import AsyncGenerator, AsyncIterator
+from typing import NamedTuple
 
 from backend.core import clock, db
 from backend.core.agent import history, uploads as uploads_mod
@@ -48,15 +49,22 @@ CRASHED = "The assistant hit an unexpected error and stopped."
 
 
 class TurnRunning(Exception):
-    """The conversation already has a running turn (the route answers 409)."""
+    """A continuation (no message) while the conversation has a running turn (the route answers 409)."""
+
+
+class Queued(NamedTuple):
+    """A message sent while the conversation's turn runs: queued on that turn (steering, agent.md §5)."""
+
+    turn_id: int
 
 
 class Live:
     """One turn this process runs. `events[i]["seq"] == i`; readers see `events[:visible]`."""
 
-    def __init__(self, conversation_id: int | None):
-        self.conversation_id = conversation_id
+    def __init__(self, conversation_id: int | None, user_id: int):
+        self.conversation_id, self.user_id = conversation_id, user_id
         self.turn_id: int | None = None
+        self.steers: list[str] = []  # the runner's TurnState.steers: it takes them before each model call
         self.events: list[dict] = []
         self.visible = 0
         self.saved = 0
@@ -96,6 +104,10 @@ class Live:
                 return
             await changed.wait()
 
+    def accepting(self) -> bool:
+        """A new message can still reach this turn's model (else it waits for the next turn)."""
+        return self.turn_id is not None and not (self.stopping or self.status or self.terminal())
+
     def stop(self, status: str) -> bool:
         """Ask the turn to stop; False when it has already ended or is already stopping."""
         if self.stopping or self.status or self.terminal():
@@ -131,17 +143,44 @@ async def start(
     agent: dict,
     context: str = "",
     uploads: list[uploads_mod.Upload] | None = None,
-) -> AsyncGenerator[str, None] | None:
-    """Start a turn and return its SSE stream; None when the conversation is not this user's.
-    Raises TurnRunning when the conversation already has one. The turn does not depend on the
-    caller: a request cancelled from here on still gets its message saved and answered. The
-    staged `uploads` are this function's from here: saved with the message, or discarded."""
+) -> AsyncGenerator[str, None] | Queued | None:
+    """Start a turn and return its SSE stream; None when the conversation is not this user's. A
+    message for a conversation whose turn is running is queued on it (`Queued`); one whose turn is
+    ending waits for it to end and starts the next. A continuation (no message) raises TurnRunning.
+    The turn does not depend on the caller: a request cancelled from here on still gets its
+    message saved and answered. The staged `uploads` are this function's from here: saved with the
+    message, or discarded. A message with attachments never steers: while a turn is taking messages
+    it raises TurnRunning, since a mid-turn upload would taint a turn already deciding on writes."""
     uploads = uploads or []
-    if conversation_id is not None and any(t.conversation_id == conversation_id for t in _running):
+    try:  # a refusal, or a request cancelled while it waits, discards the staged files
+        while conversation_id is not None and (
+            running := next((t for t in _running if t.conversation_id == conversation_id), None)
+        ):
+            if message is None and not uploads:
+                raise TurnRunning
+            if running.user_id != user.id:
+                uploads_mod.discard(uploads)
+                return None
+            if running.turn_id is None:  # its first transaction is still running
+                await asyncio.wait([running.ready])
+                if running.turn_id is None:  # that conversation is not this user's
+                    uploads_mod.discard(uploads)
+                    return None
+            elif running.accepting():  # no await since the check, so the runner cannot end in between
+                if uploads or message is None:  # attachments never steer (docstring)
+                    raise TurnRunning
+                # simplification: the queue is in memory until the runner takes it (or the turn ends and
+                # saves it, shutdown included), so a hard crash loses it; the client re-reads the conversation
+                # when the turn ends and sends again what is missing. Upgrade: a pending-message table.
+                running.steers.append(message)
+                return Queued(running.turn_id)
+            else:  # ending or stopping: the message starts the next turn once this one is gone
+                await asyncio.wait([db.must(running.task)])  # set in the same step as `_running.add`
+    except BaseException:
         uploads_mod.discard(uploads)
-        raise TurnRunning
-    live = Live(conversation_id)
-    _running.add(live)  # before any await, so a second post on this conversation is refused
+        raise
+    live = Live(conversation_id, user.id)
+    _running.add(live)  # before any await, so a second post on this conversation finds it
     live.task = asyncio.create_task(_supervise(live, provider, user, message, agent, context, uploads))
     if not await asyncio.shield(live.ready):
         return None
@@ -175,6 +214,7 @@ async def _supervise(
             conversation_id=cid,
             turn_id=turn_id,
             context=context,
+            steers=live.steers,
             message=message or "",
         )
         if live.stopping is None:
@@ -255,6 +295,14 @@ async def _writer(live: Live) -> None:
                 live.saved = upto
             except Exception:
                 logger.warning("could not write the log of agent turn %s; retrying", live.turn_id, exc_info=True)
+    if live.steers:  # sent while the turn ended, stopped or waited for approval: saved unanswered
+        leftover, live.steers[:] = list(live.steers), []
+        try:
+            await in_thread(_save_unanswered, db.must(live.conversation_id), leftover)
+        except Exception:
+            logger.error(
+                "could not save %d message(s) sent to agent turn %s", len(leftover), live.turn_id, exc_info=True
+            )
     for attempt in range(FINAL_TRIES):
         try:
             await in_thread(_write, live.turn_id, live.events[live.saved :], live.status)
@@ -267,6 +315,14 @@ async def _writer(live: Live) -> None:
     # simplification: the stream still ends normally (the conversation rows are the record); the
     # row stays `running` until the next startup marks it interrupted.
     logger.error("agent turn %s ended but its log could not be closed", live.turn_id)
+
+
+def _save_unanswered(conversation_id: int, texts: list[str]) -> None:
+    """Before the terminal event is committed, so a client that re-reads on `done` finds them; it
+    then continues the conversation (POST /chat, no message) to have them answered."""
+    with db.transaction() as conn:
+        for text in texts:
+            history.save_message_in(conn, conversation_id, "user", {"text": text})
 
 
 def _write(turn_id: int, events: list[dict], status: str | None) -> None:

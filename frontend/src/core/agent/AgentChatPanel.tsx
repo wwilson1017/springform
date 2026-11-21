@@ -5,7 +5,7 @@ import { AgentMessageBubble, FileChip } from './AgentMessageBubble';
 import type { ChatMessage } from './chatModel';
 import type { DecideOptions, Decision } from './confirmState';
 import { IconArrowUp, IconPaperclip, IconSparkle, IconStop } from './icons';
-import type { ContextUsage } from './useAgentChat';
+import { ATTACH_WHILE_RUNNING, type ContextUsage } from './useAgentChat';
 
 /** What the server reads (backend/core/agent/uploads.py KINDS, MAX_FILES); it stays the judge. */
 const EXTENSIONS = ['jpg', 'jpeg', 'png', 'webp', 'csv', 'xlsx', 'pdf', 'docx'];
@@ -88,7 +88,8 @@ export function AgentChatPanel({
   }, [draft]);
 
   function submit() {
-    if (streaming || !(draft.trim() || files.length)) return;
+    if (!(draft.trim() || files.length)) return; // while a reply runs, a message is queued for it
+    if (streaming && files.length) return void toast.error(ATTACH_WHILE_RUNNING); // draft and files stay
     pinnedRef.current = true;
     onSend(draft, files);
     setDraft('');
@@ -203,7 +204,7 @@ export function AgentChatPanel({
                 placeholder={`Message ${agentName}…`}
                 className="max-h-[200px] min-h-6 flex-1 resize-none border-0 bg-transparent px-1.5 py-1 text-[15px] leading-6 text-sf-ink outline-none placeholder:text-sf-ink-dim"
               />
-              {streaming ? (
+              {streaming && (
                 <button
                   type="button"
                   onClick={onStop}
@@ -212,7 +213,8 @@ export function AgentChatPanel({
                 >
                   <IconStop size={16} aria-hidden />
                 </button>
-              ) : (
+              )}
+              {(!streaming || draft.trim()) && (
                 <button
                   type="button"
                   onClick={submit}

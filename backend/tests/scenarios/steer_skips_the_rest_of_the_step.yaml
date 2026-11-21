@@ -1,0 +1,31 @@
+name: A message sent mid-step lets the running lookup finish, skips the calls not started, and reaches the next model call
+tools:
+  - name: core_scen_count_top_shelf
+    returns: {shelf: top, jars: 12}
+  - name: core_scen_count_low_shelf
+    returns: {shelf: low, jars: 7}
+    delay: 0.8
+  - name: core_scen_jot_note
+    writes: true
+    confirm_tier: routine
+    returns: {noted: true}
+steps:
+  - send: Count the jars on both shelves and note it.
+    steer:  # posted while the low-shelf count is still running
+      after: {type: tool_end, tool: core_scen_count_top_shelf}
+      message: Actually, don't note anything.
+    replies:
+      - - {tool: core_scen_jot_note}
+        - {tool: core_scen_count_top_shelf}
+        - {tool: core_scen_count_low_shelf}
+      - Twelve on top and seven below; I left the note out.
+    events:
+      - {type: tool_end, tool: core_scen_count_top_shelf, status: done}
+      - {type: tool_end, tool: core_scen_count_low_shelf, status: done}  # already running: it finishes
+      - {type: tool_end, tool: core_scen_jot_note, status: error, result: {error: Skipped to process your new message.}}
+      - {type: steer, text: "Actually, don't note anything."}
+      - done
+    request:
+      messages_match:  # every call keeps its result, and the message comes after them
+        - 'Skipped to process your new message[\s\S]*"shelf": "top"[\s\S]*"shelf": "low"[\s\S]*Actually, don''t note anything\.'
+      messages_exclude: ['"noted": true']

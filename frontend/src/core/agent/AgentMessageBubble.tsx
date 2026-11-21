@@ -134,6 +134,7 @@ function Bubble({ message, agentName, busy, onDecide }: Props) {
             {text}
           </div>
         )}
+        {message.queued && <span className="text-[11px] text-sf-ink-dim">Queued until the current step finishes</span>}
       </div>
     );
   }
