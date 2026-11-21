@@ -20,6 +20,7 @@ def test_access_log_lines_hide_every_token_path():
         ("/api/auth/invite/tok123", "/api/auth/invite/***"),
         ("/reset-password/tok123", "/reset-password/***"),
         ("/api/auth/google/callback?code=4/abc&state=xyz", "/api/auth/google/callback?code=***&state=***"),
+        ("/api/auth/google/start?invite=tok123", "/api/auth/google/start?invite=***"),
     ):
         record = _record('%s - "%s %s HTTP/%s" %d', ("10.0.0.1:5000", "GET", path, "1.1", 200))
         logscrub.ScrubTokens().filter(record)

@@ -2,8 +2,8 @@
 
 A token in an address is a credential, so its segment is printed as `***`: MCP links
 (`/mcp/<token>`, `/link/<token>`, `/<token>/mcp`), invites (`/invite/<token>`, with or without
-`/api/auth`) and password resets (`/reset-password/<token>`). A `code`, `state` or `token` query
-value (Google's sign-in callback) and a signed URL (`X-Amz-…`, `Signature=`, `sig=`) are masked too.
+`/api/auth`) and password resets (`/reset-password/<token>`). A `code`, `state`, `token` or `invite`
+query value (Google's sign-in start and callback) and a signed URL (`X-Amz-…`, `Signature=`, `sig=`) are masked too.
 This covers the app's own output only; a proxy in front (Railway's HTTP log) keeps its own.
 """
 
@@ -15,7 +15,7 @@ _TOKEN_PATH = re.compile(r"(/(?:mcp|link|invite|reset-password)/)[^/?#\s\"']+")
 # /<token>/mcp: only a segment shaped like a link token (43 characters), so the host of a full
 # URL ending in /mcp stays readable.
 _TOKEN_FIRST = re.compile(r"/[A-Za-z0-9_-]{43}(/mcp(?![\w-]))")
-_QUERY_CODE = re.compile(r"([?&](?:code|state|token)=)[^&#\s\"']*", re.I)
+_QUERY_CODE = re.compile(r"([?&](?:code|state|token|invite)=)[^&#\s\"']*", re.I)
 # A signed URL is masked as a whole word. Words first, then the signature test per word: one
 # pattern for both rescans the rest of a long path at every slash (quadratic on a request line).
 _WORD = re.compile(r"[^\s\"'<>]+")

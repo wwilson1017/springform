@@ -155,7 +155,7 @@ A failure redirects with `error=` one of `not_invited`, `link_required`, `google
 3. Startup warns if `PUBLIC_URL` is https but requests are not.
 4. **Constraint, documented and enforced by `deploy/compose.yml`:** with `TRUST_PROXY=1` the app port is bound only on the compose network (never published), so forwarded headers can only come from Caddy (`deploy.md`).
 5. **Rate-limit key** (`ratelimit.client_key`, used by login, forgot-password and MCP wrong-token limits): with `--forwarded-allow-ips='*'` uvicorn trusts every hop and takes the leftmost `X-Forwarded-For` entry, which the client writes itself (Railway passes it through). So behind `TRUST_PROXY=1` the key is the proxy's `X-Real-IP` when present: Railway sets it, and `deploy/Caddyfile` sets it from the connecting address, overwriting any the client sent. A proxy that neither sets nor strips `X-Real-IP` must not be put in front with `TRUST_PROXY=1`.
-6. Invite, reset and MCP link tokens, OAuth `code`/`state` query values and signed URLs never reach the logs: `backend/core/logscrub.py` masks them on every logger.
+6. Invite, reset and MCP link tokens, OAuth `code`/`state` and Google-start `invite` query values and signed URLs never reach the logs: `backend/core/logscrub.py` masks them on every logger.
 
 ## 9. Invites and password reset
 
