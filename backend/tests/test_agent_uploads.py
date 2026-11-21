@@ -168,15 +168,11 @@ def test_a_photo_needs_a_model_that_can_see(login_as, monkeypatch):
     assert post(a, [("parts.csv", CSV)], message="ok").status_code == 200
 
 
-def test_a_running_turn_refuses_and_discards_the_staged_files(login_as):
+def test_a_running_turn_refuses_and_discards_the_staged_files(login_as, monkeypatch):
     a = login_as("member")
     cid = events(post(a, [("parts.csv", CSV)], message="one"))[0]["id"]
-    busy = type("Busy", (), {"conversation_id": cid, "turn_id": None})()
-    detached._running.add(busy)
-    try:
-        r = post(a, [("parts.csv", CSV + b"more,1,x\n")], conversation_id=cid, message="two")
-    finally:
-        detached._running.discard(busy)
+    monkeypatch.setattr(detached, "_running", {type("Busy", (), {"conversation_id": cid, "turn_id": None})()})
+    r = post(a, [("parts.csv", CSV + b"more,1,x\n")], conversation_id=cid, message="two")
     assert (r.status_code, r.json()["detail"]) == (409, "turn_running")
     assert leftovers()["tmp"] == [] and leftovers()["uploads"] == 1
 
