@@ -264,6 +264,22 @@ def tool_runs_for(conversation_id: int) -> list[dict]:
     return db.rows("SELECT * FROM core_agent_tool_runs WHERE conversation_id = ? ORDER BY id", (conversation_id,))
 
 
+RAN = ("done", "uncertain", "executing", "interrupted")  # the tool ran, or may have
+
+
+def runs_since_user(conversation_id: int) -> list[dict]:
+    """{id, tool, status} of every tool run recorded after the conversation's latest user message,
+    oldest first: this turn's runs, and on an approval continuation (which has no user message of
+    its own) the approved runs that led to it."""
+    return db.rows(
+        """SELECT id, tool, status FROM core_agent_tool_runs
+            WHERE conversation_id = ? AND message_id > coalesce(
+                  (SELECT max(id) FROM core_agent_messages WHERE conversation_id = ? AND role = 'user'), 0)
+            ORDER BY id""",
+        (conversation_id, conversation_id),
+    )
+
+
 def claim_in(conn: db.Conn, run_id: int) -> bool:
     """pending -> executing; False when someone else resolved or claimed it first."""
     return (

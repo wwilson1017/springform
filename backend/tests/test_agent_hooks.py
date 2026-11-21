@@ -35,10 +35,10 @@ def hook(monkeypatch, point, fn):
 
 SHIPPED = {
     "before_model_call": ["backend.core.agent.context_shrink"],
-    "on_provider_error": [],
+    "on_provider_error": ["backend.core.agent.errors"],
     "before_tool": [],
     "on_tool_result": ["backend.core.agent.result_cap"],
-    "end_of_turn": [],
+    "end_of_turn": ["backend.core.agent.endings"],
 }
 
 
@@ -128,3 +128,20 @@ def test_a_hook_that_raises_ends_the_turn_with_an_error(login_as, monkeypatch):
     hook(monkeypatch, "before_model_call", lambda state: 1 / 0)
     evs = chat(login_as("member"), message="hi")
     assert evs[-1]["type"] == "error" and evs[-1]["error"] == "The assistant hit an unexpected error and stopped."
+
+
+def test_end_of_turn_also_runs_on_an_error_ending(login_as, monkeypatch):
+    hook(monkeypatch, "end_of_turn", lambda state: [{"type": "note", "text": state.error}])
+    fake.script({"error": "boom"})
+    evs = chat(login_as("member"), message="hi")
+    assert [e["type"] for e in evs[-2:]] == ["note", "error"] and evs[-2]["text"] == "boom"
+
+
+def test_provider_failure_carries_status_retry_after_and_code(login_as, monkeypatch):
+    seen = []
+    hook(monkeypatch, "on_provider_error", lambda state, err: seen.append(err) or Fail())
+    fake.script({"error": "slow", "status": 429, "retry_after": 3, "code": "rate_limit_error"})
+    chat(login_as("member"), message="hi")
+    assert [(e.message, e.attempt, e.status, e.retry_after, e.code) for e in seen] == [
+        ("slow", 1, 429, 3, "rate_limit_error")
+    ]

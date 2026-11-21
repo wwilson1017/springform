@@ -61,6 +61,9 @@ class Fail:
 class ProviderFailure:
     message: str  # the provider's error text, capped at 500 characters
     attempt: int  # 1 for the first failure of this model call
+    status: int | None = None  # the HTTP status, when the provider got one
+    retry_after: float | None = None  # seconds, from a Retry-After header
+    code: str | None = None  # the provider's error code or type ("overloaded_error", "context_length_exceeded")
 
 
 @dataclass
@@ -86,6 +89,12 @@ class TurnState:
     pending: bool = False  # a call of this iteration waits for approval
     terminated: bool = False  # the write budget ended the turn
     scratch: dict = field(default_factory=dict)  # hooks' own per-turn storage, keyed by module name
+    last_text: str = ""  # the latest model call's text, also when the call failed (then never saved)
+    stop_reason: str | None = (
+        None  # the latest completed call's ("end_turn", "max_tokens", "refusal"…); None after a failure
+    )
+    error: str | None = None  # the error text, set before end_of_turn on an error ending
+    halt: str | None = None  # why the turn was cut short, as a clause for the closing note (the round limit)
 
 
 async def _call(fn: Callable, *args: Any) -> Any:
@@ -124,7 +133,7 @@ async def on_tool_result(state: TurnState, call: dict, run: dict) -> str:
 
 
 async def end_of_turn(state: TurnState) -> list[dict]:
-    """Events to emit, in order, just before `done`."""
+    """Events to emit, in order, just before the terminal event (`done`, or `error` with `state.error` set)."""
     events: list[dict] = []
     for fn in REGISTERED["end_of_turn"]:
         events.extend(await _call(fn, state) or [])

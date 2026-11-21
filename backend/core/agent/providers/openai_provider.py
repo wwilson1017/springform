@@ -10,7 +10,7 @@ import json
 import logging
 from collections.abc import AsyncGenerator
 
-from backend.core.agent.providers.base import DEFAULT_MAX_TOKENS, AIProvider
+from backend.core.agent.providers.base import DEFAULT_MAX_TOKENS, AIProvider, error_event
 
 logger = logging.getLogger(__name__)
 
@@ -92,6 +92,7 @@ class OpenAIProvider(AIProvider):
             ]
         tool_calls: list[dict] = []
         usage: dict = {}
+        finish = None
         try:
             async for chunk in await client.chat.completions.create(**kwargs):
                 if chunk.usage:
@@ -99,6 +100,7 @@ class OpenAIProvider(AIProvider):
                         "input_tokens": chunk.usage.prompt_tokens or 0,
                         "output_tokens": chunk.usage.completion_tokens or 0,
                     }
+                finish = (chunk.choices[0].finish_reason if chunk.choices else None) or finish
                 delta = chunk.choices[0].delta if chunk.choices else None
                 if not delta:
                     continue
@@ -115,13 +117,9 @@ class OpenAIProvider(AIProvider):
                         yield {"type": "tool_start", "tool": tc.function.name, "tool_use_id": tc.id or ""}
                     if tc.function and tc.function.arguments:
                         call["input_json"] += tc.function.arguments
-        except openai.RateLimitError:
-            yield {"type": "error", "error": "OpenAI is rate-limited. Please try again in a moment."}
-            yield {"type": "_turn_complete", "tool_calls": [], "stop_reason": "error"}
-            return
         except openai.APIError as e:
             logger.error("OpenAI API error: %s", e)
-            yield {"type": "error", "error": f"AI service error: {e!s}"}
+            yield error_event(self.model, e, connection=isinstance(e, openai.APIConnectionError))
             yield {"type": "_turn_complete", "tool_calls": [], "stop_reason": "error"}
             return
 
@@ -134,7 +132,15 @@ class OpenAIProvider(AIProvider):
         yield {
             "type": "_turn_complete",
             "tool_calls": tool_calls,
-            "stop_reason": "tool_use" if tool_calls else "stop",
+            "stop_reason": (
+                "max_tokens"  # a length cutoff, named as Anthropic does
+                if finish == "length"
+                else "refusal"
+                if finish == "content_filter"
+                else "tool_use"
+                if tool_calls
+                else "stop"
+            ),
             "usage": usage,
         }
 
