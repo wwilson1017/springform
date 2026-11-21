@@ -137,10 +137,19 @@ def add_launcher_link_in(
     )
 
 
+def add_launcher_link(**fields) -> int:
+    with db.transaction() as conn:
+        return add_launcher_link_in(conn, **fields)
+
+
+def set_link_hidden_in(conn: db.Conn, link_id: int, hidden: bool) -> None:
+    if not conn.execute("UPDATE core_launcher_links SET hidden = ? WHERE id = ?", (int(hidden), link_id)).rowcount:
+        raise NotFound("launcher_link_not_found")
+
+
 def set_link_hidden(link_id: int, hidden: bool) -> None:
     with db.transaction() as conn:
-        if not conn.execute("UPDATE core_launcher_links SET hidden = ? WHERE id = ?", (int(hidden), link_id)).rowcount:
-            raise NotFound("launcher_link_not_found")
+        set_link_hidden_in(conn, link_id, hidden)
 
 
 def jobs_list() -> list[dict]:
