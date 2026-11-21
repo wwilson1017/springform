@@ -397,7 +397,11 @@ def read(user, args: dict) -> str:
             try:
                 sheet = args.get("sheet")
                 if sheet and sheet not in wb.sheetnames:
-                    raise Invalid(f"No sheet {sheet!r}. Sheets: {', '.join(wb.sheetnames)}.")
+                    # the names are the file's own text, so they stay inside its fenced block, never in an error
+                    raise Invalid(
+                        f"No sheet {sheet!r} in upload {upload_id}. Its sheet names head the parts of its block "
+                        "(--- Sheet: ... ---); leave sheet out for the first."
+                    )
                 ws = wb[sheet] if sheet else wb.worksheets[0]
                 page(ws.iter_rows(min_row=r1, max_row=r2, values_only=True), r1)
             finally:

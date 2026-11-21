@@ -258,8 +258,9 @@ def test_read_upload_xlsx_sheets(login_as):
     assert "--- Sheet: Prices ---" in first and "A-1\\t3" in first
     assert "\n2\tA-1\t3\n" in _read(a.principal, cid, id=uid)
     assert "\n1\tsku\tcents\n" in _read(a.principal, cid, id=uid, sheet="Prices")
-    with pytest.raises(Exception, match="Sheets: Stock, Prices"):
+    with pytest.raises(Exception, match="No sheet 'Nope'") as refused:
         _read(a.principal, cid, id=uid, sheet="Nope")
+    assert "Prices" not in str(refused.value)  # the file's own names never leave its fence
 
 
 # ── Blobs ─────────────────────────────────────────────────────────────────────
