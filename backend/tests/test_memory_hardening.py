@@ -21,6 +21,10 @@ def test_secrets_are_blanked_and_counted_but_lookalikes_stay():
         "Till password: [removed: password] and passcode is [removed: password]",
         {"password": 2},
     )
+    assert blank_secrets("wifi password: correcthorsebattery") == (
+        "wifi password: [removed: password]",
+        {"password": 1},
+    )
     key = "-----BEGIN RSA PRIVATE KEY-----\nMIIabc\n-----END RSA PRIVATE KEY-----"
     assert blank_secrets(f"deploy key {key} done")[0] == "deploy key [removed: key] done"
     for kept in (

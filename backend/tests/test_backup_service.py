@@ -136,6 +136,9 @@ def test_each_run_drops_every_snapshot_from_the_page_cache(db, freeze, monkeypat
     newest = service.run()["snapshot"]
     out = service.backups_dir()
     assert sorted(dropped) == sorted((str(out / n), 0, 0, os.POSIX_FADV_DONTNEED) for n in (older, newest))
+    dropped.clear()
+    monkeypatch.setattr(service, "MIN_FREE_BYTES", 1 << 62)  # a skipped run still drops them
+    assert service.run()["status"] == "skipped" and len(dropped) == 2
 
 
 def test_low_free_space_skips_the_backup_and_says_why(db, monkeypatch):

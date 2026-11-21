@@ -25,7 +25,9 @@ _SECRETS = (
     ),
     # 'password: "correct horse"': a quoted value is a password whatever it holds (added here)
     ("password", re.compile(r"(\b(?:password|passwd|passcode)\s*(?:is|:|=)\s*)([\"'])[^\"'\n]{4,}?\2", re.I)),
-    # "password: hunter22", a value with a digit or a symbol, not "is in 1Password"
+    # "password: correcthorse": after a colon or equals sign any value of 6+ characters (added here)
+    ("password", re.compile(r"(\b(?:password|passwd|passcode)\s*[:=]\s*[\"']?)(?!\[removed)[^\s\"']{6,}", re.I)),
+    # "password is hunter22", a value with a digit or a symbol, not "is in 1Password"
     (
         "password",
         re.compile(
