@@ -195,7 +195,8 @@ def undo(user: User, run_id: int) -> dict:
         for r in json.loads(row["rows"]):
             olds.setdefault((r["entity_type"], r["entity_id"]), {}).setdefault(r["field"], r["old"])
         # simplification: any later change to a record skips the whole record, not just the fields
-        # this list wrote; upgrade: compare per field.
+        # this list wrote; upgrade: compare per field. And only a change reported to the change log
+        # counts (a todos context rename and a merge's relink write none); upgrade: report those.
         changed = {
             key
             for key in olds
