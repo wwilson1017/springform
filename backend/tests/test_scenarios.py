@@ -14,7 +14,7 @@ import pytest
 import yaml
 from fastapi.testclient import TestClient
 
-from backend.core.agent import delimiters, registry as tool_registry
+from backend.core.agent import delimiters, detached, registry as tool_registry
 from backend.core.agent.providers import fake
 from backend.core.agent.spec import ToolSpec
 
@@ -156,6 +156,10 @@ def run(path: Path, app, login_as, model_requests: list[dict], monkeypatch) -> N
                         )
                         assert evs and evs[0]["type"] == "conversation_id", evs
                         cid, turn_id, first = evs[0]["id"], evs[0]["turn_id"], 0
+                        if "drop_after" in step:  # the stream really dropped mid-turn, not after a buffered end
+                            assert detached._live(turn_id) is not None, (
+                                "the turn had already ended when the client left"
+                            )
                     elif "resume" in step:
                         assert turn_id is not None, "resume needs an earlier turn"
                         evs = stream(c, "GET", f"/api/agent/turns/{turn_id}/events?after={last_seq}")
