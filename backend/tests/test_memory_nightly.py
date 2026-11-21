@@ -133,6 +133,17 @@ def test_a_conversation_made_private_during_the_call_yields_nothing(llm, make_us
     assert jobs.nightly()["observer"]["facts"] == 0 and facts.list_facts() == []
 
 
+def test_rows_a_compaction_flush_read_meanwhile_are_not_recorded_twice(llm, make_user):
+    cid = conversation(make_user().id, [("user", "Our catering minimum is twelve cakes per order.")])
+
+    def flushed():  # compaction's flush recorded these rows while the nightly call ran
+        assert observer.record_flush(cid, ["Catering minimum is twelve cakes."], 10_000, 0, "compaction") == 1
+
+    llm.during_call, llm.reply = flushed, '{"facts": ["Catering minimum is twelve cakes."]}'
+    assert jobs.nightly()["observer"]["facts"] == 0
+    assert [f["text"] for f in facts.list_facts()] == ["Catering minimum is twelve cakes."]
+
+
 def test_a_failed_or_garbled_reply_writes_nothing(llm, make_user):
     cid = conversation(make_user().id, [("user", "Our catering minimum is twelve cakes per order.")])
     llm.reply = "Sure! Here are the facts: catering minimum is twelve."

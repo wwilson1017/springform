@@ -20,6 +20,7 @@ Conventions:
 
 ### Added
 
+- Whisk's conversation summaries keep what matters: a fixed outline, and a check that record ids, amounts, links, dates and the latest request survive word for word (a summary that drops them is retried twice, then not used). A summary that times out drops the oldest messages instead of making every turn wait. With the nightly memory pass on, Whisk also saves durable business facts from the messages about to leave its context just before summarizing, as the nightly observer would (never from private conversations).
 - Whisk can search the web and read a web page (`core_web_search`, `core_web_fetch`). What it reads is treated as untrusted, so every later change, page read or search in that conversation asks for approval. Search is DuckDuckGo by default, or Anthropic's own web search while Whisk runs on Anthropic; admins switch both in Settings, AI, Web. Page reads never reach private or local addresses, including through redirects.
 - Record pages have an "Ask {assistant}" button: the chat opens knowing which page and record you came from, and names the record to the assistant only when you can read it.
 - Settings, AI, Usage shows this month's AI spend by source (chat, compaction, the nightly run) and model, with the cache hit rate. Every model call is recorded, background ones included; costs are estimated from list prices an admin can edit.
