@@ -83,6 +83,8 @@ def test_required_puts_the_latest_ask_first_and_keeps_the_previous_gists_identif
     must = compaction.required(middle, runs, prev)
     assert must[0].startswith("Invoice INV-0042 belongs to it. x") and len(must[0]) <= compaction.MAX_ASK_CHARS
     assert must[1:] == ["9", "https://example.com/d/9", "4521", "1250.00", "SO-7781"]  # newest rows first
+    ask = [row(6, "user", "Also check deal 45210.")]
+    assert compaction.required(middle + ask, runs, None)[-2:] == ["4521", "1250.00"]  # 4521 is not covered by 45210
 
 
 def test_a_lossy_summary_is_retried_naming_what_is_missing_then_rejected(monkeypatch):
@@ -182,7 +184,7 @@ def test_the_flush_records_facts_as_the_observer_and_reads_each_row_once(login_a
     assert obs["pending"] == 1  # the last user row is still the nightly observer's
 
 
-@pytest.mark.parametrize("when", ["private", "tainted", "made private during the call"])
+@pytest.mark.parametrize("when", ["private", "tainted", "made private during the call", "observed during the call"])
 def test_the_flush_writes_nothing_for_a_private_or_tainted_conversation(login_as, nightly_on, monkeypatch, when):
     a = login_as("member")
     cid = thread(a, DEAL)
@@ -194,7 +196,13 @@ def test_the_flush_writes_nothing_for_a_private_or_tainted_conversation(login_as
         original = FakeProvider.stream_turn
 
         def flip(self, *args, **kw):
-            a.patch(f"/api/agent/conversations/{cid}", json={"is_private": True})
+            if when == "made private during the call":
+                a.patch(f"/api/agent/conversations/{cid}", json={"is_private": True})
+            else:  # the nightly observer read the same rows meanwhile
+                with core_db.transaction() as conn:
+                    conn.execute(
+                        "UPDATE core_agent_observations SET through_message_id = 1 WHERE conversation_id = ?", (cid,)
+                    )
             return original(self, *args, **kw)
 
         monkeypatch.setattr(FakeProvider, "stream_turn", flip)

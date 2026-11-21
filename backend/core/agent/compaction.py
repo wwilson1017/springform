@@ -287,7 +287,7 @@ def required(middle: list[dict], by_message: dict, prev_summary: str | None) -> 
     ask = next((_norm(r["content"].get("text") or "") for r in reversed(middle) if r["role"] == "user"), "")
     if len(ask) > MAX_ASK_CHARS:
         ask = ask[:MAX_ASK_CHARS].rsplit(" ", 1)[0]
-    return ([ask] if ask else []) + [i for i in out if i not in ask]
+    return ([ask] if ask else []) + [i for i in out if missing(ask, [i])]  # ask covers the ones it holds as tokens
 
 
 def missing(summary: str, must: list[str]) -> list[str]:
@@ -352,7 +352,7 @@ async def _flush(conversation_id: int, before_id: int) -> int:
     try:
         if not await in_thread(settings.get_setting, memory_jobs.ENABLED_SETTING, False):
             return 0  # the nightly memory pass is off: nothing extracts facts on its own
-        prompt, through = await in_thread(_observer.unread_before, conversation_id, before_id)
+        prompt, through, start = await in_thread(_observer.unread_before, conversation_id, before_id)
         if not prompt or through is None:
             return 0
         light = await in_thread(get_provider, tier="light")
@@ -364,7 +364,7 @@ async def _flush(conversation_id: int, before_id: int) -> int:
         )
         calls = await asyncio.wait_for(_tool_calls(stream), FLUSH_TIMEOUT)
         texts = _observer.clean_facts([(c.get("args") or {}).get("text") for c in calls if c.get("name") == FLUSH_TOOL])
-        return await in_thread(_observer.record_flush, conversation_id, texts, through, "compaction")
+        return await in_thread(_observer.record_flush, conversation_id, texts, through, start, "compaction")
     except Exception:
         logger.warning("memory flush before compaction failed for conversation %s", conversation_id, exc_info=True)
         return 0
