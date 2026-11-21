@@ -28,7 +28,7 @@ FLAGS = ("confirm_tier", "always_confirm", "untrusted_source", "external_effect"
 TOOL_KEYS = {"name", "description", "writes", "returns", "repeat", "delay", *FLAGS}
 ACTIONS = {"send", "continue", "approve", "deny", "resume", "checkin"}
 STEP_KEYS = ACTIONS | {
-    *("sql", "replies", "drop_after", "events", "request", "status", "usage", "page", "record"),
+    *("sql", "replies", "drop_after", "steer", "events", "request", "status", "usage", "page", "record"),
     *("reason", "always_allow"),  # the /confirm body of a deny or an approve
     "conversations",  # how many conversations the user has after the step
 }
@@ -36,6 +36,7 @@ REQUEST_KEYS = {
     *("call", "messages_contain", "messages_exclude", "messages_match", "system_contains", "system_exclude"),
     *("tools_include", "tools_exclude"),  # tool names offered to the model on that call
 }
+STEER_KEYS = {"after", "message"}
 RECORD_KEYS = {"name", "private"}
 TERMINAL = {"done", "error"}
 
@@ -63,6 +64,8 @@ def load(path: Path) -> dict:
         assert len(ACTIONS & set(step)) == 1, f"{path.name} step {i}: exactly one of {sorted(ACTIONS)}"
         for req in _listed(step.get("request")):
             _strict(f"{path.name} step {i} request", req, REQUEST_KEYS)
+        if "steer" in step:
+            _strict(f"{path.name} step {i} steer", step["steer"], STEER_KEYS)
     for tool in spec.get("tools", []):
         _strict(f"{path.name} tool", tool, TOOL_KEYS)
     for key, rec in (spec.get("records") or {}).items():
@@ -122,13 +125,17 @@ def make_records(records: dict, me: int) -> dict[str, int]:
         }
 
 
+def matches(event: dict, wanted) -> bool:
+    """A string is a type; a mapping matches the keys it names."""
+    wanted = {"type": wanted} if isinstance(wanted, str) else wanted
+    return all(event.get(k) == v for k, v in wanted.items())
+
+
 def check_events(evs: list[dict], wanted: list) -> None:
-    """`wanted` appears in `evs` in order (other events may sit between); a string is a type, a
-    mapping matches the keys it names."""
+    """`wanted` appears in `evs` in order (other events may sit between), each as `matches` reads it."""
     it = iter(evs)
     for w in wanted:
-        w = {"type": w} if isinstance(w, str) else w
-        assert any(all(e.get(k) == v for k, v in w.items()) for e in it), (
+        assert any(matches(e, w) for e in it), (
             f"no event matching {w} (in order) among {json.dumps(evs, default=str)[:2000]}"
         )
 
@@ -163,15 +170,25 @@ def _job_idle(seconds: float = 5) -> None:
         time.sleep(0.02)
 
 
-def stream(c: TestClient, method: str, url: str, drop_after: str | None = None, **kw) -> list[dict]:
-    evs = []
+def stream(
+    c: TestClient, method: str, url: str, drop_after: str | None = None, steer: dict | None = None, **kw
+) -> list[dict]:
+    """The turn's events. `steer` posts its message to the conversation, once, as soon as an event
+    matches its `after`, while the turn runs: it must be queued (202)."""
+    evs, cid = [], None
     with c.stream(method, url, **kw) as r:
         assert r.status_code == 200, r.read()
         for line in r.iter_lines():
             if line.startswith("data: "):
                 evs.append(json.loads(line[6:]))
+                cid = evs[0].get("id")
+                if steer and matches(evs[-1], steer["after"]):
+                    sent = c.post("/api/agent/chat", json={"conversation_id": cid, "message": steer["message"]})
+                    assert sent.status_code == 202, sent.text
+                    steer = None
                 if drop_after and evs[-1]["type"] == drop_after:
                     break  # leaving the block disconnects
+    assert steer is None, f"no event matched steer.after {steer and steer['after']}"
     return evs
 
 
@@ -208,6 +225,7 @@ def run(path: Path, app, login_as, model_requests: list[dict], monkeypatch) -> N
                             "POST",
                             "/api/agent/chat",
                             step.get("drop_after"),
+                            step.get("steer"),
                             json={**body, **({"conversation_id": cid} if cid else {})},
                         )
                         assert evs and evs[0]["type"] == "conversation_id", evs

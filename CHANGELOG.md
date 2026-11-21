@@ -31,6 +31,7 @@ Conventions:
 
 ### Changed
 
+- You can write to Whisk while it is working. The message shows as queued; once the step it is on finishes, the steps it had not started yet are skipped and Whisk reads your message before going on, so you can change course mid-reply. A change it had not started is never made.
 - Whisk runs the lookups of one step at the same time (up to four), so a question that needs several is answered sooner. A change asked for in the same step runs after them, and asks for approval when one of them read the web.
 - Outbound MCP also refuses NAT64, 6to4 and IPv4-compatible IPv6 addresses.
 

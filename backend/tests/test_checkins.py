@@ -278,6 +278,18 @@ def test_shutdown_hands_the_slot_back_and_it_runs_once_after_restart(app, login_
         assert count("core_agent_conversations WHERE user_id = ?", (who.principal.id,)) == 1
 
 
+def test_a_running_checkin_cannot_be_steered(live):
+    c = make(live)
+    fake.script({"chunks": ["a"] * 10, "delay": 0.2})
+    assert live.post(f"/api/agent/checkins/{c['id']}/run").status_code == 202  # the scheduler runs the job
+    _wait(lambda: any(t.conversation_id for t in detached._running))
+    cid = next(t.conversation_id for t in detached._running if t.conversation_id)
+    r = live.post("/api/agent/chat", json={"conversation_id": cid, "message": "also check the invoices"})
+    assert r.status_code == 409 and r.json()["detail"] == "turn_running"
+    _wait(lambda: not detached._running)
+    _wait(_job_idle)
+
+
 def test_a_checkin_is_offered_read_tools_only_and_cannot_write(live, model_requests):
     c = make(live)
     due(c["id"])

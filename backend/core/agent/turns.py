@@ -143,6 +143,10 @@ class TurnRunner:
                         return await self._end("Failed to save the assistant turn.")
 
             if stop != "tool_use" or not calls:
+                if s.steers:  # the user wrote while this reply streamed: answer that too
+                    if text:  # as the saved row reads back (assembly)
+                        s.messages = assembly.coalesce([*s.messages, {"role": "assistant", "content": text}])
+                    continue
                 return await self._end()
 
             s.pending = False
@@ -175,6 +179,8 @@ class TurnRunner:
         if nudge:
             s.messages = assembly.coalesce([*s.messages, {"role": "user", "content": nudge}])
         while True:
+            if not narrate:  # every attempt, retries included; a narration's tool calls are ignored, so it takes none
+                await self._take_steers()
             await turn_hooks.before_model_call(s)
             text, sent, failure = "", False, None
             calling_tainted.set(s.tainted)
@@ -231,6 +237,18 @@ class TurnRunner:
                     s.messages = assembly.coalesce([*s.messages, {"role": "user", "content": nudge}])
             else:
                 return action.message or error
+
+    async def _take_steers(self) -> None:
+        """Steering (agent.md §5): before a model call that can act (not a narration), each message the
+        user sent while the turn ran is saved as a user row and shown to the model after the step's
+        results, so every call still has its result. A message still queued when the turn ends is
+        saved by `detached` instead, and the client continues the conversation to answer it."""
+        s = self.state
+        while s.steers:
+            text = s.steers.pop(0)
+            await in_thread(history.save_message, s.conversation_id, "user", {"text": text})
+            s.messages = assembly.coalesce([*s.messages, {"role": "user", "content": text}])
+            self.emit({"type": "steer", "text": text})
 
     async def _wrap_up(self, nudge: str | None = None) -> str | None:
         """One narration turn so the model says what is waiting for approval, or (with `nudge`) gives

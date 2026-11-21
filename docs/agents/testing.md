@@ -173,6 +173,7 @@ steps:
 - `tools_include` / `tools_exclude` in a `request` check: tool names that must, or must not, be offered on that model call.
 - `usage: [...]` on any step: the `core_agent_usage` rows the step wrote, matched in order like `events` (a mapping matches the columns it names, others may sit between).
 - `sql:` (one statement or a list) changes the data between turns, before the step's action: a record made private, say. Use explicit ids.
+- `steer: {after: <event>, message: <text>}` on a `send` or `continue` posts `message` to the conversation once an event matches `after` (a type or a mapping, as in `events`) and requires 202 (queued on the running turn); pair it with a slow tool (`delay`) so the turn is still mid-step.
 - `drop_after: <event type>` on a `send` or `continue` disconnects once that event arrives, and checks the turn is still running then (script slow `chunks` so it is); the turn carries on, and a later `resume` reads the rest.
 - `replies` entries are FakeProvider turns (`providers/fake.py`): a string streams text, `{tool, args, text?}` calls a tool, a list makes several calls, `{error}` fails the call, `{chunks, delay}` streams slowly. A compaction summary is a model call too: it takes the next reply, before the turn's own. A step that leaves a reply unused fails (except a `drop_after` step, whose turn is still going).
 - Every step that streams a turn also checks that the events are numbered without gaps (a resume continues from the last seq seen) and end on `done` or `error` (or on the `drop_after` event).
