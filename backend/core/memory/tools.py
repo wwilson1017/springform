@@ -2,7 +2,7 @@
 touch no entity records (`targets` is empty). The context-file write always confirms, is
 admin-only, and is never exposed over MCP; `for_source("job")` drops both writes."""
 
-from backend.core import db
+from backend.core import db, memory
 from backend.core.agent.spec import ToolSpec
 from backend.core.memory import context_files, facts
 
@@ -27,8 +27,18 @@ def _read_file(user, args: dict) -> dict:
 
 
 def _write_file(conn, user, args: dict) -> dict:
-    f = context_files.write_in(conn, _AGENT, args["filename"], args["content"], user, allow_protected=True)
-    return {k: f[k] for k in ("filename", "is_protected", "updated_at", "size_chars")}
+    f = context_files.write_in(
+        conn,
+        _AGENT,
+        args["filename"],
+        args["content"],
+        user,
+        allow_protected=True,
+        keep_entries=not args.get("drop_entries"),
+    )
+    return {k: f[k] for k in ("filename", "is_protected", "updated_at", "size_chars", "removed")} | {
+        "memory_size": memory.context_size(conn, _AGENT)
+    }
 
 
 def _no_targets(args: dict) -> list[tuple[str, int]]:
@@ -52,7 +62,8 @@ def get_tools() -> list[ToolSpec]:
             name="core_memory_remember",
             description=(
                 "Record one durable fact about the business (a product, price, supplier, policy, decision) "
-                "as a plain sentence. Never personal details about a person."
+                "as a plain sentence. Never personal details about a person. A fact already held is not saved "
+                "again (duplicate), and passwords, keys and card numbers are removed (removed): tell the person."
             ),
             input_schema={
                 "type": "object",
@@ -73,10 +84,22 @@ def get_tools() -> list[ToolSpec]:
         ),
         ToolSpec(
             name="core_context_file_write",
-            description="Replace the whole content of one of Whisk's context files, including soul.md and MEMORY.md.",
+            description=(
+                "Replace the whole content of one of Whisk's context files, including soul.md and MEMORY.md. "
+                "A rewrite that drops over a quarter of the file's lines is refused unless drop_entries is true. "
+                "Passwords, keys and card numbers are removed. The result's memory_size is how much of the "
+                "per-turn memory budget the context files use."
+            ),
             input_schema={
                 "type": "object",
-                "properties": {"filename": {"type": "string"}, "content": {"type": "string"}},
+                "properties": {
+                    "filename": {"type": "string"},
+                    "content": {"type": "string"},
+                    "drop_entries": {
+                        "type": "boolean",
+                        "description": "True only to remove entries on purpose.",
+                    },
+                },
                 "required": ["filename", "content"],
             },
             writes=True,

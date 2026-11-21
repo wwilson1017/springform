@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
 from backend.core.auth.deps import User, current_user, require_admin
+from backend.core import db, memory
 from backend.core.memory import context_files, facts
 
 router = APIRouter(tags=["core"])
@@ -66,4 +67,5 @@ def read_context_file(
 def write_context_file(
     filename: str, body: ContextFileIn, agent: str = context_files.DEFAULT_AGENT, user: User = Depends(require_admin)
 ) -> dict:
-    return context_files.write(agent, filename, body.content, user)
+    written = context_files.write(agent, filename, body.content, user)
+    return written | {"memory_size": memory.context_size(db.get_conn(), agent)}

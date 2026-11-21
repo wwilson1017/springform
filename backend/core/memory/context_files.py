@@ -6,6 +6,8 @@ Rules (docs/agents/agent.md §3):
   confirmed chat tool (`allow_protected=True`), never through the REST editor, MCP or a job.
 - The prompt order is fixed: protected files first (soul.md, then MEMORY.md), then the rest
   by filename.
+- A write blanks secrets (`redact.py`) and says what went (`removed`). `keep_entries` (the chat
+  tool's default) refuses a rewrite that drops over a quarter of the file's entries.
 
 Lifted in shape from CakeCRM backend/context_files/service.py (filename canonicalization,
 protected names matched case-insensitively, size cap); folders, daily notes, archiving and
@@ -20,6 +22,7 @@ from backend.core import clock, db
 from backend.core.auth.deps import User
 from backend.core.errors import Forbidden, Invalid, NotFound
 from backend.core.memory.facts import fts_query
+from backend.core.memory.redact import blank_secrets, removed_list
 
 DEFAULT_AGENT = "whisk"
 SOUL, MEMORY = "soul.md", "MEMORY.md"
@@ -29,6 +32,7 @@ _NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,99}\.md$")
 _AGENT = re.compile(r"^[a-z][a-z0-9_-]{0,39}$")
 _META = "filename, is_protected, updated_at, updated_by, length(content) AS size_chars"
 _ORDER = "ORDER BY is_protected DESC, lower(filename) = 'soul.md' DESC, filename"
+MAX_LOSS = 0.25  # the share of a file's entries a `keep_entries` rewrite may drop (idea: cake_os rewrite checks)
 
 DEFAULTS = {
     SOUL: (
@@ -134,11 +138,24 @@ def prompt_files_in(conn: db.Conn, agent_slug: str) -> list[dict]:
 # ── Writes ────────────────────────────────────────────────────────────────────
 
 
+def entries(text: str) -> list[str]:
+    """A file's entries: its non-blank lines that are not headings."""
+    return [line for line in (raw.strip() for raw in text.splitlines()) if line and not line.startswith("#")]
+
+
 def write_in(
-    conn: db.Conn, agent_slug: str, filename: str, content: str, user: User, *, allow_protected: bool = False
+    conn: db.Conn,
+    agent_slug: str,
+    filename: str,
+    content: str,
+    user: User,
+    *,
+    allow_protected: bool = False,
+    keep_entries: bool = False,
 ) -> dict:
-    """Create or overwrite a file. Admins only; a protected file needs `allow_protected`, which
-    only the confirmed chat tool passes."""
+    """Create or overwrite a file, secrets blanked. Admins only; a protected file needs
+    `allow_protected`, which only the confirmed chat tool passes. `keep_entries` refuses a rewrite
+    that drops more than MAX_LOSS of the existing entries."""
     if not user.is_admin:
         raise Forbidden("admin_only")
     agent_slug, name = _agent(agent_slug), normalize_filename(filename)
@@ -146,12 +163,21 @@ def write_in(
         raise Invalid("content must be a string")
     if len(content) > MAX_CHARS:
         raise Invalid(f"content is longer than {MAX_CHARS} characters")
+    content, removed = blank_secrets(content)
     existing = conn.execute(
-        "SELECT is_protected FROM core_agent_context_files WHERE agent_slug = ? AND filename = ?", (agent_slug, name)
+        "SELECT is_protected, content FROM core_agent_context_files WHERE agent_slug = ? AND filename = ?",
+        (agent_slug, name),
     ).fetchone()
     is_protected = bool(existing["is_protected"]) if existing else name in PROTECTED
     if is_protected and not allow_protected:
         raise Forbidden("protected_file")
+    before = len(entries(existing["content"])) if existing else 0
+    lost = before - len(entries(content))
+    if keep_entries and before and lost / before > MAX_LOSS:
+        raise Invalid(
+            f"Not saved: this rewrite of {name} drops {lost} of its {before} entries. Write the whole file "
+            "again with every entry you mean to keep, or set drop_entries to true to remove them on purpose."
+        )
     conn.execute(
         """INSERT INTO core_agent_context_files (agent_slug, filename, content, is_protected, updated_at, updated_by)
            VALUES (?, ?, ?, ?, ?, ?)
@@ -159,7 +185,7 @@ def write_in(
                content = excluded.content, updated_at = excluded.updated_at, updated_by = excluded.updated_by""",
         (agent_slug, name, content, int(is_protected), clock.now_iso(), user.id),
     )
-    return read_in(conn, agent_slug, name, user)
+    return read_in(conn, agent_slug, name, user) | {"removed": removed_list(removed)}
 
 
 def write(agent_slug: str, filename: str, content: str, user: User, *, allow_protected: bool = False) -> dict:

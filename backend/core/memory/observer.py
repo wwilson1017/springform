@@ -168,9 +168,13 @@ def observe(complete: Callable[[str, str], str], cancel: threading.Event | None 
             private = tx.execute("SELECT is_private FROM core_agent_conversations WHERE id = ?", (cid,)).fetchone()
             if private is None or private[0]:
                 found = []
-            for text in found:
-                facts.remember_in(tx, text, author_user_id=SYSTEM_USER_ID, source_conversation_id=cid, tags=(TAG,))
-            _settle_in(tx, cid, through or cand["through_message_id"], len(found))
+            added = 0
+            for text in found:  # secrets blanked and facts already held skipped by remember_in
+                fact = facts.remember_in(
+                    tx, text, author_user_id=SYSTEM_USER_ID, source_conversation_id=cid, tags=(TAG,)
+                )
+                added += not fact["duplicate"]
+            _settle_in(tx, cid, through or cand["through_message_id"], added)
         stats["conversations"] += 1
-        stats["facts"] += len(found)
+        stats["facts"] += added
     return stats

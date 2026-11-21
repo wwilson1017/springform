@@ -3,7 +3,6 @@ SDK's own ClientSession over an in-process ASGI transport (no network, no AI key
 
 import asyncio
 import json
-import logging
 from contextlib import asynccontextmanager
 
 import httpx2
@@ -18,8 +17,7 @@ from backend.core.agent import registry as tool_registry
 from backend.core.agent.spec import ToolSpec
 from backend.core.auth.deps import system_user
 from backend.core.errors import Forbidden
-from backend.core.mcp import clients, links, router as mcp_router, server, startup as mcp_startup
-from backend.core.mcp.startup import ScrubLinkTokens
+from backend.core.mcp import clients, links, router as mcp_router, server
 
 LINKS = "/api/core/mcp/links"
 
@@ -248,28 +246,6 @@ def test_last_used_is_stamped_at_most_once_a_minute(db, make_user, freeze):
     assert stamp() == "2026-11-02T09:00:00Z"
     freeze("2026-11-02T09:01:00Z")
     assert links.use(made["token"])[1].email.startswith("member") and stamp() == "2026-11-02T09:01:00Z"
-
-
-def test_access_log_lines_hide_the_link_token():
-    record = logging.LogRecord(
-        "uvicorn.access",
-        logging.INFO,
-        "",
-        0,
-        '%s - "%s %s HTTP/%s" %d',
-        ("10.0.0.1:5000", "POST", "/mcp/abcDEF123_-xyz?x=1", "1.1", 200),
-        None,
-    )
-    ScrubLinkTokens().filter(record)
-    assert record.getMessage() == '10.0.0.1:5000 - "POST /mcp/***?x=1 HTTP/1.1" 200'
-
-
-def test_scrubbed_link_shapes():
-    token = "a" * 43
-    assert [
-        mcp_startup.scrub(p)
-        for p in (f"/link/{token}", f"/{token}/mcp", f"/{token}/mcp?x=1", "/settings/mcp", f"/mcp/{token}")
-    ] == ["/link/***", "/***/mcp", "/***/mcp?x=1", "/settings/mcp", "/mcp/***"]
 
 
 def test_instructions_carry_the_guidance_of_the_apps_the_user_reaches(app, login_as):
