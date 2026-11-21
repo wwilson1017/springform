@@ -372,4 +372,40 @@ describe('useAgentChat steering', () => {
     expect(view(result.current.messages)).toEqual(['user:hi', 'user:and this', 'assistant:Both.']);
     expect(calls(fn).filter((c) => c === 'POST /api/agent/chat')).toHaveLength(1); // read by the turn: no continuation
   });
+
+  it('checks the saved conversation before continuing: an answered message is left, a lost one is sent again', async () => {
+    let post!: ReturnType<typeof openStream>;
+    const row = (id: number, role: 'user' | 'assistant', text: string) => ({
+      id,
+      role,
+      text,
+      model: null,
+      created_at: '2026-10-24T10:00:00Z',
+      tool_calls: [],
+    });
+    const fn = serve({
+      'POST /api/agent/chat': (init) => {
+        const body = JSON.parse(String(init?.body));
+        if (body.message === 'hi')
+          return (post = openStream(init, { type: 'conversation_id', id: 7, turn_id: 3, seq: 0 })).response;
+        if (body.message === 'x' || body.message === 'y') return json({ queued: true, turn_id: 3 }, 202);
+        return sse({ type: 'conversation_id', id: 7, turn_id: 4, seq: 0 }, { type: 'done', seq: 1 });
+      },
+      // x was read and answered (its steer event never reached this view); y was lost in a crash.
+      'GET /api/agent/conversations/7': () =>
+        json({ id: 7, messages: [row(1, 'user', 'hi'), row(2, 'user', 'x'), row(3, 'assistant', 'X done.')] }),
+    });
+    const { result } = renderHook(() => useAgentChat());
+    act(() => result.current.send('hi'));
+    await waitFor(() => expect(result.current.conversationId).toBe(7));
+    act(() => result.current.send('x'));
+    act(() => result.current.send('y'));
+    await waitFor(() => expect(bodies(fn)).toHaveLength(3));
+    act(() => {
+      post.push({ type: 'done', seq: 1 });
+      post.close();
+    });
+    await waitFor(() => expect(bodies(fn)).toHaveLength(4));
+    expect(bodies(fn)[3]).toEqual({ conversation_id: 7, message: 'y' });
+  });
 });

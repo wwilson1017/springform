@@ -160,6 +160,9 @@ async def start(
             if running.turn_id is None:  # that conversation is not this user's
                 return None
         elif running.accepting():  # no await since the check, so the runner cannot end in between
+            # simplification: the queue is in memory until the runner takes it (or the turn ends and
+            # saves it, shutdown included), so a hard crash loses it; the client re-reads the conversation
+            # when the turn ends and sends again what is missing. Upgrade: a pending-message table.
             running.steers.append(message)
             return Queued(running.turn_id)
         else:  # ending or stopping: the message starts the next turn once this one is gone

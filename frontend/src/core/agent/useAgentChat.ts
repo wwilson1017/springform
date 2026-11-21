@@ -397,16 +397,38 @@ export function useAgentChat(options: Options = {}) {
       );
       while (turn.posting) await turn.posting; // a post still out may be accepted, or start the next turn
       if (!turn.live) return;
+      const id = convIdRef.current;
+      if (!turn.next && !turn.stopped && id != null && turn.queued.some((q) => q.sent)) {
+        // Accepted but never seen read: check what the server saved. A missed steer event can hide an
+        // answer that is already there, and a crash loses a message the turn still held.
+        try {
+          const rows = (await fetchJson<ConversationDetail>(`/api/agent/conversations/${id}`)).messages;
+          if (!turn.live || convIdRef.current !== id) return;
+          setMessages(fromServer(rows));
+          const fate = (q: Queued) => {
+            for (let i = rows.length - 1; i >= 0; i--)
+              if (rows[i].role === 'user' && rows[i].text === q.text)
+                return rows.slice(i + 1).some((r) => r.role === 'assistant') ? 'answered' : 'saved';
+            return 'missing';
+          };
+          turn.queued = turn.queued.flatMap((q) => {
+            if (!q.sent) return [q];
+            const f = fate(q);
+            return f === 'answered' ? [] : [{ ...q, sent: f === 'saved' }]; // a missing one is sent again
+          });
+        } catch {
+          // Unreachable: trust the server's rule that it saved what it accepted.
+        }
+      }
       turn.live = false;
       turnRef.current = null;
       setStreaming(false);
 
-      // What the model never read: one sent was saved by the server, one unsent goes now.
+      // What the model never read: one the server saved is answered by continuing, an unsent one goes now.
       const left = turn.queued;
       if (left.length)
         setMessages((prev) => prev.map((m) => (left.some((q) => q.id === m.id) ? { ...m, queued: false } : m)));
       const unsent = left.filter((q) => !q.sent);
-      const id = convIdRef.current;
       if (turn.next) void runTurnRef.current({ conversation_id: id }, { ...turn.next, queued: unsent });
       else if (left.length && !turn.stopped && id != null) {
         const message = unsent.map((q) => q.text).join('\n\n');
