@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { useNavigate, useParams } from 'react-router';
+import { useLocation, useNavigate, useParams } from 'react-router';
 import { useJson } from '../api/useJson';
 import { useAuth } from '../auth/AuthContext';
 import BootFallback from '../components/BootFallback';
@@ -10,21 +10,31 @@ import { toast } from '../../shared/toast';
 import { AgentChatPanel } from './AgentChatPanel';
 import { ConversationSidebar } from './ConversationSidebar';
 import { IconLock } from './icons';
-import type { AgentStatus, Conversation } from './types';
+import type { AgentStatus, ChatContext, Conversation } from './types';
 import { useAgentChat } from './useAgentChat';
 import { DEFAULT_AGENT_NAME, setAgentName } from './useAgentName';
 import { useConversations } from './useConversations';
 import { ZeroKeyCard } from './ZeroKeyCard';
 
+/** The page and record an "Ask" button left in router state (AskAgentButton). */
+function contextFromState(state: unknown): ChatContext | null {
+  const context = (state as { agentContext?: ChatContext } | null)?.agentContext;
+  return context && typeof context === 'object' ? context : null;
+}
+
 /**
  * `/whisk` and `/whisk/<conversation id>`: the conversation list beside the chat. The URL holds
  * the open conversation, so a thread can be linked and Back works; another user's id answers
  * 404 from the server and shows as not found. With no AI key the chat is replaced by the
- * zero-key card (the list and old threads still open).
+ * zero-key card (the list and old threads still open). Opened from a record's "Ask" button, it
+ * keeps that page and record (router state) and sends them with every turn until the chip is
+ * dismissed or a new chat starts.
  */
 export default function WhiskPage() {
   const { isAdmin } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const [context, setContext] = useState<ChatContext | null>(() => contextFromState(location.state));
   const splat = useParams()['*'] ?? '';
   const urlId = /^\d+$/.test(splat) ? Number(splat) : null;
 
@@ -44,6 +54,7 @@ export default function WhiskPage() {
     },
     onTitle: retitle,
     onNoProvider: status.reload,
+    context,
   });
   const { load, reset, currentId } = chat;
 
@@ -74,6 +85,7 @@ export default function WhiskPage() {
   function newChat() {
     setDrawer(false);
     setOpenState(null);
+    setContext(null);
     reset();
     navigate('/whisk');
   }
@@ -162,6 +174,19 @@ export default function WhiskPage() {
           title={`${agentName} does not learn business facts from a private conversation.`}
         >
           <IconLock size={11} aria-hidden /> Private
+        </span>
+      )}
+      {context && (
+        <span className="ml-auto flex shrink-0 items-center gap-1 rounded-full bg-sf-raised py-0.5 pl-2 pr-1 text-[11px] text-sf-ink-soft">
+          {context.record ? 'About the record you had open' : 'About the page you were on'}
+          <button
+            type="button"
+            aria-label="Stop sending what you had open"
+            onClick={() => setContext(null)}
+            className="flex cursor-pointer border-0 bg-transparent p-0.5 text-sf-ink-mute"
+          >
+            <IconX size={11} aria-hidden />
+          </button>
         </span>
       )}
     </div>

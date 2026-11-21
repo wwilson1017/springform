@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { User } from '../api/types';
 import { AuthProvider } from '../auth/AuthContext';
 import type { AgentStatus, ChatEvent, Conversation, ConversationDetail } from './types';
+import { AskAgentButton } from './AskAgentButton';
 import { DROP_NOTICE } from './useAgentChat';
 import WhiskPage from './WhiskPage';
 
@@ -114,6 +115,44 @@ describe('the zero-key gate', () => {
     await send('hello');
     expect(await screen.findByText('The assistant needs an AI key before it can answer.')).toBeTruthy();
     await waitFor(() => expect(fn.mock.calls.filter(([u]) => u === '/api/agent/status').length).toBe(2));
+  });
+});
+
+describe('asking about a record', () => {
+  it('opens the chat from the record page and sends the page and record with every turn', async () => {
+    const fn = serve('member', true, {
+      'POST /api/agent/chat': () => sse({ type: 'conversation_id', id: 7 }, { type: 'done' }),
+      'GET /api/agent/conversations/7': () => json({ ...conversation(7), messages: [] }),
+    });
+    render(
+      <MemoryRouter initialEntries={['/example/3']}>
+        <AuthProvider>
+          <Routes>
+            <Route path="example/:id" element={<AskAgentButton entityType="example.widget" entityId={3} />} />
+            <Route path="whisk/*" element={<WhiskPage />} />
+          </Routes>
+        </AuthProvider>
+      </MemoryRouter>,
+    );
+    fireEvent.click(await screen.findByRole('button', { name: 'Ask Whisk' }));
+    expect(await screen.findByText('About the record you had open')).toBeTruthy();
+    const box = await screen.findByRole('textbox', { name: 'Message Whisk' });
+    fireEvent.change(box, { target: { value: 'what is this?' } });
+    fireEvent.keyDown(box, { key: 'Enter' });
+    const context = { page: '/example/3', record: { entity_type: 'example.widget', entity_id: 3 } };
+    await waitFor(() =>
+      expect(bodiesOf(fn, 'POST', '/api/agent/chat')).toEqual([
+        { ...context, conversation_id: null, message: 'what is this?' },
+      ]),
+    );
+
+    // Dismissed: the next turn goes without it.
+    fireEvent.click(screen.getByRole('button', { name: 'Stop sending what you had open' }));
+    fireEvent.change(box, { target: { value: 'and now?' } });
+    fireEvent.keyDown(box, { key: 'Enter' });
+    await waitFor(() =>
+      expect(bodiesOf(fn, 'POST', '/api/agent/chat')[1]).toEqual({ conversation_id: 7, message: 'and now?' }),
+    );
   });
 });
 
