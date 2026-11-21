@@ -20,7 +20,9 @@ function lastResult(c: Checkin): string | null {
   if (!c.last_run_at) return null;
   if (c.last_status === 'ok') return `Delivered ${formatDate(c.last_run_at)}`;
   if (c.last_status === 'silent') return `Nothing to report ${formatDate(c.last_run_at)}`;
-  return `Failed ${c.failures} in a row: ${c.last_error ?? 'unknown error'}`;
+  const error = c.last_error ?? 'unknown error';
+  // A resume clears the count but keeps the last error.
+  return c.failures > 0 ? `Failed ${c.failures} in a row: ${error}` : `Last run failed: ${error}`;
 }
 
 export default function CheckinsPanel({ configured, agentName }: { configured: boolean; agentName: string }) {

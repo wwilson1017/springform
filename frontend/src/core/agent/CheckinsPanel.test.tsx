@@ -74,6 +74,14 @@ describe('CheckinsPanel', () => {
     expect(screen.getByRole('button', { name: 'Resume' })).toBeTruthy();
   });
 
+  it('says the last run failed, without a count, once a resume cleared it', async () => {
+    mockFetch({
+      'GET /api/agent/checkins': { body: [{ ...CHECKIN, last_status: 'error', failures: 0, last_error: 'bad key' }] },
+    });
+    render(<CheckinsPanel configured agentName="Whisk" />);
+    expect(await screen.findByText('Last run failed: bad key')).toBeTruthy();
+  });
+
   it('creates a daily check-in', async () => {
     const fetchMock = mockFetch({
       'GET /api/agent/checkins': { body: [] },
