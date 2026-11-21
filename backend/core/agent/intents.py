@@ -90,7 +90,7 @@ def delete(user: User, intent_id: int) -> None:
 
 
 def _phrase(term: str) -> str:
-    return '"' + " ".join(_WORD.findall(term)) + '"'  # words only, quoted: never FTS syntax
+    return '"' + term.replace('"', '""') + '"'  # one FTS5 string: nothing inside it is syntax
 
 
 def matching(text: str, candidates: list[dict]) -> list[dict]:

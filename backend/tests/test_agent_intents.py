@@ -57,6 +57,7 @@ def test_matching_is_a_stemmed_phrase_match():
     assert not intents.matching("supplier of the bakery", _cands("bakery supplier"))
     assert not intents.matching("anything", _cands('" OR *', ""))  # quotes and FTS syntax are never syntax
     assert intents.matching('he said "NEAR" twice', _cands('"near"'))
+    assert intents.matching("the cre\u0300me supplier", _cands("cre\u0300me supplier"))  # a decomposed accent
 
 
 def test_a_match_fires_once_then_waits_and_stops_after_three(member, model_requests, freeze):
