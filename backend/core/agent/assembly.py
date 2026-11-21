@@ -190,11 +190,14 @@ def after_turn(conversation_id: int) -> None:
         logger.warning("memory.after_turn failed", exc_info=True)
 
 
-def system_prompt(agent: dict, user: User, *, query: str | None, catalog: str = "") -> tuple[str, str]:
+def system_prompt(
+    agent: dict, user: User, *, query: str | None, catalog: str = "", context: str = ""
+) -> tuple[str, str]:
     return agents.build_system_prompt(
         agent,
         user,
         instructions=memory_instructions(agent["slug"]),
         catalog=catalog,
         memory=memory_context(user, agent["slug"], query),
+        context=context,
     )

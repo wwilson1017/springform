@@ -8,23 +8,27 @@ and leaving a stream early is a real disconnect.
 
 import json
 import re
+import time
 from pathlib import Path
 
 import pytest
 import yaml
 from fastapi.testclient import TestClient
 
+from backend.core import clock, db as core_db
 from backend.core.agent import delimiters, detached, registry as tool_registry
 from backend.core.agent.providers import fake
 from backend.core.agent.spec import ToolSpec
+from backend.core.auth import service as auth_service
 
 SCENARIOS = Path(__file__).parent / "scenarios"
-TOP_KEYS = {"name", "role", "context_window", "tools", "steps"}
+TOP_KEYS = {"name", "role", "context_window", "tools", "records", "steps"}
 FLAGS = ("confirm_tier", "always_confirm", "untrusted_source", "external_effect")
-TOOL_KEYS = {"name", "description", "writes", "returns", "repeat", *FLAGS}
+TOOL_KEYS = {"name", "description", "writes", "returns", "repeat", "delay", *FLAGS}
 ACTIONS = {"send", "continue", "approve", "deny", "resume"}
-STEP_KEYS = ACTIONS | {"replies", "drop_after", "events", "request", "status"}
-REQUEST_KEYS = {"call", "messages_contain", "messages_exclude", "messages_match", "system_contains"}
+STEP_KEYS = ACTIONS | {"sql", "replies", "drop_after", "events", "request", "status", "usage", "page", "record"}
+REQUEST_KEYS = {"call", "messages_contain", "messages_exclude", "messages_match", "system_contains", "system_exclude"}
+RECORD_KEYS = {"name", "private"}
 TERMINAL = {"done", "error"}
 
 
@@ -53,6 +57,8 @@ def load(path: Path) -> dict:
             _strict(f"{path.name} step {i} request", req, REQUEST_KEYS)
     for tool in spec.get("tools", []):
         _strict(f"{path.name} tool", tool, TOOL_KEYS)
+    for key, rec in (spec.get("records") or {}).items():
+        _strict(f"{path.name} record {key}", rec, RECORD_KEYS)
     return spec
 
 
@@ -62,7 +68,8 @@ def _listed(value) -> list:
 
 def tool_spec(t: dict) -> ToolSpec:
     """A test-only core tool: a read, a local write (`handler_in`, no targets) or an external-effect
-    write (`handler`), answering `returns` (default `{ok: true}`), or a list of `repeat` copies of it."""
+    write (`handler`), answering `returns` (default `{ok: true}`), or a list of `repeat` copies of it,
+    after `delay` seconds when it runs through `handler`."""
     returns = t.get("returns", {"ok": True})
     if "repeat" in t:
         returns = [returns] * t["repeat"]
@@ -74,7 +81,7 @@ def tool_spec(t: dict) -> ToolSpec:
         description=t.get("description", "A scenario tool."),
         input_schema={"type": "object", "properties": {}},
         writes=writes,
-        handler=None if local_write else (lambda user, args: returns),
+        handler=None if local_write else (lambda user, args: time.sleep(t.get("delay", 0)) or returns),
         handler_in=(lambda conn, user, args: returns) if local_write else None,
         targets=(lambda args: []) if local_write else None,
         **flags,
@@ -90,6 +97,21 @@ def _texts(obj) -> str:
     if isinstance(obj, (list, tuple)):
         return "\n".join(_texts(v) for v in obj)
     return ""
+
+
+def make_records(records: dict, me: int) -> dict[str, int]:
+    """Example widgets owned by another user, by key: readable unless `private`."""
+    with core_db.transaction() as conn:
+        owner = auth_service.create_user_in(conn, f"scen-owner-{me}@example.com", "Scenario Owner", "member")["id"]
+        return {
+            key: core_db.insert_in(
+                conn,
+                """INSERT INTO example_widgets (name, owner_user_id, is_private, created_at, updated_at)
+                   VALUES (?, ?, ?, ?, ?)""",
+                (rec["name"], owner, int(rec.get("private", False)), clock.now_iso(), clock.now_iso()),
+            )
+            for key, rec in records.items()
+        }
 
 
 def check_events(evs: list[dict], wanted: list) -> None:
@@ -116,6 +138,8 @@ def check_request(calls: list[dict], req: dict) -> None:
         assert re.search(pattern, messages), f"model call {at}: messages do not match {pattern!r}:\n{messages[-3000:]}"
     for text in req.get("system_contains", []):
         assert text in system, f"model call {at}: system prompt lacks {text!r}"
+    for text in req.get("system_exclude", []):
+        assert text not in system, f"model call {at}: system prompt contains {text!r}"
 
 
 def stream(c: TestClient, method: str, url: str, drop_after: str | None = None, **kw) -> list[dict]:
@@ -137,6 +161,7 @@ def run(path: Path, app, login_as, model_requests: list[dict], monkeypatch) -> N
     before = tool_registry.current()
     tool_registry.set_current(tool_registry.build_registry([*before.all(), *map(tool_spec, spec.get("tools", []))]))
     who = login_as(spec.get("role", "member"))
+    records = make_records(spec.get("records") or {}, who.principal.id)
     cid = turn_id = None
     last_seq = -1
     seen: list[dict] = []
@@ -144,11 +169,19 @@ def run(path: Path, app, login_as, model_requests: list[dict], monkeypatch) -> N
         with TestClient(app, headers={"Authorization": f"Bearer {who.cookies.get('sf_session')}"}) as c:
             for i, step in enumerate(spec["steps"], 1):
                 try:
+                    with core_db.transaction() as conn:  # a change to the data between turns, made before the action
+                        for statement in _listed(step.get("sql")):
+                            conn.execute(statement)
                     fake.script(*step.get("replies", []))
                     mark = len(model_requests)
+                    ledger = core_db.one("SELECT coalesce(max(id), 0) AS n FROM core_agent_usage")["n"]
                     evs: list[dict] = []
                     if "send" in step or "continue" in step:
                         body = {"message": step["send"]} if "send" in step else {}
+                        if "page" in step:
+                            body["page"] = step["page"]
+                        if "record" in step:
+                            body["record"] = {"entity_type": "example.widget", "entity_id": records[step["record"]]}
                         evs = stream(
                             c,
                             "POST",
@@ -192,6 +225,11 @@ def run(path: Path, app, login_as, model_requests: list[dict], monkeypatch) -> N
                     check_events(evs, step.get("events", []))
                     for req in _listed(step.get("request")):
                         check_request(model_requests[mark:], req)
+                    if "usage" in step:  # the ledger rows this step wrote, matched like `events`
+                        check_events(
+                            core_db.rows("SELECT * FROM core_agent_usage WHERE id > ? ORDER BY id", (ledger,)),
+                            step["usage"],
+                        )
                 except AssertionError as e:
                     raise AssertionError(f"{path.name} step {i}: {e}") from e
     finally:

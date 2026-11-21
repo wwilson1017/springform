@@ -67,6 +67,7 @@ def workspace() -> dict:
     """`public_url` is the PUBLIC_URL env value auth builds links and redirect URIs from; read-only."""
     return {
         "name": keys.get("workspace.name"),
+        "show_name": keys.get("workspace.show_name"),
         "timezone": keys.get("timezone"),
         "version": VERSION,
         "preview": settings.preview_mode(),

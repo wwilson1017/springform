@@ -70,7 +70,8 @@ class ProviderFailure:
 class TurnState:
     """One turn's working state, passed to every hook. Fields are added, never renamed.
 
-    Hooks may change `messages`, `system` and `scratch`; everything else is read-only by convention."""
+    Hooks may change `messages`, `system` and `scratch`, and set `halt` to end the turn after this
+    tool round; everything else is read-only by convention."""
 
     user: User
     agent: dict  # the core_agents row
@@ -94,7 +95,8 @@ class TurnState:
         None  # the latest completed call's ("end_turn", "max_tokens", "refusal"…); None after a failure
     )
     error: str | None = None  # the error text, set before end_of_turn on an error ending
-    halt: str | None = None  # why the turn was cut short, as a clause for the closing note (the round limit)
+    halt: str | None = None  # why the turn was cut short, as a clause for the closing note (a hook, the round limit)
+    context: str = ""  # the page and record the user has open (agents.context_note), for the volatile prompt
 
 
 async def _call(fn: Callable, *args: Any) -> Any:
@@ -116,7 +118,8 @@ async def on_provider_error(state: TurnState, err: ProviderFailure) -> Retry | F
 
 
 async def before_tool(state: TurnState, call: dict) -> str | None:
-    """The first non-None string refuses the call with that text."""
+    """The first non-None string refuses the call with that text. A hook may replace `call["args"]`
+    (the run, the Approve card and the handler get the new args; the model's history keeps its own)."""
     for fn in REGISTERED["before_tool"]:
         if (refusal := await _call(fn, state, call)) is not None:
             return refusal

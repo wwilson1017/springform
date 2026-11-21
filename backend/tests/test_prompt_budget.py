@@ -58,12 +58,13 @@ def test_static_prompt_and_eager_tools_stay_under_the_budget(login_as, model_req
     a = login_as("admin")
     with a:  # run the lifespan: startup seeds soul.md into the static prompt
         r = a.post("/api/agent/chat", json={"message": "hi"})
+        specs = chat_tools(a.principal)  # while the app is up: some tools read a setting to decide
     assert r.status_code == 200, r.text
     static, tools = model_requests[0]["system"][0], model_requests[0]["tools"]
     assert DEFAULTS[SOUL].splitlines()[2] in static, "seeded soul.md missing from the measured prompt"
     if path := os.environ.get("PROMPT_REPORT"):
         with open(path, "a") as f:
-            f.write(report(static, tools, chat_tools(a.principal)))
+            f.write(report(static, tools, specs))
     assert len(tools) > 10, "the measured turn offered almost no tools"
     total = tokens(static, tools)
     assert total <= BUDGET_TOKENS, f"static prompt + eager tools ~{total:,} tokens, over the {BUDGET_TOKENS:,} budget"

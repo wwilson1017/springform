@@ -2,10 +2,11 @@
 
 `TurnRunner(state, emit).run()` drives one turn and hands every event to `emit` (a dict, not SSE
 text): compact if needed, assemble the history from the database, then loop: call the provider,
-forward text and tool events, persist the iteration, settle each tool call (`dispatch.run_call`),
-and go again until the model stops or a write waits for approval. It emits exactly one terminal
-event (`done` or `error`), last, and raises only on cancel or a bug. `detached.py` owns the task,
-numbers the events and streams them. The hook points it calls are in `turn_hooks.py`.
+forward text and tool events, persist the iteration, settle the step's tool calls
+(`dispatch.run_calls`: lookups together first, then the model's order), and go again until the
+model stops or a write waits for approval. It emits exactly one terminal event (`done` or `error`),
+last, and raises only on cancel or a bug. `detached.py` owns the task, numbers the events and
+streams them. The hook points it calls are in `turn_hooks.py`.
 
 Tools offered are `for_user(user)` ∩ `for_source("chat")`. Results of `untrusted_source` tools
 taint the conversation: from then on every write confirms. Never a provider call inside
@@ -20,7 +21,9 @@ from collections.abc import Callable
 
 from backend.core.agent import (
     assembly,
+    call_repair,
     compaction,
+    completion_claims,
     context_shrink,
     deferred,
     delimiters,
@@ -28,16 +31,19 @@ from backend.core.agent import (
     endings,
     errors,
     history,
+    loop_guard,
     result_cap,
     turn_hooks,
 )
 from backend.core.agent.aio import in_thread
 from backend.core.agent.engine import chat_tools
 from backend.core.agent.providers.windows import cache_inclusive_input_tokens, context_usage_event
+from backend.core.agent.spec import calling_tainted
 from backend.core.agent.turn_hooks import Fallback, ProviderFailure, Retry, TurnState
+from backend.core.agent.usage import metered
 
 # hook modules: a module that registers turn hooks is imported here.
-HOOK_MODULES = (result_cap, context_shrink, errors, endings)
+HOOK_MODULES = (result_cap, context_shrink, errors, endings, loop_guard, call_repair, completion_claims)
 
 logger = logging.getLogger(__name__)
 
@@ -98,7 +104,9 @@ class TurnRunner:
             specs, {a.slug: a.manifest.name for a in app_registry.installed()}
         )
         s.loaded = {spec.name for spec in active}
-        s.system = await in_thread(assembly.system_prompt, s.agent, s.user, query=query, catalog=catalog)
+        s.system = await in_thread(
+            assembly.system_prompt, s.agent, s.user, query=query, catalog=catalog, context=s.context
+        )
 
         for i in range(MAX_ITERATIONS):
             s.iteration = i
@@ -136,9 +144,9 @@ class TurnRunner:
                 return await self._end()
 
             s.pending = False
-            results = [await dispatch.run_call(s, emit, call, message_id) for call in calls]
+            results = await dispatch.run_calls(s, emit, calls, message_id)
             s.messages = s.messages + s.provider.build_tool_turn(text, calls, results, native=native)
-            if s.terminated:
+            if s.terminated or s.halt:
                 return await self._end()
             if s.pending:
                 return await self._end(await self._wrap_up())
@@ -167,7 +175,9 @@ class TurnRunner:
         while True:
             await turn_hooks.before_model_call(s)
             text, sent, failure = "", False, None
-            async for event in s.provider.stream_turn(s.messages, self._tools(), s.system):
+            calling_tainted.set(s.tainted)
+            stream = s.provider.stream_turn(s.messages, self._tools(), s.system)
+            async for event in metered(stream, s.provider, "chat", s.conversation_id):
                 etype = event.get("type")
                 if etype == "text":
                     text, sent = text + event["text"], True
@@ -187,6 +197,9 @@ class TurnRunner:
                             "description": spec.description if spec else "",
                         }
                     )
+                elif etype == "untrusted" and not s.tainted:  # the provider's own web search (Anthropic)
+                    s.tainted = True
+                    await in_thread(history.mark_tainted, s.conversation_id)
                 elif etype == "error":
                     failure = event
                     break

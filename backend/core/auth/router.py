@@ -7,7 +7,7 @@ user-admin routers are included into it below.
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from backend.core import db, preview, ratelimit, settings
 from backend.core.auth import bootstrap, google, invites, service, totp, trusted, users_router
@@ -23,6 +23,7 @@ class SetupIn(BaseModel):
     email: str
     name: str = ""
     password: str
+    agent_name: str = Field(default="", max_length=80)  # optional; blank keeps the default name
 
 
 class LoginIn(BaseModel):
@@ -45,7 +46,7 @@ def get_status() -> dict:
 
 @router.post("/api/auth/setup")
 def setup(body: SetupIn, request: Request, response: Response) -> dict:
-    user = bootstrap.complete_setup(body.token, body.email, body.name, body.password)
+    user = bootstrap.complete_setup(body.token, body.email, body.name, body.password, body.agent_name)
     return start_session(request, response, user)
 
 

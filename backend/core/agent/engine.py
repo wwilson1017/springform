@@ -34,12 +34,13 @@ def chat_tools(user: User) -> list[ToolSpec]:
 
 
 def needs_confirmation(spec: ToolSpec, args: dict, tainted: bool) -> bool:
-    """always_confirm, or a write unless it is routine, local, the turn is clean and these args
-    do not hide a record. Fails closed when hides_when itself fails."""
+    """always_confirm; an untrusted read (web search, page read) once the turn is tainted; or a write
+    unless it is routine, local, the turn is clean and these args do not hide a record. Fails closed
+    when hides_when itself fails."""
     if spec.always_confirm:
         return True
-    if not spec.writes:
-        return False
+    if not spec.writes:  # an untrusted read reaches outside: once tainted, its args could carry data out
+        return tainted and spec.untrusted_source
     if spec.external_effect or tainted or spec.confirm_tier != ROUTINE:
         return True
     try:

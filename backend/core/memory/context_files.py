@@ -36,8 +36,8 @@ MAX_LOSS = 0.25  # the share of a file's entries a `keep_entries` rewrite may dr
 
 DEFAULTS = {
     SOUL: (
-        "# Whisk\n\n"
-        "Whisk is the business assistant for this install. It knows the installed apps, the contacts "
+        "# Soul\n\n"
+        "The business assistant for this install. It knows the installed apps, the contacts "
         "directory and each app's records, and answers from them. It says what it changed and proposes "
         "a write before making it. It is plain-spoken and brief, and careful with anything that leaves "
         "the install or hides a record.\n"

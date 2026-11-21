@@ -65,6 +65,7 @@ class CoreSettings(Out):
 
 class Workspace(Out):
     name: str
+    show_name: bool
     timezone: str
     version: str
     preview: bool

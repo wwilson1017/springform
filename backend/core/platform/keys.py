@@ -13,6 +13,7 @@ from typing import Any
 from zoneinfo import ZoneInfo
 
 from backend.core import memory, settings
+from backend.core.agent import usage
 from backend.core.errors import Invalid
 
 DEFAULT_WARNING = (
@@ -61,6 +62,24 @@ def _positive_int(value: Any) -> int:
     return value
 
 
+def _choice(*options: str) -> Callable[[Any], str]:
+    def check(value: Any) -> str:
+        if value not in options:
+            raise ValueError(f"must be one of {', '.join(options)}")
+        return value
+
+    return check
+
+
+def _int_range(low: int, high: int) -> Callable[[Any], int]:
+    def check(value: Any) -> int:
+        if isinstance(value, bool) or not isinstance(value, int) or not low <= value <= high:
+            raise ValueError(f"must be a whole number from {low} to {high}")
+        return value
+
+    return check
+
+
 def _bool(value: Any) -> bool:
     if not isinstance(value, bool):
         raise ValueError("must be true or false")
@@ -69,6 +88,7 @@ def _bool(value: Any) -> bool:
 
 CORE_KEYS: dict[str, Key] = {
     "workspace.name": Key("Springform", _text(80, required=True)),
+    "workspace.show_name": Key(True, _bool),  # off: the header shows only the logo (a wordmark already says it)
     "timezone": Key("UTC", _timezone),
     "requests.warning_text": Key(DEFAULT_WARNING, _text(2000)),
     "github.repo": Key("", _text(140, pattern=_REPO)),  # owner/name
@@ -76,7 +96,11 @@ CORE_KEYS: dict[str, Key] = {
     "files.max_bytes": Key(25 * 1024 * 1024, _positive_int),
     "agent.nightly_enabled": Key(False, _bool),  # off: the nightly run spends AI credits
     "agent.context_budget_chars": Key(memory.DEFAULT_BUDGET, _positive_int),  # memory block size per turn
+    "agent.cost_rates": Key(usage.DEFAULT_RATES, usage.check_rates),  # USD per million tokens, per model
     "auth.require_totp_for_google": Key(False, _bool),
+    "web.enabled": Key(True, _bool),  # Whisk's web search and page reading
+    "web.search_provider": Key("free", _choice("free", "anthropic")),  # anthropic: Claude's own search
+    "web.search_max_uses": Key(5, _int_range(1, 20)),  # Anthropic searches per reply
 }
 
 

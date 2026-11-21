@@ -16,7 +16,7 @@ from backend.apps.crm import activity, analytics, dashboard, deals, provenance, 
 from backend.apps.crm.common import BULK_MOVE_MAX, ENTITY, OPEN_STAGES, STAGES
 from backend.apps.crm.models import DealIn, DealPatch
 from backend.core import db, entities, settings
-from backend.core.agent.spec import ROUTINE, ToolSpec
+from backend.core.agent.spec import ROUTINE, ToolSpec, linked, records_in
 from backend.core.errors import Invalid
 
 URL_GUIDANCE = (
@@ -154,13 +154,36 @@ def _score(user, args: dict) -> dict:
     raise Invalid("give deal_id or person_id")
 
 
+def _named(d: dict) -> list[tuple[str, int]]:
+    """The deals a result row carries, for the replay recheck: a deal itself (the shape `_link`
+    knows), a row about one (`deal_id`: activity, stage events), or a linked reminder."""
+    named = [(ENTITY, d["id"])] if {"id", "title", "stage"} <= d.keys() else []
+    if d.get("deal_id"):
+        named.append((ENTITY, int(d["deal_id"])))
+    return named + linked(d)
+
+
+def _reads(args: dict, result) -> list[tuple[str, int]]:
+    return records_in(result, _named)
+
+
+def _score_reads(args: dict, result) -> list[tuple[str, int]]:
+    return [(ENTITY, int(args["deal_id"]))] if args.get("deal_id") else [("core.person", int(args["person_id"]))]
+
+
 def _read(
-    name: str, description: str, handler, properties: dict | None = None, required: tuple = (), links: bool = True
+    name: str,
+    description: str,
+    handler,
+    properties: dict | None = None,
+    required: tuple = (),
+    links: bool = True,
+    reads=_reads,
 ) -> ToolSpec:
     return ToolSpec(
         name=name, description=description + (URL_GUIDANCE if links else ""),
         input_schema={"type": "object", "properties": properties or {}, "required": list(required)},
-        writes=False, handler=(lambda user, args: _link(handler(user, args))) if links else handler,
+        writes=False, handler=(lambda user, args: _link(handler(user, args))) if links else handler, reads=reads,
     )  # fmt: skip
 
 
@@ -179,7 +202,7 @@ def _write(
     return ToolSpec(
         name=name, description=description, input_schema={"type": "object", "properties": properties, "required": list(required)},
         writes=True, confirm_tier=ROUTINE if routine else None, handler_in=handler_in, targets=targets, summary=summary,
-        destructive=destructive,
+        destructive=destructive, reads=lambda args, result: [*targets(args), *_reads(args, result)],
     )  # fmt: skip
 
 
@@ -277,6 +300,7 @@ def get_tools() -> list[ToolSpec]:
             "crm_find_duplicate_deals",
             "Live deals that share a title and a person: likely double entries to merge.",
             lambda user, args: analytics.duplicates(user),
+            reads=lambda args, result: [(ENTITY, r["id"]) for group in result for r in group["records"]],
         ),
         _read(
             "crm_get_lead_score",
@@ -284,6 +308,7 @@ def get_tools() -> list[ToolSpec]:
             _score,
             {**_DEAL_ID, "person_id": {"type": "integer"}},
             links=False,
+            reads=_score_reads,
         ),  # fmt: skip
         _write(
             "crm_create_deal",

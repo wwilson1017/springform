@@ -49,7 +49,7 @@ def get_tools() -> list[ToolSpec]:
     return [
         ToolSpec(
             name="core_memory_search",
-            description="Search the business memory: recorded facts and Whisk's context files.",
+            description="Search the business memory: recorded facts and the assistant's context files.",
             input_schema={
                 "type": "object",
                 "properties": {"query": {"type": "string"}, "limit": {"type": "integer", "minimum": 1, "maximum": 50}},
@@ -77,7 +77,7 @@ def get_tools() -> list[ToolSpec]:
         ),
         ToolSpec(
             name="core_context_file_read",
-            description="Read one of Whisk's context files (for example business.md).",
+            description="Read one of the assistant's context files (for example business.md).",
             input_schema={"type": "object", "properties": {"filename": {"type": "string"}}, "required": ["filename"]},
             writes=False,
             handler=_read_file,
@@ -85,7 +85,7 @@ def get_tools() -> list[ToolSpec]:
         ToolSpec(
             name="core_context_file_write",
             description=(
-                "Replace the whole content of one of Whisk's context files, including soul.md and MEMORY.md. "
+                "Replace the whole content of one of the assistant's context files, including soul.md and MEMORY.md. "
                 "A rewrite that drops over a quarter of the file's lines is refused unless drop_entries is true. "
                 "Passwords, keys and card numbers are removed. The result's memory_size is how much of the "
                 "per-turn memory budget the context files use."

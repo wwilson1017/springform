@@ -231,6 +231,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/agent/usage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Usage
+         * @description This month's model usage and estimated cost (the usage ledger, agent.md §5).
+         */
+        get: operations["core_get_usage"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/auth/forgot": {
         parameters: {
             query?: never;
@@ -3478,6 +3498,8 @@ export interface components {
             /** Default Agent */
             default_agent: string;
             models: components["schemas"]["AgentModels"];
+            /** Name */
+            name: string;
             /** Providers */
             providers: components["schemas"]["ProviderInfo"][];
         };
@@ -3901,6 +3923,9 @@ export interface components {
             conversation_id?: number | null;
             /** Message */
             message?: string | null;
+            /** Page */
+            page?: string | null;
+            record?: components["schemas"]["RecordRef"] | null;
         };
         /** CodeIn */
         CodeIn: {
@@ -5883,6 +5908,13 @@ export interface components {
             /** Removed */
             removed: boolean;
         };
+        /** RecordRef */
+        RecordRef: {
+            /** Entity Id */
+            entity_id: number;
+            /** Entity Type */
+            entity_type: string;
+        };
         /** Reminder */
         Reminder: {
             /** Created At */
@@ -6280,6 +6312,11 @@ export interface components {
         };
         /** SetupIn */
         SetupIn: {
+            /**
+             * Agent Name
+             * @default
+             */
+            agent_name: string;
             /** Email */
             email: string;
             /**
@@ -6727,6 +6764,41 @@ export interface components {
             /** Name */
             name: string;
         };
+        /** UsageMonth */
+        UsageMonth: {
+            /** Cache Hit Rate */
+            cache_hit_rate: number | null;
+            /** Cost Micros */
+            cost_micros: number;
+            /** Month */
+            month: string;
+            /** Rows */
+            rows: components["schemas"]["UsageRow"][];
+        };
+        /**
+         * UsageRow
+         * @description One source and model's calls this month; `unpriced` counts calls on a model with no rate.
+         */
+        UsageRow: {
+            /** Cache Read */
+            cache_read: number;
+            /** Cache Write */
+            cache_write: number;
+            /** Calls */
+            calls: number;
+            /** Cost Micros */
+            cost_micros: number;
+            /** Input Tokens */
+            input_tokens: number;
+            /** Model */
+            model: string;
+            /** Output Tokens */
+            output_tokens: number;
+            /** Source */
+            source: string;
+            /** Unpriced */
+            unpriced: number;
+        };
         /** UserPatch */
         UserPatch: {
             /** Name */
@@ -6910,6 +6982,8 @@ export interface components {
             preview: boolean;
             /** Public Url */
             public_url: string;
+            /** Show Name */
+            show_name: boolean;
             /** Timezone */
             timezone: string;
             /** Version */
@@ -7404,6 +7478,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    core_get_usage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UsageMonth"];
                 };
             };
         };

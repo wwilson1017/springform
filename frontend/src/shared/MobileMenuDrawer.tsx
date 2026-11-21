@@ -4,7 +4,7 @@ import { IconX } from './icons';
 
 export interface DrawerItem {
   to: string;
-  label: string;
+  label: ReactNode;
   /** An icon element, sized 18. */
   icon: ReactNode;
 }
