@@ -20,7 +20,9 @@ from collections.abc import Callable
 
 from backend.core.agent import (
     assembly,
+    call_repair,
     compaction,
+    completion_claims,
     context_shrink,
     deferred,
     delimiters,
@@ -28,6 +30,7 @@ from backend.core.agent import (
     endings,
     errors,
     history,
+    loop_guard,
     result_cap,
     turn_hooks,
 )
@@ -37,7 +40,7 @@ from backend.core.agent.providers.windows import cache_inclusive_input_tokens, c
 from backend.core.agent.turn_hooks import Fallback, ProviderFailure, Retry, TurnState
 
 # hook modules: a module that registers turn hooks is imported here.
-HOOK_MODULES = (result_cap, context_shrink, errors, endings)
+HOOK_MODULES = (result_cap, context_shrink, errors, endings, loop_guard, call_repair, completion_claims)
 
 logger = logging.getLogger(__name__)
 
@@ -138,7 +141,7 @@ class TurnRunner:
             s.pending = False
             results = [await dispatch.run_call(s, emit, call, message_id) for call in calls]
             s.messages = s.messages + s.provider.build_tool_turn(text, calls, results, native=native)
-            if s.terminated:
+            if s.terminated or s.halt:
                 return await self._end()
             if s.pending:
                 return await self._end(await self._wrap_up())

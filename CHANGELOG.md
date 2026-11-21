@@ -21,6 +21,7 @@ Conventions:
 ### Added
 
 - Whisk can search the web and read a web page (`core_web_search`, `core_web_fetch`). What it reads is treated as untrusted, so every later change in that conversation asks for approval. Search is DuckDuckGo by default, or Anthropic's own web search while Whisk runs on Anthropic; admins switch both in Settings, AI, Web. Page reads never reach private or local addresses, including through redirects.
+- Whisk stops itself when it keeps repeating the same step, fixes simple argument slips (`"42"` for 42), suggests the right name for a mistyped tool, adds a correction when it says it sent or created something it did not, and can search your earlier conversations.
 - When the AI provider fails, Whisk says why and names the model. It waits and retries once on a rate limit, trims its context when a request is too long, and on an outage switches to the other provider or the light model for that turn, unless the turn has already changed something. A reply that was cut off, refused, empty, or stopped at the 20-step limit ends with a note saying so (saved with the conversation), and at the limit Whisk gives a final answer first.
 - Whisk copes with very large tool results: over 25,000 characters it reads the start and the end (a list of records as a compact table first) and can page or search the rest with `core_read_result` for 24 hours. In a long turn, results it has already used are cleared from its working context past 100,000 tokens, the newest three kept.
 - A fork can set its own colours and a wide logo without editing core. `frontend/public/branding/theme.css` (upstream ships it empty) redefines the `--color-sf-*` tokens for light and dark, three new tokens colour the header bar (`--color-sf-header`, `--color-sf-header-ink`, `--color-sf-highlight`), the header shows its own `header-light.svg`/`header-dark.svg`, logos are sized by height so a wordmark keeps its ratio, and the favicon moved to `branding/favicon.svg`. The contrast tests check a fork's palette too (`docs/agents/forks.md` §10).
@@ -33,7 +34,6 @@ Conventions:
 ### Changed
 
 - Outbound MCP also refuses NAT64, 6to4 and IPv4-compatible IPv6 addresses.
-
 - CI also checks formatting (`ruff format`, Prettier) and types (pyright), and installs from `uv.lock` with `--locked`. `scripts/check.sh` runs the same checks locally, and `scripts/new-app.sh` formats the app it writes so a new app passes them. A fork whose app tests trip pyright's Optional-access rules adds its tests folder to `executionEnvironments` in `pyproject.toml` (`docs/agents/forks.md`).
 
 ### Removed
