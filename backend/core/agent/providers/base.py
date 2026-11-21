@@ -9,8 +9,11 @@ Events yielded by `stream_turn()` (dicts, not yet SSE-encoded):
                             search), sent as soon as it arrives; the engine taints the conversation
     {"type": "_turn_complete", "tool_calls": [{"id", "name", "args"}], "stop_reason": "...",
      "usage": {...}, "assistant_content"?: native blocks to replay within this turn}
+    {"type": "_usage", "usage": {...}}   an earlier request of the same call (Anthropic resuming a paused
+                            reply): billed on its own; `_turn_complete` carries only the last request's
 
-`_turn_complete` is internal: the engine intercepts it to run tools and loop.
+`_turn_complete` is internal: the engine intercepts it to run tools and loop. `_usage` is consumed by
+`usage.metered`, which every model call streams through.
 
 A user message's content is a string, or a list of neutral parts (a message with attachments):
     {"type": "text", "text": "..."}

@@ -3,8 +3,10 @@
 Every model call streams through `metered(...)`: the turn loop, `llm.acomplete` (compaction, the
 nightly observer, apps) and the provider test. It records the call just before passing its
 `_turn_complete` event on, because every consumer stops reading at that event. The row names the
-provider object that made the call, so a mid-turn fallback records the model that answered. A
-failed call (no usage) writes nothing; a call cancelled before it completes is not seen.
+provider object that made the call, so a mid-turn fallback records the model that answered. A call
+that sends several requests (Anthropic resuming a paused web search) reports each earlier one as a
+`_usage` event, so each request gets its own row. A failed request (no usage) writes nothing; a call
+cancelled before it completes is not seen.
 
 Cost is fixed at write time from the `agent.cost_rates` setting: USD per million tokens per model,
 so tokens x rate is micro-dollars. A model with no rate is stored with `cost_micros NULL`. Editing a
@@ -109,11 +111,13 @@ def record(source: str, provider: str, model: str, usage: dict, conversation_id:
 async def metered(
     stream: AsyncIterator[dict], provider: AIProvider, source: str, conversation_id: int | None = None
 ) -> AsyncIterator[dict]:
-    """`stream` unchanged, recording the call when its `_turn_complete` carries usage."""
+    """`stream` minus its `_usage` events, recording one row per request: each `_usage` (a request before
+    the last, as when Anthropic resumes a paused reply) and the `_turn_complete` that carries usage."""
     async for event in stream:
-        if event.get("type") == "_turn_complete" and event.get("usage"):
+        if event.get("type") in ("_usage", "_turn_complete") and event.get("usage"):
             await in_thread(record, source, provider.provider_name, provider.model, event["usage"], conversation_id)
-        yield event
+        if event.get("type") != "_usage":
+            yield event
 
 
 def month_summary() -> dict:
