@@ -17,12 +17,15 @@ every write confirms, routine ones included. Never a provider call inside `trans
 from __future__ import annotations
 
 import json
+import logging
 
 from backend.core import db
-from backend.core.agent import execute, history, registry as tool_registry
+from backend.core.agent import approval_rules, execute, history, registry as tool_registry
 from backend.core.agent.spec import ROUTINE, ToolSpec, tool_def_sha256
 from backend.core.auth.deps import User
 from backend.core.errors import Forbidden, NotFound
+
+logger = logging.getLogger(__name__)
 
 # ── Tool plumbing shared by the loop and confirm ──────────────────────────────
 
@@ -49,6 +52,35 @@ def needs_confirmation(spec: ToolSpec, args: dict, tainted: bool) -> bool:
         return True
 
 
+def rule_eligible(spec: ToolSpec, args: dict, tainted: bool) -> bool:
+    """May a saved always-allow rule skip this call's card, and may its card offer to save one: a
+    local write that changes records inside the install, in a clean turn. Never an always-ask tool
+    (so never a remote one), an outside effect, a destructive write, or a call whose `hides_when`
+    fired (or raised)."""
+    # simplification: remote tools are never eligible (there is no trusted-server setting for the
+    # issue's "except trusted-server reads" to bind to); upgrade: a trusted flag per MCP server.
+    if tainted or not spec.writes or spec.always_confirm or spec.remote or spec.external_effect or spec.destructive:
+        return False
+    try:
+        return not (spec.hides_when and spec.hides_when(args))
+    except Exception:
+        return False
+
+
+def rule_skips(user_id: int, agent_id: int, spec: ToolSpec, args: dict, tainted: bool) -> bool:
+    """A live rule covers this call. Fails closed: a lookup that raises keeps the card."""
+    try:
+        return rule_eligible(spec, args, tainted) and approval_rules.live(user_id, agent_id, spec.name)
+    except Exception:
+        logger.warning("approval rule lookup failed; keeping the card", exc_info=True)
+        return False
+
+
+def card_extras(spec: ToolSpec, args: dict, tainted: bool) -> dict:
+    """What an Approve card needs beyond the run, on the `confirm` event and the conversation read."""
+    return {"can_always_allow": rule_eligible(spec, args, tainted)}
+
+
 # ── Confirmation ──────────────────────────────────────────────────────────────
 
 
@@ -56,15 +88,20 @@ def _already(run_id: int) -> dict:
     return {"status": "already_resolved", "current": db.must(history.get_tool_run(run_id))["status"]}
 
 
-def _finish(run_id: int, status: str, user: User, error: str | None = None) -> dict:
-    if not history.resolve(run_id, status, error=error, resolved_by=user.id):
+def _finish(run_id: int, status: str, user: User, error: str | None = None, deny_reason: str | None = None) -> dict:
+    if not history.resolve(run_id, status, error=error, resolved_by=user.id, deny_reason=deny_reason):
         return _already(run_id)
     return {"status": status, **({"error": error} if error else {})}
 
 
-def confirm(user: User, tool_run_id: int, decision: str) -> dict:
+def confirm(
+    user: User, tool_run_id: int, decision: str, *, reason: str | None = None, always_allow: bool = False
+) -> dict:
     """Approve or deny a pending tool run. Idempotent: a second call returns
-    {"status": "already_resolved", "current": <status>} and nothing runs twice.
+    {"status": "already_resolved", "current": <status>} and nothing runs twice. A deny may carry
+    `reason` (the model reads it). An approve with `always_allow` saves a rule for the tool once it
+    ran `done`, only if `rule_eligible` holds for the conversation now; the answer then carries
+    `rule_saved`.
 
     (a) the approver must own the conversation (Forbidden); (b) the tool must still be offered
     to them; (c) its tool_def_sha256 must match the live registry, else `stale`; (d)
@@ -80,17 +117,21 @@ def confirm(user: User, tool_run_id: int, decision: str) -> dict:
     if run["status"] != "pending":
         return _already(run["id"])
     if decision == "deny":
-        return _finish(run["id"], "denied", user)
+        reason = " ".join((reason or "").split())[: history.MAX_DENY_REASON] or None
+        return _finish(run["id"], "denied", user, deny_reason=reason)
 
     spec = tool_registry.get(run["tool"])
     if spec is None or spec.name not in {s.name for s in chat_tools(user)}:
         return _finish(run["id"], "error", user, "This tool is no longer available to you.")
     if tool_def_sha256(spec) != run["tool_def_sha256"]:
         return _finish(run["id"], "stale", user)
+    args = json.loads(run["args"])
+    conv = db.one("SELECT agent_id, tainted FROM core_agent_conversations WHERE id = ?", (run["conversation_id"],))
+    wanted = always_allow and conv is not None and rule_eligible(spec, args, bool(conv["tainted"]))
     out = execute.run_tool(
         user,
         spec,
-        json.loads(run["args"]),
+        args,
         source=run["source"],
         run_id=run["id"],
         conversation_id=run["conversation_id"],
@@ -100,5 +141,20 @@ def confirm(user: User, tool_run_id: int, decision: str) -> dict:
     if out["tainted"]:
         history.mark_tainted(run["conversation_id"])
     if out["status"] == "done":
-        return {"status": "done", "result": out["result"]}
+        done = {"status": "done", "result": out["result"]}
+        return (
+            {**done, "rule_saved": wanted and _save_rule(user, db.must(conv)["agent_id"], spec)}
+            if always_allow
+            else done
+        )
     return {"status": out["status"], "error": out["error"]}
+
+
+def _save_rule(user: User, agent_id: int, spec: ToolSpec) -> bool:
+    """The run already happened, so a failure to save only answers False."""
+    try:
+        approval_rules.create(user.id, agent_id, spec.name)
+        return True
+    except Exception:
+        logger.warning("could not save the always-allow rule", exc_info=True)
+        return False

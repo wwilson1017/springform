@@ -122,6 +122,20 @@ def test_extracts_business_facts_as_the_system_user_and_never_reads_private(llm,
     assert len(llm.calls) == 1 and "Sundays" in llm.calls[0]["prompt"] and "wholesale" not in llm.calls[0]["prompt"]
 
 
+def test_observed_facts_are_blanked_and_held_ones_are_not_counted(llm, make_user):
+    u = make_user()
+    facts.remember("The market stall runs every Saturday.", author_user_id=u.id)
+    conversation(u.id, [("user", "The till password: Cake2026! and the stall is on Saturdays.")])
+    llm.reply = (
+        '{"facts": ["The till password: Cake2026!, kept by the manager.", "The market stall runs every Saturday."]}'
+    )
+    assert jobs.nightly()["observer"] == {"status": "ok", "conversations": 1, "facts": 1}
+    assert sorted(f["text"] for f in facts.list_facts()) == [
+        "The market stall runs every Saturday.",
+        "The till password: [removed: password], kept by the manager.",
+    ]
+
+
 def test_a_conversation_made_private_during_the_call_yields_nothing(llm, make_user):
     cid = conversation(make_user().id, [("user", "Our catering minimum is twelve cakes per order.")])
 
@@ -131,6 +145,17 @@ def test_a_conversation_made_private_during_the_call_yields_nothing(llm, make_us
 
     llm.during_call, llm.reply = go_private, '{"facts": ["Catering minimum is twelve cakes."]}'
     assert jobs.nightly()["observer"]["facts"] == 0 and facts.list_facts() == []
+
+
+def test_rows_a_compaction_flush_read_meanwhile_are_not_recorded_twice(llm, make_user):
+    cid = conversation(make_user().id, [("user", "Our catering minimum is twelve cakes per order.")])
+
+    def flushed():  # compaction's flush recorded these rows while the nightly call ran
+        assert observer.record_flush(cid, ["Catering minimum is twelve cakes."], 10_000, 0, "compaction") == 1
+
+    llm.during_call, llm.reply = flushed, '{"facts": ["Catering minimum is twelve cakes."]}'
+    assert jobs.nightly()["observer"]["facts"] == 0
+    assert [f["text"] for f in facts.list_facts()] == ["Catering minimum is twelve cakes."]
 
 
 def test_a_failed_or_garbled_reply_writes_nothing(llm, make_user):
@@ -150,9 +175,17 @@ def test_a_failed_or_garbled_reply_writes_nothing(llm, make_user):
 def test_dreaming_merges_duplicates_into_the_oldest(db, make_user):
     u = make_user()
     keep = facts.remember("Deliveries go out on Tuesdays.", author_user_id=u.id, tags=["delivery"])
-    dup = facts.remember("deliveries go out on tuesdays", author_user_id=0, tags=["observed"])
-    reordered = facts.remember("On Tuesdays, deliveries go out", author_user_id=0)
     other = facts.remember("Deliveries go out on Fridays", author_user_id=u.id)
+    # remember() skips a fact already held, so these stand for rows written before it did
+    sql = "INSERT INTO core_agent_facts (text, tags, valid_from, author_user_id, created_at) VALUES (?, ?, ?, 0, ?)"
+    with db.transaction() as conn:
+        dup, reordered = (
+            {"id": db.insert_in(conn, sql, (text, tags, keep["valid_from"], keep["valid_from"]))}
+            for text, tags in (
+                ("deliveries go out on tuesdays", '["observed"]'),
+                ("On Tuesdays, deliveries go out", "[]"),
+            )
+        )
 
     assert dreaming.consolidate() == {"facts": 4, "merged": 2}
     assert {f["id"] for f in facts.list_facts()} == {keep["id"], other["id"]}

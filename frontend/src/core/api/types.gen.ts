@@ -38,6 +38,46 @@ export interface paths {
         patch: operations["core_update_agent"];
         trace?: never;
     };
+    "/api/agent/approval-rules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Approval Rules
+         * @description The caller's live always-allow rules, newest first.
+         */
+        get: operations["core_list_approval_rules"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent/approval-rules/{rule_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Void Approval Rule
+         * @description Void the caller's own rule (the row stays, with when and why); 404 otherwise.
+         */
+        delete: operations["core_void_approval_rule"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/agent/chat": {
         parameters: {
             query?: never;
@@ -3558,6 +3598,22 @@ export interface components {
             /** Hidden */
             hidden?: boolean | null;
         };
+        /**
+         * ApprovalRule
+         * @description A live always-allow rule: `tool` skips its card in this user's chats with the agent.
+         */
+        ApprovalRule: {
+            /** Agent Name */
+            agent_name: string;
+            /** Agent Slug */
+            agent_slug: string;
+            /** Created At */
+            created_at: string;
+            /** Id */
+            id: number;
+            /** Tool */
+            tool: string;
+        };
         /** ArchiveIn */
         ArchiveIn: {
             /** Reason */
@@ -3966,10 +4022,17 @@ export interface components {
         /** ConfirmIn */
         ConfirmIn: {
             /**
+             * Always Allow
+             * @default false
+             */
+            always_allow: boolean;
+            /**
              * Decision
              * @enum {string}
              */
             decision: "approve" | "deny";
+            /** Reason */
+            reason?: string | null;
             /** Tool Run Id */
             tool_run_id: number;
         };
@@ -3985,6 +4048,8 @@ export interface components {
             error?: string | null;
             /** Result */
             result?: unknown;
+            /** Rule Saved */
+            rule_saved?: boolean | null;
             /**
              * Status
              * @enum {string}
@@ -6203,6 +6268,11 @@ export interface components {
             /** Review Due */
             review_due: boolean;
         };
+        /** RuleVoided */
+        RuleVoided: {
+            /** Voided */
+            voided: boolean;
+        };
         /**
          * SavedView
          * @description `version` is the equality token an edit must send back; `can_edit`: owner or admin.
@@ -6312,6 +6382,11 @@ export interface components {
             args: {
                 [key: string]: unknown;
             };
+            /**
+             * Can Always Allow
+             * @default false
+             */
+            can_always_allow: boolean;
             /** Error */
             error: string | null;
             /** Result */
@@ -7104,6 +7179,57 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AgentRow"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    core_list_approval_rules: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApprovalRule"][];
+                };
+            };
+        };
+    };
+    core_void_approval_rule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                rule_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RuleVoided"];
                 };
             };
             /** @description Validation Error */

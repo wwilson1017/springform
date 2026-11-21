@@ -28,6 +28,7 @@ describe('fromServer', () => {
           args: { name: 'A' },
           tool_run_id: 9,
           status: 'pending',
+          can_always_allow: true,
           result: null,
           error: null,
         },
@@ -47,6 +48,7 @@ describe('fromServer', () => {
         result: undefined,
         error: null,
         runId: 9,
+        canAlwaysAllow: true,
         confirm: { phase: 'pending' },
       },
       { kind: 'text', text: 'Waiting for you.' },
@@ -56,7 +58,16 @@ describe('fromServer', () => {
   it('shows a resolved run as a plain tool call, without a card', () => {
     const [m] = fromServer([
       row(2, 'assistant', '', [
-        { tool: 't', tool_use_id: 'u', args: {}, tool_run_id: 1, status: 'denied', result: null, error: null },
+        {
+          tool: 't',
+          tool_use_id: 'u',
+          args: {},
+          tool_run_id: 1,
+          status: 'denied',
+          result: null,
+          error: null,
+          can_always_allow: false,
+        },
       ]),
     ]);
     expect(m.parts[0]).toMatchObject({ kind: 'tool', status: 'denied' });

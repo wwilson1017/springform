@@ -3,7 +3,7 @@ import { toast } from '../../shared/toast';
 import { IconX } from '../../shared/icons';
 import { AgentMessageBubble, FileChip } from './AgentMessageBubble';
 import type { ChatMessage } from './chatModel';
-import type { Decision } from './confirmState';
+import type { DecideOptions, Decision } from './confirmState';
 import { IconArrowUp, IconPaperclip, IconSparkle, IconStop } from './icons';
 import type { ContextUsage } from './useAgentChat';
 
@@ -46,7 +46,7 @@ interface Props {
   blocked?: ReactNode;
   onSend: (text: string, files?: File[]) => void;
   onStop: () => void;
-  onDecide: (msgId: string, toolUseId: string, decision: Decision) => void;
+  onDecide: (msgId: string, toolUseId: string, decision: Decision, opts?: DecideOptions) => void;
 }
 
 /** The message list and the composer (Chatty's AgentChatPanel without modes or playbooks). */

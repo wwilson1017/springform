@@ -128,7 +128,8 @@ def test_identical_untrusted_results_still_match(login_as, tools, monkeypatch):
 
 def test_calls_after_the_halt_are_refused(login_as, monkeypatch):
     monkeypatch.setattr(loop_guard, "MAX_STRIKES", 1)
-    fake.script(LIST, LIST, [LIST, {"tool": "example_list_widgets", "args": {"q": "z"}}])
+    # the call after the halt is a write: lookups of one step run together (test_agent_parallel_reads.py)
+    fake.script(LIST, LIST, [LIST, {"tool": "example_create_widget", "args": {"name": "z"}}])
     evs = chat(login_as("member"), message="list")
     ends = of(evs, "tool_end")
     assert len(ends) == 4 and ends[-1]["result"] == {"error": "Not run: the turn was stopped."}

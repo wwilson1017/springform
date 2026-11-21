@@ -116,7 +116,7 @@ Runs against a seeded `PREVIEW_MODE=1` build with the FakeProvider and the Googl
 - `for_source("job")` excludes writes; `for_source("mcp")` excludes protected and remote tools.
 - Zero-key status + 400.
 - FakeProvider streams text + a write tool → `confirm`, pending run; approve by a non-owner 403; stale `tool_def_sha256` → `stale`; approve executes once with args from the DB (double approve = `already_resolved`); deny recorded; `executing` at startup → `interrupted`.
-- Scenarios (below): an untrusted result is fenced and every later write confirms; a provider-side web search (Anthropic mode) taints the conversation; approve then continue; compaction shows the summarizer the identifiers and the model the gist; a dropped turn resumes; a readable record is named in the prompt and an unreadable one is left out; a result naming a record made private is withheld from the next turn. Removing the fence fails a scenario (`test_removing_the_untrusted_fence_fails_a_scenario`).
+- Scenarios (below): an untrusted result is fenced and every later write confirms; a provider-side web search (Anthropic mode) taints the conversation; a password the assistant remembers is saved blanked and the model is told what went; approve then continue; compaction shows the summarizer the identifiers and the model the gist; a dropped turn resumes; a readable record is named in the prompt and an unreadable one is left out; a result naming a record made private is withheld from the next turn. Removing the fence fails a scenario (`test_removing_the_untrusted_fence_fails_a_scenario`).
 - Prompt budget (`test_prompt_budget.py`): the static system prompt plus the eager tool definitions of an admin's first turn (lifespan run, so the seeded soul.md counts) stay under `BUDGET_TOKENS` (characters / 4); a self-test flags a synthetic oversized prompt and passes a small one. Raise it on purpose, in the PR that needs it. With `PROMPT_REPORT=<file>` it appends the sizes and the chat tool surface (name, `writes`, `always_confirm`, `confirm_tier`, eager) as Markdown; CI writes that to the Backend job summary.
 - Turn reliability (`agent.md` §5): a result over 25,000 characters is capped and fully readable through `core_read_result`; older results clear past 100,000 input tokens, the newest three kept. A fallback never happens after a write ran; each unfinished ending saves a note; the round limit gets a last answer. A repeating model is stopped on the third notice; an unbacked "I sent it." gets a correction.
 
@@ -133,6 +133,7 @@ tools:                        # optional test-only core tools, added to the live
     writes: true                  # default false (a read)
     returns: {saved: widget-77}   # what the tool answers (default {ok: true})
     repeat: 2000                  # optional: answer a list of that many copies of `returns` (a big result)
+    delay: 0.5                    # optional: seconds a read or external-effect tool waits before it answers
     # also: description, confirm_tier: routine, always_confirm, untrusted_source, external_effect
 records:                      # optional: example widgets owned by another user, by key
   shared: {name: Blue widget}             # readable by the scenario's user
@@ -163,7 +164,7 @@ steps:
 |---|---|
 | `send: <text>` | `POST /api/agent/chat` with the message, in the scenario's conversation once it has one |
 | `continue: true` | The same with no message: the resume after approvals |
-| `approve: <tool>` / `deny: <tool>` | `POST /api/agent/confirm` for the newest `confirm` event of that tool |
+| `approve: <tool>` / `deny: <tool>` | `POST /api/agent/confirm` for the newest `confirm` event of that tool; `reason: <text>` (deny) and `always_allow: true` (approve) go in the body |
 | `resume: true` | `GET /api/agent/turns/{id}/events?after=<last seq seen>` for the latest turn |
 
 - `files: [{name, text} | {name, base64}]` on a `send` posts it to `/api/agent/chat/upload` as multipart, with those files (a CSV as `text`, a photo as `base64`).

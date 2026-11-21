@@ -19,7 +19,18 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from starlette.datastructures import UploadFile
 
-from backend.core.agent import agents, detached, engine, history, models, providers, uploads, usage
+from backend.core.agent import (
+    agents,
+    approval_rules,
+    detached,
+    engine,
+    history,
+    models,
+    providers,
+    registry as tool_registry,
+    uploads,
+    usage,
+)
 from backend.core.agent.aio import in_thread
 from backend.core.agent.providers import ProviderError, collect_text, credentials
 from backend.core.agent.providers.base import AIProvider
@@ -49,6 +60,8 @@ class ChatIn(BaseModel):
 class ConfirmIn(BaseModel):
     tool_run_id: int
     decision: Literal["approve", "deny"]
+    reason: str | None = Field(default=None, max_length=500)  # with deny: told to the model
+    always_allow: bool = False  # with approve: save an always-allow rule for this tool
 
 
 class ConversationIn(BaseModel):
@@ -208,7 +221,21 @@ async def cancel_turn(turn_id: int, user: User = Depends(current_user)) -> dict:
 
 @router.post("/confirm", response_model=models.ConfirmResponse, response_model_exclude_unset=True)
 def confirm(body: ConfirmIn, user: User = Depends(current_user)) -> dict:
-    return engine.confirm(user, body.tool_run_id, body.decision)
+    return engine.confirm(user, body.tool_run_id, body.decision, reason=body.reason, always_allow=body.always_allow)
+
+
+@router.get("/approval-rules", response_model=list[models.ApprovalRule])
+def list_approval_rules(user: User = Depends(current_user)) -> list[dict]:
+    """The caller's live always-allow rules, newest first."""
+    return approval_rules.list_for(user.id)
+
+
+@router.delete("/approval-rules/{rule_id}", response_model=models.RuleVoided)
+def void_approval_rule(rule_id: int, user: User = Depends(current_user)) -> dict:
+    """Void the caller's own rule (the row stays, with when and why); 404 otherwise."""
+    if not approval_rules.void(rule_id, user.id, "removed in settings"):
+        raise HTTPException(404, detail="rule_not_found")
+    return {"voided": True}
 
 
 # ── Conversations ─────────────────────────────────────────────────────────────
@@ -241,6 +268,7 @@ def get_conversation(conversation_id: int, user: User = Depends(current_user)) -
     if conv is None:
         raise HTTPException(404, detail="conversation_not_found")
     runs: dict[tuple, dict] = {(r["message_id"], r["tool_use_id"]): r for r in history.tool_runs_for(conversation_id)}
+    tainted = bool((history.compaction_state(conversation_id) or {"tainted": 1})["tainted"])
     out = []
     for m in history.messages(conversation_id):
         calls = []
@@ -256,6 +284,11 @@ def get_conversation(conversation_id: int, user: User = Depends(current_user)) -
                     "status": run and run["status"],
                     "result": _preview(run["result"] if run else None),
                     "error": run and run["error"],
+                    **(
+                        engine.card_extras(spec, json.loads(run["args"]), tainted)
+                        if run and run["status"] == "pending" and (spec := tool_registry.get(run["tool"]))
+                        else {}
+                    ),
                 }
             )
         out.append(

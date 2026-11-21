@@ -766,14 +766,19 @@ export function TriageCard({ todo, projects, contexts, onProcessed, onChanged, o
               // after the sheet's and overwrite it. Opened regardless of the result: a draft
               // the server rejected is exactly what the sheet is there to rescue. The due
               // date is written on that same blur and the sheet writes it too, so it waits
-              // on both.
+              // on both, and on a tags or people save, which the sheet also writes.
               //
               // The whole card is locked for the wait, not just this button: a star or
               // project change made in it would start a write the sheet never sees — it
               // opens on the old value, and its full-field save puts that back.
               setEditPending(true);
               setBusy(true);
-              void Promise.all([notesSave.flush(), dueSave.flush()]).then(() => {
+              void Promise.all([
+                notesSave.flush(),
+                dueSave.flush(),
+                listsSent.current.tags,
+                listsSent.current.people,
+              ]).then(() => {
                 setEditPending(false);
                 setBusy(false);
                 onEdit(currentRef.current);
