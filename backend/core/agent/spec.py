@@ -31,6 +31,10 @@ ROUTINE = "routine"
 # The AI tool on the other end of an inbound MCP call (docs/agents/mcp.md §1), self-reported and so
 # untrusted; None in chat and jobs. Core sets it around the call; a `handler_in` may read it.
 calling_client: contextvars.ContextVar[str | None] = contextvars.ContextVar("tool_calling_client", default=None)
+# The chat conversation a tool runs for; None over MCP and in jobs. `execute.run_tool` sets it.
+calling_conversation: contextvars.ContextVar[int | None] = contextvars.ContextVar(
+    "tool_calling_conversation", default=None
+)
 
 
 def _always(user: User) -> bool:

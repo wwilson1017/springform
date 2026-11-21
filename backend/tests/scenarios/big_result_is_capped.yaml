@@ -1,0 +1,22 @@
+name: A big tool result reaches the model as a table, capped with a handle
+tools:
+  - name: core_scen_list_parts
+    returns: {part: bolt-m6, bin: aisle-4, count: 120}
+    repeat: 2000
+steps:
+  - send: List every part.
+    replies:
+      - {tool: core_scen_list_parts, args: {}}
+      - There are 2000 parts.
+    events:
+      - {type: tool_end, tool: core_scen_list_parts, status: done}
+      - {type: text, text: There are 2000 parts.}
+      - done
+    request:
+      call: 1
+      messages_contain:
+        - "[CSV: result, 2000 rows x 3 fields]\npart,bin,count\nbolt-m6,aisle-4,120\n"
+        - "characters omitted ..."
+        - "Read the rest with core_read_result(handle="
+      messages_exclude:
+        - '{"part": "bolt-m6"'
