@@ -139,7 +139,7 @@ describe('useAgentChat resume', () => {
 
   it("sends a deny reason and an approve's Always allow with the decision", async () => {
     const confirm = (id: number, u: string, seq: number) => ({
-      type: 'confirm',
+      type: 'confirm' as const,
       tool_run_id: id,
       tool: 'write',
       tool_use_id: u,
