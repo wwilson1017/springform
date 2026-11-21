@@ -16,6 +16,7 @@ workspace_router = APIRouter(prefix="/api/core/workspace", tags=["core"])
 apps_router = APIRouter(prefix="/api/core/apps", tags=["core"])
 jobs_router = APIRouter(prefix="/api/core/jobs", tags=["core"], dependencies=[Depends(require_admin)])
 changelog_router = APIRouter(prefix="/api/core/changelog", tags=["core"])
+launcher_router = APIRouter(prefix="/api/core/launcher", tags=["core"])
 
 
 class SettingsIn(BaseModel):
@@ -28,6 +29,10 @@ class AppPatch(BaseModel):
 
 class AppOrder(BaseModel):
     slugs: list[str]
+
+
+class LinkPatch(BaseModel):
+    hidden: bool
 
 
 @settings_router.get("", response_model=models.CoreSettings)
@@ -62,6 +67,17 @@ def apps_patch(slug: str, body: AppPatch, user: User = Depends(require_admin)) -
 def apps_order(body: AppOrder, user: User = Depends(require_admin)) -> list[dict]:
     service.set_order(body.slugs)
     return registry.list_for_user(user)
+
+
+@launcher_router.get("/links", response_model=list[models.LauncherLink])
+def launcher_links_list(user: User = Depends(current_user)) -> list[dict]:
+    return service.launcher_links(user)
+
+
+@launcher_router.patch("/links/{link_id}", response_model=list[models.LauncherLink])
+def launcher_links_patch(link_id: int, body: LinkPatch, user: User = Depends(require_admin)) -> list[dict]:
+    service.set_link_hidden(link_id, body.hidden)
+    return service.launcher_links(user)
 
 
 @jobs_router.get("", response_model=list[models.JobInfo])
@@ -107,5 +123,5 @@ def changelog_list(
 
 
 router = APIRouter()
-for _sub in (settings_router, workspace_router, apps_router, jobs_router, changelog_router):
+for _sub in (settings_router, workspace_router, apps_router, jobs_router, changelog_router, launcher_router):
     router.include_router(_sub)

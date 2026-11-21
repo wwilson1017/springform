@@ -12,7 +12,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from backend.core import registry as app_registry
 from backend.core.auth.deps import require_admin
-from backend.core.errors import NotFound
+from backend.core.errors import Conflict, NotFound
 from backend.core.mcp_servers import client, models, service, transport
 
 router = APIRouter(prefix="/api/core/mcp/servers", tags=["core"], dependencies=[Depends(require_admin)])
@@ -20,14 +20,17 @@ router = APIRouter(prefix="/api/core/mcp/servers", tags=["core"], dependencies=[
 _PREFIX = re.compile(r"^[a-z][a-z0-9_]{1,19}$")
 
 
-def _url(v: str | None) -> str | None:
-    if v is None:
-        return v
+def check_url(v: str) -> str:
+    """A server address under the hand-added rules (the GTD suite connect uses them too)."""
     v, parts = v.strip(), urlsplit(v.strip())
     schemes = ("https", "http") if transport.allow_private() else ("https",)
     if parts.scheme not in schemes or not parts.hostname or parts.username is not None:
         raise ValueError("url must be an https:// address (http:// only with MCP_ALLOW_PRIVATE=1), without a login")
     return v
+
+
+def _url(v: str | None) -> str | None:
+    return v if v is None else check_url(v)
 
 
 def _prefix(v: str | None) -> str | None:
@@ -91,6 +94,8 @@ def mcp_servers_update(server_id: int, body: ServerPatch) -> dict:
         for k, v in body.model_dump(exclude_unset=True).items()
         if v is not None
     }
+    if fields.keys() & {"url", "prefix"} and _row(server_id)["trusted"]:
+        raise Conflict("trusted_server_fixed")  # trust was given to this address under this prefix: reconnect instead
     if fields:
         service.update(server_id, **fields)
     client.refresh(_row(server_id)["id"])

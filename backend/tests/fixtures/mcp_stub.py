@@ -60,11 +60,18 @@ def build(token: str | None = None):
 def serve(token: str | None = None):
     """Run on a free loopback port in a thread for the length of the `with`; yields (url, calls)."""
     app, calls = build(token)
+    with run(app) as base:
+        yield f"{base}/mcp", calls
+
+
+@contextlib.contextmanager
+def run(app):
+    """Serve an ASGI app on a free loopback port in a thread for the length of the `with`; yields its base URL."""
     with socket.socket() as s:
         s.bind(("127.0.0.1", 0))
         port = s.getsockname()[1]
     server = uvicorn.Server(uvicorn.Config(app, host="127.0.0.1", port=port, log_level="warning"))
-    thread = threading.Thread(target=server.run, name="mcp-stub", daemon=True)
+    thread = threading.Thread(target=server.run, name="stub-server", daemon=True)
     thread.start()
     try:
         for _ in range(200):
@@ -72,13 +79,13 @@ def serve(token: str | None = None):
                 break
             time.sleep(0.05)
         else:
-            raise RuntimeError("the MCP stub server did not start")
-        yield f"http://127.0.0.1:{port}/mcp", calls
+            raise RuntimeError("the stub server did not start")
+        yield f"http://127.0.0.1:{port}"
     finally:
         server.should_exit = True
         thread.join(5)
         if thread.is_alive():
-            raise RuntimeError("the MCP stub server did not stop")
+            raise RuntimeError("the stub server did not stop")
 
 
 if __name__ == "__main__":

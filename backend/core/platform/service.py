@@ -118,6 +118,40 @@ def set_order(slugs: list[str]) -> None:
 _RUN_COLUMNS = "id, job, app, trigger, status, scheduled_for, started_at, finished_at, error"
 
 
+# ── Launcher links ────────────────────────────────────────────────────────────
+
+
+def launcher_links(user: User) -> list[dict]:
+    """Tiles that open another site in a new tab, in order; a member gets only the visible ones."""
+    rows = db.rows("SELECT id, title, url, icon, hidden FROM core_launcher_links ORDER BY position, id")
+    return [{**r, "hidden": bool(r["hidden"])} for r in rows if user.is_admin or not r["hidden"]]
+
+
+def add_launcher_link_in(
+    conn: db.Conn, *, title: str, url: str, icon: str, position: int, server_id: int | None = None
+) -> int:
+    return db.insert_in(
+        conn,
+        "INSERT INTO core_launcher_links (title, url, icon, position, server_id) VALUES (?, ?, ?, ?, ?)",
+        (title, url, icon, position, server_id),
+    )
+
+
+def add_launcher_link(**fields) -> int:
+    with db.transaction() as conn:
+        return add_launcher_link_in(conn, **fields)
+
+
+def set_link_hidden_in(conn: db.Conn, link_id: int, hidden: bool) -> None:
+    if not conn.execute("UPDATE core_launcher_links SET hidden = ? WHERE id = ?", (int(hidden), link_id)).rowcount:
+        raise NotFound("launcher_link_not_found")
+
+
+def set_link_hidden(link_id: int, hidden: bool) -> None:
+    with db.transaction() as conn:
+        set_link_hidden_in(conn, link_id, hidden)
+
+
 def jobs_list() -> list[dict]:
     """Registered jobs with their latest run. `in_flight` is read from core_job_runs (a run row
     with no finish); a manual run still waiting for a scheduler slot is not yet in flight there."""

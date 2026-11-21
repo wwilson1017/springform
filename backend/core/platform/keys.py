@@ -80,6 +80,16 @@ def _int_range(low: int, high: int) -> Callable[[Any], int]:
     return check
 
 
+_ORIGIN = re.compile(r"^https?://[^/\s?#@]+$")
+
+
+def _origin(value: Any) -> str:
+    """A site's address, scheme and host only (one trailing / is dropped)."""
+    return _text(200, required=True, pattern=_ORIGIN)(
+        value.strip().removesuffix("/") if isinstance(value, str) else value
+    )
+
+
 def _bool(value: Any) -> bool:
     if not isinstance(value, bool):
         raise ValueError("must be true or false")
@@ -102,6 +112,7 @@ CORE_KEYS: dict[str, Key] = {
     "web.enabled": Key(True, _bool),  # Whisk's web search and page reading
     "web.search_provider": Key("free", _choice("free", "anthropic")),  # anthropic: Claude's own search
     "web.search_max_uses": Key(5, _int_range(1, 20)),  # Anthropic searches per reply
+    "mcp.gtd_base_url": Key("https://todogtd.com", _origin),  # the GTD suite Settings, GTD suite connects to
 }
 
 

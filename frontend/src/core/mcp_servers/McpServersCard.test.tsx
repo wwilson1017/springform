@@ -14,6 +14,7 @@ const server = (over: Partial<McpServer> = {}): McpServer => ({
   url: 'https://todos.example.com/mcp',
   prefix: 'todos_team',
   enabled: true,
+  trusted: false,
   has_token: true,
   tools: [{ name: 'todo_create', description: 'Create a to-do', read_only_hint: false }],
   last_discovered_at: '2026-10-24T15:00:00Z',

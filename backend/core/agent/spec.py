@@ -8,7 +8,7 @@ Two handler forms:
 
 `confirm_tier="routine"` (writes only) lets a write skip the Approve card; `hides_when(args)`
 puts the card back for a call that would take a record out of view; `always_confirm` forces a
-card even for reads (every remote tool). `tool_def_sha256` binds a pending approval to exactly
+card even for reads (every remote tool, except a trusted server's read). `tool_def_sha256` binds a pending approval to exactly
 what was shown, where it runs, and the implementation revision.
 `summary` is the optional user-facing line on the Approve card.
 `reads(args, result)` names the records a result carries, as (entity_type, id) pairs; they are
@@ -75,6 +75,7 @@ class ToolSpec:
     # A bulk edit: its card lists old -> new as the server reads them, and the user can undo it
     # (agent.md §6, "Change lists and Undo"). Needs handler_in. Not hashed
     change_list: bool = False
+    trusted: bool = False  # a tool of a trusted outbound MCP server (mcp.md §2). Not hashed
 
     @property
     def remote(self) -> bool:

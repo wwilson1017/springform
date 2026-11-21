@@ -102,8 +102,10 @@ Code: `client.py` (discovery, remote specs, calls), `transport.py` (the address 
 ### Table
 
 ```sql
-core_agent_mcp_servers(id, name, url, token_enc, prefix UNIQUE, enabled, tools_json, last_discovered_at, last_error, created_at, updated_at)
+core_agent_mcp_servers(id, name, url, token_enc, prefix UNIQUE, enabled, tools_json, last_discovered_at, last_error, created_at, updated_at, trusted)
 ```
+
+`trusted` (migration `20261020000990_core_gtd_connect.sql`, default 0) is set only by the GTD suite connect (below).
 
 `token_enc` is encrypted with the install key (`enc:v1:`, `''` = no token) and sent as `Authorization: Bearer <token>`. `tools_json` is what the registry holds for the server now (`[{name, description, read_only_hint}]`, `[]` when disabled or failing). `last_discovered_at` is the last successful discovery; `last_error` the last failure (cleared by a success).
 
@@ -123,10 +125,10 @@ core_agent_mcp_servers(id, name, url, token_enc, prefix UNIQUE, enabled, tools_j
 | Display name | `<prefix>.<tool>`, e.g. `todogtd.todo_create`. The spec's description starts with it: `todogtd.todo_create, a remote tool on <server name>: …`, for the model. The Approve card shows the summary `Run <prefix>.<tool> on <server name>.` (never the server's own description) and the full args. |
 | Prefix | `^[a-z][a-z0-9_]{1,19}$`, unique, not a reserved slug or an installed app's slug. The spec's `app` is the prefix (deferred-tool grouping). |
 
-### Every remote call confirms
+### Every remote call confirms (except a trusted server's reads)
 
-1. Remote specs have `always_confirm=True`, `untrusted_source=True`, `external_effect=True`, `mcp_exposed=False`, `handler` (never `handler_in`). `build_registry` refuses a remote spec (`server_url` set) without the first three.
-2. Remote annotations are **untrusted metadata**: `readOnlyHint` sets `writes` (for display and the write budget) but never skips confirmation.
+1. Remote specs have `always_confirm=True`, `untrusted_source=True`, `external_effect=True`, `mcp_exposed=False`, `handler` (never `handler_in`). `build_registry` refuses a remote spec (`server_url` set) without the first three, except that a trusted server's read (`trusted=True`, `writes=False`) may leave `always_confirm` off.
+2. Remote annotations are **untrusted metadata**: `readOnlyHint` sets `writes` (for display and the write budget) but never skips confirmation, unless the server is trusted (below).
 3. Results are fenced by the engine with `delimiters.wrap_untrusted_external` and taint the whole conversation, so every later write in it confirms (`agent.md` §5). A result is the text blocks (or the structured content when there is no text); a server-flagged error comes back as `{"error": …}`.
 4. Remote tools are external-effect: claimed in one transaction, executed outside, resolved in another; any failure, a timeout included, marks `uncertain` (`agent.md` §6).
 5. `tool_def_sha256` for a remote tool includes the server id **and URL**.
@@ -134,6 +136,35 @@ core_agent_mcp_servers(id, name, url, token_enc, prefix UNIQUE, enabled, tools_j
 7. The handler re-reads the server row at call time and refuses if it was disabled, deleted or moved to another URL since the spec was built.
 8. Remote tools are offered to every signed-in user's Whisk (the server and its token are install-wide); each user approves their own calls. The settings card says so.
 9. The Approve card shows the full args.
+
+### Trusted servers
+
+A server row with `trusted = 1` is one an admin connected through Settings, GTD suite: the install's own account. Its tools carry `ToolSpec.trusted` (not hashed: a row's trust never changes, and a read's `always_confirm`, which is hashed, already differs).
+
+1. A tool it marks `readOnlyHint` gets `always_confirm=False`, and `engine.needs_confirmation` has one condition for it: a trusted server's read never asks, **even in a tainted conversation**. The tainted-read rule exists because a read's arguments could carry conversation data to a page's author; a trusted read's arguments reach only the account an admin connected.
+2. Everything else stays: the result is fenced and taints the conversation (so every later local write, web read and remote write asks), it is `external_effect` (runs in order, never in the parallel lookup batch; a failure is `uncertain`), it is never exposed inbound or to jobs, and saved always-allow rules never cover remote tools.
+3. Every other tool on the server is a write and always asks.
+4. The hand-add API (`POST`/`PATCH /api/core/mcp/servers`) cannot set `trusted` (both models forbid extra keys), and a trusted server's `url` and `prefix` cannot be changed (409 `trusted_server_fixed`: trust was given to that address under that prefix; disconnect and connect again). Enable, disable, rename and remove work as for any server; removing it also removes its launcher tiles.
+5. The MCP servers card shows a **Trusted** chip.
+
+### GTD suite connect (`backend/core/gtd/`)
+
+Settings, **GTD suite** (`gtd-suite`, order 85, admin-only; `frontend/src/core/gtd/`) links the install to a GTD suite account with the suite's device flow. The suite's address is the setting `mcp.gtd_base_url` (default `https://todogtd.com`, scheme and host only), edited on the card.
+
+| Route (admin) | Does |
+|---|---|
+| `GET /api/core/gtd` | The state. |
+| `POST /api/core/gtd/connect` | `GET {base}/api/config` (the tiles; an answer without an `apps` mapping is refused before a code is spent), then `POST {base}/api/connect {"client":"springform"}`. A connect already waiting is returned as is. 429 from the suite → 502 naming the wait. |
+| `POST /api/core/gtd/connect/poll` | One `POST {base}/api/connect/poll {device_token}`, no sooner than the suite's `interval` (a 429 waits its `Retry-After`). `pending` → the state; 404 → 409 `gtd_connect_expired`; `approved` → the `agent_url` is checked by the hand-added server rules (`ServerIn`) and stored, with the tiles, in one transaction: a server named "GTD suite", prefix `gtd`, `trusted = 1`, then discovery. |
+| `DELETE /api/core/gtd` | Deletes the trusted `gtd` server (tiles go by foreign key, tools leave the registry), or cancels a waiting connect. |
+
+Every route answers `GtdState = {base_url, server: S | null, pending: {user_code, url, interval, expires_in} | null}`; the device token never leaves the server. Every request to the suite goes through `transport.http_client()` (the address policy above, no redirects, 30 s, 1 MB) via `client.run`, never inside a transaction. The card opens `url` in a new tab and asks the server to poll every `interval` seconds.
+
+1. The waiting connect lives in process memory (one process is a platform rule); a restart means clicking Connect again. An approved link, which the suite hands out exactly once, stays there until it is stored: if a hand-added server holds `gtd` meanwhile, each poll answers 409 `prefix_taken` until it is removed, then stores it.
+2. Start answers 409 `gtd_already_connected` when connected, `gtd_prefix_taken` when a hand-added server holds `gtd`, 422 when `mcp.gtd_base_url` or the prefix breaks the hand-added server rules (`http://` without `MCP_ALLOW_PRIVATE=1`, or a fork with an app named `gtd`). `gtd` is deliberately not a reserved slug: reserving it would stop an existing fork with a `gtd` app from booting. A `gtd` app installed after connecting clashes only if it defines a tool named exactly like a remote one (`gtd__<tool>`); the registry then refuses that server's tools and records `last_error`, and nothing else breaks. The settings section id is `gtd-suite`, which no app slug can be.
+3. Tiles: one per app among `todo`, `notes`, `projects`, `sites`, `brain` that the suite's `/api/config` lists (`apps.{key}.url`, http or https only), titled Todo, Notes, Projects, Sites and Brain, in that order, in `core_launcher_links` with the server's id (`frontend-shell.md`). The hosted suite lists all five; a self-hosted one only the apps it runs.
+4. The agent link is stored like any server URL (the token is in its path), shown to admins in the MCP servers card.
+5. The connection is install-wide, like every outbound server: the tools reach every member's Whisk with the connected account.
 
 ### Address policy (enforced at connection time)
 
@@ -161,7 +192,7 @@ core_agent_mcp_servers(id, name, url, token_enc, prefix UNIQUE, enabled, tools_j
 | `POST /{id}/refresh` | Rediscovers; returns `S` (tools or `last_error`). |
 | `POST /{id}/test` | `{ok, tools: n, error?}`; changes nothing. |
 
-`S = {id, name, url, prefix, enabled, has_token, tools: [{name, description, read_only_hint}], last_discovered_at, last_error, created_at, updated_at}`. The token is never returned.
+`S = {id, name, url, prefix, enabled, trusted, has_token, tools: [{name, description, read_only_hint}], last_discovered_at, last_error, created_at, updated_at}`. The token is never returned.
 
 ### First target
 
@@ -173,6 +204,7 @@ todogtd.com is the first outbound server the plan names.
 - Revoked and deactivated links 404; bearer 401; Origin 403; no OAuth discovery; rate limits and the body cap; a system-principal mint refused.
 - `for_source("mcp")` excludes protected and remote tools.
 - Outbound (`test_mcp_servers.py`, against a local `MCPServer` stub over loopback with `MCP_ALLOW_PRIVATE=1`): discovery and prefixing, the hash covers the URL (a URL change makes a pending approval stale), a remote read still confirms through the engine and runs once on approve, the result is fenced and taints the conversation, a failing server drops its tools and sets `last_error`, disabling drops tools, private/loopback/link-local/IPv4-mapped destinations refused, `http://` only with `MCP_ALLOW_PRIVATE=1`, 1 MB cap, no send inside a transaction.
+- GTD suite connect (`test_gtd_connect.py`, against `fixtures/gtd_stub.py`: the device flow, `/api/config` and the MCP stub as `/link/<token>`): connect stores a trusted server and the tiles, a read runs without a card in a clean and in a tainted conversation and taints it, a write asks, disconnect (or removing the server) leaves no server, tiles or tools, the interval and both 429s are honoured, a wrong address spends no code, an approved link survives a prefix clash, a trusted server's address and prefix are fixed. Scenario `trusted_server_read_runs_write_asks.yaml`.
 - DNS rebinding: a stub resolver returns a public address first and a private one second; the second connection is refused and nothing connects to the private address. A mixed answer (public + private) is refused before any connection.
 
 ## Source

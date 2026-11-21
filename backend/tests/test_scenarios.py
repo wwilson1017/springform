@@ -10,8 +10,10 @@ import base64
 import json
 import re
 import time
+from dataclasses import replace
 from pathlib import Path
 
+import mcp_types
 import pytest
 import yaml
 from fastapi.testclient import TestClient
@@ -22,11 +24,13 @@ from backend.core.agent.providers import fake
 from backend.core.agent.spec import ToolSpec
 from backend.core.auth import service as auth_service
 from backend.core.checkins import service as checkins
+from backend.core.mcp_servers import client
 
 SCENARIOS = Path(__file__).parent / "scenarios"
 TOP_KEYS = {"name", "role", "context_window", "tools", "records", "steps"}
 FLAGS = ("confirm_tier", "always_confirm", "untrusted_source", "external_effect")
-TOOL_KEYS = {"name", "description", "writes", "returns", "repeat", "delay", *FLAGS}
+TOOL_KEYS = {"name", "description", "writes", "returns", "repeat", "delay", "remote", *FLAGS}
+REMOTE_KEYS = {"trusted"}
 ACTIONS = {"send", "continue", "approve", "deny", "resume", "checkin", "undo"}
 STEP_KEYS = ACTIONS | {
     *("sql", "replies", "drop_after", "steer", "events", "request", "status", "usage", "page", "record", "files"),
@@ -73,6 +77,11 @@ def load(path: Path) -> dict:
             _strict(f"{path.name} step {i} file", f, FILE_KEYS)
     for tool in spec.get("tools", []):
         _strict(f"{path.name} tool", tool, TOOL_KEYS)
+        if "remote" in tool:
+            _strict(f"{path.name} tool {tool['name']} remote", tool["remote"], REMOTE_KEYS)
+            assert not set(FLAGS) & set(tool), (
+                f"{path.name} tool {tool['name']}: the outbound client sets a remote tool's flags"
+            )
     for key, rec in (spec.get("records") or {}).items():
         _strict(f"{path.name} record {key}", rec, RECORD_KEYS)
     return spec
@@ -89,6 +98,8 @@ def tool_spec(t: dict) -> ToolSpec:
     returns = t.get("returns", {"ok": True})
     if "repeat" in t:
         returns = [returns] * t["repeat"]
+    if "remote" in t:
+        return remote_spec(t, returns)
     writes = t.get("writes", False)
     local_write = writes and not t.get("external_effect")
     flags = {k: t[k] for k in FLAGS if k in t}
@@ -102,6 +113,28 @@ def tool_spec(t: dict) -> ToolSpec:
         targets=(lambda args: []) if local_write else None,
         **flags,
     )
+
+
+def remote_spec(t: dict, returns) -> ToolSpec:
+    """A remote tool exactly as the outbound client builds it (`client._specs`), so its confirm flags
+    are the shipped ones; `name` is the wire name `<prefix>__<tool>`. Only the handler is replaced,
+    so nothing leaves the test."""
+    prefix, _, name = t["name"].partition("__")
+    row = {
+        "id": 0,
+        "prefix": prefix,
+        "name": "Scenario server",
+        "url": "https://scenario.invalid/mcp",
+        "trusted": int(t["remote"].get("trusted", False)),
+    }
+    tool = mcp_types.Tool(
+        name=name,
+        description=t.get("description", "A scenario tool."),
+        input_schema={"type": "object", "properties": {}},
+        annotations=mcp_types.ToolAnnotations(read_only_hint=not t.get("writes", False)),
+    )
+    [spec], _ = client._specs(row, [tool])
+    return replace(spec, handler=lambda user, args: returns)
 
 
 def _texts(obj) -> str:

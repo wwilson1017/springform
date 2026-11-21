@@ -17,6 +17,7 @@ class McpServer(Out):
     url: str
     prefix: str
     enabled: bool
+    trusted: bool  # set only by the GTD suite connect: its read-only tools run without an Approve card
     has_token: bool
     tools: list[RemoteTool]
     last_discovered_at: str | None

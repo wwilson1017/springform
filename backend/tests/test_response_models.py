@@ -18,12 +18,13 @@ from backend.apps.todos import service as todos_service
 from backend.core import clock, db as core_db, settings
 from backend.core.agent import providers, registry as tool_registry
 from backend.core.agent.providers import fake
+from backend.core.gtd import service as gtd_service
 from backend.core.platform import keys
 from backend.core.reports import registry
 from backend.core.reports.registry import Report
 from backend.core.requests import github
 from backend.core.sheets import google, startup as sheets_startup
-from backend.tests.fixtures import mcp_stub
+from backend.tests.fixtures import gtd_stub, mcp_stub
 
 SHAPES = Path(__file__).parent / "fixtures" / "response_shapes.json"
 OK = (200, 201, 202)
@@ -371,11 +372,29 @@ def exercise(app, login_as, monkeypatch) -> dict[str, httpx.Response]:
             tool_registry.set_current(before)
             fake.reset()
 
+    # ── GTD suite connect and launcher links ──
+    with gtd_stub.serve() as (base, state, _):
+        before = tool_registry.current()
+        try:
+            assert admin.put("/api/core/settings", json={"values": {"mcp.gtd_base_url": base}}).status_code == 200
+            hit(admin, "GET", "/api/core/gtd")
+            hit(admin, "POST", "/api/core/gtd/connect")
+            state.approved = True
+            gtd_service._pending["next_poll"] = 0
+            hit(admin, "POST", "/api/core/gtd/connect/poll", "approved")
+            link_id = hit(admin, "GET", "/api/core/launcher/links")[0]["id"]
+            hit(member, "GET", "/api/core/launcher/links")
+            hit(admin, "PATCH", "/api/core/launcher/links/{link_id}", link_id=link_id, json={"hidden": True})
+            hit(admin, "DELETE", "/api/core/gtd")
+        finally:
+            tool_registry.set_current(before)
+            gtd_service._pending = None
+
     # Admin-only routers refuse members before any model is involved.
     for method, path in (
         ("GET", "/api/core/settings"), ("GET", "/api/core/jobs"), ("GET", "/api/core/backups"), ("GET", "/api/core/sheets"),
         ("GET", "/api/agent/providers"), ("GET", "/api/core/mcp/servers"), ("POST", "/api/core/requests/refresh"),
-        ("GET", "/api/agent/usage"), ("GET", "/api/core/skills"),
+        ("GET", "/api/agent/usage"), ("GET", "/api/core/skills"), ("GET", "/api/core/gtd"),
     ):  # fmt: skip
         assert member.request(method, path).status_code == 403, path
     return hit

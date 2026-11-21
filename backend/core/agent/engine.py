@@ -40,9 +40,11 @@ def chat_tools(user: User, source: tool_registry.Source = "chat") -> list[ToolSp
 def needs_confirmation(spec: ToolSpec, args: dict, tainted: bool) -> bool:
     """always_confirm; an untrusted read (web search, page read) once the turn is tainted; or a write
     unless it is routine, local, the turn is clean and these args do not hide a record. Fails closed
-    when hides_when itself fails."""
+    when hides_when itself fails. A trusted server's read never asks."""
     if spec.always_confirm:
         return True
+    if spec.trusted and not spec.writes:  # a trusted MCP server's read (mcp.md §2), even once tainted: its args
+        return False  # reach only the account an admin connected; the result is still fenced and taints
     if not spec.writes:  # an untrusted read reaches outside: once tainted, its args could carry data out
         return tainted and spec.untrusted_source
     if spec.external_effect or tainted or spec.confirm_tier != ROUTINE:
