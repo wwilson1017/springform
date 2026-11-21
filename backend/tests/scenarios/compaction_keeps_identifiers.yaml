@@ -1,0 +1,21 @@
+name: Compaction shows the summarizer the record identifiers and the model the fenced gist in place of the aged rows
+context_window: 1000  # tiny, so the fourth turn compacts
+steps:
+  - send: Hello.
+    replies: [Hi.]
+  - send: Deal 4521 is worth 1250.00 and closes 2026-12-01.
+    replies: [Noted deal 4521.]
+  - send: Invoice INV-0042 belongs to it.
+    replies: [Noted INV-0042.]
+  - send: What do we know about the deal?
+    replies:
+      - "Deal 4521, worth 1250.00, closes 2026-12-01; invoice INV-0042."  # the summary (light tier)
+      - Deal 4521 closes 2026-12-01.
+    events: [compacted, {type: text, text: Deal 4521 closes 2026-12-01.}, done]
+    request:
+      - call: 0  # the summarizer
+        system_contains: [concrete identifiers (names, record ids, amounts, dates)]
+        messages_contain: [Deal 4521 is worth 1250.00 and closes 2026-12-01., INV-0042]
+      - call: 1  # the turn, after compaction
+        messages_contain: ['<conversation_summary id="', "Deal 4521, worth 1250.00", Hello., "What do we know about the deal?"]
+        messages_exclude: [Invoice INV-0042 belongs to it.]

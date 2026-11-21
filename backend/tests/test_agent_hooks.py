@@ -1,11 +1,11 @@
-"""The five turn hook points (agent.md §5, "Hook points"): each ships empty and does what its
-contract says when a hook is registered."""
+"""The five turn hook points (agent.md §5, "Hook points"): what ships on each, and each does what
+its contract says when a hook is registered."""
 
 import json
 
 import pytest
 
-from backend.core.agent import history, turn_hooks
+from backend.core.agent import history, turn_hooks, turns
 from backend.core.agent.providers import fake
 from backend.core.agent.providers.fake import FakeProvider
 from backend.core.agent.turn_hooks import Fail, Fallback, Retry
@@ -33,8 +33,20 @@ def hook(monkeypatch, point, fn):
     monkeypatch.setitem(turn_hooks.REGISTERED, point, [fn])
 
 
-def test_points_ship_empty_and_register_checks_the_name(monkeypatch):
-    assert turn_hooks.REGISTERED == {p: [] for p in turn_hooks.POINTS}
+SHIPPED = {
+    "before_model_call": ["backend.core.agent.context_shrink"],
+    "on_provider_error": ["backend.core.agent.errors"],
+    "before_tool": [],
+    "on_tool_result": ["backend.core.agent.result_cap"],
+    "end_of_turn": ["backend.core.agent.endings"],
+}
+
+
+def test_shipped_hooks_and_register_checks_the_name(monkeypatch):
+    assert {m.__name__ for m in turns.HOOK_MODULES} == {
+        m for ms in SHIPPED.values() for m in ms
+    }  # importing turns loads them
+    assert {p: [fn.__module__ for fn in fns] for p, fns in turn_hooks.REGISTERED.items()} == SHIPPED
     monkeypatch.setitem(turn_hooks.REGISTERED, "end_of_turn", [])
     with pytest.raises(ValueError, match="unknown turn hook point"):
         turn_hooks.register("after_everything", print)
@@ -116,3 +128,20 @@ def test_a_hook_that_raises_ends_the_turn_with_an_error(login_as, monkeypatch):
     hook(monkeypatch, "before_model_call", lambda state: 1 / 0)
     evs = chat(login_as("member"), message="hi")
     assert evs[-1]["type"] == "error" and evs[-1]["error"] == "The assistant hit an unexpected error and stopped."
+
+
+def test_end_of_turn_also_runs_on_an_error_ending(login_as, monkeypatch):
+    hook(monkeypatch, "end_of_turn", lambda state: [{"type": "note", "text": state.error}])
+    fake.script({"error": "boom"})
+    evs = chat(login_as("member"), message="hi")
+    assert [e["type"] for e in evs[-2:]] == ["note", "error"] and evs[-2]["text"] == "boom"
+
+
+def test_provider_failure_carries_status_retry_after_and_code(login_as, monkeypatch):
+    seen = []
+    hook(monkeypatch, "on_provider_error", lambda state, err: seen.append(err) or Fail())
+    fake.script({"error": "slow", "status": 429, "retry_after": 3, "code": "rate_limit_error"})
+    chat(login_as("member"), message="hi")
+    assert [(e.message, e.attempt, e.status, e.retry_after, e.code) for e in seen] == [
+        ("slow", 1, 429, 3, "rate_limit_error")
+    ]

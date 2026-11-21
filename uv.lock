@@ -2181,6 +2181,7 @@ dev = [
     { name = "pyright" },
     { name = "pysqlite3-binary", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
     { name = "pytest" },
+    { name = "pyyaml" },
     { name = "ruff" },
 ]
 
@@ -2212,6 +2213,7 @@ dev = [
     { name = "pyright", specifier = "==1.1.414" },
     { name = "pysqlite3-binary", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'", specifier = ">=0.5.4" },
     { name = "pytest", specifier = ">=9.2.0" },
+    { name = "pyyaml", specifier = ">=6.0.3" },
     { name = "ruff", specifier = ">=0.17.5" },
 ]
 

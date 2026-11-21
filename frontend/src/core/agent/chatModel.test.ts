@@ -64,6 +64,23 @@ describe('fromServer', () => {
 });
 
 describe('applyEvent', () => {
+  it('settles the card of a cut-off call that never ran', () => {
+    const events: ChatEvent[] = [
+      { type: 'tool_start', tool: 'example_list_widgets', tool_use_id: 'c1' },
+      {
+        type: 'tool_end',
+        tool: 'example_list_widgets',
+        tool_use_id: 'c1',
+        tool_run_id: null,
+        status: 'error',
+        result: { error: 'Not run: the reply was cut off.' },
+        elapsed_ms: 0,
+      },
+    ];
+    const start: ChatMessage = { id: 'a', role: 'assistant', parts: [], streaming: true };
+    expect(events.reduce(applyEvent, start).parts[0]).toMatchObject({ kind: 'tool', status: 'error', runId: null });
+  });
+
   it('builds text and tool parts in stream order, and a confirm turns the call into a card', () => {
     const events: ChatEvent[] = [
       { type: 'text', text: 'On ' },

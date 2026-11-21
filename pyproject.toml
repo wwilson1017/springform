@@ -33,6 +33,7 @@ dev = [
     "pysqlite3-binary>=0.5.4; sys_platform == 'linux' and platform_machine == 'x86_64'",
     "pyright==1.1.414",
     "pytest>=9.2.0",
+    "pyyaml>=6.0.3",  # the Whisk scenario files (backend/tests/scenarios)
     "ruff>=0.17.5",
 ]
 

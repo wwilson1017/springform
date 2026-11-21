@@ -18,18 +18,35 @@ import asyncio
 import logging
 from collections.abc import Callable
 
-from backend.core.agent import assembly, compaction, deferred, delimiters, dispatch, history, turn_hooks
+from backend.core.agent import (
+    assembly,
+    compaction,
+    context_shrink,
+    deferred,
+    delimiters,
+    dispatch,
+    endings,
+    errors,
+    history,
+    result_cap,
+    turn_hooks,
+)
 from backend.core.agent.aio import in_thread
 from backend.core.agent.engine import chat_tools
 from backend.core.agent.providers.windows import cache_inclusive_input_tokens, context_usage_event
 from backend.core.agent.turn_hooks import Fallback, ProviderFailure, Retry, TurnState
 
 # hook modules: a module that registers turn hooks is imported here.
+HOOK_MODULES = (result_cap, context_shrink, errors, endings)
 
 logger = logging.getLogger(__name__)
 
 MAX_ITERATIONS = 20
 CONTINUATION_ACK = "Please continue based on the results shown above."
+LAST_ANSWER = (
+    "You have reached the limit of tool calls for this turn. Do not call any more tools. Answer now "
+    "with what you found and what you did, and say plainly what is still unfinished."
+)
 
 
 def _last_user_text(messages: list[dict]) -> str | None:
@@ -87,9 +104,12 @@ class TurnRunner:
             s.iteration = i
             out = await self._model_call()
             if isinstance(out, str):
-                emit({"type": "error", "error": out})
-                return
-            text, calls, stop = out["text"], out.get("tool_calls") or [], out.get("stop_reason")
+                return await self._end(out)
+            text, stop = out["text"], out.get("stop_reason")
+            calls = (out.get("tool_calls") or []) if stop == "tool_use" else []  # a cut-off call is not a call
+            for c in [] if calls else out.get("tool_calls") or []:  # settle the streamed card of each one
+                emit({"type": "tool_end", "tool": c["name"], "tool_use_id": c["id"], "tool_run_id": None,
+                      "status": "error", "result": {"error": "Not run: the reply was cut off."}, "elapsed_ms": 0})  # fmt: skip
             usage, native = s.usage, out.get("assistant_content")
             if meter := context_usage_event(usage, s.provider.context_window):
                 emit(meter)
@@ -110,8 +130,7 @@ class TurnRunner:
                 except Exception:
                     logger.warning("could not save the assistant iteration", exc_info=True)
                     if persisted:  # never run or confirm a tool call that is not recorded
-                        emit({"type": "error", "error": "Failed to save the assistant turn."})
-                        return
+                        return await self._end("Failed to save the assistant turn.")
 
             if stop != "tool_use" or not calls:
                 return await self._end()
@@ -123,7 +142,8 @@ class TurnRunner:
                 return await self._end()
             if s.pending:
                 return await self._end(await self._wrap_up())
-        emit({"type": "error", "error": "Tool loop exceeded maximum iterations."})
+        s.halt = f"it reached the limit of {MAX_ITERATIONS} tool rounds"
+        await self._end(await self._wrap_up(LAST_ANSWER))  # one last call to answer with what it has
 
     async def _assemble(self) -> list[dict]:
         msgs = await in_thread(assembly.assemble_messages, self.state.provider, self.state.conversation_id)
@@ -136,14 +156,17 @@ class TurnRunner:
         tools = [spec.provider_def() for spec in s.by_name.values() if spec.name in s.loaded]
         return tools + ([deferred.FIND_TOOLS_DEF] if s.deferred_specs else [])
 
-    async def _model_call(self, *, narrate: bool = False) -> dict | str:
+    async def _model_call(self, *, narrate: bool = False, nudge: str | None = None) -> dict | str:
         """One model call with its hooks: the `_turn_complete` event plus `text`, or the error text.
-        A narration call forwards only text. Only a failure before anything reached the client is
+        A narration call forwards only text; `nudge` is a user line appended for this call only (and
+        again after a Fallback rebuild). Only a failure before anything reached the client is
         offered to `on_provider_error`."""
         s, failures = self.state, 0
+        if nudge:
+            s.messages = assembly.coalesce([*s.messages, {"role": "user", "content": nudge}])
         while True:
             await turn_hooks.before_model_call(s)
-            text, sent, error = "", False, ""
+            text, sent, failure = "", False, None
             async for event in s.provider.stream_turn(s.messages, self._tools(), s.system):
                 etype = event.get("type")
                 if etype == "text":
@@ -165,34 +188,46 @@ class TurnRunner:
                         }
                     )
                 elif etype == "error":
-                    error = str(event.get("error") or "Provider error")[:500]
+                    failure = event
                     break
                 elif etype == "_turn_complete":
                     s.usage = event.get("usage") or {}
+                    s.last_text, s.stop_reason = text, event.get("stop_reason")
                     if event.get("untrusted") and not s.tainted:  # the provider's own web search (Anthropic)
                         s.tainted = True
                         await in_thread(history.mark_tainted, s.conversation_id)
                     return {**event, "text": text}
-            else:
+            s.last_text, s.stop_reason = text, None
+            if failure is None:
                 return "The model response ended unexpectedly."
+            error = str(failure.get("error") or "Provider error")[:500]
             failures += 1
             if sent or failures >= turn_hooks.MAX_PROVIDER_FAILURES:
                 return error
-            action = await turn_hooks.on_provider_error(s, ProviderFailure(message=error, attempt=failures))
+            action = await turn_hooks.on_provider_error(
+                s,
+                ProviderFailure(
+                    error, failures, failure.get("status"), failure.get("retry_after"), failure.get("code")
+                ),
+            )
             if isinstance(action, Retry):
                 await asyncio.sleep(min(action.delay, 30))
             elif isinstance(action, Fallback):
                 s.provider = action.provider
                 s.messages = await self._assemble()
+                if nudge:
+                    s.messages = assembly.coalesce([*s.messages, {"role": "user", "content": nudge}])
             else:
                 return action.message or error
 
-    async def _wrap_up(self) -> str | None:
-        """One narration turn so the model says what is waiting for approval; the error text or None.
-        Tools are still passed (Anthropic rejects tool_use history without them); any tool call it
-        makes is ignored."""
+    async def _wrap_up(self, nudge: str | None = None) -> str | None:
+        """One narration turn so the model says what is waiting for approval, or (with `nudge`) gives
+        its last answer at the round limit; the error text or None. Tools are still passed (Anthropic
+        rejects tool_use history without them); any tool call it makes is ignored."""
+        # simplification: the last answer passes the tools and ignores any call; upgrade: tool_choice
+        # "none" through stream_turn if a model keeps calling.
         s = self.state
-        out = await self._model_call(narrate=True)
+        out = await self._model_call(narrate=True, nudge=nudge)
         if isinstance(out, str):
             return out
         usage = s.usage
@@ -209,11 +244,11 @@ class TurnRunner:
         return None
 
     async def _end(self, error: str | None = None) -> None:
-        """The exits that settle memory: `end_of_turn` events (not on error), `after_turn`, then the
-        terminal event."""
+        """The exits that settle memory: `end_of_turn` events (on `done` and on `error`, with
+        `state.error` set), `after_turn`, then the terminal event."""
         s = self.state
-        if error is None:
-            for event in await turn_hooks.end_of_turn(s):
-                self.emit(event)
+        s.error = error
+        for event in await turn_hooks.end_of_turn(s):
+            self.emit(event)
         await in_thread(assembly.after_turn, s.conversation_id)
         self.emit({"type": "error", "error": error} if error else {"type": "done", "model": s.provider.model})

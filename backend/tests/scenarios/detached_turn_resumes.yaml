@@ -1,0 +1,12 @@
+name: A turn keeps going after its client drops, resumes from the last seq, and its reply reaches the next turn
+steps:
+  - send: Tell me slowly.
+    replies: [{chunks: ["one ", "two ", "three"], delay: 0.2}]
+    drop_after: text  # disconnect after the first chunk
+    events: [conversation_id, {type: text, text: "one "}]
+  - resume: true  # GET /turns/{id}/events?after=<last seq seen>
+    events: [{type: text, text: "two "}, {type: text, text: three}, done]
+  - send: What did you say?
+    replies: [I said one two three.]
+    request:
+      messages_contain: [one two three, "What did you say?"]

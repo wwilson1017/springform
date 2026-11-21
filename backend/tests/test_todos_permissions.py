@@ -8,7 +8,7 @@ import pytest
 from backend.apps.todos import api as todos_api, service
 from backend.apps.todos.models import Area, Item, Project
 from backend.core import clock, db as core_db, entities, registry
-from backend.core.agent import registry as tools
+from backend.core.agent import execute, registry as tools
 from backend.core.agent.spec import calling_client
 from backend.core.errors import Forbidden, Invalid, NotFound
 from backend.core.reports import registry as reports
@@ -73,7 +73,7 @@ def test_a_private_todo_is_invisible_to_another_member_on_every_surface(login_as
     }
     report = reports.get("todos.open_team_by_assignee")
     assert report.run({}, other.principal) == (["assignee", "open"], [["Unassigned", 1]])
-    assert titles(tools.get("todos_list").handler(other.principal, {})) == ["Shared"]
+    assert titles(tools.get("todos_list").handler(other.principal, {})["todos"]) == ["Shared"]
     with pytest.raises(NotFound):
         todos_api.complete(other.principal.id, secret["id"])
     # Nor can it be used as a link target by someone who cannot read it.
@@ -398,9 +398,12 @@ def test_tools_are_registered_scoped_and_act_as_the_user(two):
     def ours(specs):
         return [t.name for t in specs if t.app == "todos"]
 
-    reads = ["todos_list", "todos_today", "todos_review"]
-    assert ours(tools.for_user(a)) == [*reads, "todos_create", "todos_update", "todos_complete"]
-    assert ours(tools.for_source("job")) == reads
+    reads = ["todos_list", "todos_get", "todos_today", "todos_review"]
+    writes = ["todos_create", "todos_update", "todos_complete", "todos_bulk_create", "todos_bulk_update"]
+    containers = [f"todos_{verb}_{noun}" for noun in ("project", "area") for verb in ("list", "create", "update")]
+    containers = [n.replace("list_project", "list_projects").replace("list_area", "list_areas") for n in containers]
+    assert ours(tools.for_user(a)) == [*reads, *writes, *containers, "todos_changes"]
+    assert ours(tools.for_source("job")) == [*reads, "todos_list_projects", "todos_list_areas", "todos_changes"]
     create, update, complete = (tools.get(f"todos_{n}") for n in ("create", "update", "complete"))
     assert (create.revision, create.confirm_tier, create.targets({"title": "x"})) == ("0.1.0", "routine", [])
     with core_db.transaction() as conn:
@@ -416,7 +419,7 @@ def test_tools_are_registered_scoped_and_act_as_the_user(two):
     with core_db.transaction() as conn:
         assert update.handler_in(conn, b, {"id": made["id"], "star": True, "due_date": None})["star"] is True
         assert complete.handler_in(conn, b, {"id": made["id"]})["status"] == "done"
-    assert titles(tools.get("todos_list").handler(b, {"status": "done", "unknown": 1})) == ["From Whisk"]
+    assert titles(tools.get("todos_list").handler(b, {"status": "done", "unknown": 1})["todos"]) == ["From Whisk"]
     assert tools.get("todos_today").handler(a, {}) == []
     assert tools.get("todos_review").handler(a, {})["completed_last_week"]["count"] == 1
     secret = service.create_item(a, "secret")
@@ -447,6 +450,118 @@ def test_an_mcp_made_todo_names_its_client_and_keeps_it(two):
     with core_db.transaction() as conn:  # Whisk (no MCP client) and the app leave it empty
         assert create.handler_in(conn, a, {"title": "From Whisk"})["source_client"] is None
     assert service.create_item(a, "By hand")["source_client"] is None
+
+
+def run(user, name: str, args: dict) -> dict:
+    """A tool call the way an MCP link makes it: authorized targets, one transaction for a write."""
+    return execute.run_tool(user, core_db.must(tools.get(name)), args, source="mcp")
+
+
+def test_the_new_tools_keep_private_rows_private(two):
+    a, b = two
+    area = service.create_area(a, "Health")
+    project = service.create_project(a, "Run a 10k", area_id=area["id"])
+    secret = service.create_item(a, "Book the physio", project_id=project["id"], notes="left knee")
+    shared = service.create_item(b, "Team lunch", visibility="team")
+
+    listed = run(b, "todos_list", {})["result"]
+    assert (titles(listed["todos"]), listed["total"]) == (["Team lunch"], 1)
+    assert run(b, "todos_list", {"search": "physio"})["result"]["total"] == 0
+    assert run(b, "todos_get", {"id": secret["id"]})["status"] == "error"
+    assert run(b, "todos_list_projects", {})["result"] == [] and run(b, "todos_list_areas", {})["result"] == []
+    changes = run(b, "todos_changes", {})["result"]
+    assert [t["id"] for t in changes["items"]] == [shared["id"]] and changes["projects"] == changes["areas"] == []
+    assert run(a, "todos_get", {"id": secret["id"]})["result"]["notes"] == "left knee"
+    head = run(b, "todos_changes", {"head_only": True})["result"]
+    assert head["items"] == [] and head["next_since_rev"] == changes["next_since_rev"]
+
+    for name, args in [
+        ("todos_update", {"id": secret["id"], "title": "x"}),
+        ("todos_bulk_update", {"ids": [shared["id"], secret["id"]], "fields": {"star": True}}),
+        ("todos_update_project", {"id": project["id"], "name": "x"}),
+        ("todos_update_area", {"id": area["id"], "name": "x"}),
+    ]:
+        assert run(b, name, args)["status"] == "error", name
+    # The whole bulk call is refused, B's own team todo included.
+    assert service.get_item(b, shared["id"])["star"] is False
+    assert service.get_item(a, secret["id"])["title"] == "Book the physio"
+    assert service.get_container(a, "project", project["id"])["name"] == "Run a 10k"
+    assert service.get_container(a, "area", area["id"])["name"] == "Health"
+
+
+def test_projects_areas_and_bulk_writes_act_as_the_user(two):
+    a, b = two
+    area = run(a, "todos_create_area", {"name": "Home"})["result"]
+    project = run(
+        a, "todos_create_project", {"name": "Paint the shed", "area_id": area["id"], "outcome": "Shed painted"}
+    )
+    assert project["status"] == "done" and project["result"]["owner_user_id"] == a.id
+    project = project["result"]
+    assert [p["name"] for p in run(a, "todos_list_projects", {"area_id": area["id"]})["result"]] == ["Paint the shed"]
+    assert run(a, "todos_update_project", {"id": project["id"], "status": "someday"})["result"]["status"] == "someday"
+    assert run(a, "todos_update_area", {"id": area["id"], "status": "dropped"})["result"]["status"] == "dropped"
+    assert run(a, "todos_list_areas", {"status": "active"})["result"] == []
+    update = tools.get("todos_update_project")
+    assert update.hides_when({"id": 1, "visibility": "private"}) and not update.hides_when({"id": 1, "name": "x"})
+
+    made = run(
+        a,
+        "todos_bulk_create",
+        {"todos": [{"title": "Buy paint", "project_id": project["id"]}, {"title": "Buy brushes"}]},
+    )
+    assert made["result"]["created"] == 2
+    ids = made["result"]["ids"]
+    assert run(a, "todos_bulk_update", {"ids": ids, "fields": {"status": "next_action"}})["result"][
+        "updated"
+    ] == sorted(ids)
+    assert {service.get_item(a, i)["status"] for i in ids} == {"next_action"}
+    bulk = tools.get("todos_bulk_update")
+    assert bulk.targets({"ids": ids, "fields": {}}) == [("todos.item", i) for i in ids]
+    assert bulk.hides_when({"ids": ids, "fields": {"owner_user_id": b.id}})
+
+
+def test_bulk_create_is_all_or_nothing(two):
+    a, _ = two
+    out = run(a, "todos_bulk_create", {"todos": [{"title": "Fine"}, {"title": "Bad", "status": "someday"}]})
+    assert out["status"] == "error" and out["error"].startswith("todos[1]: status")
+    out = run(a, "todos_bulk_create", {"todos": [{"title": "Fine"}, {"title": "Bad", "project_id": 999}]})
+    assert out["status"] == "error" and out["error"].startswith("todos[1]:")
+    assert run(a, "todos_bulk_create", {"todos": [{"title": "Fine"}, "not a todo"]})["error"].startswith("todos[1]:")
+    for todos in ([], [{"title": "x"}] * 101, None):
+        assert run(a, "todos_bulk_create", {"todos": todos})["status"] == "error"
+    assert core_db.rows("SELECT id FROM todos_items") == []
+
+
+def test_todos_list_pages_compact_rows(two, freeze):
+    a, b = two
+    freeze("2026-11-02T09:00:00Z")
+    for i in range(5):
+        service.create_item(a, f"todo {i}", notes="n" if i == 0 else "", context="@calls" if i == 1 else "")
+    service.create_item(a, "later", revisit_on="2026-12-01")
+    service.create_item(b, "b's private")
+
+    first = run(a, "todos_list", {"limit": 2})["result"]
+    assert (first["count"], first["total"], first["next_offset"]) == (2, 5, 2)
+    assert first["todos"][0] == {
+        "id": first["todos"][0]["id"],
+        "title": "todo 0",
+        "status": "inbox",
+        "visibility": "private",
+        "has_notes": True,
+    }
+    assert first["todos"][1]["context"] == "@calls"
+    seen, offset = [], 0
+    while offset is not None:
+        page = run(a, "todos_list", {"limit": 2, "offset": offset})["result"]
+        seen += titles(page["todos"])
+        offset = page["next_offset"]
+    assert seen == [f"todo {i}" for i in range(5)]
+    past = run(a, "todos_list", {"offset": 50})["result"]
+    assert (past["todos"], past["total"], past["next_offset"]) == ([], 5, None)
+    assert run(a, "todos_list", {"include_deferred": True})["result"]["total"] == 6
+    assert run(a, "todos_list", {"search": "later"})["result"]["total"] == 1
+    whole = run(a, "todos_list", {"full": True, "limit": 1})["result"]["todos"][0]
+    assert whole["notes"] == "n" and "created_at" in whole
 
 
 # ── The HTTP surface ──────────────────────────────────────────────────────────
