@@ -27,7 +27,7 @@ import json
 import logging
 import re
 
-from backend.core import db
+from backend.core import db, skills
 from backend.core.agent import agents, delimiters, history, result_cap
 from backend.core.auth.deps import User
 
@@ -197,6 +197,16 @@ def after_turn(conversation_id: int) -> None:
         logger.warning("memory.after_turn failed", exc_info=True)
 
 
+def skills_index() -> str:
+    """The approved skills, by name and description, for the static half; "" on failure (skills
+    never break a turn)."""
+    try:
+        return skills.index_in(db.get_conn())
+    except Exception:
+        logger.warning("skills.index_in failed; turn continues without skills", exc_info=True)
+        return ""
+
+
 def system_prompt(
     agent: dict, user: User, *, query: str | None, catalog: str = "", context: str = ""
 ) -> tuple[str, str]:
@@ -207,4 +217,5 @@ def system_prompt(
         catalog=catalog,
         memory=memory_context(user, agent["slug"], query),
         context=context,
+        skills=skills_index(),
     )

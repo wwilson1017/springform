@@ -12,6 +12,7 @@ import os
 
 import pytest
 
+from backend.core import db as core_db, skills
 from backend.core.agent.assembly import CHARS_PER_TOKEN
 from backend.core.agent.engine import chat_tools
 from backend.core.agent.providers import fake
@@ -68,6 +69,20 @@ def test_static_prompt_and_eager_tools_stay_under_the_budget(login_as, model_req
     assert len(tools) > 10, "the measured turn offered almost no tools"
     total = tokens(static, tools)
     assert total <= BUDGET_TOKENS, f"static prompt + eager tools ~{total:,} tokens, over the {BUDGET_TOKENS:,} budget"
+
+
+def test_a_full_skills_index_stays_under_the_budget(login_as, model_requests):
+    a = login_as("admin")
+    with core_db.transaction() as conn:  # the most the index lists, each at its longest
+        for i in range(skills.INDEX_LIMIT):
+            name, description = f"{i:02d}-" + "s" * 45, "d" * skills.MAX_DESCRIPTION
+            skills.create_in(conn, name, description, "Body.", author="agent", status="active")
+    with a:
+        assert a.post("/api/agent/chat", json={"message": "hi"}).status_code == 200
+    static, tools = model_requests[0]["system"][0], model_requests[0]["tools"]
+    assert static.count("d" * skills.MAX_DESCRIPTION) == skills.INDEX_LIMIT
+    total = tokens(static, tools)
+    assert total <= BUDGET_TOKENS, f"with a full skills index ~{total:,} tokens, over the {BUDGET_TOKENS:,} budget"
 
 
 def test_the_budget_check_flags_only_an_oversized_prompt():

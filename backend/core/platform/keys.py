@@ -95,6 +95,7 @@ CORE_KEYS: dict[str, Key] = {
     "github.token": Key(None, _text(500, required=True), secret=True),  # fine-grained token, issues read/write
     "files.max_bytes": Key(25 * 1024 * 1024, _positive_int),
     "agent.nightly_enabled": Key(False, _bool),  # off: the nightly run spends AI credits
+    "agent.skills_review_enabled": Key(False, _bool),  # off: the skills review spends AI credits
     "agent.context_budget_chars": Key(memory.DEFAULT_BUDGET, _positive_int),  # memory block size per turn
     "agent.cost_rates": Key(usage.DEFAULT_RATES, usage.check_rates),  # USD per million tokens, per model
     "auth.require_totp_for_google": Key(False, _bool),

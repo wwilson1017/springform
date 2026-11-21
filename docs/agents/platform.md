@@ -147,6 +147,7 @@ The settings an admin changes through `/api/core/settings` are the core keys bel
 | `github.token` | none | Secret. A fine-grained token with issues read/write. |
 | `files.max_bytes` | 25 MB | Upload size cap. |
 | `agent.nightly_enabled` | `false` | Gates `core.agent_nightly`. |
+| `agent.skills_review_enabled` | `false` | Gates `core.skills_review` (`agent.md`, "Skills"). |
 | `agent.context_budget_chars` | `12000` | Whole number above zero. Caps the memory block Whisk reads per turn. |
 | `agent.cost_rates` | list prices | `{model: {input, output, cache_read, cache_write}}`, USD per million tokens, each 0 to 10,000. Prices the usage ledger (`agent.md` §5). |
 | `auth.require_totp_for_google` | `false` | Adds the local TOTP step to Google sign-in. |

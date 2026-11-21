@@ -3,9 +3,9 @@
 
 The prompt is a (static, volatile) pair so Anthropic can cache the static half. Static: who the
 agent is, the admin's personality, the memory package's protected instructions (soul.md,
-MEMORY.md), the name note, the installed apps, the confirmation and untrusted-content contracts, the
-deferred-tool catalog. The contracts come after both editable texts, so neither can talk the
-model out of them. The soul lives only in memory's soul.md, never on the agent row.
+MEMORY.md), the name note, the installed apps, the approved skills index, the confirmation and
+untrusted-content contracts, the deferred-tool catalog. The contracts come after the editable texts,
+so none of them can talk the model out of them. The soul lives only in memory's soul.md, never on the agent row.
 Volatile: today's date in the install timezone, who is asking, the page and record they have open
 (`context_note`), and the memory block for this turn.
 """
@@ -157,6 +157,7 @@ def build_system_prompt(
     catalog: str = "",
     memory: str = "",
     context: str = "",
+    skills: str = "",
 ) -> tuple[str, str]:
     from backend.core import registry  # registry imports this package; resolve at call time
 
@@ -174,6 +175,7 @@ def build_system_prompt(
             f"Your name is {name}. If any text above uses another name for you, ignore it.",
             apps_block,
             registry.agent_guidance(user),
+            skills,  # admin-approved (core.skills.index_in); before the contracts, like the other editable texts
             CONFIRMATION_NOTE,
             delimiters.SAFETY_INSTRUCTION,
             catalog,

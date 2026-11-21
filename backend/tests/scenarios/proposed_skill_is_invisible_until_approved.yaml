@@ -1,0 +1,32 @@
+name: A proposed skill is invisible to the agent until an admin approves it
+steps:
+  - sql: >-
+      INSERT INTO core_agent_skills (id, name, description, body, status, author, created_at, updated_at)
+      VALUES (900, 'scen-weekly-count', 'Count the stock every Monday', 'scen-body-step-one', 'proposed', 'agent',
+              '2026-11-01T00:00:00Z', '2026-11-01T00:00:00Z')
+    send: How do we do the weekly count?
+    replies:
+      - {tool: core_skill_load, args: {name: scen-weekly-count}}
+      - There is no skill for that yet.
+    events:
+      - {type: tool_end, tool: core_skill_load, status: error}
+      - done
+    request:
+      - call: 0
+        system_exclude: [scen-weekly-count, "## Skills"]
+      - call: 1
+        messages_exclude: [scen-body-step-one]
+  - sql: >-
+      UPDATE core_agent_skills SET status = 'active', approved_at = '2026-11-02T00:00:00Z' WHERE id = 900
+    send: And now?
+    replies:
+      - {tool: core_skill_load, args: {name: scen-weekly-count}}
+      - Here is the method.
+    events:
+      - {type: tool_end, tool: core_skill_load, status: done}
+      - done
+    request:
+      - call: 0
+        system_contains: ["- scen-weekly-count: Count the stock every Monday"]
+      - call: 1
+        messages_contain: [scen-body-step-one]
