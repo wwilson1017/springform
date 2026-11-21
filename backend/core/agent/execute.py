@@ -24,7 +24,7 @@ import json
 import logging
 
 from backend.core import db, entities
-from backend.core.agent import delimiters, history, registry
+from backend.core.agent import deferred, delimiters, history, registry
 from backend.core.agent.spec import ToolSpec, calling_conversation, tool_def_sha256
 from backend.core.auth.deps import User
 from backend.core.errors import AppError
@@ -78,6 +78,8 @@ def backfill_records() -> int:
                 result = json.loads(row["result"] or "null")
                 if spec is not None:
                     named = records(spec, json.loads(row["args"] or "{}"), result)
+                elif row["tool"] == deferred.FIND_TOOLS:
+                    named = "[]"  # loads tool definitions, names no record (not a registry spec)
                 elif isinstance(result, str) and result.startswith(delimiters.UNTRUSTED_EXTERNAL_MARKER):
                     named = "[]"  # a remote tool (registered later, by its server's refresh): external text only
                 else:

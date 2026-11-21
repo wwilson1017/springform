@@ -166,13 +166,19 @@ def test_older_runs_get_their_records_at_startup(login_as):
         name: history.insert_tool_run(
             conversation_id=cid, tool=name, args={"id": todo}, status="done", user_id=member.user["id"], result=result
         )
-        for name, result in [("todos_get", row), ("core_gone_tool", row), ("core_gone_remote", fenced)]
+        for name, result in [
+            ("todos_get", row),
+            ("core_gone_tool", row),
+            ("core_gone_remote", fenced),
+            ("core_find_tools", json.dumps({"loaded": ["todos_get"]})),
+        ]
     }
     assert stored(ids["todos_get"])["records"] is None  # as a run stored before the column was
     assert execute.backfill_records() >= 3
     assert json.loads(stored(ids["todos_get"])["records"]) == [["todos.item", todo]]
     assert stored(ids["core_gone_tool"])["records"] == history.UNKNOWN  # its tool is gone: withheld
     assert stored(ids["core_gone_remote"])["records"] == "[]"  # a remote tool's fenced text
+    assert stored(ids["core_find_tools"])["records"] == "[]"  # not a registry spec, but names no record
 
 
 def test_each_shipped_module_names_what_its_results_carry(app, make_user):

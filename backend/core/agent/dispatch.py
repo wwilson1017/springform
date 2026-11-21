@@ -50,7 +50,7 @@ async def run_call(state: TurnState, emit: Callable[[dict], None], call: dict, m
             else {"loaded": [], "note": "No tools matched; try another keyword."}
         )
         stored = json.dumps(result)
-        run_id = await in_thread(history.insert_tool_run, **record, status="done", result=stored)
+        run_id = await in_thread(history.insert_tool_run, **record, status="done", result=stored, records="[]")
         outcome = (run_id, "done", result, stored)
     elif spec is None or name not in state.loaded:
         error = f"Tool {name!r} is not loaded; call {deferred.FIND_TOOLS} first." if spec else f"Unknown tool {name!r}."
