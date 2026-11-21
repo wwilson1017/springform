@@ -31,6 +31,7 @@ if TYPE_CHECKING:
     from backend.core.db import Conn
 
 Action = Literal["read", "write"]
+REVERT_CHANGED = "changed since it was applied"  # Entity.revert_in's refusal of a record edited since
 SYNC_HOOKS = ("on_entity_deleted", "on_entity_merged", "on_record_changed")
 HOOKS = (*SYNC_HOOKS, "after_record_changed")
 _TYPE = re.compile(r"^([a-z][a-z0-9_]*)\.[a-z][a-z0-9_]*$")
@@ -69,10 +70,12 @@ class Entity:
     can_write: Callable[[User, Conn, int], bool] = member_can_write
     searchable: tuple[str, ...] = ()
     archived_column: str | None = None
-    # Undo of a Whisk change list (agent.md §6): put back the fields in `old`, {field: value} as this
-    # entity's own record_changes_in calls logged them, through the app's service; raise an AppError
-    # when the record cannot take them. None: its change lists cannot be undone.
-    revert_in: Callable[[Conn, User, int, dict], None] | None = None
+    # Undo of a Whisk change list (agent.md §6): revert_in(conn, user, id, old, new) puts back the
+    # fields in `old`, {field: value} as this entity's own record_changes_in calls logged them, through
+    # the app's service. It raises Conflict(REVERT_CHANGED) when the record no longer holds `new`, the
+    # values the list applied (an edit the change log did not see), and another AppError when the
+    # record cannot take `old`. None: its change lists cannot be undone.
+    revert_in: Callable[[Conn, User, int, dict, dict], None] | None = None
 
     @property
     def app(self) -> str:

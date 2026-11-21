@@ -20,7 +20,7 @@ from backend.core.auth.deps import User
 from backend.core.errors import AppError, Conflict, NotFound
 
 CHANGED_BEFORE_APPLY = "These records changed since the card was shown, so nothing was changed. Ask again."
-CHANGED_SINCE_APPLY = "changed since it was applied"
+CHANGED_SINCE_APPLY = entities.REVERT_CHANGED
 NOTHING_TO_CHANGE = "Nothing to change: this call would not change any record."
 CANNOT_UNDO = "this kind of record cannot be undone"
 GONE = "it is gone, or you can no longer see it"
@@ -167,7 +167,9 @@ def get_in(conn: db.Conn, user: User, run_id: int) -> dict | None:
         "status": _status(row),
         "rows": visible,
         "notes": json.loads(row["notes"]),
-        "hidden": len(rows) - len(visible),
+        "hidden": len(
+            {(r["entity_type"], r["entity_id"]) for r in rows} - {(r["entity_type"], r["entity_id"]) for r in visible}
+        ),
         "reverted": undo["reverted"] if undo else None,
         "skipped": skipped,
     }
@@ -192,11 +194,13 @@ def undo(user: User, run_id: int) -> dict:
         if not row["applied_at"]:
             raise Conflict("not_applied")
         olds: dict[tuple[str, int], dict] = {}
+        news: dict[tuple[str, int], dict] = defaultdict(dict)
         for r in json.loads(row["rows"]):
             olds.setdefault((r["entity_type"], r["entity_id"]), {}).setdefault(r["field"], r["old"])
+            news[(r["entity_type"], r["entity_id"])][r["field"]] = r["new"]  # the last value it set
         # simplification: any later change to a record skips the whole record, not just the fields
-        # this list wrote; upgrade: compare per field. And only a change reported to the change log
-        # counts (a todos context rename and a merge's relink write none); upgrade: report those.
+        # this list wrote; upgrade: compare per field. An edit the change log did not see (a todos
+        # context rename) is caught by revert_in, which checks the record still holds `new`.
         changed = {
             key
             for key in olds
@@ -219,7 +223,7 @@ def undo(user: User, run_id: int) -> dict:
                     raise Conflict(CANNOT_UNDO)
                 # simplification: Undo restores field values, not derived stamps (a todo put back to
                 # done gets a new completed_at); upgrade: log and restore the stamps.
-                entity.revert_in(conn, user, entity_id, old)
+                entity.revert_in(conn, user, entity_id, old, news[(entity_type, entity_id)])
             except AppError as e:
                 conn.execute("ROLLBACK TO undo_record")
                 reason = GONE if isinstance(e, NotFound) else e.detail if e.detail != e.default else NOT_ALLOWED

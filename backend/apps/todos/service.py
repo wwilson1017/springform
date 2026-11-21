@@ -515,9 +515,10 @@ def bulk_update(user: User, ids: list[int], fields: dict) -> dict:
 REPEAT_UNDO = "a repeating todo: completing or reopening it makes its next occurrence, so change it by hand"
 
 
-def revert_in(conn: db.Conn, user: User, item_id: int, old: dict) -> None:
+def revert_in(conn: db.Conn, user: User, item_id: int, old: dict, new: dict) -> None:
     """Undo of a Whisk change list (`Entity.revert_in`): put back `old`, the raw column values this
-    module logged. Derived stamps (completed_at) follow the status rather than being restored."""
+    module logged, unless the row no longer holds `new` (a context rename writes no change-log row).
+    Derived stamps (completed_at) follow the status rather than being restored."""
     fields = {k: v for k, v in old.items() if k in ITEM_FIELDS}
     for key in ("tags", "people"):  # stored, and so logged, as JSON text
         if isinstance(fields.get(key), str):
@@ -525,6 +526,8 @@ def revert_in(conn: db.Conn, user: User, item_id: int, old: dict) -> None:
     row = _raw_in(conn, "item", item_id)
     if row is None:
         raise NotFound()
+    if any(row[k] != v for k, v in new.items() if k in row):
+        raise Conflict(entities.REVERT_CHANGED)
     repeats = row["repeat"] or fields.get("repeat")  # repeating now, or once put back
     if repeats and "status" in fields and "done" in (row["status"], fields["status"]):
         raise Invalid(REPEAT_UNDO)

@@ -129,6 +129,25 @@ def test_undo_skips_a_record_edited_after_apply(login_as):
     assert row(two)["title"] == "Call the plumber today"
 
 
+def test_undo_skips_an_edit_the_change_log_did_not_see(login_as):
+    a = login_as("member")
+    one, two = todo(a.principal, "Order flour"), todo(a.principal, "Call the plumber")
+    _, evs = bulk(a, [one, two], {"context": "@office"})
+    todos.rename_context(a.principal, "@office", "@work")  # writes no change-log row
+    out = a.post(f"/api/agent/change-lists/{of(evs, 'tool_end')[0]['tool_run_id']}/undo").json()
+    assert out["reverted"] == 0 and [s["reason"] for s in out["skipped"]] == [change_lists.CHANGED_SINCE_APPLY] * 2
+    assert row(one)["context"] == row(two)["context"] == "@work"
+
+
+def test_hidden_counts_records_not_fields(login_as):
+    a, b = login_as("member"), login_as("member")
+    one = todo(b.principal, "Order flour")
+    _, evs = bulk(a, [one], {"star": True, "context": "@office"})  # two fields of b's team todo
+    todos.update_item(b.principal, one, {"visibility": "private"})  # now only b's
+    got = a.get(f"/api/agent/change-lists/{of(evs, 'tool_end')[0]['tool_run_id']}").json()
+    assert got["rows"] == [] and got["hidden"] == 1
+
+
 def test_undo_is_once_and_owner_only(login_as):
     a, b = login_as("member"), login_as("member")
     one = todo(a.principal, "Order flour")
@@ -209,8 +228,8 @@ def test_a_record_refused_mid_revert_keeps_none_of_its_writes(login_as, monkeypa
     _, evs = bulk(a, [one, two], {"star": True, "context": "@office"})
     entity = entities.get("todos.item")
 
-    def half(conn, user, item_id, old):
-        todos.revert_in(conn, user, item_id, old)  # writes, then refuses
+    def half(conn, user, item_id, old, new):
+        todos.revert_in(conn, user, item_id, old, new)  # writes, then refuses
         if item_id == one:
             raise Invalid("refused after writing")
 

@@ -16,7 +16,7 @@ class Entity:
     can_read: Callable[[User, Conn, int], bool]     # default: any active member
     can_write: Callable[[User, Conn, int], bool]    # default: any active member
     searchable: tuple[str, ...] = (); archived_column: str | None = None
-    revert_in: Callable[[Conn, User, int, dict], None] | None = None
+    revert_in: Callable[[Conn, User, int, dict, dict], None] | None = None
 ```
 
 | Field | Meaning |
@@ -30,7 +30,7 @@ class Entity:
 | `can_write(user, conn, id)` | Default: any active member. |
 | `searchable` | Searchable columns. |
 | `archived_column` | Column holding the archive marker, if any. |
-| `revert_in(conn, user, id, old)` | The Undo of a Whisk change list (`agent.md` §6): put back the fields in `old`, `{field: value}` exactly as this entity's own `record_changes_in` calls logged them, through the app's service (so the timeline records the revert), and raise an `AppError` when the record cannot take them. Core authorizes the record for write first. `None`: its change lists cannot be undone. |
+| `revert_in(conn, user, id, old, new)` | The Undo of a Whisk change list (`agent.md` §6): put back the fields in `old`, `{field: value}` exactly as this entity's own `record_changes_in` calls logged them, through the app's service (so the timeline records the revert). Raise `Conflict(entities.REVERT_CHANGED)` when the record no longer holds `new`, the values the list applied (an edit the change log did not see, such as a Todos context rename), and another `AppError` when the record cannot take `old`. Core authorizes the record for write first. `None`: its change lists cannot be undone. |
 
 Apps register entities in `entities.py` as `ENTITIES = [Entity(...)]`. Core registers `core.person` and `core.organization`.
 
