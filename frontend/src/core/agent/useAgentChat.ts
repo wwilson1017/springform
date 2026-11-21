@@ -25,7 +25,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ApiError, fetchJson, postJson } from '../api/client';
 import { applyEvent, cardsOf, fromServer, localId, textOf, type ChatMessage, type ToolPart } from './chatModel';
-import { confirmReducer, runStatusOf, shouldResume, type ConfirmEvent, type Decision } from './confirmState';
+import {
+  confirmReducer,
+  runStatusOf,
+  shouldResume,
+  type ConfirmEvent,
+  type DecideOptions,
+  type Decision,
+} from './confirmState';
 import { readEvents } from './sse';
 import type { ChatContext, ChatEvent, ConfirmResponse, ConversationDetail } from './types';
 
@@ -478,7 +485,7 @@ export function useAgentChat(options: Options = {}) {
 
   /** Approve or deny one card; resume the turn when it was the message's last open card. */
   const decide = useCallback(
-    async (msgId: string, toolUseId: string, decision: Decision) => {
+    async (msgId: string, toolUseId: string, decision: Decision, opts: DecideOptions = {}) => {
       const find = () =>
         messagesRef.current
           .find((m) => m.id === msgId)
@@ -500,7 +507,13 @@ export function useAgentChat(options: Options = {}) {
       step({ type: 'decide', decision });
       let body: ConfirmResponse;
       try {
-        body = await postJson<ConfirmResponse>('/api/agent/confirm', { tool_run_id: card.runId, decision });
+        const reason = decision === 'deny' ? opts.reason?.trim() : undefined;
+        body = await postJson<ConfirmResponse>('/api/agent/confirm', {
+          tool_run_id: card.runId,
+          decision,
+          ...(reason ? { reason } : {}),
+          ...(decision === 'approve' && opts.alwaysAllow ? { always_allow: true } : {}),
+        });
       } catch (e) {
         step({ type: 'failed', message: confirmFailure(e) });
         return;

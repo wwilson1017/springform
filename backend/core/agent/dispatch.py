@@ -15,7 +15,7 @@ from collections.abc import Callable
 
 from backend.core.agent import deferred, execute, history, turn_hooks
 from backend.core.agent.aio import in_thread
-from backend.core.agent.engine import needs_confirmation
+from backend.core.agent.engine import card_extras, needs_confirmation, rule_skips
 from backend.core.agent.spec import tool_def_sha256
 from backend.core.agent.turn_hooks import TurnState
 from backend.core.agent.write_budget import BudgetAction
@@ -156,7 +156,9 @@ async def run_call(
     elif spec.writes and (action := state.budget.check_write()) != BudgetAction.ALLOW:
         state.terminated = action == BudgetAction.TERMINATE
         outcome = await _refuse(record, "Write budget exceeded for this turn; not run.")
-    elif needs_confirmation(spec, args, state.tainted):
+    elif needs_confirmation(spec, args, state.tainted) and not await in_thread(
+        rule_skips, state.user.id, state.agent["id"], spec, args, state.tainted
+    ):  # a live always-allow rule falls through and runs like a routine write
         run_id = await in_thread(
             history.insert_tool_run, **record, tool_def_sha256=tool_def_sha256(spec), status="pending"
         )
@@ -170,6 +172,7 @@ async def run_call(
                 "msg_id": message_id,
                 "args": args,
                 "summary": spec.summary,
+                **card_extras(spec, args, state.tainted),
             }
         )
         return {"tool_use_id": tool_use_id, "tool_name": name, "content": history.model_content({"status": "pending"})}

@@ -64,6 +64,17 @@ describe('confirmReducer', () => {
   });
 });
 
+describe('Always allow', () => {
+  it('keeps rule_saved and says what it means', () => {
+    const saved = answer({ status: 'done', rule_saved: true });
+    expect(saved).toMatchObject({ outcome: 'done', ruleSaved: true });
+    expect(outcomeText(saved as ConfirmState & { phase: 'resolved' })).toContain('will not ask again');
+    const refused = answer({ status: 'done', rule_saved: false });
+    expect(outcomeText(refused as ConfirmState & { phase: 'resolved' })).toContain('was not saved');
+    expect(answer({ status: 'done' })).not.toHaveProperty('ruleSaved');
+  });
+});
+
 describe('runStatusOf', () => {
   it('maps the outcome to the run status, already_resolved to the current one', () => {
     expect(runStatusOf(pending)).toBe('pending');

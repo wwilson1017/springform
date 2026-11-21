@@ -2,7 +2,7 @@ import { memo, useState } from 'react';
 import { MarkdownContent } from '../../shared/MarkdownContent';
 import { IconChevronDown } from '../../shared/icons';
 import { pretty, type ChatMessage, type ToolPart } from './chatModel';
-import type { Decision } from './confirmState';
+import type { DecideOptions, Decision } from './confirmState';
 import { IconSparkle } from './icons';
 import { ToolConfirmCard } from './ToolConfirmCard';
 
@@ -100,7 +100,7 @@ interface Props {
   agentName: string;
   /** A turn is streaming: approval buttons wait for it to finish. */
   busy: boolean;
-  onDecide: (msgId: string, toolUseId: string, decision: Decision) => void;
+  onDecide: (msgId: string, toolUseId: string, decision: Decision, opts?: DecideOptions) => void;
 }
 
 function Bubble({ message, agentName, busy, onDecide }: Props) {
@@ -148,7 +148,7 @@ function Bubble({ message, agentName, busy, onDecide }: Props) {
                   key={part.toolUseId}
                   part={{ ...part, confirm: part.confirm }}
                   disabled={busy}
-                  onDecide={(d) => onDecide(message.id, part.toolUseId, d)}
+                  onDecide={(d, o) => onDecide(message.id, part.toolUseId, d, o)}
                 />
               );
             }

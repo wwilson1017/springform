@@ -19,6 +19,7 @@ Base: CakeCRM `backend/assistant/` (Chatty's loop already trimmed, with server-s
 | `result_cap.py`, `context_shrink.py`, `tools.py` | New (#87); the CSV rule after cake_os `tool_result_compression.py` (`docs/PROVENANCE.md`) | ~250 |
 | `errors.py`, `endings.py` | New (#87); the closing-note texts and the retry-after parse after CakeCRM 47b743e (`docs/PROVENANCE.md`) | ~200 |
 | `loop_guard.py`, `call_repair.py`, `completion_claims.py` | New (#87); the claim guards and sentence rules after cake_os `completion_claims.py` (`docs/PROVENANCE.md`) | ~300 |
+| `approval_rules.py` | New (#91): always-allow rules; the rule shape and the decline wording after cake_os `approval_rules.py` (`docs/PROVENANCE.md`) | ~60 |
 | `usage.py` | New (#89): the usage ledger and its rates; the idea after cake_os `token_tracker.py` and `cost_service.py`, re-implemented | ~140 |
 | `agents.py` | CakeCRM `assistant/identity.py` prompt builder; agents are rows, not a singleton | 137 |
 | `backend/core/memory/facts.py`, `context_files.py`, `tools.py`, `router.py` | `facts.py` from CakeCRM `backend/memory/service.py` (FTS5, temporal facts, soft invalidation); `context_files.py` from CakeCRM `backend/context_files/service.py`, tsvector → FTS5 | 523 |
@@ -53,6 +54,9 @@ core_agent_observations(conversation_id PK, through_message_id, pending, marked_
 core_agent_context_files(agent_slug, filename COLLATE NOCASE, content, is_protected, updated_at, updated_by)
   -- UNIQUE(agent_slug, filename); agent_slug matches core_agents.slug by value; + FTS
 core_agent_providers(provider PK, api_key_enc, model_default, model_light, enabled, updated_at)
+core_agent_approval_rules(id, user_id, agent_id, tool, created_at, voided_at, void_reason)
+  -- always-allow rules (§6); voided, never deleted; one live rule per (user_id, agent_id, tool)
+  -- core_agent_tool_runs also has deny_reason: the user's reason for a denial (§6), at most 500 characters
 core_agent_turns(id, conversation_id, user_id, status, started_at, ended_at)
   -- status CHECK (running | done | error | cancelled | interrupted); one row per turn (§5)
 core_agent_turn_events(turn_id, seq, event JSON, PRIMARY KEY (turn_id, seq))
@@ -224,6 +228,7 @@ CakeCRM's loop, minus Google/Odoo/QuickBooks/todo/meeting logic, plan mode, LLM 
    - **Memory flush.** Before summarizing, while the nightly memory pass is on (`agent.nightly_enabled`: it is the observer running early, so it follows the observer's switch), one silent light-tier call offers only `core_memory_remember` over the user rows the nightly observer has not read yet below the boundary, under the observer's rules (§3). Facts go in as the observer writes them (system principal, `source_conversation_id`, tags `observed` and `compaction`, at most 8), and the observer's watermark moves past what the flush read, so each row is flushed or observed once. Private and tainted conversations are skipped, re-checked in the write transaction. The context-file write always confirms, so it is never offered here.
 2. Reads run immediately through `handler(user, args)`; the reads of one model step run together, before its other calls ("One step's calls" below).
 3. A call confirms when the tool is `always_confirm`, when it is an `untrusted_source` read in a tainted conversation (its arguments, a URL or a query, could carry conversation data out to a page's author), or when it is a write that is not routine, is `external_effect`, runs in a tainted conversation, or whose `hides_when(args)` is true or raises. A confirming call inserts a `pending` tool run and emits `confirm`; the client continues by posting `/api/agent/chat` with the conversation id and no message.
+   A live always-allow rule (§6, "Always allow") lets a confirming call run like a routine write instead, when `engine.rule_eligible` holds for it in this turn.
 4. Results from `untrusted_source` tools are fenced with `delimiters.wrap_untrusted_external` and taint the **conversation** (`core_agent_conversations.tainted`), permanently and across compaction: every later write in it confirms, routine ones included.
 
 The loop is `turns.TurnRunner(state, emit).run()`: it hands each event to `emit` as a dict and ends with exactly one terminal event (`done` or `error`). `dispatch.run_calls` settles one model step's calls and `dispatch.run_call` one of them (refuse, `core_find_tools`, gate for approval, or run). `engine.py` keeps `chat_tools`, `needs_confirmation` and `confirm`.
@@ -371,7 +376,17 @@ Further rules:
 4. A deny is recorded (`denied`, `resolved_by`, `resolved_at`).
 5. A call through an MCP link (`source='mcp'`) skips this confirmation: it executes immediately as the link's user and is logged in `core_agent_tool_runs` (`mcp.md` §1).
 
-`POST /api/agent/confirm {tool_run_id, decision: "approve" | "deny"}` answers **200** with `{status, result?, error?}`. `status` is one of `done`, `error`, `uncertain`, `stale`, `denied` or `already_resolved`; `already_resolved` comes with `current`, the run's actual status. `already_resolved` is a response status, never a row status. A missing run, or one that is not a chat run, is 404, and a conversation the caller does not own is 403 `not_your_conversation`.
+### Deny reasons
+
+A deny may carry `reason` (at most 500 characters, whitespace collapsed), stored on the run as `deny_reason`. The model reads a denied run (`history.model_content`) as `{"status": "denied_by_user", "reason"?, "message"}`, where `message` is "The user denied this action[: reason]. Do not retry it or work around it until they give new instructions." The breaker: `assembly.assemble_messages` counts the assistant steps with at least one denied run since the latest user message, and from the third (`history.DENIAL_BREAKER_AT`) the denial's message adds "That is N denied steps since their last message: stop and report to the user." It is an instruction in what the model reads, not an enforced stop. An approval between denials does not reset the count, and several denials in one step count once.
+
+### Always allow
+
+`core_agent_approval_rules` holds a person's rules: one live rule per user, agent and tool lets that tool skip its card in that user's chats with that agent. `engine.rule_eligible(spec, args, tainted)` decides both whether a rule may skip a call's card and whether its card may offer to save one: a local write (`writes`, not `always_confirm`, not remote, not `external_effect`, not `destructive`) whose `hides_when` did not fire, in a clean turn. So a rule never covers an always-ask tool, any remote tool (there is no trusted-server setting yet), an outside effect, a write that discards data for good, a call that would take a record out of view, or any call in a tainted conversation, including taint that landed earlier in the same round. A routine tool never offers the box: its card only appears for taint or `hides_when`. `dispatch.run_call` asks `engine.rule_skips` per call, with the turn's live taint; a lookup that raises keeps the card.
+
+The box is a request, not a grant: `confirm(..., always_allow=True)` saves the rule only after the run is `done` and only if `rule_eligible` holds for the conversation's stored taint at that moment; the answer then carries `rule_saved`. The `confirm` event and the conversation read carry `can_always_allow` for a pending card. Settings, Account, Saved approvals lists the caller's live rules (`GET /api/agent/approval-rules`); Remove voids one (`DELETE /api/agent/approval-rules/{id}`, `void_reason` "removed in settings"), and the row stays. A run a rule allowed is not marked on its row; the rule's `created_at` and `voided_at` bracket it.
+
+`POST /api/agent/confirm {tool_run_id, decision: "approve" | "deny", reason?, always_allow?}` answers **200** with `{status, result?, error?, rule_saved?}` (`rule_saved` only when `always_allow` was sent). `status` is one of `done`, `error`, `uncertain`, `stale`, `denied` or `already_resolved`; `already_resolved` comes with `current`, the run's actual status. `already_resolved` is a response status, never a row status. A missing run, or one that is not a chat run, is 404, and a conversation the caller does not own is 403 `not_your_conversation`.
 
 ## 7. Tool-run status enum
 
@@ -401,7 +416,7 @@ Every event also carries `seq`, its position in the turn (from 0), and the first
 | `tool_args` | `{tool, tool_use_id, args, description}` |
 | `tool_end` | `{tool, tool_use_id, tool_run_id, status, result, elapsed_ms}`; the lookups of one step end in the order they finish, so match by `tool_use_id` |
 | `usage` | `{input_tokens, output_tokens, context_tokens, context_window}` |
-| `confirm` | `{tool_run_id, tool, tool_use_id, msg_id, args, summary}` |
+| `confirm` | `{tool_run_id, tool, tool_use_id, msg_id, args, summary, can_always_allow}` |
 | `steer` | `{text}`: a message sent while the turn ran, saved as a user row and now in the model's messages (§5, "Steering") |
 | `done` | `{model}`, or `{stopped: true}` after Stop |
 | `error` | `{error}`, plus `interrupted: true` when the server stopped or restarted mid-turn |
@@ -429,6 +444,7 @@ Every event also carries `seq`, its position in the turn (from 0), and the first
 | `GET /api/agent/turns/{id}/events?after=N` | SSE: the turn's events with `seq > N` (default -1: all), then live ones until it ends. Only the user who started it; anyone else 404 `turn_not_found`. |
 | `POST /api/agent/turns/{id}/cancel` | Stop a running turn: `{cancelled: true}`, or `false` when it had already ended. Owner only (404 otherwise). |
 | `POST /api/agent/confirm` | §6. |
+| `GET /api/agent/approval-rules`, `DELETE /api/agent/approval-rules/{id}` | The caller's live always-allow rules, newest first (`{id, tool, agent_slug, agent_name, created_at}`); DELETE voids the caller's own rule (`{voided: true}`), 404 `rule_not_found` otherwise (§6). |
 | `GET` / `POST /api/agent/conversations`; `GET` / `PATCH {title, is_private}` / `DELETE /api/agent/conversations/{id}` | The caller's own conversations only. |
 | `GET /api/agent/agents`; `PATCH /api/agent/agents/{slug}` (admin) | The PATCH takes `name`, `personality`, `provider_override` (`anthropic` or `openai`), `model_override` and `model_tier` (`default` or `light`). |
 | `GET /api/agent/providers`, `PUT /api/agent/providers/{provider}`, `POST /api/agent/providers/{provider}/test` (admin) | Provider keys and default and light models, one `core_agent_providers` row per vendor. |
@@ -456,7 +472,8 @@ The Step 1 engine stub is gone; the full loop (`turns.py`) runs every turn. `pro
 | `AgentChatPanel` | Chatty `AgentChatPanel.tsx` | Messages, composer (Enter sends, Shift+Enter adds a line, Stop while streaming), context meter from `usage`. |
 | `useAgentChat`, `chatModel`, `sse` | Chatty `useAgentChat.ts` | POST /chat read as SSE over `fetch`; an assistant message is ordered text and tool parts, so a reloaded thread (consecutive assistant rows merged) looks like the streamed one. |
 | `AgentMessageBubble` | Chatty `AgentMessageBubble.tsx` | Markdown text, collapsible tool calls (args, result, status), compaction note, stream errors. |
-| `ToolConfirmCard`, `confirmState` | Chatty card, CakeCRM resolve rule | The Approve card: tool, summary (or nothing), full args. Reloaded threads have no summary because conversation reads do not carry one; collapsed tool calls still use the model-facing description. `pending → sending → resolved`; a failed request returns to pending. Each of `done`, `error`, `uncertain`, `stale`, `denied`, `already_resolved` has its own words. |
+| `ToolConfirmCard`, `confirmState` | Chatty card, CakeCRM resolve rule | The Approve card: tool, summary (or nothing), full args. Reloaded threads have no summary because conversation reads do not carry one; collapsed tool calls still use the model-facing description. `pending → sending → resolved`; a failed request returns to pending. Each of `done`, `error`, `uncertain`, `stale`, `denied`, `already_resolved` has its own words. An optional reason box goes with Deny; an "Always allow" box goes with Approve when the card carries `can_always_allow`, and the done text says whether the rule was saved. |
+| `SavedApprovalsCard` (Settings, Account) | new | The caller's always-allow rules with Remove (voids the rule). |
 | `ConversationSidebar`, `useConversations` | Chatty | Search (`?q=` over message text), new, inline rename, private toggle, delete with confirm. |
 | `MarkdownContent` | shared with the Guide (`src/shared/`) | GFM, no highlighting; in-app links stay in the tab through `Link`, external ones open a new tab; images never load. |
 | `AskAgentButton` | new | "Ask {name}" on every record page (in `RecordServices`, and the todo page): opens `/whisk` with router state `agentContext {page, record}`. `WhiskPage` keeps it, shows a dismissable chip, sends it with every turn through `useAgentChat`'s `context` option, and drops it on New chat. |
@@ -486,6 +503,7 @@ Rules the frontend keeps:
 - `test_agent_parallel_reads.py`: two lookups inside their handlers at once, a write of the step after both, results in call order, at most four at once, hooks in call order and a refused lookup not run, the taint seen by a write and a second web read, a halt or a hook that halts, the start deadline, Stop waits for running lookups. Scenario `lookups_run_together_before_a_write`.
 - `test_agent_turns.py`: a turn survives a disconnect and saves its reply; `after=N` replays each later event once, live and from the log; cancel records `cancelled`; a second running turn is 409; startup and shutdown mark `interrupted`; the prune; a request cancelled while the turn starts still gets an answer; the final log write is retried. `test_agent_hooks.py`: each hook point's contract. `useAgentChat.test.tsx`: resume after a drop and on `visibilitychange`, and Stop.
 - `test_agent_usage.py`: a priced row per chat call, compaction and observer run, the model that answered after a fallback, the rates setting and its checks, a ledger failure never fails the turn, the month in the install timezone. `UsageCard.test.tsx`: the total, the no-rate line, saving a rate.
+- `test_agent_approval_rules.py`: a rule skips the card for its tool only and for its user only, a voided rule stops applying (and the row stays), never in a tainted conversation, re-validated at approve (taint after the card, an always-ask tool), `rule_eligible` per flag, a failed lookup keeps the card; a deny reason is stored bounded and read by the model, the breaker counts denied steps since the user's message. Scenarios `deny_reason_reaches_the_model.yaml` and `always_allow_never_skips_a_tainted_turn.yaml` (and `test_a_rule_that_ignores_taint_fails_the_scenario`).
 - `test_scenarios.py` runs `backend/tests/scenarios/*.yaml` (format in `testing.md`, "Whisk scenarios"): fencing and taint, approve then continue, compaction keeping identifiers, a lossy summary retried then rejected, a dropped turn resuming, the usage rows a turn writes, a readable record named in the prompt and an unreadable one left out, two slow lookups together before a write. `test_agent_compaction.py`: identifier extraction and matching, the outline check, retries, the timeout fallback, the flush and its privacy checks. `test_prompt_budget.py`: the static prompt plus eager tools stay under a token budget.
 - Playwright: Whisk answers with FakeProvider → write tool shows Approve and runs on approve → zero-key card.
 

@@ -1,5 +1,7 @@
+import { useState } from 'react';
 import { pretty, type ToolPart } from './chatModel';
-import { outcomeText, type ConfirmState, type Decision } from './confirmState';
+import { outcomeText, type ConfirmState, type DecideOptions, type Decision } from './confirmState';
+import { useAgentName } from './useAgentName';
 
 const TONE: Record<string, string> = {
   pending: 'border-sf-amber/40 bg-sf-amber/8',
@@ -32,7 +34,8 @@ const TITLE: Record<string, string> = {
 /**
  * The approval card for a write Whisk proposed (`confirm` event, or a pending run in a saved
  * thread). Shows the tool, summary and full args; Approve and Deny go to POST /api/agent/confirm, and the
- * server's answer is what the card shows.
+ * server's answer is what the card shows. Deny may carry a reason the model is told; Approve may
+ * save an "Always allow" rule when the server offered one (`canAlwaysAllow`).
  */
 export function ToolConfirmCard({
   part,
@@ -41,8 +44,11 @@ export function ToolConfirmCard({
 }: {
   part: ToolPart & { confirm: ConfirmState };
   disabled?: boolean;
-  onDecide: (decision: Decision) => void;
+  onDecide: (decision: Decision, opts?: DecideOptions) => void;
 }) {
+  const agentName = useAgentName();
+  const [reason, setReason] = useState('');
+  const [alwaysAllow, setAlwaysAllow] = useState(false);
   const state = part.confirm;
   const key = state.phase === 'resolved' ? state.outcome : 'pending';
   return (
@@ -71,7 +77,7 @@ export function ToolConfirmCard({
             <button
               type="button"
               disabled={disabled || state.phase === 'sending'}
-              onClick={() => onDecide('approve')}
+              onClick={() => onDecide('approve', { alwaysAllow })}
               className="cursor-pointer rounded border-0 bg-sf-accent px-3.5 py-1.5 text-sm font-medium text-sf-accent-ink disabled:cursor-default disabled:opacity-60"
             >
               {state.phase === 'sending' && state.decision === 'approve' ? 'Approving…' : 'Approve'}
@@ -79,11 +85,34 @@ export function ToolConfirmCard({
             <button
               type="button"
               disabled={disabled || state.phase === 'sending'}
-              onClick={() => onDecide('deny')}
+              onClick={() => onDecide('deny', { reason })}
               className="cursor-pointer rounded border border-solid border-sf-line-strong bg-transparent px-3.5 py-1.5 text-sm text-sf-ink-mute disabled:cursor-default disabled:opacity-60"
             >
               {state.phase === 'sending' && state.decision === 'deny' ? 'Denying…' : 'Deny'}
             </button>
+          </div>
+          <div className="mt-2 flex flex-col gap-2">
+            <input
+              type="text"
+              maxLength={500}
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              disabled={disabled || state.phase === 'sending'}
+              aria-label="Reason for denying (optional)"
+              placeholder="Reason for denying (optional)"
+              className="w-full rounded border border-solid border-sf-line bg-sf-card px-2 py-1 text-sm text-sf-ink"
+            />
+            {part.canAlwaysAllow && (
+              <label className="flex items-center gap-2 text-sm text-sf-ink-mute">
+                <input
+                  type="checkbox"
+                  checked={alwaysAllow}
+                  onChange={(e) => setAlwaysAllow(e.target.checked)}
+                  disabled={disabled || state.phase === 'sending'}
+                />
+                Always allow <code className="font-mono text-xs">{part.tool}</code> in my chats with {agentName}
+              </label>
+            )}
           </div>
         </>
       )}

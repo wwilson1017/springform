@@ -51,6 +51,8 @@ export type ChatEvent = { seq?: number; turn_id?: number } & (
       msg_id: number | null;
       args: Record<string, unknown>;
       summary: string;
+      /** The card may offer "Always allow" (a local write in a clean conversation). */
+      can_always_allow?: boolean;
     }
   | { type: 'steer'; text: string } // a message sent while the turn ran, now shown to the model
   | { type: 'done'; model?: string; stopped?: boolean }
@@ -60,6 +62,8 @@ export type ChatEvent = { seq?: number; turn_id?: number } & (
 /** POST /api/agent/confirm. With `already_resolved`, `current` is the run's status now. */
 export type ConfirmResponse = S['ConfirmResponse'];
 export type ConfirmOutcome = ConfirmResponse['status'];
+/** GET /api/agent/approval-rules */
+export type ApprovalRule = S['ApprovalRule'];
 
 /** GET /api/core/context-files */
 export interface ContextFileMeta {

@@ -75,7 +75,7 @@ Settings sections as built, in the order a user sees them (a member sees only th
 
 | Order | `/settings/<id>` | Label | Cards | Declared in |
 |---|---|---|---|---|
-| 5 | `account` | Account | Profile, Security (members) | `src/core/auth/settingsCards.ts` |
+| 5 | `account` | Account | Profile, Security, Saved approvals (members) | `src/core/auth/settingsCards.ts` |
 | 8 | `notifications` | Notifications | Push notifications (members) | `src/core/records/settingsCards.ts` |
 | 10 | `workspace` | Workspace | Workspace (members read, admins edit; includes the timezone) | `src/core/settings/settingsCards.ts` |
 | 20 | `apps` | Apps | Apps (members read, admins hide and order) | `src/core/settings/settingsCards.ts` |

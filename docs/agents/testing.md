@@ -164,7 +164,7 @@ steps:
 |---|---|
 | `send: <text>` | `POST /api/agent/chat` with the message, in the scenario's conversation once it has one |
 | `continue: true` | The same with no message: the resume after approvals |
-| `approve: <tool>` / `deny: <tool>` | `POST /api/agent/confirm` for the newest `confirm` event of that tool |
+| `approve: <tool>` / `deny: <tool>` | `POST /api/agent/confirm` for the newest `confirm` event of that tool; `reason: <text>` (deny) and `always_allow: true` (approve) go in the body |
 | `resume: true` | `GET /api/agent/turns/{id}/events?after=<last seq seen>` for the latest turn |
 
 - `page: <path>` and `record: <records key>` on a `send` or `continue` send the chat's page and record context (the record as `example.widget` with that widget's id).

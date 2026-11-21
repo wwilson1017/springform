@@ -262,7 +262,7 @@ export default function WhiskPage() {
           blocked={status.data.configured ? undefined : <ZeroKeyCard isAdmin={isAdmin} agentName={agentName} />}
           onSend={chat.send}
           onStop={chat.stop}
-          onDecide={(m, t, d) => void chat.decide(m, t, d)}
+          onDecide={(m, t, d, o) => void chat.decide(m, t, d, o)}
         />
       )}
     </div>
