@@ -33,10 +33,12 @@ def test_a_remembered_fact_is_blanked_and_a_held_one_is_not_saved_twice(db, make
     saved = facts.remember(f"The shop card is {CARD} for supplier orders", author_user_id=u.id)
     assert saved["text"] == "The shop card is [removed: card number] for supplier orders"
     assert saved["removed"] == [{"kind": "card number", "count": 1}] and saved["duplicate"] is False
+    tagged = facts.remember("The payment provider is set up", author_user_id=u.id, tags=["payments", STRIPE])
+    assert tagged["tags"] == ["payments", "[removed: key]"] and tagged["removed"] == [{"kind": "key", "count": 1}]
     first = facts.remember("Deliveries go out on Tuesdays.", author_user_id=u.id)
     again = facts.remember("deliveries go out on tuesdays", author_user_id=0, tags=["observed"])
     assert again["duplicate"] is True and again["id"] == first["id"] and again["size"] == "30/1,000 chars"
-    assert len(facts.list_facts()) == 2
+    assert len(facts.list_facts()) == 3
 
 
 def test_a_context_file_write_is_blanked_and_reports_its_size(app, login_as):

@@ -2,6 +2,7 @@
 access line, in a message template, in an exception's traceback, and on the app's own loggers."""
 
 import logging
+import time
 
 from backend.core import logscrub
 
@@ -41,6 +42,13 @@ def test_scrubbed_link_shapes_leave_ordinary_paths_alone():
 def test_signed_urls_are_masked_whole():
     url = "https://bucket.s3.amazonaws.com/f.db?X-Amz-Credential=AK%2F1&X-Amz-Signature=deadbeef"
     assert logscrub.scrub(f"HTTP Request: PUT {url} 200") == "HTTP Request: PUT [signed URL] 200"
+
+
+def test_a_long_path_scrubs_in_linear_time():
+    # Unauthenticated request lines reach the filter on the event loop; a quadratic pattern stalls it.
+    started = time.monotonic()
+    assert logscrub.scrub("/x" * 20_000) == "/x" * 20_000
+    assert time.monotonic() - started < 0.5
 
 
 def test_a_template_naming_the_path_is_rendered_then_scrubbed():

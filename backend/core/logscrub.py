@@ -16,11 +16,14 @@ _TOKEN_PATH = re.compile(r"(/(?:mcp|link|invite|reset-password)/)[^/?#\s\"']+")
 # URL ending in /mcp stays readable.
 _TOKEN_FIRST = re.compile(r"/[A-Za-z0-9_-]{43}(/mcp(?![\w-]))")
 _QUERY_CODE = re.compile(r"([?&](?:code|state|token)=)[^&#\s\"']*", re.I)
-_SIGNED_URL = re.compile(r"(?:https?://|/)[^\s\"'<>]*[?&](?:X-Amz-|X-Goog-Signature|Signature=|sig=)[^\s\"'<>]*", re.I)
+# A signed URL is masked as a whole word. Words first, then the signature test per word: one
+# pattern for both rescans the rest of a long path at every slash (quadratic on a request line).
+_WORD = re.compile(r"[^\s\"'<>]+")
+_SIGNATURE = re.compile(r"[?&](?:X-Amz-|X-Goog-Signature|Signature=|sig=)", re.I)
 
 
 def scrub(text: str) -> str:
-    text = _SIGNED_URL.sub("[signed URL]", text)
+    text = _WORD.sub(lambda m: "[signed URL]" if _SIGNATURE.search(m.group()) else m.group(), text)
     text = _TOKEN_FIRST.sub(r"/***\1", _TOKEN_PATH.sub(r"\1***", text))
     return _QUERY_CODE.sub(r"\1***", text)
 

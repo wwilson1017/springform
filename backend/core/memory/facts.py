@@ -127,6 +127,11 @@ def remember_in(
     except ValueError as e:
         raise Invalid(str(e)) from None
     cleaned, removed = blank_secrets(_clean_text(text))
+    blanked_tags = []
+    for tag in tags or ():
+        tag, gone = blank_secrets(str(tag))  # before _clean_tags cuts a key short of recognition
+        blanked_tags.append(tag)
+        removed += gone
     key = same_words(cleaned)
     # simplification: scans every current fact per write, fine to tens of thousands; upgrade path:
     # a stored key column with an index.
@@ -138,7 +143,7 @@ def remember_in(
             conn,
             """INSERT INTO core_agent_facts (text, tags, valid_from, source_conversation_id, author_user_id, created_at)
                VALUES (?, ?, ?, ?, ?, ?)""",
-            (cleaned, json.dumps(_clean_tags(tags)), start, source_conversation_id, author_user_id, now),
+            (cleaned, json.dumps(_clean_tags(blanked_tags)), start, source_conversation_id, author_user_id, now),
         )
     fact = get_in(conn, fact_id)
     return fact | {
