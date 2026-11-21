@@ -1,0 +1,24 @@
+name: A summary that drops the record id and the amount is sent back naming them, twice, then rejected, and the model still sees the uncompacted rows
+context_window: 1000  # tiny, so the fourth turn compacts
+steps:
+  - send: Hello.
+    replies: [Hi.]
+  - send: Deal 4521 is worth 1250.00 and closes 2026-12-01.
+    replies: [Noted deal 4521.]
+  - send: Invoice INV-0042 belongs to it.
+    replies: [Noted INV-0042.]
+  - send: What do we know about the deal?
+    replies:
+      - &lossy "## Pending user asks\nInvoice INV-0042 belongs to it.\n## Exact identifiers\nThe deal closes 2026-12-01."
+      - *lossy  # first corrective retry
+      - *lossy  # second corrective retry, then rejected
+      - Deal 4521 closes 2026-12-01.
+    events: [{type: text, text: Deal 4521 closes 2026-12-01.}, done]
+    request:
+      - call: 1
+        messages_contain: [YOUR LAST SUMMARY, "It left out these, which must appear exactly as written:\n- 4521\n- 1250.00\n"]
+      - call: 2
+        messages_contain: ["It left out these, which must appear exactly as written:\n- 4521\n- 1250.00\n"]
+      - call: 3  # the turn: no gist, the aged rows still in context
+        messages_contain: [Noted deal 4521., Invoice INV-0042 belongs to it., "What do we know about the deal?"]
+        messages_exclude: ['<conversation_summary']

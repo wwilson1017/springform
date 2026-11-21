@@ -37,7 +37,8 @@ export default function NightlyCard() {
       </label>
       <p className={HINT}>
         At 02:00 Whisk reads the day's conversations that are not private, saves the business facts it finds, and tidies
-        its memory. It uses the light model, so it costs a little each night, and it is skipped while no AI key is set.
+        its memory. While it is on, Whisk also saves them from a long conversation just before summarizing it. It uses
+        the light model, so it costs a little, and it is skipped while no AI key is set.
       </p>
     </div>
   );
