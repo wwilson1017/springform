@@ -1,6 +1,6 @@
 from backend.apps.example import service
 from backend.apps.example.models import WidgetIn
-from backend.core.agent.spec import ToolSpec
+from backend.core.agent.spec import ToolSpec, records_in
 
 
 def _create(conn, user, args: dict) -> dict:
@@ -11,6 +11,13 @@ def _targets(args: dict) -> list[tuple[str, int]]:
     return [("core.person", int(args["person_id"]))] if args.get("person_id") else []
 
 
+def _reads(args: dict, result) -> list[tuple[str, int]]:
+    """The widgets a result carries, for the replay recheck."""
+    return records_in(
+        result, lambda d: [("example.widget", d["id"])] if {"id", "name", "is_private"} <= d.keys() else []
+    )
+
+
 def get_tools() -> list[ToolSpec]:
     return [
         ToolSpec(
@@ -19,6 +26,7 @@ def get_tools() -> list[ToolSpec]:
             input_schema={"type": "object", "properties": {}},
             writes=False,
             handler=lambda user, args: service.list_widgets(user),
+            reads=_reads,
         ),
         ToolSpec(
             name="example_count_widgets",
@@ -27,6 +35,7 @@ def get_tools() -> list[ToolSpec]:
             writes=False,
             handler=lambda user, args: {"count": len(service.list_widgets(user))},
             enabled=lambda user: user.is_admin,
+            reads=lambda args, result: [],  # a count names no widget
         ),
         ToolSpec(
             name="example_create_widget",
@@ -45,5 +54,6 @@ def get_tools() -> list[ToolSpec]:
             handler_in=_create,
             targets=_targets,
             summary="Create this widget.",
+            reads=_reads,
         ),
     ]

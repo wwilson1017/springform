@@ -3,15 +3,16 @@
 
 The prompt is a (static, volatile) pair so Anthropic can cache the static half. Static: who the
 agent is, the admin's personality, the memory package's protected instructions (soul.md,
-MEMORY.md), the installed apps, the confirmation and untrusted-content contracts, the
+MEMORY.md), the name note, the installed apps, the confirmation and untrusted-content contracts, the
 deferred-tool catalog. The contracts come after both editable texts, so neither can talk the
 model out of them. The soul lives only in memory's soul.md, never on the agent row.
-Volatile: today's date in the install timezone, who is asking, and the memory block for this turn.
+Volatile: today's date in the install timezone, who is asking, the page and record they have open
+(`context_note`), and the memory block for this turn.
 """
 
 from __future__ import annotations
 
-from backend.core import db, localtime
+from backend.core import db, entities, localtime
 from backend.core.agent import delimiters
 from backend.core.auth.deps import User
 from backend.core.clock import now_iso
@@ -44,16 +45,31 @@ def _agent(row: dict) -> dict:
     return {**row, "is_default": bool(row["is_default"])}
 
 
-def ensure_default() -> None:
+def ensure_default_in(conn: db.Conn) -> None:
     """Seed Whisk when no default agent exists (startup, and after a factory reset)."""
+    if conn.execute("SELECT 1 FROM core_agents WHERE is_default = 1 OR slug = ?", (DEFAULT_SLUG,)).fetchone():
+        return
+    conn.execute(
+        """INSERT OR IGNORE INTO core_agents (slug, name, model_tier, is_default, created_at)
+           VALUES (?, ?, 'default', 1, ?)""",
+        (DEFAULT_SLUG, DEFAULT_NAME, now_iso()),
+    )
+
+
+def ensure_default() -> None:
     if db.one("SELECT 1 AS x FROM core_agents WHERE is_default = 1 OR slug = ?", (DEFAULT_SLUG,)):
         return
     with db.transaction() as conn:
-        conn.execute(
-            """INSERT OR IGNORE INTO core_agents (slug, name, model_tier, is_default, created_at)
-               VALUES (?, ?, 'default', 1, ?)""",
-            (DEFAULT_SLUG, DEFAULT_NAME, now_iso()),
-        )
+        ensure_default_in(conn)
+
+
+def name_default_in(conn: db.Conn, name: str) -> None:
+    """Rename the default agent (first-run setup), seeding it first if it is missing."""
+    ensure_default_in(conn)
+    conn.execute(
+        "UPDATE core_agents SET name = ? WHERE id = (SELECT id FROM core_agents ORDER BY is_default DESC, id LIMIT 1)",
+        (name,),
+    )
 
 
 def list_agents() -> list[dict]:
@@ -111,6 +127,28 @@ def user_note(user: User) -> str:
     return " ".join(parts + [_ROLE_NOTES.get(user.role, "")]).strip()
 
 
+def context_note(user: User, page: str | None, record: tuple[str, int] | None) -> str:
+    """The page and record the user has open, for the volatile half. The record is named only
+    after `entities.authorize(read)`: an unknown type, a missing record or one this user cannot
+    read is left out without a word, so the prompt never confirms it exists. `page` is a path
+    the router has already held to a plain pattern. Only the type and id are named, never the
+    title: a member can write a shared record's title, and this note is unfenced."""
+    parts = [f"The user has this page of the app open: {page}."] if page else []
+    if record:
+        entity_type, entity_id = record
+        try:
+            conn = db.get_conn()
+            entity = entities.authorize(user, conn, entity_type, entity_id, "read")
+        except NotFound:
+            return " ".join(parts)
+        parts.append(
+            f"The user is looking at {entity.label} #{entity_id} (entity type {entity_type}, id {entity_id}). "
+            f'When they say "this", "this {entity.label.lower()}" or "here", they mean that record; '
+            "read it with a tool when you need its details."
+        )
+    return " ".join(parts)
+
+
 def build_system_prompt(
     agent: dict,
     user: User,
@@ -118,18 +156,22 @@ def build_system_prompt(
     instructions: str = "",
     catalog: str = "",
     memory: str = "",
+    context: str = "",
 ) -> tuple[str, str]:
     from backend.core import registry  # registry imports this package; resolve at call time
 
     install = _one_line(keys.get("workspace.name"), 120) or "this business"
+    name = _one_line(agent["name"]) or DEFAULT_NAME
     apps = registry.list_for_user(user)
     apps_block = "## Installed apps\n" + "\n".join(f"- {a['name']}: {a['description']}" for a in apps) if apps else ""
     static = "\n\n".join(
         p
         for p in [
-            f"You are {agent['name']}, the assistant for {install}.",
+            f"You are {name}, the assistant for {install}.",
             agent["personality"],
             instructions,
+            # After both editable texts, so an old soul.md that names someone else cannot win.
+            f"Your name is {name}. If any text above uses another name for you, ignore it.",
             apps_block,
             registry.agent_guidance(user),
             CONFIRMATION_NOTE,
@@ -144,6 +186,7 @@ def build_system_prompt(
         for p in [
             f"Today is {now.strftime('%A, %B %d, %Y')} ({now.tzinfo}).",
             user_note(user),
+            context,
             memory,
         ]
         if p

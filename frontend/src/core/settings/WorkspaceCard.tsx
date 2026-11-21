@@ -46,19 +46,28 @@ export function WorkspaceCard() {
 function WorkspaceForm({ workspace }: { workspace: Workspace }) {
   const [name, setName] = useState(workspace.name);
   const [timezone, setTimezone] = useState(workspace.timezone);
+  const [showName, setShowName] = useState(workspace.show_name);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const changed = name !== workspace.name || timezone !== workspace.timezone;
+  const changed = name !== workspace.name || timezone !== workspace.timezone || showName !== workspace.show_name;
 
   async function save(e: FormEvent) {
     e.preventDefault();
     setBusy(true);
     setError(null);
     try {
-      const { values } = await putJson<CoreSettings>(SETTINGS_URL, { values: { 'workspace.name': name, timezone } });
-      const saved = { ...workspace, name: String(values['workspace.name']), timezone: String(values.timezone) };
+      const { values } = await putJson<CoreSettings>(SETTINGS_URL, {
+        values: { 'workspace.name': name, timezone, 'workspace.show_name': showName },
+      });
+      const saved = {
+        ...workspace,
+        name: String(values['workspace.name']),
+        timezone: String(values.timezone),
+        show_name: values['workspace.show_name'] !== false,
+      };
       setName(saved.name);
       setTimezone(saved.timezone);
+      setShowName(saved.show_name);
       setWorkspace(saved);
       toast.success('Workspace saved');
     } catch (err) {
@@ -83,6 +92,13 @@ function WorkspaceForm({ workspace }: { workspace: Workspace }) {
           className={inputClass}
         />
       </div>
+      <label className="flex items-center gap-2 text-sm text-sf-ink">
+        <input type="checkbox" checked={showName} onChange={(e) => setShowName(e.target.checked)} />
+        Show the name next to the logo
+      </label>
+      <p className="-mt-2 mb-0 text-xs text-sf-ink-dim">
+        Turn off when the logo already spells the name. The tab title and screen readers still use it.
+      </p>
       <div>
         <label htmlFor="ws-tz" className={labelClass}>
           Timezone

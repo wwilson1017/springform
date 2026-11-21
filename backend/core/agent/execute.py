@@ -11,6 +11,9 @@ the chat loop's ungated calls, the approval step (`engine.confirm`) and inbound 
 
 Given `run_id` (an approved pending run), the run is claimed (pending -> executing) instead of
 inserted, and one somebody else claimed first comes back `already_resolved` without running.
+
+A `done` run also stores `records`, what its result names (the tool's `reads`), which
+`history.recheck` checks against the user's current read access whenever the result is shown again.
 """
 
 from __future__ import annotations
@@ -18,14 +21,16 @@ from __future__ import annotations
 import concurrent.futures
 import contextvars
 import json
+import logging
 
 from backend.core import db, entities
-from backend.core.agent import delimiters, history
+from backend.core.agent import deferred, delimiters, history, registry
 from backend.core.agent.spec import ToolSpec, calling_conversation, tool_def_sha256
 from backend.core.auth.deps import User
 from backend.core.errors import AppError
 
 TOOL_TIMEOUT = 30  # seconds for a handler that runs outside a transaction
+logger = logging.getLogger(__name__)
 
 
 def error_text(e: Exception) -> str:
@@ -42,6 +47,48 @@ def dump(spec: ToolSpec, result) -> tuple[str, bool]:
     if spec.untrusted_source:
         return json.dumps(delimiters.wrap_untrusted_external(spec.name, text)), True
     return text, False
+
+
+def records(spec: ToolSpec, args: dict, result) -> str:
+    """The JSON of the records `result` names, and history.UNKNOWN (always withheld) when `reads`
+    fails, so a provenance bug neither rolls back a write nor skips the recheck. Without `reads`, a
+    core tool (each one classified by the registry guard test) or a remote one (external text) names
+    none, and an app's is unknown: a fork's tool written before `reads` existed fails closed."""
+    if spec.reads is None:
+        return "[]" if spec.app == "core" or spec.remote else history.UNKNOWN
+    try:
+        return json.dumps(sorted({(str(t), int(i)) for t, i in spec.reads(args, result)}))
+    except Exception:
+        logger.exception("%s: reads failed; its result will be withheld on replay", spec.name)
+        return history.UNKNOWN
+
+
+def backfill_records() -> int:
+    """Give every done chat run stored before `records` existed a deliberate state (startup): what
+    the live tool's `reads` names, else history.UNKNOWN, so no older result escapes the recheck.
+    Ascending ids let a `core_read_result` page find its source already filled."""
+    live = registry.current()
+    with db.transaction() as conn:
+        rows = conn.execute(
+            """SELECT id, tool, args, result FROM core_agent_tool_runs
+                WHERE status = 'done' AND records IS NULL AND conversation_id IS NOT NULL ORDER BY id"""
+        ).fetchall()
+        for row in rows:
+            spec = live.get(row["tool"])
+            try:
+                result = json.loads(row["result"] or "null")
+                if spec is not None:
+                    named = records(spec, json.loads(row["args"] or "{}"), result)
+                elif row["tool"] == deferred.FIND_TOOLS:
+                    named = "[]"  # loads tool definitions, names no record (not a registry spec)
+                elif isinstance(result, str) and result.startswith(delimiters.UNTRUSTED_EXTERNAL_MARKER):
+                    named = "[]"  # a remote tool (registered later, by its server's refresh): external text only
+                else:
+                    named = history.UNKNOWN  # its tool is gone, so what it named is unknown
+            except ValueError:
+                named = history.UNKNOWN
+            conn.execute("UPDATE core_agent_tool_runs SET records = ? WHERE id = ?", (named, row["id"]))
+    return len(rows)
 
 
 def _authorize_targets_in(conn: db.Conn, spec: ToolSpec, user: User, args: dict) -> None:
@@ -118,7 +165,15 @@ def run_tool(user: User, spec: ToolSpec, args: dict, *, source: str, run_id: int
                 if spec.handler_in is not None:
                     result = spec.handler_in(conn, user, args)
                     stored, tainted = dump(spec, result)
-                    history.resolve_in(conn, rid, "done", result=stored, resolved_by=user.id, expect="executing")
+                    history.resolve_in(
+                        conn,
+                        rid,
+                        "done",
+                        result=stored,
+                        resolved_by=user.id,
+                        expect="executing",
+                        records=records(spec, args, result),
+                    )
                     return _outcome(rid, "done", result, stored, tainted=tainted)
     except Exception as e:
         return refused(e)
@@ -132,8 +187,11 @@ def run_tool(user: User, spec: ToolSpec, args: dict, *, source: str, run_id: int
     except Exception as e:
         status = "uncertain" if spec.external_effect else "error"
         history.resolve(rid, status, error=error_text(e), resolved_by=user.id, expect="executing")
-        return _outcome(rid, status, error=error_text(e))
+        # an untrusted source's error may carry its text too, so it taints like a result
+        return _outcome(rid, status, error=error_text(e), tainted=spec.untrusted_source)
     finally:
         calling_conversation.reset(conversation)
-    history.resolve(rid, "done", result=stored, resolved_by=user.id, expect="executing")
+    history.resolve(
+        rid, "done", result=stored, resolved_by=user.id, expect="executing", records=records(spec, args, result)
+    )
     return _outcome(rid, "done", result, stored, tainted=tainted)

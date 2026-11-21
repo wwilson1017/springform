@@ -1,0 +1,18 @@
+name: Claude's own web search taints the conversation, so a routine write in that reply and every later one confirms
+tools:
+  - name: core_scen_jot_note
+    writes: true
+    confirm_tier: routine
+steps:
+  - send: Look up today's opening hours, then note them.
+    replies:
+      - {tool: core_scen_jot_note, untrusted: true}  # the reply held server-side search results (Anthropic mode)
+      - Your note is waiting for approval.
+    events:
+      - {type: confirm, tool: core_scen_jot_note}  # a routine write, yet it waits
+      - done
+  - send: Note that the door is open.
+    replies: [{tool: core_scen_jot_note}, This one needs approval too.]
+    events:
+      - {type: confirm, tool: core_scen_jot_note}  # the taint is the conversation's
+      - done

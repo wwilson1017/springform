@@ -1,0 +1,24 @@
+name: The page and a readable record the user has open reach the prompt; an unreadable record is left out without a word
+records:  # example widgets owned by someone else
+  shared: {name: Blue scenario widget}
+  hidden: {name: Secret scenario widget, private: true}
+steps:
+  - send: What is this one?
+    page: /example/1
+    record: shared
+    replies: [It is the blue widget.]
+    events: [done]
+    request:
+      system_contains:
+        - "The user has this page of the app open: /example/1."
+        - 'The user is looking at Widget #'
+        - (entity type example.widget, id
+      system_exclude: [Blue scenario widget]  # a member-written title stays out of the unfenced note
+  - send: And this one?
+    page: /example/2
+    record: hidden
+    replies: ["Which widget do you mean?"]
+    events: [done]  # no error: the record is dropped, not refused
+    request:
+      system_contains: ["The user has this page of the app open: /example/2."]
+      system_exclude: [Secret scenario widget, looking at, example.widget]

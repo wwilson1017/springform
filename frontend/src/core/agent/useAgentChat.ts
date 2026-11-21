@@ -21,7 +21,7 @@ import { ApiError, fetchJson, postJson } from '../api/client';
 import { applyEvent, cardsOf, fromServer, localId, type ChatMessage, type ToolPart } from './chatModel';
 import { confirmReducer, runStatusOf, shouldResume, type ConfirmEvent, type Decision } from './confirmState';
 import { readEvents } from './sse';
-import type { ChatEvent, ConfirmResponse, ConversationDetail } from './types';
+import type { ChatContext, ChatEvent, ConfirmResponse, ConversationDetail } from './types';
 
 export interface ContextUsage {
   contextTokens: number;
@@ -34,6 +34,8 @@ interface Options {
   onTitle?: (id: number, title: string) => void;
   /** POST /chat answered 400 no_provider: the keys went away since the page loaded. */
   onNoProvider?: () => void;
+  /** The page and record the user came from; sent with every turn, read when the turn starts. */
+  context?: ChatContext | null;
 }
 
 interface Turn {
@@ -50,9 +52,9 @@ interface Turn {
 /** Backoff for re-attaching to, or re-reading, a dropped turn. */
 export const RECONNECT_DELAYS_MS = [500, 1000, 2000, 4000, 8000];
 
-export const DROP_NOTICE = 'The connection dropped. This shows what Whisk saved.';
+export const DROP_NOTICE = 'The connection dropped. This shows what the assistant saved.';
 export const LOST_NOTICE =
-  'The connection dropped and Whisk could not be reached. Reload the page to see what was saved.';
+  'The connection dropped and the assistant could not be reached. Reload the page to see what was saved.';
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -77,10 +79,10 @@ async function cancelTurn(turn: Turn) {
 }
 
 function httpError(status: number, detail: string): string {
-  if (detail === 'no_provider') return 'Whisk needs an AI key before it can answer.';
+  if (detail === 'no_provider') return 'The assistant needs an AI key before it can answer.';
   if (status === 404) return 'This conversation was not found.';
-  if (detail === 'turn_running') return 'Whisk is still answering in this conversation. Try again in a moment.';
-  return `Whisk could not answer (${status}${detail ? `: ${detail}` : ''}).`;
+  if (detail === 'turn_running') return 'The assistant is still answering in this conversation. Try again in a moment.';
+  return `The assistant could not answer (${status}${detail ? `: ${detail}` : ''}).`;
 }
 
 function confirmFailure(e: unknown): string {
@@ -188,6 +190,7 @@ export function useAgentChat(options: Options = {}) {
         }
         updateMessage(asstId, (m) => events.reduce(applyEvent, m));
       };
+      const payload = JSON.stringify({ ...optionsRef.current.context, ...body });
       try {
         const post = () =>
           fetch('/api/agent/chat', {
@@ -195,7 +198,7 @@ export function useAgentChat(options: Options = {}) {
             credentials: 'same-origin',
             signal: turn.ctl.signal,
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(body),
+            body: payload,
           });
         let res = await post();
         // A continuation can race the turn it follows (still wrapping up, maybe in another tab):

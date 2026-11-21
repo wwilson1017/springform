@@ -24,6 +24,9 @@ export function Layout() {
   const location = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
   const workspace = useWorkspace();
+  // An admin may hide the name beside a logo that already spells it (Settings > Workspace); the
+  // home link then carries the name as its label, so screen readers lose nothing.
+  const showName = workspace?.show_name !== false;
 
   // App nav for the apps this user receives, in the server's order. Hiding an app removes its nav
   // for members only (the server does not send them hidden apps; the filter holds if it ever does).
@@ -57,12 +60,13 @@ export function Layout() {
         )}
         <Link
           to="/"
+          aria-label={showName ? undefined : workspace?.name}
           className="flex min-w-0 items-center gap-2 font-display text-lg font-medium text-sf-bar-ink no-underline"
         >
           {/* Sized by height: a square mark stays 28px square, a wide wordmark keeps its ratio up to the cap. */}
           <img src="/branding/header-light.svg" alt="" className={`${HEADER_LOGO} dark:hidden`} />
           <img src="/branding/header-dark.svg" alt="" className={`hidden ${HEADER_LOGO} dark:block`} />
-          <span className="truncate">{workspace?.name}</span>
+          {showName && <span className="truncate">{workspace?.name}</span>}
         </Link>
         {!isMobile && (
           <nav className="ml-4 flex gap-1">

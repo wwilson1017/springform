@@ -124,7 +124,7 @@ def test_a_lossy_summary_is_retried_naming_what_is_missing_then_rejected(monkeyp
 
     monkeypatch.setattr(compaction, "acomplete", lossy)
     middle = [{"id": 3, "role": "user", "content": {"text": "Deal 4521 is worth 1250.00, closing 2026-12-01."}}]
-    assert asyncio.run(compaction._summarize(middle, {}, None)) == ("", "rejected")
+    assert asyncio.run(compaction._summarize(middle, {}, None, 0)) == ("", "rejected")
     assert len(prompts) == 1 + compaction.SUMMARY_RETRIES
     assert "YOUR LAST SUMMARY" not in prompts[0]
     for p in prompts[1:]:
@@ -140,7 +140,7 @@ def test_a_summary_fixed_on_retry_is_kept(monkeypatch):
 
     monkeypatch.setattr(compaction, "acomplete", complete)
     middle = [{"id": 3, "role": "user", "content": {"text": "Deal 4521 is worth 1250.00."}}]
-    assert asyncio.run(compaction._summarize(middle, {}, None)) == (good, "ok")  # the second lacked the outline
+    assert asyncio.run(compaction._summarize(middle, {}, None, 0)) == (good, "ok")  # the second lacked the outline
 
 
 def test_a_timed_out_summary_drops_the_oldest_rows_and_keeps_the_previous_gist(login_as, monkeypatch):
@@ -206,6 +206,15 @@ def test_the_flush_records_facts_as_the_observer_and_reads_each_row_once(login_a
     assert asyncio.run(compaction._flush(cid, last_user)) == 0 and len(model_requests) == n  # already read
     obs = core_db.one("SELECT * FROM core_agent_observations WHERE conversation_id = ?", (cid,))
     assert obs["pending"] == 1  # the last user row is still the nightly observer's
+
+
+@pytest.mark.parametrize("stop", ["max_tokens", "refusal"])
+def test_a_cut_off_or_refused_flush_records_nothing(login_as, nightly_on, stop):
+    a = login_as("member")
+    cid = thread(a, DEAL)
+    fake.script({"tool": "core_memory_remember", "args": {"text": "Deal 4521 is worth 1250.00."}, "stop": stop})
+    assert asyncio.run(compaction._flush(cid, 10_000)) == 0
+    assert core_db.one("SELECT count(*) AS n FROM core_agent_facts")["n"] == 0
 
 
 @pytest.mark.parametrize("when", ["private", "tainted", "made private during the call", "observed during the call"])

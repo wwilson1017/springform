@@ -9,5 +9,6 @@ def get_tools() -> list[ToolSpec]:
             input_schema={"type": "object", "properties": {}},
             writes=False,
             handler=lambda user, args: {"ok": True},
+            reads=lambda args, result: [],
         )
     ]

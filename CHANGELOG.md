@@ -20,11 +20,33 @@ Conventions:
 
 ### Added
 
+- Whisk's conversation summaries keep what matters: a fixed outline, and a check that record ids, amounts, links, dates and the latest request survive word for word (a summary that drops them is retried twice, then not used). A summary that times out drops the oldest messages instead of making every turn wait. With the nightly memory pass on, Whisk also saves durable business facts from the messages about to leave its context just before summarizing, as the nightly observer would (never from private conversations).
+- Whisk can search the web and read a web page (`core_web_search`, `core_web_fetch`). What it reads is treated as untrusted, so every later change, page read or search in that conversation asks for approval. Search is DuckDuckGo by default, or Anthropic's own web search while Whisk runs on Anthropic; admins switch both in Settings, AI, Web. Page reads never reach private or local addresses, including through redirects.
+- Record pages have an "Ask {assistant}" button: the chat opens knowing which page and record you came from, and names the record to the assistant only when you can read it.
+- Settings, AI, Usage shows this month's AI spend by source (chat, compaction, the nightly run) and model, with the cache hit rate. Every model call is recorded, background ones included; costs are estimated from list prices an admin can edit.
+
+### Changed
+
+- Whisk runs the lookups of one step at the same time (up to four), so a question that needs several is answered sooner. A change asked for in the same step runs after them, and asks for approval when one of them read the web.
+- Outbound MCP also refuses NAT64, 6to4 and IPv4-compatible IPv6 addresses.
+
+### Fixed
+
+- Whisk no longer shows an earlier tool result again (in later replies, the conversation, or a paged read) once it names a record the person can no longer see, such as a team todo made private. It says the result was withheld and can look again.
+
+## [0.1.4] - 2026-11-21
+
+Forks can set their own colours and logo, an admin can hide the install name next to the logo, and Whisk keeps answering through dropped tabs and provider failures.
+
+### Added
+
+- Whisk stops itself when it keeps repeating the same step, fixes simple argument slips (`"42"` for 42), suggests the right name for a mistyped tool, adds a correction when it says it sent or created something it did not, and can search your earlier conversations.
 - When the AI provider fails, Whisk says why and names the model. It waits and retries once on a rate limit, trims its context when a request is too long, and on an outage switches to the other provider or the light model for that turn, unless the turn has already changed something. A reply that was cut off, refused, empty, or stopped at the 20-step limit ends with a note saying so (saved with the conversation), and at the limit Whisk gives a final answer first.
 - Whisk copes with very large tool results: over 25,000 characters it reads the start and the end (a list of records as a compact table first) and can page or search the rest with `core_read_result` for 24 hours. In a long turn, results it has already used are cleared from its working context past 100,000 tokens, the newest three kept.
+- An admin can hide the install name next to the header logo (Settings > Workspace, "Show the name next to the logo", on by default) for a logo that already spells it; the home link keeps the name for screen readers. The browser tab now shows the install name.
 - A fork can set its own colours and a wide logo without editing core. `frontend/public/branding/theme.css` (upstream ships it empty) redefines the `--color-sf-*` tokens for light and dark, three new tokens colour the header bar (`--color-sf-header`, `--color-sf-header-ink`, `--color-sf-highlight`), the header shows its own `header-light.svg`/`header-dark.svg`, logos are sized by height so a wordmark keeps its ratio, and the favicon moved to `branding/favicon.svg`. The contrast tests check a fork's palette too (`docs/agents/forks.md` §10).
+- First-run setup has an optional "Assistant name" field.
 - Whisk keeps answering when the tab drops or the phone locks: the turn runs on the server, the page picks the reply back up where it left off (`GET /api/agent/turns/{id}/events?after=<seq>`; every chat event now carries `seq`, the first also `turn_id`), and Stop ends the turn on the server (`POST /api/agent/turns/{id}/cancel`). A message sent while Whisk is still answering in that conversation is refused (409 `turn_running`). Hook points in the turn loop (`backend/core/agent/turn_hooks.py`) ship empty, for later harness changes.
-- Whisk's conversation summaries keep what matters: a fixed outline, and a check that record ids, amounts, links, dates and the latest request survive word for word (a summary that drops them is retried twice, then not used). A summary that times out drops the oldest messages instead of making every turn wait. With the nightly memory pass on, Whisk also saves durable business facts from the messages about to leave its context just before summarizing, as the nightly observer would (never from private conversations).
 - MCP links also work at `/link/<token>` and `/<token>/mcp`, and opening one in a browser shows a short page on how to connect it instead of an error.
 - MCP tools carry titles and explicit hints, so ChatGPT and Claude no longer treat every write as destructive (merging deals still is). Apps can give AI tools a paragraph of guidance (`agent_guidance` in `app.json`), which Whisk and MCP clients both receive; Todos gives its GTD-partner rules.
 - Todos tools for AI clients cover projects, areas, bulk create and update, one todo in full, and the change feed, and `todos_list` pages compact rows with `total` and `next_offset`. Settings → MCP shows connect steps for Claude, ChatGPT, Gemini, Claude Code, Cursor, VS Code, Codex and Gemini CLI.
@@ -32,6 +54,7 @@ Conventions:
 
 ### Changed
 
+- Renaming the assistant in Settings → AI now renames it everywhere: the nav, the chat page, the Settings cards, the Guide and the system prompt. A new install's `soul.md` no longer names the assistant, and the prompt tells the model to ignore an older name in it.
 - CI also checks formatting (`ruff format`, Prettier) and types (pyright), and installs from `uv.lock` with `--locked`. `scripts/check.sh` runs the same checks locally, and `scripts/new-app.sh` formats the app it writes so a new app passes them. A fork whose app tests trip pyright's Optional-access rules adds its tests folder to `executionEnvironments` in `pyproject.toml` (`docs/agents/forks.md`).
 
 ### Removed

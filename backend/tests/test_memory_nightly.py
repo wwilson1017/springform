@@ -32,7 +32,7 @@ def llm(db, monkeypatch):
     mod.NoProviderConfigured = type("NoProviderConfigured", (Exception,), {})
     mod.calls, mod.reply, mod.during_call = [], '{"facts": []}', None
 
-    def complete(system, prompt, *, tier="standard", max_tokens=1024):
+    def complete(system, prompt, *, tier="standard", max_tokens=1024, source="app"):
         assert not core_db.in_transaction(), "LLM call inside transaction()"
         mod.calls.append({"system": system, "prompt": prompt, "tier": tier, "max_tokens": max_tokens})
         if mod.during_call:

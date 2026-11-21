@@ -140,6 +140,7 @@ The settings an admin changes through `/api/core/settings` are the core keys bel
 | Key | Default | Notes |
 |---|---|---|
 | `workspace.name` | `"Springform"` | Text, required, at most 80 characters. |
+| `workspace.show_name` | `true` | Off: the header shows only the logo, not the name beside it (`forks.md` §10). |
 | `timezone` | `"UTC"` | An IANA timezone; the install timezone. |
 | `requests.warning_text` | A default warning | Shown on the Requests form; at most 2,000 characters. |
 | `github.repo` | `""` | `owner/name` for Requests. |
@@ -147,7 +148,11 @@ The settings an admin changes through `/api/core/settings` are the core keys bel
 | `files.max_bytes` | 25 MB | Upload size cap. |
 | `agent.nightly_enabled` | `false` | Gates `core.agent_nightly`. |
 | `agent.context_budget_chars` | `12000` | Whole number above zero. Caps the memory block Whisk reads per turn. |
+| `agent.cost_rates` | list prices | `{model: {input, output, cache_read, cache_write}}`, USD per million tokens, each 0 to 10,000. Prices the usage ledger (`agent.md` §5). |
 | `auth.require_totp_for_google` | `false` | Adds the local TOTP step to Google sign-in. |
+| `web.enabled` | `true` | Offers Whisk `core_web_search` and `core_web_fetch`. |
+| `web.search_provider` | `"free"` | `free` (DuckDuckGo via `ddgs`) or `anthropic` (Anthropic's server-side search while Whisk runs on Anthropic; OpenAI keeps the free one). |
+| `web.search_max_uses` | `5` | 1 to 20: Anthropic searches per reply. |
 
 `GET /api/core/settings` lists exactly these keys, so saving every listed value back succeeds. Other `core_settings` rows are internal and not listed. Some keys are written only by their own routes, never through `/api/core/settings`: `auth.google_client_id` and `auth.google_client_secret` by `PUT /api/auth/google/config`, `sheets.service_account_json` by `PUT /api/core/sheets/credentials`, and `notifications.vapid_public_key` / `notifications.vapid_private_key`, which are generated.
 
@@ -155,7 +160,7 @@ The settings an admin changes through `/api/core/settings` are the core keys bel
 GET    /api/core/settings        (admin) -> {values, secrets: {key: bool}, defaults}; never a secret value
 PUT    /api/core/settings        (admin) {values: {key: value}} -> the same view; every key is validated first, so one bad value writes nothing
 DELETE /api/core/settings/{key}  (admin) -> back to the default
-GET    /api/core/workspace       -> {name, timezone, version, preview, public_url}
+GET    /api/core/workspace       -> {name, show_name, timezone, version, preview, public_url}
 ```
 
 ## Roles

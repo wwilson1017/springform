@@ -12,6 +12,7 @@ steps:
       - "## Goal\nTrack deal 4521.\n## Constraints\nNone.\n## Decisions\nNone.\n## Done / In progress / Blocked\nNoted the deal and its invoice.\n## Pending user asks\nInvoice INV-0042 belongs to it. (answered)\n## Exact identifiers\nDeal 4521, 1250.00, 2026-12-01"  # the summary
       - Deal 4521 closes 2026-12-01.
     events: [compacted, {type: text, text: Deal 4521 closes 2026-12-01.}, done]
+    usage: [{source: compaction, model: fake-light}, {source: chat, model: fake-default}]
     request:
       - call: 0  # the summarizer (light tier), told what must survive; no memory flush while the nightly pass is off
         system_contains: [Exact identifiers, MUST APPEAR VERBATIM]

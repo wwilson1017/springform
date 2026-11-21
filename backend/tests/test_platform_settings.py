@@ -34,6 +34,7 @@ def test_put_validates_every_key_before_writing_any(login_as):
         ({"files.max_bytes": -1}, "files.max_bytes"),
         ({"agent.nightly_enabled": "yes"}, "agent.nightly_enabled"),
         ({"workspace.name": "   "}, "workspace.name"),
+        ({"workspace.show_name": "no"}, "workspace.show_name"),
         ({"github.token": ""}, "github.token"),
     ]
     for values, detail in bad:
@@ -79,12 +80,24 @@ def test_settings_are_admin_only_and_workspace_is_for_every_member(login_as, app
     workspace = member.get("/api/core/workspace").json()
     assert workspace == {
         "name": "Acme Bakery",
+        "show_name": True,
         "timezone": "Europe/Paris",
         "version": workspace["version"],
         "preview": False,
         "public_url": "http://localhost:8000",
     }
     assert workspace["version"]
+
+
+def test_an_admin_hides_the_name_next_to_the_logo_for_everyone(login_as):
+    admin, member = login_as("admin"), login_as("member")
+    assert member.get("/api/core/workspace").json()["show_name"] is True  # default: unchanged installs
+    r = admin.put("/api/core/settings", json={"values": {"workspace.show_name": False}})
+    assert r.status_code == 200, r.text
+    assert r.json()["values"]["workspace.show_name"] is False
+    assert member.get("/api/core/workspace").json()["show_name"] is False
+    assert admin.delete("/api/core/settings/workspace.show_name").status_code == 200
+    assert member.get("/api/core/workspace").json()["show_name"] is True
 
 
 def test_workspace_shows_public_url_from_the_env_auth_uses(login_as, monkeypatch):

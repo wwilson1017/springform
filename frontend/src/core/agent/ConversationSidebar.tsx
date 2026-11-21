@@ -17,6 +17,7 @@ interface Props {
   onRename: (id: number, title: string) => Promise<void>;
   onTogglePrivate: (c: Conversation) => void;
   onDelete: (c: Conversation) => void;
+  agentName: string;
 }
 
 const ACTION =
@@ -39,6 +40,7 @@ export function ConversationSidebar({
   onRename,
   onTogglePrivate,
   onDelete,
+  agentName,
 }: Props) {
   const [editing, setEditing] = useState<{ id: number; title: string } | null>(null);
   // Enter and the blur that follows both commit; the first one wins.
@@ -147,8 +149,8 @@ export function ConversationSidebar({
                       aria-pressed={c.is_private}
                       title={
                         c.is_private
-                          ? 'Private: Whisk does not learn from it. Click to allow.'
-                          : 'Make private: Whisk will not learn business facts from it.'
+                          ? `Private: ${agentName} does not learn from it. Click to allow.`
+                          : `Make private: ${agentName} will not learn business facts from it.`
                       }
                       aria-label={c.is_private ? 'Make not private' : 'Make private'}
                       className={`${ACTION} ${c.is_private ? 'text-sf-ink' : ''}`}

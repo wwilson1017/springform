@@ -123,6 +123,7 @@ A copy of record data (an audit row, a notification, a reminder, an export) is c
 | Todos `/for/{entity_type}/{entity_id}` | `authorize(read)` on the record first, then team todos plus the caller's private ones. |
 | Admin CSV export | Rows the exporting admin cannot `can_read` are left out (`sheets-and-export.md`). |
 | Whisk tools | `targets(args)` records are authorized for `write` inside the approval transaction (`agent.md`). |
+| Whisk tool results | A stored result names the records it copies (`core_agent_tool_runs.records`, from the tool's `reads`). Every later showing (the next turn, compaction, `core_read_result`, the conversation view, a replayed turn event) re-runs `authorize(read)` as the run's user, and a result naming any record that fails is shown as a fixed notice instead (`agent.md` §5, "Replay recheck"). |
 
 ## 6. Reference: `todos.item`
 
@@ -182,6 +183,7 @@ The "search" surface is the two search endpoints that exist: `GET /api/core/cont
 - A team todo notifies a member, then goes private: before `flush` the delivery is dropped and the row hidden; after an in-app delivery the row is hidden on next read.
 - Reset an app holding a private record with attachments and notes, create a new record visible to another member, and assert none of the old content attaches to or is readable through it.
 - Export: a two-user test proves a private todo is absent from the other admin's export.
+- Whisk replay: a member's earlier `todos_get` of a team todo is withheld from their next turn, conversation view, turn events and `core_read_result` once the owner makes it private or deletes it (`test_agent_replay_access.py`).
 - Setup test runs against the real migrated, seeded database (system row present).
 
 ## Source

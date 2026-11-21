@@ -94,6 +94,7 @@ All lifted code is the author's sole authorship (Decisions, License); the proven
 | `backend/core/agent/deferred.py` | chatty | `backend/core/agents/deferred_tools.py` | 350 (head 410) | lift | Group key = app slug, threshold 100. |
 | `backend/core/agent/result_cap.py`, `context_shrink.py`, `tools.py` | cake_os | `backend/core/agents/tool_result_compression.py` (the CSV rule) | ~250 | new + lift | #87. Head + tail cap, `core_read_result` and in-turn clearing are new. |
 | `backend/core/agent/errors.py`, `endings.py` | CakeCRM | `backend/assistant/engine.py` at 47b743e (closing notes, 429 back-off) | ~200 | new + lift | #87. Error classes and the write-safe fallback are new. |
+| `backend/core/agent/loop_guard.py`, `call_repair.py`, `completion_claims.py` | cake_os | `backend/core/agents/completion_claims.py` (the claim guards) | ~300 | new + lift | #87. Loop guards, call repair and conversation search are new. |
 | `backend/core/agent/agents.py` | CakeCRM | `backend/assistant/identity.py` | 300 (head 737) | port | Rows, not a singleton. |
 | `backend/core/memory/facts.py` | CakeCRM | `backend/memory/service.py` (Chatty's memory as CakeCRM ported it) | part of 1,800 | port | FTS5, temporal facts, soft invalidation. Chatty's `db.py` was not lifted directly. |
 | `backend/core/memory/context_files.py` | CakeCRM | `backend/context_files/service.py` | part of 1,800 (head 1,274 py) | port | One module; tsvector → FTS5. Chatty's context-file layout. |
@@ -101,6 +102,7 @@ All lifted code is the author's sole authorship (Decisions, License); the proven
 | `backend/core/agent/router.py` | CakeCRM | `backend/assistant/router.py` | 250 (head 428) | port | Minus uploads. |
 | `backend/core/mcp/` (`router.py`, `startup.py`; `links.py`, `server.py` new) | todo-gtd | `backend/mcp_server.py` HTTP section, `backend/logscrub.py` | ~330 | new + lift | Plan cites ~700–946; at head the section is 832–946. Donor uses FastMCP; Springform uses the `mcp` low-level `Server`. Landed as a core package, not `agent/mcp_server.py`. |
 | `backend/core/mcp_servers/` (outbound client) | — | — | 320 | new | |
+| `backend/core/web/tools.py`, `transport.internal()` embedded ranges | cake_os | `backend/core/agents/tools/web_tools.py` (`_V4_EMBEDDING_NETS`, `_require_public_address`, `web_search`, `web_fetch`) | file 649 (head) | port | Refused IPv6 ranges and the fetch-and-extract shape; pinning and redirects use the existing guarded transport instead of the donor's per-hop URL pinning. |
 | `frontend/src/core/agent/WhiskPage` | chatty | `frontend/src/agent/AgentPage.tsx` | 967 → ~400 | port | |
 | `frontend/src/core/agent/AgentChatPanel` | chatty | `frontend/src/agent/components/AgentChatPanel.tsx` | 880 → ~500 | port | |
 | `frontend/src/core/agent/useAgentChat` | chatty | `frontend/src/agent/hooks/useAgentChat.ts` | 653 → ~400 | port | |

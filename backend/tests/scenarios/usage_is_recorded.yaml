@@ -1,0 +1,16 @@
+name: Each model call of a chat turn writes a usage row naming the provider and model that answered
+steps:
+  - send: Find the widget notes.
+    replies:
+      - {tool: core_memory_search, args: {query: widget}}
+      - No widget notes yet.
+    events: [done]
+    usage:
+      - {source: chat, provider: fake, model: fake-default}
+      - {source: chat, provider: fake, model: fake-default}
+  - send: Try again.
+    replies:
+      - {error: overloaded, status: 529, code: overloaded_error}
+      - From the light model.
+    events: [{type: done, model: fake-light}]
+    usage: [{source: chat, model: fake-light}]

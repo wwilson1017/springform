@@ -28,7 +28,7 @@ def nightly(cancel: threading.Event | None = None) -> dict:
 
     def light(system: str, prompt: str) -> str:
         try:
-            return complete(system, prompt, tier="light", max_tokens=MAX_TOKENS)
+            return complete(system, prompt, tier="light", max_tokens=MAX_TOKENS, source="observer")
         except NoProviderConfigured:
             raise observer.ProviderMissing from None
 

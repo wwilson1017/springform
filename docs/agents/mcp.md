@@ -138,7 +138,7 @@ core_agent_mcp_servers(id, name, url, token_enc, prefix UNIQUE, enabled, tools_j
 ### Address policy (enforced at connection time)
 
 1. Destinations: **https only**.
-2. **Refused:** loopback, private-network, link-local, and IPv4-mapped IPv6 addresses; in code, any address that is not `is_global`, is multicast or is IPv4-mapped. IP literals in the URL go through the same check.
+2. **Refused:** loopback, private-network, link-local, multicast, and IPv6 addresses that carry an IPv4 address (IPv4-mapped `::ffff:0:0/96`, IPv4-compatible `::/96`, NAT64 `64:ff9b::/96` and `64:ff9b:1::/48`, 6to4 `2002::/16`, refused whole rather than decoded); in code, `transport.internal()`. IP literals in the URL go through the same check.
 3. `MCP_ALLOW_PRIVATE=1` permits those addresses and also permits `http://`, but `http://` only to them (never to a public address).
 4. Enforced **at connection time**, not by a one-off hostname check. A custom `httpx2` transport (the SDK's HTTP client) whose httpcore network backend:
    1. resolves the host on every new connection;
@@ -148,6 +148,7 @@ core_agent_mcp_servers(id, name, url, token_enc, prefix UNIQUE, enabled, tools_j
 5. 30 s timeout (per request and for the whole exchange); response capped at **1 MB** (counted on the wire); compressed responses are refused (`Accept-Encoding: identity`), so the cap holds after decoding. No proxies or netrc from the environment.
 6. HTTP 401/403 surfaces as "The server refused the request (HTTP 401); check the token"; the SDK would only say "an error response".
 7. The transport refuses to send inside a database transaction.
+8. **Web mode** (`http_client(web=True)`, used only by Whisk's `core_web_fetch`, `agent.md` §4): `http://` and `https://` to public addresses only (`MCP_ALLOW_PRIVATE` does not apply); still no automatic redirects: the reader follows up to 5 itself, each hop a new request through the transport (scheme and every address checked, the connection pinned again) whose body is never read, because httpx's own following reads every redirect body in full, decompressed and uncapped; 6 MB raw cap (the reader stops at 5 MB decoded); compressed bodies accepted (httpx2 inflates them in bounded pieces); 401/403 returned as statuses. MCP keeps every rule above.
 
 ### Routes (admin, `/api/core/mcp/servers`)
 

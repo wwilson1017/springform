@@ -8,13 +8,21 @@ that check.
 Messages: one row per user message and per model iteration; an assistant row carries its tool
 calls. Tool results live in `core_agent_tool_runs`, joined by `message_id`, so a confirmation
 updates one row and the next assembly sees the outcome.
+
+A stored result is a copy of the records it names (`records`), so `tool_runs_for` and
+`get_tool_run` recheck the run's user's current read access to each one and hand out `WITHHELD`
+in place of a result that fails (authorization.md §5). Every reader of a result (assembly,
+compaction, `core_read_result`, the conversation view, replayed turn events) goes through them.
 """
 
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
 
-from backend.core import db
+from backend.core import db, entities
+from backend.core.auth import service as auth_service
+from backend.core.auth.deps import User, has_role
 from backend.core.clock import now_iso
 
 TERMINAL = ("done", "denied", "error", "stale", "uncertain", "interrupted")
@@ -75,6 +83,28 @@ def list_conversations(user_id: int, q: str | None = None, limit: int = 50, offs
         sql = f"{_CONVERSATION} WHERE c.user_id = ? ORDER BY c.updated_at DESC, c.id DESC LIMIT ? OFFSET ?"
         params = (user_id, limit, offset)
     return [_conversation(r) for r in db.rows(sql, params)]
+
+
+SEARCH_LIMIT = 25
+
+
+def search_messages(user_id: int, q: str, *, exclude: int | None, limit: int = 10) -> list[dict]:
+    """The user's own messages matching `q`, best first, outside conversation `exclude` (the one
+    asking). In a conversation untrusted content has entered, only the user's own words are searched:
+    an assistant reply there may repeat a page's text."""
+    if not q.strip():
+        return []
+    return db.rows(
+        """SELECT m.conversation_id, c.title, c.updated_at, m.id AS message_id, m.role, m.created_at,
+                  snippet(core_agent_messages_fts, 0, '', '', ' … ', 40) AS snippet
+             FROM core_agent_messages_fts f
+             JOIN core_agent_messages m ON m.id = f.rowid
+             JOIN core_agent_conversations c ON c.id = m.conversation_id
+            WHERE core_agent_messages_fts MATCH ? AND c.user_id = ? AND c.id IS NOT ?
+              AND (c.tainted = 0 OR m.role = 'user')
+            ORDER BY rank LIMIT ?""",
+        (_fts_query(q), user_id, exclude, max(1, min(int(limit), SEARCH_LIMIT))),
+    )
 
 
 def update_conversation(
@@ -221,16 +251,18 @@ def insert_tool_run_in(
     result: str | None = None,
     error: str | None = None,
     client: str | None = None,
+    records: str | None = None,
 ) -> int:
-    """`result` is already serialized (JSON text). `client` names the AI tool of an MCP call."""
+    """`result` is already serialized (JSON text). `client` names the AI tool of an MCP call.
+    `records` is what a done result names (`execute.records`)."""
     now = now_iso()
     terminal = status in TERMINAL
     return db.insert_in(
         conn,
         """INSERT INTO core_agent_tool_runs (conversation_id, message_id, tool_use_id, tool, tool_def_sha256, args,
                                              status, result, error, user_id, source, requested_at, resolved_at, resolved_by,
-                                             client)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                                             client, records)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
         (
             conversation_id,
             message_id,
@@ -247,6 +279,7 @@ def insert_tool_run_in(
             now if terminal else None,
             user_id if terminal else None,
             client,
+            records,
         ),
     )
 
@@ -256,12 +289,68 @@ def insert_tool_run(**kw) -> int:
         return insert_tool_run_in(conn, **kw)
 
 
+WITHHELD = (
+    "[Result withheld: it names a record the user can no longer read. The call itself still ran. "
+    "Run a read again for what they can see now; never repeat a write.]"
+)
+UNKNOWN = json.dumps([["", 0]])  # provenance that could not be worked out: no such type, so always withheld
+# can_read(user, conn, id) for kinds of row a tool returns that are not registered entities (Todos
+# projects and areas); every other type goes through entities.authorize.
+READERS: dict[str, Callable[[User, db.Conn, int], bool]] = {}
+
+
+def _can_read(user: User | None, conn: db.Conn, entity_type: str, entity_id: int) -> bool:
+    if user is None:
+        return False
+    try:
+        if reader := READERS.get(entity_type):
+            from backend.core import registry  # lazy: the app registry imports the agent package
+
+            # the owning app's roles first, as registered entities get them (registry._role_scoped);
+            # an app no longer installed raises, so its rows fail closed
+            roles = registry.get_app(entity_type.split(".", 1)[0]).manifest.roles
+            return has_role(user, roles, "read") and bool(reader(user, conn, entity_id))
+        entities.authorize(user, conn, entity_type, entity_id, "read")
+        return True
+    except Exception:  # not readable, deleted, or a type no longer installed: fail closed
+        return False
+
+
+def recheck(runs: list[dict]) -> list[dict]:
+    """`runs` with the result of each done run that names a record its user can no longer read
+    replaced by WITHHELD (and `withheld` set). The stored row is untouched, so access that comes
+    back shows the result again."""
+    # simplification: the whole result is withheld, not the one row; upgrade: redact per row.
+    # simplification: one check per distinct record per call, unbatched; upgrade: batch by entity type.
+    conn, users, seen = db.get_conn(), {}, {}
+    for run in runs:
+        if run["status"] != "done" or run.get("records") is None:
+            continue
+        uid = run["user_id"]
+        if uid not in users:
+            row = auth_service.get_user(uid)
+            users[uid] = User.from_row(row) if row else None
+        try:
+            named = [(str(t), int(i)) for t, i in json.loads(run["records"])]
+        except (ValueError, TypeError):
+            named = [("", 0)]
+        for key in named:
+            if (uid, *key) not in seen:
+                seen[(uid, *key)] = _can_read(users[uid], conn, *key)
+        if not all(seen[(uid, *key)] for key in named):
+            run["result"], run["withheld"] = json.dumps(WITHHELD), True
+    return runs
+
+
 def get_tool_run(run_id: int) -> dict | None:
-    return db.one("SELECT * FROM core_agent_tool_runs WHERE id = ?", (run_id,))
+    row = db.one("SELECT * FROM core_agent_tool_runs WHERE id = ?", (run_id,))
+    return recheck([row])[0] if row else None
 
 
 def tool_runs_for(conversation_id: int) -> list[dict]:
-    return db.rows("SELECT * FROM core_agent_tool_runs WHERE conversation_id = ? ORDER BY id", (conversation_id,))
+    return recheck(
+        db.rows("SELECT * FROM core_agent_tool_runs WHERE conversation_id = ? ORDER BY id", (conversation_id,))
+    )
 
 
 RAN = ("done", "uncertain", "executing", "interrupted")  # the tool ran, or may have
@@ -303,13 +392,16 @@ def resolve_in(
     error: str | None = None,
     resolved_by: int | None = None,
     expect: str = "pending",
+    records: str | None = None,
 ) -> bool:
-    """Move a run from `expect` to a final status; False when it was not in `expect`."""
+    """Move a run from `expect` to a final status; False when it was not in `expect`. `records` is
+    the JSON of what a done result names (`execute.records`)."""
     return (
         conn.execute(
-            """UPDATE core_agent_tool_runs SET status = ?, result = ?, error = ?, resolved_at = ?, resolved_by = ?
+            """UPDATE core_agent_tool_runs SET status = ?, result = ?, error = ?, resolved_at = ?, resolved_by = ?,
+                      records = ?
             WHERE id = ? AND status = ?""",
-            (status, result, error, now_iso(), resolved_by, run_id, expect),
+            (status, result, error, now_iso(), resolved_by, records, run_id, expect),
         ).rowcount
         > 0
     )

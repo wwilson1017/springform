@@ -31,7 +31,7 @@ import re
 import time
 
 from backend.core import settings
-from backend.core.agent import delimiters, history
+from backend.core.agent import delimiters, history, usage
 from backend.core.agent.aio import in_thread
 from backend.core.agent.assembly import CHARS_PER_TOKEN, DEFAULT_BUDGET_TOKENS, HEAD_ROWS
 from backend.core.agent.llm import acomplete
@@ -134,7 +134,7 @@ async def _maybe_compact(provider, conversation_id: int) -> bool:
     lo = prev_id if prev_id is not None else rows[HEAD_ROWS - 1]["id"] + 1
     middle = [r for r in rows if lo <= r["id"] < first_kept]
     await _flush(conversation_id, first_kept)
-    summary, status = await _summarize(middle, by_message, prev_summary)
+    summary, status = await _summarize(middle, by_message, prev_summary, conversation_id)
     if status == "timeout":  # the previous gist stays whole (it was checked), plus the note once
         prev = delimiters.conversation_summary_text(prev_summary or "")
         summary = prev if prev.endswith(DROPPED_NOTE) else (prev + "\n\n" + DROPPED_NOTE).strip()
@@ -313,7 +313,9 @@ def outline_missing(summary: str) -> list[str]:
     return out
 
 
-async def _summarize(middle: list[dict], by_message: dict, prev_summary: str | None) -> tuple[str, str]:
+async def _summarize(
+    middle: list[dict], by_message: dict, prev_summary: str | None, conversation_id: int
+) -> tuple[str, str]:
     """(gist, status): status is ok, timeout, rejected (still missing required strings after the
     retries) or failed (no key, provider error, nothing to summarize). The gist is "" unless ok."""
     chunks, used = [], 0
@@ -329,14 +331,23 @@ async def _summarize(middle: list[dict], by_message: dict, prev_summary: str | N
     if not transcript:
         return "", "failed"
     must = await in_thread(required, middle, by_message, prev_summary)  # regex work off the event loop
-    prompt = "MUST APPEAR VERBATIM:\n" + "".join(f"- {m}\n" for m in must) + "\n" if must else ""
+    prompt = "OUTLINE TO FILL IN:\n" + "".join(f"## {h}\n…\n" for h in SECTIONS) + "\n"
+    prompt += "MUST APPEAR VERBATIM:\n" + "".join(f"- {m}\n" for m in must) + "\n" if must else ""
     prompt += "PRIOR SUMMARY (of even older messages; fold this in):\n" + prev_summary + "\n\n" if prev_summary else ""
     prompt += "MIDDLE MESSAGES TO COMPACT:\n" + transcript
     deadline, ask, lost = time.monotonic() + SUMMARY_TIMEOUT, prompt, must
     for attempt in range(1 + SUMMARY_RETRIES):
         try:
             reply = await asyncio.wait_for(
-                acomplete(SUMMARY_SYSTEM, ask, tier="light", max_tokens=8000), max(0.0, deadline - time.monotonic())
+                acomplete(
+                    SUMMARY_SYSTEM,
+                    ask,
+                    tier="light",
+                    max_tokens=8000,
+                    source="compaction",
+                    conversation_id=conversation_id,
+                ),
+                max(0.0, deadline - time.monotonic()),
             )
         except TimeoutError:
             logger.warning("compaction summary timed out (attempt %d)", attempt + 1)
@@ -379,7 +390,9 @@ async def _flush(conversation_id: int, before_id: int) -> int:
         stream = light.stream_turn(
             [{"role": "user", "content": prompt}], [tool], _observer.FLUSH_PROMPT, max_tokens=2000
         )
-        calls = await asyncio.wait_for(_tool_calls(stream), FLUSH_TIMEOUT)
+        calls = await asyncio.wait_for(
+            _tool_calls(usage.metered(stream, light, "compaction", conversation_id)), FLUSH_TIMEOUT
+        )
         texts = _observer.clean_facts([(c.get("args") or {}).get("text") for c in calls if c.get("name") == FLUSH_TOOL])
         return await in_thread(_observer.record_flush, conversation_id, texts, through, start, "compaction")
     except Exception:
@@ -391,6 +404,6 @@ async def _tool_calls(stream) -> list[dict]:
     async for event in stream:
         if event["type"] == "error":
             raise RuntimeError(event["error"])
-        if event["type"] == "_turn_complete":
-            return event.get("tool_calls") or []
+        if event["type"] == "_turn_complete":  # a cut-off or refused reply may carry partial calls: record none
+            return [] if event.get("stop_reason") in ("max_tokens", "refusal") else event.get("tool_calls") or []
     raise RuntimeError("the flush response ended unexpectedly")
