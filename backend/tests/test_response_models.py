@@ -322,6 +322,12 @@ def exercise(app, login_as, monkeypatch) -> dict[str, httpx.Response]:
         hit(c, "GET", "/api/agent/conversations")
         hit(c, "DELETE", "/api/agent/conversations/{conversation_id}", conversation_id=cid)
     hit(admin, "GET", "/api/agent/usage")  # after the chats above, so its rows are not empty
+    skill = hit(admin, "POST", "/api/core/skills", json={
+        "name": "weekly-count", "description": "Count the stock every Monday", "body": "1. Count each shelf.",
+    })  # fmt: skip
+    hit(admin, "PATCH", "/api/core/skills/{skill_id}", skill_id=skill["id"], json={"pinned": True})
+    hit(admin, "POST", "/api/core/skills/{skill_id}/{action}", skill_id=skill["id"], action="archive")
+    hit(admin, "GET", "/api/core/skills", params={"status": "archived"})
 
     # ── MCP: inbound links and outbound servers ──
     for c in both:
@@ -349,7 +355,7 @@ def exercise(app, login_as, monkeypatch) -> dict[str, httpx.Response]:
     for method, path in (
         ("GET", "/api/core/settings"), ("GET", "/api/core/jobs"), ("GET", "/api/core/backups"), ("GET", "/api/core/sheets"),
         ("GET", "/api/agent/providers"), ("GET", "/api/core/mcp/servers"), ("POST", "/api/core/requests/refresh"),
-        ("GET", "/api/agent/usage"),
+        ("GET", "/api/agent/usage"), ("GET", "/api/core/skills"),
     ):  # fmt: skip
         assert member.request(method, path).status_code == 403, path
     return hit

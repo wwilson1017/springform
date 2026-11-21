@@ -151,7 +151,7 @@ def test_the_reads_guard_catches_a_tool_that_names_nothing():
 
 
 def test_every_shipped_tool_names_the_records_it_returns():
-    specs = [spec for module in [*SHIPPED, "backend.core.agent.tools"] for spec in import_module(module).get_tools()]
+    specs = [spec for module in [*SHIPPED, "backend.core.agent.tools", "backend.core.skills.tools"] for spec in import_module(module).get_tools()]
     assert unclassified(specs) == set()
 
 

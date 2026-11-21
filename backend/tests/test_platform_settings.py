@@ -33,6 +33,7 @@ def test_put_validates_every_key_before_writing_any(login_as):
         ({"files.max_bytes": True}, "files.max_bytes"),
         ({"files.max_bytes": -1}, "files.max_bytes"),
         ({"agent.nightly_enabled": "yes"}, "agent.nightly_enabled"),
+        ({"agent.skills_review_enabled": "yes"}, "agent.skills_review_enabled"),
         ({"workspace.name": "   "}, "workspace.name"),
         ({"workspace.show_name": "no"}, "workspace.show_name"),
         ({"github.token": ""}, "github.token"),
