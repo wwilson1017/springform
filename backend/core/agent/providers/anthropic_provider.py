@@ -57,6 +57,15 @@ def _searched(messages: list[dict]) -> bool:
     )
 
 
+def _usage(usage: Any) -> dict:
+    return {
+        "input_tokens": usage.input_tokens or 0,
+        "output_tokens": usage.output_tokens or 0,
+        "cache_creation_input_tokens": getattr(usage, "cache_creation_input_tokens", 0) or 0,
+        "cache_read_input_tokens": getattr(usage, "cache_read_input_tokens", 0) or 0,
+    }
+
+
 def _sources(content: list) -> str:
     """The pages the reply cites, as a Markdown list ('' when it cites none)."""
     seen: dict[str, str] = {}
@@ -164,7 +173,7 @@ class AnthropicProvider(AIProvider):
         content: list = []  # every block of the reply, paused pieces included
         final, searched = None, False
         try:
-            for _ in range(MAX_CONTINUATIONS + 1):
+            for attempt in range(MAX_CONTINUATIONS + 1):
                 async with _client(self.api_key).messages.stream(
                     model=self.model,
                     max_tokens=max_tokens,
@@ -206,8 +215,9 @@ class AnthropicProvider(AIProvider):
                             }
                     final = await stream.get_final_message()
                 content += final.content
-                if final.stop_reason != "pause_turn":
+                if final.stop_reason != "pause_turn" or attempt == MAX_CONTINUATIONS:
                     break
+                yield {"type": "_usage", "usage": _usage(final.usage)}  # the paused request is billed on its own
                 # The server stopped its own search loop mid-reply: send the paused reply back to resume it.
                 api_messages = [*api_messages, {"role": "assistant", "content": final.content}]
         except anthropic.APIError as e:
@@ -222,17 +232,11 @@ class AnthropicProvider(AIProvider):
         # A refusal (stop_reason "refusal") is a completed reply, not an error: endings says so.
         if sources := _sources(content):
             yield {"type": "text", "text": sources}
-        usage = final.usage
         yield {
             "type": "_turn_complete",
             "tool_calls": tool_calls,
             "stop_reason": final.stop_reason,
-            "usage": {
-                "input_tokens": usage.input_tokens or 0,
-                "output_tokens": usage.output_tokens or 0,
-                "cache_creation_input_tokens": getattr(usage, "cache_creation_input_tokens", 0) or 0,
-                "cache_read_input_tokens": getattr(usage, "cache_read_input_tokens", 0) or 0,
-            },
+            "usage": _usage(final.usage),  # the last request's: the context meter reads it
             "assistant_content": content,
         }
 

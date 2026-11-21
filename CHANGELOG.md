@@ -42,6 +42,7 @@ Conventions:
 
 ### Fixed
 
+- The AI usage ledger counts every request of a reply whose Anthropic web search paused and resumed, not only the last one, so its cost is no longer under-counted.
 - Whisk no longer shows an earlier tool result again (in later replies, the conversation, or a paged read) once it names a record the person can no longer see, such as a team todo made private. It says the result was withheld and can look again.
 
 ## [0.1.4] - 2026-11-21
