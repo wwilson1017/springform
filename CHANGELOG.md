@@ -18,13 +18,16 @@ Conventions:
 
 ## [Unreleased]
 
+### Added
+
+- Settings, AI, Usage shows this month's AI spend by source (chat, compaction, the nightly run) and model, with the cache hit rate. Every model call is recorded, background ones included; costs are estimated from list prices an admin can edit.
+
 ## [0.1.4] - 2026-11-21
 
 Forks can set their own colours and logo, an admin can hide the install name next to the logo, and Whisk keeps answering through dropped tabs and provider failures.
 
 ### Added
 
-- Settings, AI, Usage shows this month's AI spend by source (chat, compaction, the nightly run) and model, with the cache hit rate. Every model call is recorded, background ones included; costs are estimated from list prices an admin can edit.
 - Whisk stops itself when it keeps repeating the same step, fixes simple argument slips (`"42"` for 42), suggests the right name for a mistyped tool, adds a correction when it says it sent or created something it did not, and can search your earlier conversations.
 - When the AI provider fails, Whisk says why and names the model. It waits and retries once on a rate limit, trims its context when a request is too long, and on an outage switches to the other provider or the light model for that turn, unless the turn has already changed something. A reply that was cut off, refused, empty, or stopped at the 20-step limit ends with a note saying so (saved with the conversation), and at the limit Whisk gives a final answer first.
 - Whisk copes with very large tool results: over 25,000 characters it reads the start and the end (a list of records as a compact table first) and can page or search the rest with `core_read_result` for 24 hours. In a long turn, results it has already used are cleared from its working context past 100,000 tokens, the newest three kept.
