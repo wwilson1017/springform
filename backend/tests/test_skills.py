@@ -30,7 +30,7 @@ def load(user, name):
 
 
 def row(skill_id) -> dict:
-    return core_db.one("SELECT * FROM core_agent_skills WHERE id = ?", (skill_id,))
+    return core_db.must(core_db.one("SELECT * FROM core_agent_skills WHERE id = ?", (skill_id,)))
 
 
 def test_a_proposed_skill_is_invisible_until_approved(admin, make_user):
@@ -114,7 +114,11 @@ def test_admin_routes(login_as):
 
     body = {"name": "weekly-count", "description": "Count the stock every Monday", "body": "1. Count."}
     made = admin.post("/api/core/skills", json=body).json()
-    assert (made["status"], made["author"], made["author_name"]) == ("active", str(admin.user["id"]), admin.user["name"])
+    assert (made["status"], made["author"], made["author_name"]) == (
+        "active",
+        str(admin.user["id"]),
+        admin.user["name"],
+    )
     assert admin.post("/api/core/skills", json=body).json() == {"detail": "skill_name_taken"}
     assert admin.post("/api/core/skills", json={**body, "name": "x", "description": "d" * 61}).status_code == 422
     assert admin.post("/api/core/skills", json={**body, "name": "Bad Name"}).status_code == 422

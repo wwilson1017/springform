@@ -1,5 +1,7 @@
 """Response models for skills (Settings → AI → Skills)."""
 
+from typing import Literal
+
 from backend.core.platform.models import Out
 
 
@@ -8,7 +10,7 @@ class Skill(Out):
     name: str
     description: str
     body: str
-    status: str  # proposed | active | archived | rejected
+    status: Literal["proposed", "active", "archived", "rejected"]
     author: str  # 'agent' (the review) or a user id
     author_name: str | None
     pinned: bool

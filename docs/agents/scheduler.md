@@ -87,6 +87,8 @@ Timezone: `core_settings.timezone` (IANA, default `UTC`). Nothing hardcoded.
 | `core.job_runs_prune` | every 24 h | Delete finished runs older than 30 days. |
 | `core.login_attempts_prune` | hourly | Prune `core_login_attempts`. |
 | `core.agent_nightly` | `at` 02:00, gated by the setting `agent.nightly_enabled` | Observer + dreaming; exits early with zero keys (`agent.md`). |
+| `core.skills_review` | every 5 min, gated by the setting `agent.skills_review_enabled` | Once ten more turns have ended `done`, proposes skills from recent conversations (`agent.md`, "Skills"); skipped with zero keys. |
+| `core.skills_curate` | `at` 03:15 | Archives active, unpinned skills unused for 60 days; never deletes. |
 | `core.agent_turn_events_prune` | every 24 h | Drop the stored events of Whisk turns that ended over 7 days ago (`agent.md` §5). |
 | `core.mcp_discover` | every 1 h and at every boot (`on_boot`) | Rediscover every outbound MCP server's tools (`mcp.md` §2); servers one after another, `timeout=900`. |
 

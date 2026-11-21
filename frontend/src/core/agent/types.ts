@@ -59,6 +59,9 @@ export type ChatEvent = { seq?: number; turn_id?: number } & (
 /** POST /api/agent/confirm. With `already_resolved`, `current` is the run's status now. */
 export type ConfirmResponse = S['ConfirmResponse'];
 export type ConfirmOutcome = ConfirmResponse['status'];
+/** GET /api/core/skills */
+export type SkillsPage = S['SkillsPage'];
+export type Skill = S['Skill'];
 
 /** GET /api/core/context-files */
 export interface ContextFileMeta {

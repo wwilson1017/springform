@@ -150,7 +150,7 @@ export function ConversationSidebar({
                       title={
                         c.is_private
                           ? `Private: ${agentName} does not learn from it. Click to allow.`
-                          : `Make private: ${agentName} will not learn business facts from it.`
+                          : `Make private: ${agentName} will not learn facts or skills from it.`
                       }
                       aria-label={c.is_private ? 'Make not private' : 'Make private'}
                       className={`${ACTION} ${c.is_private ? 'text-sf-ink' : ''}`}

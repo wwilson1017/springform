@@ -116,9 +116,10 @@ def test_the_review_proposes_and_records_its_call(on, member, model_requests):
     assert result == {"status": "ok", "review": "ok", "conversations": 1, "proposals": 1}
     (call,) = model_requests
     assert call["tools"] == []  # no tools: the review only reads what it is given
-    assert "open-marker" in call["messages"][0]["content"] and "[tools: example_list_widgets]" in call["messages"][0][
-        "content"
-    ]
+    assert (
+        "open-marker" in call["messages"][0]["content"]
+        and "[tools: example_list_widgets]" in call["messages"][0]["content"]
+    )
     (row,) = proposals()
     assert (row["status"], row["author"], row["source_conversation_id"]) == ("proposed", "agent", cid)
     assert row["name"] == GOOD["name"] and row["revises_id"] is None
