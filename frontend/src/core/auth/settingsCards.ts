@@ -7,6 +7,7 @@ const ProfileCard = lazy(() => import('./ProfileCard'));
 const SecurityCard = lazy(() => import('./SecurityCard'));
 const UsersCard = lazy(() => import('./UsersCard'));
 const GoogleConfigCard = lazy(() => import('./GoogleConfigCard'));
+const SavedApprovalsCard = lazy(() => import('../agent/SavedApprovalsCard'));
 
 /**
  * "Link Google" ends with a full page load of /settings?google=linked or ?google_error=<code>.
@@ -32,6 +33,7 @@ export default [
     cards: [
       { id: 'profile', title: 'Profile', adminOnly: false, Card: ProfileCard },
       { id: 'security', title: 'Security', adminOnly: false, Card: SecurityCard },
+      { id: 'approvals', title: 'Saved approvals', adminOnly: false, Card: SavedApprovalsCard },
     ],
   },
   {

@@ -137,6 +137,40 @@ describe('useAgentChat resume', () => {
     expect(result.current.notice).toBeNull();
   });
 
+  it("sends a deny reason and an approve's Always allow with the decision", async () => {
+    const confirm = (id: number, u: string, seq: number) => ({
+      type: 'confirm',
+      tool_run_id: id,
+      tool: 'write',
+      tool_use_id: u,
+      msg_id: null,
+      args: {},
+      summary: '',
+      seq,
+    });
+    const fn = serve({
+      'POST /api/agent/chat': () =>
+        sse({ type: 'conversation_id', id: 7, turn_id: 3, seq: 0 }, confirm(9, 'u1', 1), confirm(10, 'u2', 2), {
+          type: 'done',
+          seq: 3,
+        }),
+      'POST /api/agent/confirm': () => json({ status: 'done' }),
+    });
+    const { result } = renderHook(() => useAgentChat());
+    act(() => result.current.send('hi'));
+    await waitFor(() => expect(result.current.streaming).toBe(false));
+    const msgId = result.current.messages.at(-1)!.id;
+    await act(() => result.current.decide(msgId, 'u1', 'deny', { reason: '  Not now ', alwaysAllow: true }));
+    await act(() => result.current.decide(msgId, 'u2', 'approve', { reason: 'ignored', alwaysAllow: true }));
+    const bodies = fn.mock.calls
+      .filter(([url]) => String(url).endsWith('/api/agent/confirm'))
+      .map(([, init]) => JSON.parse((init as RequestInit).body as string));
+    expect(bodies).toEqual([
+      { tool_run_id: 9, decision: 'deny', reason: 'Not now' },
+      { tool_run_id: 10, decision: 'approve', always_allow: true },
+    ]);
+  });
+
   it('retries an approval continuation while the previous turn is still running', async () => {
     let posts = 0;
     const fn = serve({
