@@ -205,8 +205,19 @@ export function useAgentChat(options: Options = {}) {
       try {
         let form: FormData | null = null;
         if (files.length) {
-          const shrunk = await Promise.all(files.map((f) => shrinkImage(f)));
+          const shrunk: File[] = [];
+          // One at a time: five large photos decoded at once can exhaust a phone tab's memory.
+          for (const f of files) shrunk.push(await shrinkImage(f));
           if (!turn.live) return;
+          if (turn.stopped) {
+            // Stopped before anything was sent: no server turn to cancel, so take the message back.
+            setMessages((prev) => {
+              const i = prev.findIndex((m) => m.id === asstId);
+              return i > 0 && prev[i - 1].role === 'user' ? [...prev.slice(0, i - 1), ...prev.slice(i)] : prev;
+            });
+            ended = 'terminal';
+            throw new Error('stopped before upload'); // to the cleanup below
+          }
           form = new FormData();
           form.append('payload', payload);
           for (const f of shrunk) form.append('files', f, f.name);

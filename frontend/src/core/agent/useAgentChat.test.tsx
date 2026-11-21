@@ -259,6 +259,18 @@ describe('useAgentChat attachments', () => {
     expect(result.current.messages[0].parts).toEqual([]);
   });
 
+  it('Stop while photos shrink sends nothing and takes the message back', async () => {
+    const fn = serve({});
+    const { result } = renderHook(() => useAgentChat());
+    act(() => {
+      result.current.send('look', [csv()]);
+      result.current.stop();
+    });
+    await waitFor(() => expect(result.current.streaming).toBe(false));
+    expect(calls(fn)).toEqual([]);
+    expect(result.current.messages).toEqual([]);
+  });
+
   it('does not retry a files-only send that meets a running turn', async () => {
     const fn = serve({ 'POST /api/agent/chat/upload': () => json({ detail: 'turn_running' }, 409) });
     const { result } = renderHook(() => useAgentChat());
