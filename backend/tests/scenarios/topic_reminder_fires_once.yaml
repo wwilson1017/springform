@@ -1,14 +1,27 @@
-name: A topic reminder shows on the next message that mentions it, once; the cooldown holds back a second fire
+name: A topic reminder shows on the next message that mentions it, once; the resume after an approval and the cooldown hold it back
+tools:
+  - name: core_scen_save_widget
+    writes: true
+    returns: {saved: widget-77}
 steps:
-  - send: When the walk-in freezer comes up, remind me to book the service visit.
+  - send: Save the blue widget, and when the walk-in freezer comes up, remind me to book the service visit.
     replies:
-      - {tool: core_remind_on_topic, args: {terms: [walk-in freezer], note: Book the freezer service visit}}
-      - Saved. I will remind you.
+      - - {tool: core_remind_on_topic, args: {terms: [walk-in freezer], note: Book the freezer service visit}}
+        - {tool: core_scen_save_widget, args: {color: blue}}
+      - Saved the reminder; saving the widget needs your approval.
     events:
       - {type: tool_end, tool: core_remind_on_topic, status: done}  # routine: no Approve card
+      - {type: confirm, tool: core_scen_save_widget}
       - done
     request:
       system_exclude: [Book the freezer service visit]  # the message that set it does not fire it
+  - approve: core_scen_save_widget
+    status: done
+  - continue: true  # the resume carries no typed text, so the message that set it still does not fire it
+    replies: [Saved widget-77.]
+    events: [done]
+    request:
+      system_exclude: [Book the freezer service visit]
   - send: The walk-in freezers are making noise again.
     replies: [That sounds worth a look. You also wanted to book the service visit.]
     events: [done]

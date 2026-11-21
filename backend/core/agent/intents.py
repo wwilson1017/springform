@@ -149,6 +149,8 @@ async def before_model_call(state: turn_hooks.TurnState) -> None:
     state.scratch[_SCRATCH] = []
     if not state.message.strip():
         return
+    # simplification: the fire is spent before the model answers, so a turn that then fails spends
+    # one of the three and starts the cooldown; upgrade: refund it in end_of_turn when state.error.
     hits = await in_thread(fire, state.user.id, state.message)
     if not hits:
         return
