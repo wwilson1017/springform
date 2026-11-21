@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { applyEvent, fromServer, type ChatMessage } from './chatModel';
+import { applyEvent, fromServer, renderUnits, type ChatMessage, type Part, type ToolPart } from './chatModel';
 import type { ChatEvent, ServerMessage } from './types';
 
 const row = (
@@ -180,5 +180,43 @@ describe('applyEvent', () => {
       { type: 'error', error: 'Provider error' },
     );
     expect(m).toMatchObject({ streaming: false, error: 'Provider error' });
+  });
+});
+
+describe('renderUnits', () => {
+  const card = (id: string, batch: string | null, args: Record<string, unknown> = {}): ToolPart => ({
+    kind: 'tool',
+    tool: 'save',
+    toolUseId: id,
+    args,
+    status: 'pending',
+    runId: 1,
+    batch,
+    confirm: { phase: 'pending' },
+  });
+
+  it('draws cards sharing a batch as one unit at the first member, and keeps a group of one plain', () => {
+    const parts: Part[] = [
+      { kind: 'text', text: 'Saving.' },
+      card('a', 'k1'),
+      card('b', 'k2'),
+      card('c', 'k1'),
+      { kind: 'tool', tool: 'read', toolUseId: 'r', status: 'done' },
+    ];
+    const units = renderUnits(parts);
+    expect(units.map((u) => (u.kind === 'batch' ? `batch:${u.members.map((m) => m.toolUseId)}` : u.kind))).toEqual([
+      'text',
+      'batch:a,c',
+      'tool',
+      'tool',
+    ]);
+  });
+
+  it('carries the key from a confirm event and from a reload', () => {
+    const m = applyEvent(
+      { id: 'm', role: 'assistant', parts: [] },
+      { type: 'confirm', tool_run_id: 3, tool: 'save', tool_use_id: 'u', msg_id: 2, args: {}, summary: '', batch: 'k' },
+    );
+    expect(m.parts[0]).toMatchObject({ batch: 'k' });
   });
 });

@@ -6471,6 +6471,8 @@ export interface components {
             args: {
                 [key: string]: unknown;
             };
+            /** Batch */
+            batch?: string | null;
             /**
              * Can Always Allow
              * @default false

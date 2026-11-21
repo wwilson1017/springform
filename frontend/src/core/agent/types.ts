@@ -53,6 +53,8 @@ export type ChatEvent = { seq?: number; turn_id?: number } & (
       summary: string;
       /** The card may offer "Always allow" (a local write in a clean conversation). */
       can_always_allow?: boolean;
+      /** Pending cards with the same key share one card (same step, tool and argument names). */
+      batch?: string | null;
     }
   | { type: 'steer'; text: string } // a message sent while the turn ran, now shown to the model
   | { type: 'done'; model?: string; stopped?: boolean }

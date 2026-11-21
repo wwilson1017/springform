@@ -39,7 +39,7 @@ interface Props {
   blocked?: ReactNode;
   onSend: (text: string) => void;
   onStop: () => void;
-  onDecide: (msgId: string, toolUseId: string, decision: Decision, opts?: DecideOptions) => void;
+  onDecide: (msgId: string, toolUseId: string, decision: Decision, opts?: DecideOptions) => Promise<void> | void;
 }
 
 /** The message list and the composer (Chatty's AgentChatPanel without uploads, modes or playbooks). */
