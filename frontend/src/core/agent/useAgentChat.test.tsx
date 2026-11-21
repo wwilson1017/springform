@@ -375,6 +375,7 @@ describe('useAgentChat steering', () => {
 
   it('checks the saved conversation before continuing: an answered message is left, a lost one is sent again', async () => {
     let post!: ReturnType<typeof openStream>;
+    let ys = 0;
     const row = (id: number, role: 'user' | 'assistant', text: string) => ({
       id,
       role,
@@ -388,7 +389,8 @@ describe('useAgentChat steering', () => {
         const body = JSON.parse(String(init?.body));
         if (body.message === 'hi')
           return (post = openStream(init, { type: 'conversation_id', id: 7, turn_id: 3, seq: 0 })).response;
-        if (body.message === 'x' || body.message === 'y') return json({ queued: true, turn_id: 3 }, 202);
+        if (body.message === 'x' || (body.message === 'y' && ++ys === 1))
+          return json({ queued: true, turn_id: 3 }, 202);
         return sse({ type: 'conversation_id', id: 7, turn_id: 4, seq: 0 }, { type: 'done', seq: 1 });
       },
       // x was read and answered (its steer event never reached this view); y was lost in a crash.
@@ -407,6 +409,7 @@ describe('useAgentChat steering', () => {
     });
     await waitFor(() => expect(bodies(fn)).toHaveLength(4));
     expect(bodies(fn)[3]).toEqual({ conversation_id: 7, message: 'y' });
+    expect(view(result.current.messages).slice(0, 4)).toEqual(['user:hi', 'user:x', 'assistant:X done.', 'user:y']);
   });
 
   it('cancels the next turn a queued post started when Stop came first', async () => {

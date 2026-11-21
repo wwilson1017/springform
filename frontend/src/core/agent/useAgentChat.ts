@@ -135,7 +135,7 @@ export function useAgentChat(options: Options = {}) {
   const turnRef = useRef<Turn | null>(null);
   const loadSeqRef = useRef(0);
   /** runTurn, for the follow-up turn it starts itself. */
-  const runTurnRef = useRef<(body: TurnBody, started?: Started) => Promise<void>>(async () => {});
+  const runTurnRef = useRef<(body: TurnBody, started?: Started, recovery?: boolean) => Promise<void>>(async () => {});
   const optionsRef = useRef(options);
   useEffect(() => {
     optionsRef.current = options;
@@ -253,7 +253,7 @@ export function useAgentChat(options: Options = {}) {
   );
 
   const runTurn = useCallback(
-    async (body: TurnBody, started?: Started) => {
+    async (body: TurnBody, started?: Started, recovery = false) => {
       detach();
       const turn: Turn = {
         ctl: started?.ctl ?? new AbortController(),
@@ -399,13 +399,13 @@ export function useAgentChat(options: Options = {}) {
       while (turn.posting) await turn.posting; // a post still out may be accepted, or start the next turn
       if (!turn.live) return;
       const id = convIdRef.current;
-      if (!turn.next && !turn.stopped && id != null && turn.queued.some((q) => q.sent)) {
-        // Accepted but never seen read: check what the server saved. A missed steer event can hide an
+      if (!recovery && !turn.next && !turn.stopped && id != null && turn.queued.some((q) => q.sent)) {
+        // Accepted but never seen read: check what the server saved (once: a turn started by this
+        // recovery trusts the server, so a message it keeps losing is not sent round and round). A missed steer event can hide an
         // answer that is already there, and a crash loses a message the turn still held.
         try {
           const rows = (await fetchJson<ConversationDetail>(`/api/agent/conversations/${id}`)).messages;
           if (!turn.live || convIdRef.current !== id) return;
-          setMessages(fromServer(rows));
           const fate = (q: Queued) => {
             for (let i = rows.length - 1; i >= 0; i--)
               if (rows[i].role === 'user' && rows[i].text === q.text)
@@ -417,6 +417,11 @@ export function useAgentChat(options: Options = {}) {
             const f = fate(q);
             return f === 'answered' ? [] : [{ ...q, sent: f === 'saved' }]; // a missing one is sent again
           });
+          const lost = turn.queued.filter((q) => !q.sent); // kept on screen: the server does not have them
+          setMessages([
+            ...fromServer(rows),
+            ...lost.map((q): ChatMessage => ({ id: q.id, role: 'user', parts: [{ kind: 'text', text: q.text }] })),
+          ]);
         } catch {
           // Unreachable: trust the server's rule that it saved what it accepted.
         }
@@ -437,7 +442,7 @@ export function useAgentChat(options: Options = {}) {
         );
       else if (left.length && !turn.stopped && id != null) {
         const message = unsent.map((q) => q.text).join('\n\n');
-        void runTurnRef.current({ conversation_id: id, ...(message ? { message } : {}) });
+        void runTurnRef.current({ conversation_id: id, ...(message ? { message } : {}) }, undefined, true);
       }
     },
     [adopt, detach, reconcile, setMessages, steer, steered, updateMessage],
