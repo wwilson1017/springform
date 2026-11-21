@@ -37,6 +37,7 @@ from backend.core.agent import (
 from backend.core.agent.aio import in_thread
 from backend.core.agent.engine import chat_tools
 from backend.core.agent.providers.windows import cache_inclusive_input_tokens, context_usage_event
+from backend.core.agent.spec import calling_tainted
 from backend.core.agent.turn_hooks import Fallback, ProviderFailure, Retry, TurnState
 from backend.core.agent.usage import metered
 
@@ -173,6 +174,7 @@ class TurnRunner:
         while True:
             await turn_hooks.before_model_call(s)
             text, sent, failure = "", False, None
+            calling_tainted.set(s.tainted)
             stream = s.provider.stream_turn(s.messages, self._tools(), s.system)
             async for event in metered(stream, s.provider, "chat", s.conversation_id):
                 etype = event.get("type")
@@ -194,6 +196,9 @@ class TurnRunner:
                             "description": spec.description if spec else "",
                         }
                     )
+                elif etype == "untrusted" and not s.tainted:  # the provider's own web search (Anthropic)
+                    s.tainted = True
+                    await in_thread(history.mark_tainted, s.conversation_id)
                 elif etype == "error":
                     failure = event
                     break

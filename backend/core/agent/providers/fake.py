@@ -7,6 +7,7 @@
     {"error": "message", ...}               -> a provider error; `text` streams first, and `status`,
                                                `code`, `retry_after` ride on the error event
     {"text": "...", "stop": "max_tokens"}   -> a reply with that stop reason (also with "tool")
+    a dict turn with "untrusted": True      -> an `untrusted` event first (a provider-side web search)
     {"chunks": ["a", "b"], "delay": 0.2}    -> streams each chunk as its own text event, `delay` s apart
 With nothing queued it answers from the conversation: a user message `/tool <name> <json args>`
 calls that tool, a tool result or the resume nudge gets "Done.", anything else is echoed.
@@ -64,6 +65,8 @@ class FakeProvider(AIProvider):
         max_tokens: int = DEFAULT_MAX_TOKENS,
     ) -> AsyncGenerator[dict, None]:
         turn = _script.popleft() if _script else _unscripted(messages)
+        if isinstance(turn, dict) and turn.get("untrusted") is True:
+            yield {"type": "untrusted"}
         if isinstance(turn, dict) and "error" in turn:
             if turn.get("text"):
                 yield {"type": "text", "text": turn["text"]}
