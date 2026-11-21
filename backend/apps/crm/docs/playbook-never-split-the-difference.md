@@ -39,7 +39,7 @@ order: 33
   smaller than the last and end on an odd, precise-looking number. A pattern of shrinking
   moves signals you are near your limit far better than saying you are near your limit.
 
-## When Whisk reaches for it
+## When {agent_name} reaches for it
 
 - **They pushed back on price** — the deal sits in *negotiation* and the value has moved
   down, or the user says the buyer called the quote high.
@@ -67,7 +67,7 @@ order: 33
   without knowing how long the deal has been stuck is how the discount gets made twice.
 - **Silence has a move, and it is a question, not a chase** — for a deal flagged *stale*,
   draft a short calibrated question for the user to send themselves, and note what was asked
-  on the deal. Whisk drafts; it never sends.
+  on the deal. {agent_name} drafts; it never sends.
 - **A real "that's right" is a stage decision** — when the buyer restates their own problem
   back to you, the deal has earned the next stage; move it with `crm_update_deal_stage` rather
   than letting it sit in *proposal* on optimism.

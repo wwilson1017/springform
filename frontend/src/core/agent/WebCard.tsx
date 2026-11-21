@@ -6,6 +6,7 @@ import { LoadError } from '../../shared/LoadError';
 import { toast } from '../../shared/toast';
 import type { CoreSettings } from '../settings/types';
 import { HINT, INPUT, LABEL } from './ui';
+import { useAgentName } from './useAgentName';
 
 const ENABLED = 'web.enabled';
 const PROVIDER = 'web.search_provider';
@@ -14,6 +15,7 @@ const USES = Array.from({ length: 20 }, (_, i) => i + 1);
 
 /** Settings, AI: Whisk's web search and page reading (`web.*`). */
 export default function WebCard() {
+  const agentName = useAgentName();
   const { data, error, reload, setData } = useJson<CoreSettings>('/api/core/settings');
   const [busy, setBusy] = useState(false);
   if (error) return <LoadError label="Couldn't load the settings" onRetry={reload} />;
@@ -42,11 +44,12 @@ export default function WebCard() {
           disabled={busy}
           onChange={(e) => void save(ENABLED, e.target.checked, e.target.checked ? 'Web tools on.' : 'Web tools off.')}
         />
-        Let Whisk search the web and read web pages
+        Let {agentName} search the web and read web pages
       </label>
       <p className={HINT}>
-        What Whisk reads on the web is treated as untrusted: after it reads a page or a search result, every change it
-        wants to make in that conversation asks for your approval first. Pages on your own network are never read.
+        What {agentName} reads on the web is treated as untrusted: after it reads a page or a search result, every
+        change it wants to make in that conversation asks for your approval first. Pages on your own network are never
+        read.
       </p>
       {on && (
         <div className="flex flex-wrap gap-3">
@@ -83,7 +86,7 @@ export default function WebCard() {
       )}
       {on && provider === 'anthropic' && (
         <p className={HINT}>
-          Claude&apos;s search is used while Whisk runs on Anthropic; on OpenAI it uses DuckDuckGo.
+          Claude&apos;s search is used while {agentName} runs on Anthropic; on OpenAI it uses DuckDuckGo.
         </p>
       )}
     </div>

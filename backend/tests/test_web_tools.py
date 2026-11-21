@@ -212,6 +212,17 @@ def test_errors_never_quote_what_the_server_sent(net):
     assert fetch("http://shop.example/")["content"] == "\ufffd"  # an unknown charset falls back to utf-8
 
 
+def test_a_compressed_page_is_capped_after_decoding_and_its_title_is_short(net):
+    import gzip
+
+    page = b"<title>" + b"t" * 1000 + b"</title><p>" + b"a" * (64 * 1024 * 1024) + b"</p>"  # 64 MB that gzips to ~64 KB
+    body = gzip.compress(page)
+    net({"shop.example": [PUBLIC_A]}, {PUBLIC_A: http(200, body, "Content-Encoding: gzip")})
+    out = fetch("http://shop.example/")
+    assert out["truncated"] is True and len(out["title"]) == web.MAX_TITLE and len(out["content"]) == web.MAX_CHARS
+    assert "first 5 MB of the page" in out["note"]
+
+
 def test_an_error_status_is_reported(net):
     net({"shop.example": [PUBLIC_A]}, {PUBLIC_A: http(404, b"gone")})
     with pytest.raises(Invalid, match="HTTP 404"):

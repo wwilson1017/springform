@@ -7,12 +7,12 @@ import type { ContextUsage } from './useAgentChat';
 
 const kTokens = (n: number) => (n >= 1000 ? `${Math.round(n / 100) / 10}k` : String(n));
 
-function UsageFooter({ usage }: { usage: ContextUsage }) {
+function UsageFooter({ usage, agentName }: { usage: ContextUsage; agentName: string }) {
   const pct = Math.min(100, Math.round((usage.contextTokens / usage.contextWindow) * 100));
   return (
     <div
       className="flex items-center gap-2 text-[11px] text-sf-ink-dim"
-      title="How full the model's context is; Whisk summarizes older messages at 70%."
+      title={`How full the model's context is; ${agentName} summarizes older messages at 70%.`}
     >
       <span className="h-1 w-16 overflow-hidden rounded-full bg-sf-raised">
         <span
@@ -167,7 +167,7 @@ export function AgentChatPanel({
             </div>
             <div className="flex min-h-4 flex-wrap items-center justify-between gap-2 px-1 text-[11px] text-sf-ink-dim">
               <span className="hidden md:inline">Enter sends, Shift+Enter adds a line</span>
-              {usage && <UsageFooter usage={usage} />}
+              {usage && <UsageFooter usage={usage} agentName={agentName} />}
             </div>
           </div>
         </div>

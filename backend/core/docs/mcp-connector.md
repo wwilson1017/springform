@@ -5,7 +5,7 @@ order: 60
 ---
 ## What the link does
 
-An MCP link lets an AI app outside this install (such as Claude) use the same tools Whisk has, **as you**. It can see what you can see and change what you can change.
+An MCP link lets an AI app outside this install (such as Claude) use the same tools {agent_name} has, **as you**. It can see what you can see and change what you can change.
 
 Treat the link like a password. Anyone who has it can act as you until it is revoked.
 

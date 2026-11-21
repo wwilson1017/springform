@@ -8,7 +8,7 @@ import type { ReactNode } from 'react';
  */
 export interface CoreNavItem {
   to: string;
-  label: string;
+  label: ReactNode;
   /** An icon element, sized 18. */
   icon: ReactNode;
   placement: 'primary' | 'menu';

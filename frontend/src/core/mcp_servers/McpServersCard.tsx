@@ -9,6 +9,7 @@ import { toast } from '../../shared/toast';
 import { buttonClass, inputClass, labelClass, secondaryButtonClass } from '../settings/ui';
 import { suggestPrefix, validateDraft } from './form';
 import type { McpServer, McpServerCheck, ServerDraft } from './types';
+import { useAgentName } from '../agent/useAgentName';
 
 const BASE = '/api/core/mcp/servers';
 const EMPTY: ServerDraft = { name: '', url: '', token: '', prefix: '' };
@@ -29,6 +30,7 @@ function ServerRow({
   onChanged: (s: McpServer) => void;
   onRemoved: () => void;
 }) {
+  const agentName = useAgentName();
   const [busy, setBusy] = useState(false);
   const [test, setTest] = useState<{ ok: boolean; text: string } | null>(null);
 
@@ -65,7 +67,7 @@ function ServerRow({
   const remove = async () => {
     const ok = await confirmDialog({
       title: 'Remove MCP server',
-      message: `Whisk loses the tools from ${s.name}, and any approval still waiting for one of them will fail.`,
+      message: `${agentName} loses the tools from ${s.name}, and any approval still waiting for one of them will fail.`,
       confirmLabel: 'Remove',
       danger: true,
     });
@@ -149,6 +151,7 @@ function ServerRow({
 }
 
 export function AddServerForm({ onAdded }: { onAdded: (s: McpServer) => void }) {
+  const agentName = useAgentName();
   const [draft, setDraft] = useState<ServerDraft>(EMPTY);
   const [prefixEdited, setPrefixEdited] = useState(false);
   const [showErrors, setShowErrors] = useState(false);
@@ -221,8 +224,8 @@ export function AddServerForm({ onAdded }: { onAdded: (s: McpServer) => void }) 
         {field('prefix', 'Prefix', { placeholder: 'tasks' })}
       </div>
       <p className="m-0 text-xs text-sf-ink-dim">
-        Whisk names this server's tools <code>{draft.prefix || 'prefix'}.tool_name</code>. The token is stored encrypted
-        and never shown again.
+        {agentName} names this server's tools <code>{draft.prefix || 'prefix'}.tool_name</code>. The token is stored
+        encrypted and never shown again.
       </p>
       <div>
         <button type="submit" disabled={busy} className={buttonClass}>
@@ -235,15 +238,16 @@ export function AddServerForm({ onAdded }: { onAdded: (s: McpServer) => void }) 
 
 /** Settings, MCP servers: the other MCP servers Whisk may call (admin only). */
 export default function McpServersCard() {
+  const agentName = useAgentName();
   const { data, error, reload, setData } = useJson<McpServer[]>(BASE);
   if (error) return <LoadError label="Couldn't load the MCP servers" onRetry={reload} />;
   if (!data) return <BootFallback variant="panel" />;
   return (
     <div className="flex flex-col gap-4">
       <p className="m-0 text-sm text-sf-ink-soft">
-        Whisk can call tools on other MCP servers. Every remote tool call asks for approval first, whatever the server
-        says about the tool, and what comes back is treated as untrusted. These tools appear in every member's Whisk;
-        each member approves their own calls.
+        {agentName} can call tools on other MCP servers. Every remote tool call asks for approval first, whatever the
+        server says about the tool, and what comes back is treated as untrusted. These tools appear in every member's{' '}
+        {agentName}; each member approves their own calls.
       </p>
       {data.length === 0 ? (
         <p className="m-0 text-sm text-sf-ink-dim">No servers connected yet.</p>

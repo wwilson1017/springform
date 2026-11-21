@@ -40,6 +40,7 @@ FETCH = "core_web_fetch"
 MAX_RESULTS = 10
 READ_CAP = 5 * 1024 * 1024  # decoded bytes read from a page; the transport's raw cap sits just above
 MAX_CHARS = 15_000
+MAX_TITLE = 300
 DEADLINE = 25.0  # whole fetch, redirects included; under execute.TOOL_TIMEOUT so the thread ends too
 SEARCH_TIMEOUT = 10
 REDIRECTS = 5
@@ -138,7 +139,7 @@ def _fetch(user, args: dict) -> dict:
     title = None
     if "html" in ctype or (not ctype and body.lstrip()[:1] == b"<"):
         soup = BeautifulSoup(body, "html.parser", from_encoding=charset)
-        title = soup.title.get_text(strip=True) if soup.title else None
+        title = soup.title.get_text(" ", strip=True)[:MAX_TITLE] if soup.title else None
         for tag in soup.find_all(_STRIP):
             tag.decompose()
         text = soup.get_text("\n", strip=True)
