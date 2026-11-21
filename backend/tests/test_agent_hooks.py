@@ -34,7 +34,7 @@ def hook(monkeypatch, point, fn):
 
 
 SHIPPED = {
-    "before_model_call": ["backend.core.agent.context_shrink"],
+    "before_model_call": ["backend.core.agent.context_shrink", "backend.core.agent.intents"],
     "on_provider_error": ["backend.core.agent.errors"],
     "before_tool": ["backend.core.agent.call_repair"],
     "on_tool_result": ["backend.core.agent.loop_guard", "backend.core.agent.result_cap"],
