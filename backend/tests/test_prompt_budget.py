@@ -1,9 +1,10 @@
 """The prompt budget: what every turn sends before the conversation (the static half of the system
 prompt plus the tool definitions sent eagerly) stays under BUDGET_TOKENS, estimated as characters / 4.
 
-Measured on an admin's first turn of a fresh install (admins see every tool). With PROMPT_REPORT set to
-a file path the test appends a Markdown report of the sizes and the chat tool surface; CI points it at
-the job summary so a PR shows what it changed. Raise the budget only on purpose, in the PR that needs it.
+Measured on an admin's first turn of a fresh install (admins see every tool), with the lifespan run so
+the seeded soul.md is in the prompt. With PROMPT_REPORT set to a file path the test appends a Markdown
+report of the sizes and the chat tool surface; CI points it at the job summary so a PR shows what it
+changed. Raise the budget only on purpose, in the PR that needs it.
 """
 
 import json
@@ -14,6 +15,7 @@ import pytest
 from backend.core.agent.assembly import CHARS_PER_TOKEN
 from backend.core.agent.engine import chat_tools
 from backend.core.agent.providers import fake
+from backend.core.memory.context_files import DEFAULTS, SOUL
 
 BUDGET_TOKENS = 10_000
 
@@ -50,9 +52,11 @@ def report(static: str, tools: list[dict], specs) -> str:
 
 def test_static_prompt_and_eager_tools_stay_under_the_budget(login_as, model_requests):
     a = login_as("admin")
-    r = a.post("/api/agent/chat", json={"message": "hi"})
+    with a:  # run the lifespan: startup seeds soul.md into the static prompt
+        r = a.post("/api/agent/chat", json={"message": "hi"})
     assert r.status_code == 200, r.text
     static, tools = model_requests[0]["system"][0], model_requests[0]["tools"]
+    assert DEFAULTS[SOUL].splitlines()[2] in static, "seeded soul.md missing from the measured prompt"
     if path := os.environ.get("PROMPT_REPORT"):
         with open(path, "a") as f:
             f.write(report(static, tools, chat_tools(a.principal)))
