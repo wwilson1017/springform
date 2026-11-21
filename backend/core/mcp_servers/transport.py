@@ -15,9 +15,9 @@ hostname, so SNI and certificate verification still name the host, not the IP.
 - Refuses to send inside a database transaction (platform rule: no network inside transaction()).
 
 Web mode (`http_client(web=True)`, Whisk's `core_web_fetch`, docs/agents/agent.md §4): http and
-https both, but never a private address (MCP_ALLOW_PRIVATE does not apply); up to 5 redirects,
-each one a new request through this transport, so its scheme and every address are checked again
-and the connection pinned again; 6 MB raw (the reader stops at 5 MB); compressed bodies allowed (httpx2 inflates them in bounded
+https both, but never a private address (MCP_ALLOW_PRIVATE does not apply); still no automatic
+redirects (the reader follows them itself, so each hop is a new request through this transport,
+checked and pinned again, and no redirect body is read); 6 MB raw (the reader stops at 5 MB); compressed bodies allowed (httpx2 inflates them in bounded
 pieces and the caller caps what it reads); a 401 or 403 is returned, not refused.
 """
 
@@ -39,7 +39,6 @@ from backend.core import db
 TIMEOUT = 30.0
 MAX_RESPONSE = 1024 * 1024
 MAX_WEB_RESPONSE = 6 * 1024 * 1024  # a backstop above the web reader's own 5 MB cap, so the reader truncates first
-WEB_REDIRECTS = 5
 # IPv6 ranges that carry an IPv4 address, which `is_global` can call global (64:ff9b::a9fe:a9fe is
 # the metadata address behind NAT64). Refused whole rather than decoded: nothing fetched lives there.
 _EMBEDDED = tuple(
@@ -174,7 +173,7 @@ def http_client(
         transport=GuardedTransport(inner, web=web),
         headers=headers,
         timeout=TIMEOUT,
-        follow_redirects=web,
-        max_redirects=WEB_REDIRECTS if web else 0,
+        follow_redirects=False,  # httpx would read every redirect body in full; web reads follow by hand
+        max_redirects=0,
         trust_env=False,
     )

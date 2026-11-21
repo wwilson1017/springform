@@ -5,14 +5,23 @@ conversation, so every later write in it asks for approval (docs/agents/agent.md
   the Anthropic provider swaps this tool for Anthropic's own server-side search
   (`anthropic_provider.py`); OpenAI keeps this one.
 - `core_web_fetch`: one http(s) page as readable text, through the outbound transport in web
-  mode (`mcp_servers/transport.py`): every address checked at connection time, every redirect
-  hop checked and pinned again, never a private address.
+  mode (`mcp_servers/transport.py`): every address checked at connection time, never a private
+  address. Redirects are followed here, hop by hop, each one a new request through the transport
+  (so checked and pinned again) and its body never read: httpx's own following reads every
+  redirect body in full, decompressed, past any cap.
+
+Error messages never quote what the server sent (a header can carry instructions), and a failed
+untrusted read taints the conversation like a successful one (`execute.run_tool`).
 
 Offered to active admins and members while `web.enabled` is on; never to inbound MCP (the install
 is not a fetch proxy) or to jobs (untrusted sources are excluded there already).
 """
 
 from __future__ import annotations
+
+import asyncio
+import codecs
+import re
 
 import anyio
 import httpx2
@@ -33,9 +42,11 @@ READ_CAP = 5 * 1024 * 1024  # decoded bytes read from a page; the transport's ra
 MAX_CHARS = 15_000
 DEADLINE = 25.0  # whole fetch, redirects included; under execute.TOOL_TIMEOUT so the thread ends too
 SEARCH_TIMEOUT = 10
+REDIRECTS = 5
 USER_AGENT = "Mozilla/5.0 (compatible; Springform web reader)"
 _STRIP = ("head", "script", "style", "noscript", "template", "svg", "iframe", "nav", "header", "footer", "form")
 _TEXT_TYPES = ("application/json", "application/xml", "application/xhtml+xml", "application/rss+xml")
+_MEDIA_TYPE = re.compile(r"[a-z0-9.+-]{1,40}/[a-z0-9.+-]{1,60}")
 
 
 def enabled(user) -> bool:
@@ -54,7 +65,7 @@ def _search(user, args: dict) -> dict:
         raw = DDGS(timeout=SEARCH_TIMEOUT).text(query, max_results=count, backend="duckduckgo")
     except DDGSException as e:
         if str(e) != "No results found.":
-            raise Invalid(f"Web search failed: {e}") from None
+            raise Invalid(f"Web search failed ({type(e).__name__}); try again later.") from None
         # ddgs says this both for a real empty answer and when DuckDuckGo turns the server away
         return {
             "query": query,
@@ -68,19 +79,36 @@ def _search(user, args: dict) -> dict:
     return {"query": query, "results": results}
 
 
+def _charset(name: str | None) -> str | None:
+    try:
+        return codecs.lookup(name).name if name else None
+    except LookupError:
+        return None
+
+
 async def _read(url: str) -> tuple[str, int, str, bytes, bool, str | None]:
     """(final url, status, content type, body, cut at READ_CAP, charset)."""
     with anyio.fail_after(DEADLINE):
         async with transport.http_client(web=True) as client:
-            async with client.stream("GET", url, headers={"User-Agent": USER_AGENT}) as response:
-                body, cut = bytearray(), False
-                async for chunk in response.aiter_bytes():
-                    body += chunk
-                    if len(body) >= READ_CAP:
-                        body, cut = body[:READ_CAP], True
-                        break
-                ctype = response.headers.get("content-type", "").split(";")[0].strip().lower()
-                return str(response.url), response.status_code, ctype, bytes(body), cut, response.charset_encoding
+            for _ in range(REDIRECTS + 1):
+                request = client.build_request("GET", url, headers={"User-Agent": USER_AGENT})
+                response = await client.send(request, stream=True)
+                try:
+                    if response.is_redirect:  # the body is never read
+                        url = str(response.url.join(response.headers["location"]))
+                        continue
+                    body, cut = bytearray(), False
+                    async for chunk in response.aiter_bytes():
+                        body += chunk
+                        if len(body) >= READ_CAP:
+                            body, cut = body[:READ_CAP], True
+                            break
+                    ctype = response.headers.get("content-type", "").split(";")[0].strip().lower()
+                    charset = _charset(response.charset_encoding)
+                    return str(response.url), response.status_code, ctype, bytes(body), cut, charset
+                finally:
+                    await response.aclose()
+    raise Invalid(f"The page redirected more than {REDIRECTS} times.")
 
 
 def _fetch(user, args: dict) -> dict:
@@ -94,15 +122,16 @@ def _fetch(user, args: dict) -> dict:
     if parsed.userinfo:
         raise Invalid("URLs carrying a user name or password are not read.")
     try:
-        final, status, ctype, body, cut, charset = anyio.run(_read, url)
+        # A fresh loop: the handler thread may carry the turn's context, which anyio.run would refuse.
+        final, status, ctype, body, cut, charset = asyncio.run(_read(url))
     except transport.Refused as e:
         raise Invalid(str(e)) from None
     except TimeoutError:
         raise Invalid(f"The page took longer than {DEADLINE:g} s to read.") from None
-    except httpx2.TooManyRedirects:
-        raise Invalid(f"The page redirected more than {transport.WEB_REDIRECTS} times.") from None
+    except httpx2.InvalidURL:
+        raise Invalid("The page redirected to an address that is not a URL.") from None
     except httpx2.HTTPError as e:
-        raise Invalid(f"The page could not be read: {e or type(e).__name__}") from None
+        raise Invalid(f"The page could not be read ({type(e).__name__}).") from None
     if status >= 400:
         raise Invalid(f"The server answered HTTP {status}.")
 
@@ -116,7 +145,8 @@ def _fetch(user, args: dict) -> dict:
     elif ctype.startswith("text/") or ctype in _TEXT_TYPES or ctype.endswith("+json"):
         text = body.decode(charset or "utf-8", errors="replace")
     else:
-        raise Invalid(f"That address is {ctype or 'not text'}; only web pages and text are read.")
+        kind = ctype if _MEDIA_TYPE.fullmatch(ctype) else "not text"
+        raise Invalid(f"That address is {kind}; only web pages and text are read.")
 
     out: dict = {"url": final, "title": title, "content": text[:MAX_CHARS], "truncated": cut or len(text) > MAX_CHARS}
     if out["truncated"]:

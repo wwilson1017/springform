@@ -148,7 +148,7 @@ core_agent_mcp_servers(id, name, url, token_enc, prefix UNIQUE, enabled, tools_j
 5. 30 s timeout (per request and for the whole exchange); response capped at **1 MB** (counted on the wire); compressed responses are refused (`Accept-Encoding: identity`), so the cap holds after decoding. No proxies or netrc from the environment.
 6. HTTP 401/403 surfaces as "The server refused the request (HTTP 401); check the token"; the SDK would only say "an error response".
 7. The transport refuses to send inside a database transaction.
-8. **Web mode** (`http_client(web=True)`, used only by Whisk's `core_web_fetch`, `agent.md` §4): `http://` and `https://` to public addresses only (`MCP_ALLOW_PRIVATE` does not apply); redirects followed up to 5, each hop a new request through the transport, so its scheme and every address are checked and the connection pinned again; 6 MB raw cap (the reader stops at 5 MB decoded); compressed bodies accepted (httpx2 inflates them in bounded pieces); 401/403 returned as statuses. MCP keeps every rule above.
+8. **Web mode** (`http_client(web=True)`, used only by Whisk's `core_web_fetch`, `agent.md` §4): `http://` and `https://` to public addresses only (`MCP_ALLOW_PRIVATE` does not apply); still no automatic redirects: the reader follows up to 5 itself, each hop a new request through the transport (scheme and every address checked, the connection pinned again) whose body is never read, because httpx's own following reads every redirect body in full, decompressed and uncapped; 6 MB raw cap (the reader stops at 5 MB decoded); compressed bodies accepted (httpx2 inflates them in bounded pieces); 401/403 returned as statuses. MCP keeps every rule above.
 
 ### Routes (admin, `/api/core/mcp/servers`)
 
