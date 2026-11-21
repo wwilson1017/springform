@@ -1,0 +1,24 @@
+name: A provider failure after a tool ran ends with a note, and no fallback after a write
+tools:
+  - name: core_scen_list_bins
+    returns: {bins: 4}
+  - name: core_scen_save_bin
+    writes: true
+    confirm_tier: routine
+    returns: {saved: bin-9}
+steps:
+  - send: How many bins?
+    replies:
+      - {tool: core_scen_list_bins, args: {}}
+      - {error: boom}
+    events:
+      - {type: tool_end, tool: core_scen_list_bins, status: done}
+      - {type: text, text: "*(No complete reply: the AI service returned an error, after 1 tool call (last: core_scen_list_bins). Some steps may already have run; check the results above before asking again.)*"}
+      - {type: error, error: boom}
+  - send: Save bin 9.
+    replies:
+      - {tool: core_scen_save_bin, args: {}}
+      - {error: down, status: 529, code: overloaded_error}
+    events:
+      - {type: tool_end, tool: core_scen_save_bin, status: done}
+      - {type: error, error: fake-default is overloaded or unreachable right now. Try again in a minute.}

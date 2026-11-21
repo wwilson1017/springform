@@ -75,7 +75,7 @@ def status() -> dict:
 
 
 async def collect_text(stream: AsyncIterator[dict]) -> str:
-    """Drive one provider stream to its text; ProviderError on an error event or a dead stream."""
+    """Drive one provider stream to its text; ProviderError on an error event, a refusal or a dead stream."""
     text, completed = "", False
     async for event in stream:
         if event["type"] == "text":
@@ -83,6 +83,8 @@ async def collect_text(stream: AsyncIterator[dict]) -> str:
         elif event["type"] == "error":
             raise ProviderError(event["error"])
         elif event["type"] == "_turn_complete":
+            if event.get("stop_reason") == "refusal":  # a declined summary or answer is not text to keep
+                raise ProviderError("The model declined this request.")
             completed = True
             break
     if not completed:

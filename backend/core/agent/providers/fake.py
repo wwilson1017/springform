@@ -4,7 +4,9 @@
     "text"                                  -> streams that text
     {"tool": name, "args": {...}, "text"?}  -> one tool call (after optional text)
     [{"tool": ...}, {"tool": ...}]          -> several tool calls in one iteration
-    {"error": "message"}                    -> a provider error
+    {"error": "message", ...}               -> a provider error; `text` streams first, and `status`,
+                                               `code`, `retry_after` ride on the error event
+    {"text": "...", "stop": "max_tokens"}   -> a reply with that stop reason (also with "tool")
     {"chunks": ["a", "b"], "delay": 0.2}    -> streams each chunk as its own text event, `delay` s apart
 With nothing queued it answers from the conversation: a user message `/tool <name> <json args>`
 calls that tool, a tool result or the resume nudge gets "Done.", anything else is echoed.
@@ -63,7 +65,9 @@ class FakeProvider(AIProvider):
     ) -> AsyncGenerator[dict, None]:
         turn = _script.popleft() if _script else _unscripted(messages)
         if isinstance(turn, dict) and "error" in turn:
-            yield {"type": "error", "error": turn["error"]}
+            if turn.get("text"):
+                yield {"type": "text", "text": turn["text"]}
+            yield {"type": "error", **{k: turn[k] for k in ("error", "status", "code", "retry_after") if k in turn}}
             yield {"type": "_turn_complete", "tool_calls": [], "stop_reason": "error"}
             return
         if isinstance(turn, dict) and "chunks" in turn:
@@ -72,6 +76,9 @@ class FakeProvider(AIProvider):
                 yield {"type": "text", "text": chunk}
             yield {"type": "_turn_complete", "tool_calls": [], "stop_reason": "end_turn", "usage": {}}
             return
+        stop = turn.get("stop") if isinstance(turn, dict) else None
+        if isinstance(turn, dict) and "tool" not in turn:
+            turn = turn.get("text", "")  # a stop-only turn: {"text", "stop"}
         calls = [turn] if isinstance(turn, dict) else turn if isinstance(turn, list) else []
         text = turn if isinstance(turn, str) else "".join(c.get("text", "") for c in calls)
         if text:
@@ -86,7 +93,7 @@ class FakeProvider(AIProvider):
         yield {
             "type": "_turn_complete",
             "tool_calls": tool_calls,
-            "stop_reason": "tool_use" if tool_calls else "end_turn",
+            "stop_reason": stop or ("tool_use" if tool_calls else "end_turn"),
             "usage": {"input_tokens": read // 4, "output_tokens": max(1, len(text) // 4)},
         }
 

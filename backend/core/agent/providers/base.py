@@ -4,7 +4,7 @@ Events yielded by `stream_turn()` (dicts, not yet SSE-encoded):
     {"type": "text", "text": "chunk"}
     {"type": "tool_start", "tool": "name", "tool_use_id": "id"}
     {"type": "tool_args", "tool": "name", "tool_use_id": "id", "args": {...}}
-    {"type": "error", "error": "message"}
+    {"type": "error", "error": "message", "status"?, "retry_after"?, "code"?}   (see error_event)
     {"type": "_turn_complete", "tool_calls": [{"id", "name", "args"}], "stop_reason": "...",
      "usage": {...}, "assistant_content"?: native blocks to replay within this turn}
 
@@ -18,6 +18,28 @@ from abc import ABC, abstractmethod
 from collections.abc import AsyncGenerator
 
 DEFAULT_MAX_TOKENS = 64_000  # streaming, and thinking counts against it on current models
+
+
+def error_event(model: str, e: Exception, *, connection: bool = False) -> dict:
+    """A provider `error` event from an SDK exception, with what `errors.classify` reads: the HTTP
+    `status`, the provider's error `code` (OpenAI's `code`, else the body's error `type`, e.g.
+    Anthropic's `overloaded_error`; "connection_error" when nothing came back) and `retry_after`
+    seconds. The text names the model, so even an error no hook handles says which one failed."""
+    status = getattr(e, "status_code", None)
+    body = getattr(e, "body", None)
+    inner = body.get("error", body) if isinstance(body, dict) else {}
+    inner = inner if isinstance(inner, dict) else {}
+    code = "connection_error" if connection else getattr(e, "code", None) or inner.get("code") or inner.get("type")
+    try:
+        retry_after = float(getattr(e, "response").headers.get("retry-after"))
+    except (AttributeError, TypeError, ValueError):
+        retry_after = None
+    text = (
+        f"{model} is rate-limited. Please try again in a moment."
+        if status == 429
+        else f"AI service error ({model}): {e!s}"
+    )
+    return {"type": "error", "error": text, "status": status, "retry_after": retry_after, "code": code}
 
 
 def sse(data: dict) -> str:

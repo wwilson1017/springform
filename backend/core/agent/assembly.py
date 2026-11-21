@@ -110,10 +110,10 @@ def assemble_messages(provider, conversation_id: int) -> list[dict]:
                 for c in calls
             ]
             out.extend(provider.build_tool_turn(text, bounded, results))
-    return _coalesce(out)
+    return coalesce(out)
 
 
-def _coalesce(messages: list[dict]) -> list[dict]:
+def coalesce(messages: list[dict]) -> list[dict]:
     """Merge consecutive same-role user/assistant messages (Anthropic needs strict alternation).
     Never merge a message carrying OpenAI's top-level tool_calls: that would orphan its results."""
     out: list[dict] = []

@@ -18,7 +18,7 @@ import logging
 from collections.abc import AsyncGenerator
 from typing import Any
 
-from backend.core.agent.providers.base import DEFAULT_MAX_TOKENS, AIProvider
+from backend.core.agent.providers.base import DEFAULT_MAX_TOKENS, AIProvider, error_event
 from backend.core.agent.providers.windows import get_context_window
 
 logger = logging.getLogger(__name__)
@@ -120,20 +120,14 @@ class AnthropicProvider(AIProvider):
                             "args": last["args"],
                         }
                 final = await stream.get_final_message()
-        except anthropic.RateLimitError:
-            yield {"type": "error", "error": "Claude is rate-limited. Please try again in a moment."}
-            yield {"type": "_turn_complete", "tool_calls": [], "stop_reason": "error"}
-            return
         except anthropic.APIError as e:
+            # An error raised mid-stream carries the stream's own status 200, so errors.classify reads `code` first.
             logger.error("Anthropic API error: %s", e)
-            yield {"type": "error", "error": f"AI service error: {e!s}"}
+            yield error_event(self.model, e, connection=isinstance(e, anthropic.APIConnectionError))
             yield {"type": "_turn_complete", "tool_calls": [], "stop_reason": "error"}
             return
 
-        if final.stop_reason == "refusal":
-            yield {"type": "error", "error": "The model declined this request."}
-            yield {"type": "_turn_complete", "tool_calls": [], "stop_reason": "error"}
-            return
+        # A refusal (stop_reason "refusal") is a completed reply, not an error: endings says so.
         usage = final.usage
         yield {
             "type": "_turn_complete",
