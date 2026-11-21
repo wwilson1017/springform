@@ -86,8 +86,8 @@ SUMMARY_SYSTEM = (
 _IDENTIFIER_RE = re.compile(
     r"https?://[^\s<>\"'`)\]]+"  # URL
     r"|(?<!\d)\d{4}-\d{2}-\d{2}(?!\d)"  # ISO date, also the date of a timestamp
-    r"|(?<![\w.,])[$€£]?\d[\d,]*\.\d{2}(?!\w)"  # amount with cents: 1250.00, $1,250.00
-    r"|(?<![\w.,])[$€£]\d[\d,]*(?!\w)"  # amount with a currency sign: $40
+    r"|(?<![\w.,-])-?[$€£]?\d[\d,]*\.\d{2}(?!\w)"  # amount with cents: 1250.00, -$1,250.00
+    r"|(?<![\w.,-])-?[$€£]\d[\d,]*(?!\w)"  # amount with a currency sign: $40
     r"|(?<![\w-])[A-Za-z]++[-_#]?+\d{2,}+[A-Za-z0-9]*+(?:-[A-Za-z0-9]++)*+(?![\w-])"  # INV-0042, SO123
     r"|#\d+(?!\w)"  # #17
     r"|(?<![\w.,$€£#-])\d{3,}(?![\w,]|\.\d)"  # a bare number of 3+ digits: deal 4521
@@ -132,13 +132,14 @@ async def _maybe_compact(provider, conversation_id: int) -> bool:
     middle = [r for r in rows if lo <= r["id"] < first_kept]
     await _flush(conversation_id, first_kept)
     summary, status = await _summarize(middle, by_message, prev_summary)
-    if status == "timeout":
+    if status == "timeout":  # the previous gist stays whole (it was checked), plus the note once
         prev = delimiters.conversation_summary_text(prev_summary or "")
-        room = MAX_SUMMARY_CHARS - len(DROPPED_NOTE) - 2
-        summary = (prev[:room].strip() + "\n\n" + DROPPED_NOTE).strip()
+        summary = prev if prev.endswith(DROPPED_NOTE) else (prev + "\n\n" + DROPPED_NOTE).strip()
     elif not summary:
         return False
-    gist = delimiters.wrap_conversation_summary(summary[:MAX_SUMMARY_CHARS].strip())  # cap, then wrap once
+    else:
+        summary = summary[:MAX_SUMMARY_CHARS].strip()  # cap, then wrap once
+    gist = delimiters.wrap_conversation_summary(summary)
     if not await in_thread(history.set_compaction, conversation_id, gist, first_kept):
         return False  # a concurrent turn moved the boundary further
     if any(delimiters.UNTRUSTED_EXTERNAL_MARKER in _render(r, by_message) for r in middle):
@@ -312,7 +313,8 @@ async def _summarize(middle: list[dict], by_message: dict, prev_summary: str | N
     transcript = "\n".join(reversed(chunks)).strip()
     if not transcript:
         return "", "failed"
-    must = await in_thread(required, middle, by_message, prev_summary)  # regex work off the event loop
+    must = [f"## {h}" for h in SECTIONS]  # the template's headings
+    must += await in_thread(required, middle, by_message, prev_summary)  # regex work off the event loop
     prompt = "MUST APPEAR VERBATIM:\n" + "".join(f"- {m}\n" for m in must) + "\n" if must else ""
     prompt += "PRIOR SUMMARY (of even older messages; fold this in):\n" + prev_summary + "\n\n" if prev_summary else ""
     prompt += "MIDDLE MESSAGES TO COMPACT:\n" + transcript

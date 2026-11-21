@@ -9,7 +9,7 @@ steps:
     replies: [Noted INV-0042.]
   - send: What do we know about the deal?
     replies:
-      - &lossy "## Pending user asks\nInvoice INV-0042 belongs to it.\n## Exact identifiers\nThe deal closes 2026-12-01."
+      - &lossy "## Goal\nTrack the deal.\n## Constraints\nNone.\n## Decisions\nNone.\n## Done / In progress / Blocked\nNone.\n## Pending user asks\nInvoice INV-0042 belongs to it.\n## Exact identifiers\nThe deal closes 2026-12-01."
       - *lossy  # first corrective retry
       - *lossy  # second corrective retry, then rejected
       - Deal 4521 closes 2026-12-01.

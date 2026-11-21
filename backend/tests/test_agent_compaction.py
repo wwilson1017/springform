@@ -21,6 +21,12 @@ DEAL = [
 ]
 
 
+def outline(asks: str = "None.", ids: str = "None.") -> str:
+    """A summary in the template, every section present."""
+    body = {"Pending user asks": asks, "Exact identifiers": ids}
+    return "\n".join(f"## {h}\n{body.get(h, 'None.')}" for h in compaction.SECTIONS)
+
+
 @pytest.fixture(autouse=True)
 def _fake(monkeypatch):
     monkeypatch.setenv("AGENT_FAKE_PROVIDER", "1")
@@ -59,8 +65,8 @@ def test_identifiers_in_json_are_read_decoded_not_from_escapes():
     args = json.dumps({"customer": "Zoé Márquez", "note": "line1\nINV-0042", "due": "a\n2026-12-01"})
     result = json.dumps({"order_id": 7, "memo": "paid\tSO-7781 😀"})
     fenced = delimiters.wrap_untrusted_external("t", json.dumps({"note": "x\nINV-0043", "by": "José"}))
-    found = compaction.identifiers([args, result, fenced, "1250.00"])
-    assert found == ["INV-0042", "2026-12-01", "SO-7781", "7", "INV-0043", "1250.00"]
+    found = compaction.identifiers([args, result, fenced, "1250.00", "a refund of -$40.00"])
+    assert found == ["INV-0042", "2026-12-01", "SO-7781", "7", "INV-0043", "1250.00", "-$40.00"]
     assert not any(t.startswith(("n", "u00", "ud8")) for t in found)
 
 
@@ -99,7 +105,7 @@ def test_a_lossy_summary_is_retried_naming_what_is_missing_then_rejected(monkeyp
 
     async def lossy(system, prompt, **kw):
         prompts.append(prompt)
-        return "## Exact identifiers\nThe deal closes 2026-12-01."
+        return outline(ids="The deal closes 2026-12-01.")
 
     monkeypatch.setattr(compaction, "acomplete", lossy)
     middle = [{"id": 3, "role": "user", "content": {"text": "Deal 4521 is worth 1250.00, closing 2026-12-01."}}]
@@ -111,26 +117,22 @@ def test_a_lossy_summary_is_retried_naming_what_is_missing_then_rejected(monkeyp
 
 
 def test_a_summary_fixed_on_retry_is_kept(monkeypatch):
-    replies = iter(["Deal closes soon.", "## Pending user asks\nDeal 4521 is worth 1250.00."])
+    good = outline(asks="Deal 4521 is worth 1250.00.")
+    replies = iter([outline(ids="Deal closes soon."), "## Pending user asks\nDeal 4521 is worth 1250.00.", good])
 
     async def complete(system, prompt, **kw):
         return next(replies)
 
     monkeypatch.setattr(compaction, "acomplete", complete)
     middle = [{"id": 3, "role": "user", "content": {"text": "Deal 4521 is worth 1250.00."}}]
-    assert asyncio.run(compaction._summarize(middle, {}, None)) == (
-        "## Pending user asks\nDeal 4521 is worth 1250.00.",
-        "ok",
-    )
+    assert asyncio.run(compaction._summarize(middle, {}, None)) == (good, "ok")  # the second lacked the outline
 
 
 def test_a_timed_out_summary_drops_the_oldest_rows_and_keeps_the_previous_gist(login_as, monkeypatch):
     a = login_as("member")
     monkeypatch.setattr(fake, "CONTEXT_WINDOW", 1000)
     cid = thread(a, DEAL[:3])
-    fake.script(
-        "Nothing to record.", "## Pending user asks\nInvoice INV-0042 belongs to it.\nDeal 4521, 1250.00, 2026-12-01"
-    )
+    fake.script(outline("Invoice INV-0042 belongs to it.", "Deal 4521, 1250.00, 2026-12-01"))
     cid = thread(a, DEAL[3:], cid)  # compacts with a good summary
     first = history.compaction_state(cid)
     assert "Deal 4521, 1250.00" in first["summary"]
@@ -144,7 +146,7 @@ def test_a_timed_out_summary_drops_the_oldest_rows_and_keeps_the_previous_gist(l
     chat(a, "And the next step?", cid)
     state = history.compaction_state(cid)
     inner = delimiters.conversation_summary_text(state["summary"])
-    assert inner.startswith("## Pending user asks\nInvoice INV-0042") and inner.endswith(compaction.DROPPED_NOTE)
+    assert inner == delimiters.conversation_summary_text(first["summary"]) + "\n\n" + compaction.DROPPED_NOTE
     assert state["summary_first_kept_id"] > first["summary_first_kept_id"]
     sent = json.dumps(assembly.assemble_messages(FakeProvider("fake"), cid))
     assert "What do we know about the deal?" not in sent and "And the next step?" in sent
