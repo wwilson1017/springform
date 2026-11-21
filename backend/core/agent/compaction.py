@@ -236,13 +236,34 @@ def _texts(row: dict, by_message: dict) -> list[str]:
     return out
 
 
+def _leaves(value):
+    """The strings and numbers inside decoded JSON, as text, so escapes like \\n or \\u00e9 are not scanned."""
+    if isinstance(value, dict):
+        for k, v in value.items():
+            yield k
+            yield from _leaves(v)
+    elif isinstance(value, list):
+        for v in value:
+            yield from _leaves(v)
+    elif value is not None and not isinstance(value, bool):
+        yield str(value)
+
+
+def _decoded(text: str) -> list[str]:
+    try:
+        return list(_leaves(json.loads(text)))
+    except ValueError:
+        return [text]
+
+
 def identifiers(texts: list[str]) -> list[str]:
-    """Literal ids, amounts, URLs and dates in `texts`, in order of appearance, without repeats."""
+    """Literal ids, amounts, URLs and dates in `texts`, in order of appearance, without repeats.
+    A text that is JSON is scanned by its decoded strings and numbers."""
     seen: dict[str, None] = {}
     for text in texts:
-        text = _FENCE_TAG_RE.sub(" ", text)
-        for m in _IDENTIFIER_RE.finditer(text):
-            seen.setdefault(m.group(0).rstrip(_URL_TAIL) if m.group(0).startswith("http") else m.group(0))
+        for leaf in _decoded(text):
+            for m in _IDENTIFIER_RE.finditer(_FENCE_TAG_RE.sub(" ", leaf)):
+                seen.setdefault(m.group(0).rstrip(_URL_TAIL) if m.group(0).startswith("http") else m.group(0))
         for m in _JSON_ID_RE.finditer(text):
             seen.setdefault(m.group(1))
     return list(seen)

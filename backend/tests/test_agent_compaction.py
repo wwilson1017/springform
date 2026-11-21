@@ -54,6 +54,14 @@ def test_identifiers_are_taken_whole():
     ]  # fmt: skip
 
 
+def test_identifiers_in_json_are_read_decoded_not_from_escapes():
+    args = json.dumps({"customer": "Zoé Márquez", "note": "line1\nINV-0042", "due": "a\n2026-12-01"})
+    result = json.dumps({"order_id": 7, "memo": "paid\tSO-7781 😀"})
+    found = compaction.identifiers([args, result])
+    assert found == ["INV-0042", "2026-12-01", "SO-7781", "7"]
+    assert not any(t.startswith(("n", "u00", "ud8")) for t in found)
+
+
 def test_missing_matches_whole_tokens():
     assert compaction.missing("deal 45210, invoice inv-0042", ["4521", "INV-0042"]) == ["4521", "INV-0042"]
     assert compaction.missing("Deal 4521 (INV-0042).", ["4521", "INV-0042"]) == []
