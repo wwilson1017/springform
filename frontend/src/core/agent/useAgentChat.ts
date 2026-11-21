@@ -24,7 +24,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ApiError, fetchJson, postJson } from '../api/client';
-import { applyEvent, cardsOf, fromServer, localId, type ChatMessage, type ToolPart } from './chatModel';
+import { applyEvent, cardsOf, fromServer, localId, textOf, type ChatMessage, type ToolPart } from './chatModel';
 import { confirmReducer, runStatusOf, shouldResume, type ConfirmEvent, type Decision } from './confirmState';
 import { readEvents } from './sse';
 import type { ChatContext, ChatEvent, ConfirmResponse, ConversationDetail } from './types';
@@ -67,6 +67,9 @@ interface Turn {
   queued: Queued[];
   /** The posts of queued messages under way; settled before the turn's end decides what is left. */
   posting?: Promise<void>;
+  /** Following a running turn this view did not start (a reload, another tab): its events are
+   * read only for `steer` and the end, then the view re-reads the conversation. */
+  quiet?: boolean;
   /** A queued post that started the next turn (this one had ended): its stream, read after this one. */
   next?: Response;
 }
@@ -277,6 +280,16 @@ export function useAgentChat(options: Options = {}) {
           if (these.length) updateMessage(asstId, (m) => these.reduce(applyEvent, m));
         };
         for (const e of events) {
+          if (turn.quiet) {
+            if (e.seq != null) turn.lastSeq = Math.max(turn.lastSeq, e.seq);
+            if (e.type === 'done' || e.type === 'error') ended = 'terminal';
+            if (e.type === 'steer') {
+              const q = turn.queued.find((x) => x.text === e.text);
+              turn.queued = turn.queued.filter((x) => x !== q);
+              if (q) updateMessage(q.id, (m) => ({ ...m, queued: false }));
+            }
+            continue;
+          }
           if (e.type === 'steer') {
             if (e.seq != null) turn.lastSeq = Math.max(turn.lastSeq, e.seq);
             flush();
@@ -322,7 +335,17 @@ export function useAgentChat(options: Options = {}) {
           window.location.assign('/login');
           return;
         }
-        if (!res.ok || !res.body) {
+        if (res.status === 202) {
+          // The conversation's turn was already running, not started in this view: the message is
+          // queued on it. Follow that turn to its end, then show what the server saved.
+          turn.turnId = ((await res.json()) as { turn_id: number }).turn_id;
+          turn.quiet = true;
+          const mine = messagesRef.current.findLast((m) => m.role === 'user' && textOf(m) === body.message);
+          if (mine && body.message) {
+            turn.queued.push({ id: mine.id, text: body.message, sent: true });
+            updateMessage(mine.id, (m) => ({ ...m, queued: true }));
+          }
+        } else if (!res.ok || !res.body) {
           const detail = await res.json().then(
             (b) => (typeof b?.detail === 'string' ? b.detail : ''),
             () => '',
@@ -359,10 +382,10 @@ export function useAgentChat(options: Options = {}) {
       }
       if (!turn.live) return;
 
-      if (ended === 'dropped' || turn.stopped) {
+      if (ended === 'dropped' || turn.stopped || turn.quiet) {
         const restored = await reconcile(turn, turn.stopped ? [] : RECONNECT_DELAYS_MS);
         if (!turn.live) return;
-        if (!turn.stopped) setNotice(restored ? DROP_NOTICE : LOST_NOTICE);
+        if (ended === 'dropped' && !turn.stopped) setNotice(restored ? DROP_NOTICE : LOST_NOTICE);
       }
       // Whatever is still marked streaming stops; an empty bubble left by a stop goes away.
       setMessages((prev) =>

@@ -333,4 +333,43 @@ describe('useAgentChat steering', () => {
     expect(bodies(fn)[3]).toEqual({ conversation_id: 7 }); // b was accepted and saved: continue, never resend
     expect(view(result.current.messages)).toEqual(['user:hi', 'user:a', 'assistant:A', 'user:b', 'assistant:B']);
   });
+
+  it('follows a running turn it did not start when its message is queued (202), then shows what was saved', async () => {
+    const saved: ConversationDetail = {
+      id: 7,
+      user_id: 1,
+      agent_id: 1,
+      agent_slug: 'whisk',
+      title: 'hi',
+      is_private: false,
+      created_at: '2026-10-24T10:00:00Z',
+      updated_at: '2026-10-24T10:00:00Z',
+      compacted_at: null,
+      messages: [
+        { id: 1, role: 'user', text: 'hi', model: null, created_at: '2026-10-24T10:00:00Z', tool_calls: [] },
+        { id: 2, role: 'user', text: 'and this', model: null, created_at: '2026-10-24T10:00:01Z', tool_calls: [] },
+        { id: 3, role: 'assistant', text: 'Both.', model: 'm', created_at: '2026-10-24T10:00:02Z', tool_calls: [] },
+      ],
+    };
+    const fn = serve({
+      'GET /api/agent/conversations/7': () => json(saved),
+      'POST /api/agent/chat': () => json({ queued: true, turn_id: 3 }, 202),
+      'GET /api/agent/turns/3/events?after=-1': () =>
+        sse(
+          { type: 'conversation_id', id: 7, turn_id: 3, seq: 0 },
+          { type: 'text', text: 'Some', seq: 1 },
+          { type: 'steer', text: 'and this', seq: 2 },
+          { type: 'text', text: 'Both.', seq: 3 },
+          { type: 'done', seq: 4 },
+        ),
+    });
+    const { result } = renderHook(() => useAgentChat());
+    await act(() => result.current.load(7)); // a reload while the turn runs: this view is not attached
+    act(() => result.current.send('and this'));
+    await waitFor(() => expect(calls(fn)).toContain('GET /api/agent/turns/3/events?after=-1'));
+    await waitFor(() => expect(result.current.streaming).toBe(false));
+    expect(result.current.notice).toBeNull();
+    expect(view(result.current.messages)).toEqual(['user:hi', 'user:and this', 'assistant:Both.']);
+    expect(calls(fn).filter((c) => c === 'POST /api/agent/chat')).toHaveLength(1); // read by the turn: no continuation
+  });
 });
