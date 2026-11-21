@@ -185,14 +185,19 @@ def read(user: User, handle: str, *, offset: int | None = None, grep: str | None
     return out
 
 
+def _fold(text: str) -> str:
+    """Lowercase that keeps every offset: a character whose lowercase is longer (like "İ") stays as it is."""
+    if len(low := text.lower()) == len(text):
+        return low
+    return "".join(c if len(c.lower()) != 1 else c.lower() for c in text)
+
+
 def _grep(handle: str, text: str, needle: str) -> str:
     # simplification: a case-insensitive literal, not a pattern (a model-written regex over megabytes
     # can backtrack past the tool timeout); upgrade: a bounded regex.
     if len(needle) > GREP_MAX_CHARS:
         raise Invalid(f"grep takes at most {GREP_MAX_CHARS} characters")
-    hay, low = text.lower(), needle.lower()
-    if len(hay) != len(text):  # lowercasing changed the length, so offsets would drift: match case
-        hay, low = text, needle
+    hay, low = _fold(text), _fold(needle)
     lines, total, shown_to, at = [], 0, -1, hay.find(low)
     while at >= 0 and low:  # str.find is linear; a case-insensitive regex is quadratic on near-matches
         total += 1

@@ -253,6 +253,7 @@ def test_rows_that_each_add_keys_are_not_tabled():
 def test_grep_is_a_literal_and_bounded():
     assert result_cap._grep("r1", "a" * 400_000, "a" * 190 + "b").startswith('[r1: 0 matches for "')
     assert "@3: xx Hello" in result_cap._grep("r1", "xx Hello .*", "HELLO")
+    assert result_cap._grep("r1", "İstanbul HELLO", "hello").endswith("@9: İstanbul HELLO")
     near = result_cap._grep("r1", "id-7 id-7 id-7", "id-7")
     assert near.startswith('[r1: 3 matches for "id-7", 1 shown]') and near.count("@") == 1
     assert result_cap._grep("r1", "x.*y", ".*").startswith('[r1: 1 matches for ".*"]')
