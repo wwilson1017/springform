@@ -148,6 +148,7 @@ The settings an admin changes through `/api/core/settings` are the core keys bel
 | `files.max_bytes` | 25 MB | Upload size cap. |
 | `agent.nightly_enabled` | `false` | Gates `core.agent_nightly`. |
 | `agent.context_budget_chars` | `12000` | Whole number above zero. Caps the memory block Whisk reads per turn. |
+| `agent.cost_rates` | list prices | `{model: {input, output, cache_read, cache_write}}`, USD per million tokens, each 0 to 10,000. Prices the usage ledger (`agent.md` §5). |
 | `auth.require_totp_for_google` | `false` | Adds the local TOTP step to Google sign-in. |
 
 `GET /api/core/settings` lists exactly these keys, so saving every listed value back succeeds. Other `core_settings` rows are internal and not listed. Some keys are written only by their own routes, never through `/api/core/settings`: `auth.google_client_id` and `auth.google_client_secret` by `PUT /api/auth/google/config`, `sheets.service_account_json` by `PUT /api/core/sheets/credentials`, and `notifications.vapid_public_key` / `notifications.vapid_private_key`, which are generated.

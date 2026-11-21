@@ -102,3 +102,24 @@ class ConfirmResponse(Out):
 
 class TurnCancelled(Out):
     cancelled: bool
+
+
+class UsageRow(Out):
+    """One source and model's calls this month; `unpriced` counts calls on a model with no rate."""
+
+    source: str
+    model: str
+    calls: int
+    input_tokens: int
+    output_tokens: int
+    cache_read: int
+    cache_write: int
+    cost_micros: int
+    unpriced: int
+
+
+class UsageMonth(Out):
+    month: str  # YYYY-MM in the install timezone
+    rows: list[UsageRow]
+    cost_micros: int  # priced calls only
+    cache_hit_rate: float | None  # cache reads over all input tokens; None with no input yet

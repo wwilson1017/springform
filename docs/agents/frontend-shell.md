@@ -85,7 +85,7 @@ Settings sections as built, in the order a user sees them (a member sees only th
 | 40 | `signin` | Sign-in | Google sign-in (admin) | `src/core/auth/settingsCards.ts` |
 | 50 | `integrations` | Integrations | GitHub (`github.repo`, `github.token`, `requests.warning_text`), Google Sheets (admin) | `src/core/integrations/settingsCards.ts` |
 | 60 | `data` | Data | Export, Files (`files.max_bytes`) (admin) | `src/core/settings/settingsCards.ts` |
-| 70 | `ai` | AI | Providers, Agents, Memory, Nightly run (admin) | `src/core/agent/settingsCards.ts` |
+| 70 | `ai` | AI | Providers, Agents, Memory, Nightly run, Usage (admin) | `src/core/agent/settingsCards.ts` |
 | 80 | `mcp_servers` | MCP servers | Connected MCP servers (admin) | `src/core/mcp_servers/settingsCards.ts` |
 | after core | `<slug>` | the app's name | The manifest's `settings_cards`, in launcher order: CRM (`crm`, admin), Todos (`todos`, members), Example (`example`, admin) | `src/apps/<slug>/contributions.ts` |
 

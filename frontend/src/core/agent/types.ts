@@ -19,6 +19,8 @@ export type ConversationDetail = S['ConversationDetail'];
 export type AgentRow = S['AgentRow'];
 /** POST /api/agent/providers/{provider}/test */
 export type ProviderTest = S['ProviderTest'];
+/** GET /api/agent/usage */
+export type UsageMonth = S['UsageMonth'];
 
 /** One `data:` frame of POST /api/agent/chat (and GET /api/agent/turns/{id}/events). Every
  * frame of a server-owned turn has a `seq`; the first also carries `turn_id`. */
