@@ -23,6 +23,8 @@ _SECRETS = (
             re.I,
         ),
     ),
+    # 'password: "correct horse"': a quoted value is a password whatever it holds (added here)
+    ("password", re.compile(r"(\b(?:password|passwd|passcode)\s*(?:is|:|=)\s*)([\"'])[^\"'\n]{4,}?\2", re.I)),
     # "password: hunter22", a value with a digit or a symbol, not "is in 1Password"
     (
         "password",

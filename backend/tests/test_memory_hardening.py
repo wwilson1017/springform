@@ -17,6 +17,10 @@ def test_secrets_are_blanked_and_counted_but_lookalikes_stay():
     text, removed = blank_secrets(f"Stripe key {STRIPE}, wifi password: hunter22! and card {CARD}")
     assert text == "Stripe key [removed: key], wifi password: [removed: password] and card [removed: card number]"
     assert removed == {"key": 1, "password": 1, "card number": 1}
+    assert blank_secrets("Till password: \"cobalt river\" and passcode is 'horse-battery'") == (
+        "Till password: [removed: password] and passcode is [removed: password]",
+        {"password": 2},
+    )
     key = "-----BEGIN RSA PRIVATE KEY-----\nMIIabc\n-----END RSA PRIVATE KEY-----"
     assert blank_secrets(f"deploy key {key} done")[0] == "deploy key [removed: key] done"
     for kept in (
