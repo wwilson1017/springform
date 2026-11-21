@@ -152,10 +152,10 @@ async def run_unattended(
     provider: AIProvider, user: User, message: str, *, agent: dict, context: str, timeout: float
 ) -> dict:
     """A check-in turn nobody streams, in a new conversation, waited to its very end (tool threads
-    included): {conversation_id, status, reply, text, error}. `status` is the turn's ("done", "error",
-    "cancelled", "interrupted"); `reply` is the last model call's own text, `text` what the user is
-    shown after the last tool (the answer plus any closing note). Still running after `timeout`
-    seconds, it is stopped like a Stop click (`cancelled`)."""
+    included): {conversation_id, status, reply, text, error, timed_out}. `status` is the turn's ("done",
+    "error", "cancelled", "interrupted"); `reply` is the last model call's own text, `text` what the
+    user is shown after the last tool (the answer plus any closing note). Still running after `timeout`
+    seconds, it is stopped like a Stop click (`cancelled`, `timed_out` True)."""
     live = Live(None)
     _running.add(live)  # before any await, so shutdown() sees it
     live.task = asyncio.create_task(_supervise(live, provider, user, message, agent, context, "checkin"))
@@ -164,7 +164,14 @@ async def run_unattended(
         live.stop("cancelled")
         await asyncio.wait([live.task])
     if live.ready.done() and not live.ready.cancelled() and (failed := live.ready.exception()) is not None:
-        return {"conversation_id": None, "status": "error", "reply": "", "text": "", "error": str(failed) or CRASHED}
+        return {
+            "conversation_id": None,
+            "status": "error",
+            "reply": "",
+            "text": "",
+            "error": str(failed) or CRASHED,
+            "timed_out": False,
+        }
     tools = [i for i, e in enumerate(live.events) if e["type"].startswith("tool_")]
     text = "".join(e["text"] for e in live.events[(tools[-1] + 1 if tools else 0) :] if e["type"] == "text")
     error = live.events[-1].get("error") if live.terminal() else None
@@ -174,6 +181,7 @@ async def run_unattended(
         "reply": live.reply,
         "text": text,
         "error": error,
+        "timed_out": not done,
     }
 
 

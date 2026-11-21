@@ -7,6 +7,7 @@ Job tests run inside the app's lifespan (`with TestClient(app)`), so the schedul
 
 import asyncio
 import json
+import threading
 import time
 from datetime import datetime, timezone
 from typing import Literal
@@ -16,7 +17,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from backend.core import clock, db as core_db, scheduler
-from backend.core.agent import agents, approval_rules, detached, dispatch, engine, intents, registry
+from backend.core.agent import agents, approval_rules, detached, dispatch, engine, history, intents, registry
 from backend.core.agent.providers import fake
 from backend.core.agent.providers.fake import FakeProvider
 from backend.core.agent.turn_hooks import TurnState
@@ -386,6 +387,94 @@ def test_a_turn_past_its_time_limit_is_stopped_and_counted(live, monkeypatch):
     assert row(c["id"])["last_error"] == service.TIMED_OUT
     assert core_db.rows("SELECT status FROM core_agent_turns") == []  # its conversation (and turn) are gone
     assert count("core_agent_conversations WHERE user_id = ?", (live.principal.id,)) == 0
+
+
+def test_the_owners_stop_is_not_a_failure(live):
+    c = make(live)
+    due(c["id"])
+    fake.script({"chunks": ["a"] * 50, "delay": 0.1})
+
+    def stop() -> None:  # the Stop button, clicked while the turn runs
+        def stopped() -> bool:
+            turn = core_db.one("SELECT id FROM core_agent_turns")
+            return bool(turn) and live.post(f"/api/agent/turns/{turn['id']}/cancel").json().get("cancelled") is True
+
+        _wait(stopped)
+
+    clicker = threading.Thread(target=stop)
+    clicker.start()
+    assert service.run_due()["silent"] == 1
+    clicker.join()
+    r = row(c["id"])
+    assert (r["failures"], r["last_status"], r["last_error"]) == (0, "silent", None)
+    assert (
+        notes(live.principal.id) == []
+        and count("core_agent_conversations WHERE user_id = ?", (live.principal.id,)) == 0
+    )
+
+
+def during(monkeypatch, act) -> None:
+    """Run `act(out)` after the check-in's turn ends and before the job records it: "mid-run"."""
+    real = detached.run_unattended
+
+    async def run(*args, **kwargs):
+        out = await real(*args, **kwargs)
+        await asyncio.to_thread(act, out)
+        return out
+
+    monkeypatch.setattr(detached, "run_unattended", run)
+
+
+def test_a_checkin_deleted_mid_run_delivers_nothing(live, monkeypatch):
+    c = make(live)
+    due(c["id"])
+    fake.script("Two invoices are overdue.")
+    during(monkeypatch, lambda out: service.delete(live.principal, c["id"]))
+    service.run_due()
+    assert (
+        notes(live.principal.id) == []
+        and count("core_agent_conversations WHERE user_id = ?", (live.principal.id,)) == 0
+    )
+
+
+def test_a_conversation_deleted_mid_run_is_ok_without_a_notification(live, monkeypatch):
+    c = make(live)
+    due(c["id"])
+    fake.script("Two invoices are overdue.")
+    during(monkeypatch, lambda out: history.delete_conversation(out["conversation_id"], live.principal.id))
+    service.run_due()
+    assert row(c["id"])["last_status"] == "ok" and notes(live.principal.id) == []
+
+
+def test_pausing_mid_run_still_delivers_the_reply(live, monkeypatch):
+    c = make(live)
+    due(c["id"])
+    fake.script("Two invoices are overdue.")
+    during(monkeypatch, lambda out: service.set_enabled(live.principal, c["id"], False))
+    assert service.run_due()["delivered"] == 1
+    assert len(notes(live.principal.id)) == 1 and row(c["id"])["enabled"] == 0
+
+
+def test_the_shutdown_hand_back_keeps_a_newer_run_now(live, monkeypatch):
+    c = make(live)
+    due(c["id"])
+
+    def shutdown_after_run_now(start):  # Run now lands, then shutdown stops the turn
+        service.run_now(live.principal, c["id"])
+        return None
+
+    monkeypatch.setattr(scheduler, "run_on_loop", shutdown_after_run_now)
+    service.run_due()
+    assert "2000-01-01T00:00:00Z" != row(c["id"])["next_run_at"] <= clock.now_iso()
+
+
+def test_a_cut_off_reply_is_delivered_with_the_incomplete_note(live):
+    c = make(live)
+    due(c["id"])
+    fake.script({"text": "Half", "stop": "max_tokens"})
+    assert service.run_due()["delivered"] == 1
+    [n] = notes(live.principal.id)
+    assert n["message"].startswith("Half") and "incomplete" in n["message"]
 
 
 def test_an_unbacked_claim_is_delivered_with_its_correction(live):

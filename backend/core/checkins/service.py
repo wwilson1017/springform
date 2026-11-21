@@ -211,7 +211,14 @@ def _run(row: dict, agent: dict, provider: AIProvider) -> str | None:
         )
     except Exception as e:  # the run itself failed: counted like any failed turn
         logger.exception("check-in %s could not be run", row["id"])
-        out = {"conversation_id": None, "status": "error", "reply": "", "text": "", "error": str(e) or type(e).__name__}
+        out = {
+            "conversation_id": None,
+            "status": "error",
+            "reply": "",
+            "text": "",
+            "error": str(e) or type(e).__name__,
+            "timed_out": False,
+        }
     cid = out["conversation_id"] if out else None
     if out is None or out["status"] == "interrupted":
         # Shutdown before anything was delivered: hand the slot back (unless a Run now or resume
@@ -225,11 +232,14 @@ def _run(row: dict, agent: dict, provider: AIProvider) -> str | None:
             )
         return None
     error = None
-    if out["status"] != "done":
-        error = TIMED_OUT if out["status"] == "cancelled" else out["error"] or "It stopped with an error."
+    if out["status"] == "cancelled":  # the owner's Stop (not the time limit) is recorded like a silent run
+        error = TIMED_OUT if out["timed_out"] else None
+    elif out["status"] != "done":
+        error = out["error"] or "It stopped with an error."
     elif not out["reply"].strip():
         error = "The model ended without writing a reply."
-    text = (out["text"].strip() or out["reply"].strip()) if error is None and not is_silent(out["reply"]) else None
+    done = out["status"] == "done" and error is None and not is_silent(out["reply"])
+    text = (out["text"].strip() or out["reply"].strip()) if done else None
     if cid and text is None:  # a silent or failed run leaves no conversation
         history.delete_conversation(cid, owner.id)
     with db.transaction() as conn:
