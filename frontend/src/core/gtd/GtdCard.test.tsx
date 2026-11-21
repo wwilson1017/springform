@@ -106,4 +106,17 @@ describe('GtdCard', () => {
     });
     expect(await screen.findByText(/That code expired/, undefined, { timeout: 2500 })).toBeTruthy();
   });
+
+  it('keeps polling after a failed poll', async () => {
+    const routes: Record<string, Reply> = {
+      [`GET ${BASE}`]: { body: waiting },
+      [`POST ${BASE}/connect/poll`]: { status: 502, body: { detail: "Couldn't reach the GTD suite: Timed out" } },
+    };
+    const fetchMock = renderCard(routes);
+    expect(await screen.findByText(/Couldn't reach the GTD suite/, undefined, { timeout: 2500 })).toBeTruthy();
+    routes[`POST ${BASE}/connect/poll`] = { body: connected };
+    expect(await screen.findByRole('button', { name: 'Disconnect' }, { timeout: 2500 })).toBeTruthy();
+    expect(callsTo(fetchMock, 'POST', `${BASE}/connect/poll`).length).toBe(2);
+    expect(screen.queryByText(/Couldn't reach the GTD suite/)).toBeNull();
+  });
 });

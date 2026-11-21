@@ -42,12 +42,14 @@ export default function GtdCard() {
       () => {
         postJson<GtdState>(`${BASE}/connect/poll`).then(
           (next) => {
-            if (!cancelled) setData(next);
+            if (cancelled) return;
+            setProblem(null);
+            setData(next);
           },
           (e: unknown) => {
             if (cancelled) return;
             setProblem(say(e));
-            if (e instanceof ApiError && e.detail === 'gtd_connect_expired') reload();
+            reload(); // a fresh state re-arms the timer (a blip keeps the connect waiting) or ends it (expired)
           },
         );
       },
