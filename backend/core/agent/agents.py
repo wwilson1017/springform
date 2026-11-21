@@ -131,20 +131,20 @@ def context_note(user: User, page: str | None, record: tuple[str, int] | None) -
     """The page and record the user has open, for the volatile half. The record is named only
     after `entities.authorize(read)`: an unknown type, a missing record or one this user cannot
     read is left out without a word, so the prompt never confirms it exists. `page` is a path
-    the router has already held to a plain pattern."""
+    the router has already held to a plain pattern. Only the type and id are named, never the
+    title: a member can write a shared record's title, and this note is unfenced."""
     parts = [f"The user has this page of the app open: {page}."] if page else []
     if record:
         entity_type, entity_id = record
         try:
             conn = db.get_conn()
             entity = entities.authorize(user, conn, entity_type, entity_id, "read")
-            title = _one_line(entity.title_fn(conn, [entity_id]).get(entity_id), 120)
         except NotFound:
             return " ".join(parts)
-        named = f"{entity.label} #{entity_id}" + (f', "{title}"' if title else "")
         parts.append(
-            f"The user is looking at {named} (entity type {entity_type}, id {entity_id}). When they say "
-            f'"this", "this {entity.label.lower()}" or "here", they mean that record.'
+            f"The user is looking at {entity.label} #{entity_id} (entity type {entity_type}, id {entity_id}). "
+            f'When they say "this", "this {entity.label.lower()}" or "here", they mean that record; '
+            "read it with a tool when you need its details."
         )
     return " ".join(parts)
 

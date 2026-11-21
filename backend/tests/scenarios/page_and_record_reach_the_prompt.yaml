@@ -12,7 +12,8 @@ steps:
       system_contains:
         - "The user has this page of the app open: /example/1."
         - 'The user is looking at Widget #'
-        - '"Blue scenario widget" (entity type example.widget'
+        - (entity type example.widget, id
+      system_exclude: [Blue scenario widget]  # a member-written title stays out of the unfenced note
   - send: And this one?
     page: /example/2
     record: hidden
