@@ -18,7 +18,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, ConfigDict, Field
 
-from backend.core.agent import agents, detached, engine, history, models, providers
+from backend.core.agent import agents, detached, engine, history, models, providers, usage
 from backend.core.agent.providers import ProviderError, collect_text, credentials
 from backend.core.agent.providers.base import AIProvider
 from backend.core.auth.deps import User, current_user, require_admin
@@ -253,6 +253,12 @@ def update_provider(provider: str, body: ProviderPatch, user: User = Depends(req
     return credentials.update(_known(provider), **body.model_dump(exclude_unset=True))
 
 
+@router.get("/usage", response_model=models.UsageMonth)
+def get_usage(user: User = Depends(require_admin)) -> dict:
+    """This month's model usage and estimated cost (the usage ledger, agent.md §5)."""
+    return usage.month_summary()
+
+
 @router.post("/providers/{provider}/test", response_model=models.ProviderTest)
 async def test_provider(provider: str, user: User = Depends(require_admin)) -> dict:
     """One tiny completion with this provider's key and light model; 400 with the provider's message."""
@@ -262,8 +268,12 @@ async def test_provider(provider: str, user: User = Depends(require_admin)) -> d
     client = providers.make(provider, row["api_key"], row["model_light"])
     try:
         reply = await collect_text(
-            client.stream_turn(
-                [{"role": "user", "content": "Reply with the word OK."}], [], "Reply briefly.", max_tokens=1024
+            usage.metered(
+                client.stream_turn(
+                    [{"role": "user", "content": "Reply with the word OK."}], [], "Reply briefly.", max_tokens=1024
+                ),
+                client,
+                "test",
             )
         )
     except ProviderError as e:

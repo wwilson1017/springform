@@ -18,6 +18,10 @@ Conventions:
 
 ## [Unreleased]
 
+### Added
+
+- Settings, AI, Usage shows this month's AI spend by source (chat, compaction, the nightly run) and model, with the cache hit rate. Every model call is recorded, background ones included; costs are estimated from list prices an admin can edit.
+
 ## [0.1.4] - 2026-11-21
 
 Forks can set their own colours and logo, an admin can hide the install name next to the logo, and Whisk keeps answering through dropped tabs and provider failures.

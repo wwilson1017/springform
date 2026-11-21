@@ -77,7 +77,7 @@ async def _maybe_compact(provider, conversation_id: int) -> bool:
         return False
     lo = prev_id if prev_id is not None else rows[HEAD_ROWS - 1]["id"] + 1
     middle = [r for r in rows if lo <= r["id"] < first_kept]
-    summary = await _summarize(middle, by_message, prev_summary)
+    summary = await _summarize(middle, by_message, prev_summary, conversation_id)
     if not summary:
         return False
     gist = delimiters.wrap_conversation_summary(summary[:MAX_SUMMARY_CHARS].strip())  # cap, then wrap once
@@ -162,7 +162,7 @@ def _render(row: dict, by_message: dict) -> str:
     return "\n".join(lines)
 
 
-async def _summarize(middle: list[dict], by_message: dict, prev_summary: str | None) -> str:
+async def _summarize(middle: list[dict], by_message: dict, prev_summary: str | None, conversation_id: int) -> str:
     """The light tier's gist, or "" on any failure (then nothing is written)."""
     chunks, used = [], 0
     for row in reversed(middle):  # newest first, so truncation drops the oldest whole rows
@@ -180,7 +180,17 @@ async def _summarize(middle: list[dict], by_message: dict, prev_summary: str | N
     prompt += "MIDDLE MESSAGES TO COMPACT:\n" + transcript
     try:
         return (
-            await asyncio.wait_for(acomplete(SUMMARY_SYSTEM, prompt, tier="light", max_tokens=8000), SUMMARY_TIMEOUT)
+            await asyncio.wait_for(
+                acomplete(
+                    SUMMARY_SYSTEM,
+                    prompt,
+                    tier="light",
+                    max_tokens=8000,
+                    source="compaction",
+                    conversation_id=conversation_id,
+                ),
+                SUMMARY_TIMEOUT,
+            )
         ).strip()
     except Exception as e:  # no key, timeout, provider error: stay uncompacted
         logger.warning("compaction summary failed: %s", e)

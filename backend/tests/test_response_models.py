@@ -321,6 +321,7 @@ def exercise(app, login_as, monkeypatch) -> dict[str, httpx.Response]:
         hit(c, "GET", "/api/agent/conversations/{conversation_id}", "resolved", conversation_id=cid)
         hit(c, "GET", "/api/agent/conversations")
         hit(c, "DELETE", "/api/agent/conversations/{conversation_id}", conversation_id=cid)
+    hit(admin, "GET", "/api/agent/usage")  # after the chats above, so its rows are not empty
 
     # ── MCP: inbound links and outbound servers ──
     for c in both:
@@ -348,6 +349,7 @@ def exercise(app, login_as, monkeypatch) -> dict[str, httpx.Response]:
     for method, path in (
         ("GET", "/api/core/settings"), ("GET", "/api/core/jobs"), ("GET", "/api/core/backups"), ("GET", "/api/core/sheets"),
         ("GET", "/api/agent/providers"), ("GET", "/api/core/mcp/servers"), ("POST", "/api/core/requests/refresh"),
+        ("GET", "/api/agent/usage"),
     ):  # fmt: skip
         assert member.request(method, path).status_code == 403, path
     return hit

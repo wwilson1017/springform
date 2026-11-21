@@ -14,6 +14,7 @@ import pytest
 import yaml
 from fastapi.testclient import TestClient
 
+from backend.core import db as core_db
 from backend.core.agent import delimiters, detached, registry as tool_registry
 from backend.core.agent.providers import fake
 from backend.core.agent.spec import ToolSpec
@@ -23,7 +24,7 @@ TOP_KEYS = {"name", "role", "context_window", "tools", "steps"}
 FLAGS = ("confirm_tier", "always_confirm", "untrusted_source", "external_effect")
 TOOL_KEYS = {"name", "description", "writes", "returns", "repeat", *FLAGS}
 ACTIONS = {"send", "continue", "approve", "deny", "resume"}
-STEP_KEYS = ACTIONS | {"replies", "drop_after", "events", "request", "status"}
+STEP_KEYS = ACTIONS | {"replies", "drop_after", "events", "request", "status", "usage"}
 REQUEST_KEYS = {"call", "messages_contain", "messages_exclude", "messages_match", "system_contains"}
 TERMINAL = {"done", "error"}
 
@@ -146,6 +147,7 @@ def run(path: Path, app, login_as, model_requests: list[dict], monkeypatch) -> N
                 try:
                     fake.script(*step.get("replies", []))
                     mark = len(model_requests)
+                    ledger = core_db.one("SELECT coalesce(max(id), 0) AS n FROM core_agent_usage")["n"]
                     evs: list[dict] = []
                     if "send" in step or "continue" in step:
                         body = {"message": step["send"]} if "send" in step else {}
@@ -192,6 +194,11 @@ def run(path: Path, app, login_as, model_requests: list[dict], monkeypatch) -> N
                     check_events(evs, step.get("events", []))
                     for req in _listed(step.get("request")):
                         check_request(model_requests[mark:], req)
+                    if "usage" in step:  # the ledger rows this step wrote, matched like `events`
+                        check_events(
+                            core_db.rows("SELECT * FROM core_agent_usage WHERE id > ? ORDER BY id", (ledger,)),
+                            step["usage"],
+                        )
                 except AssertionError as e:
                     raise AssertionError(f"{path.name} step {i}: {e}") from e
     finally:

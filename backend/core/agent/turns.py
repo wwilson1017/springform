@@ -38,6 +38,7 @@ from backend.core.agent.aio import in_thread
 from backend.core.agent.engine import chat_tools
 from backend.core.agent.providers.windows import cache_inclusive_input_tokens, context_usage_event
 from backend.core.agent.turn_hooks import Fallback, ProviderFailure, Retry, TurnState
+from backend.core.agent.usage import metered
 
 # hook modules: a module that registers turn hooks is imported here.
 HOOK_MODULES = (result_cap, context_shrink, errors, endings, loop_guard, call_repair, completion_claims)
@@ -170,7 +171,8 @@ class TurnRunner:
         while True:
             await turn_hooks.before_model_call(s)
             text, sent, failure = "", False, None
-            async for event in s.provider.stream_turn(s.messages, self._tools(), s.system):
+            stream = s.provider.stream_turn(s.messages, self._tools(), s.system)
+            async for event in metered(stream, s.provider, "chat", s.conversation_id):
                 etype = event.get("type")
                 if etype == "text":
                     text, sent = text + event["text"], True
