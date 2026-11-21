@@ -17,6 +17,7 @@ import re
 
 from backend.core import clock
 from backend.core.agent import delimiters, history, turn_hooks
+from backend.core.agent.aio import in_thread
 from backend.core.agent.spec import calling_conversation
 from backend.core.auth.deps import User
 from backend.core.errors import Invalid, NotFound
@@ -32,6 +33,7 @@ CSV_MIN_ROWS = 3
 CSV_MIN_FIELDS = 3
 CSV_KEY_SHARE = 0.9
 CSV_MAX_CHARS = 2_000_000
+CSV_MAX_CELLS = 200_000  # rows x columns: rows that each add their own keys would blow the table up
 _HANDLE_RE = re.compile(r"r(\d+)")
 _FENCE_RE = re.compile(
     rf'(<{delimiters.UNTRUSTED_EXTERNAL_TAG} id="([0-9a-f]+)"[^>]*>\n)(.*)(\n</{delimiters.UNTRUSTED_EXTERNAL_TAG} id="\2">)',
@@ -53,7 +55,8 @@ def _uniform_keys(items) -> list[str] | None:
     if sum(1 for n in counts.values() if n >= CSV_KEY_SHARE * len(items)) < CSV_MIN_FIELDS:
         return None
     first = list(items[0])
-    return first + sorted(k for k in counts if k not in items[0])
+    header = first + sorted(k for k in counts if k not in items[0])
+    return header if len(items) * len(header) <= CSV_MAX_CELLS else None
 
 
 def _cell(value) -> str:
@@ -137,9 +140,9 @@ def capped(content, run_id: int):
     )
 
 
-def on_tool_result(state, call: dict, run: dict) -> str | None:
+async def on_tool_result(state, call: dict, run: dict) -> str | None:
     if run["status"] == "done" and isinstance(run["content"], str) and len(run["content"]) > CAP_CHARS:
-        return capped(run["content"], run["id"])
+        return await in_thread(capped, run["content"], run["id"])  # parsing megabytes stays off the event loop
     return None
 
 

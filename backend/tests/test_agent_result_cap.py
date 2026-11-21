@@ -243,3 +243,8 @@ def test_read_result_is_not_offered_over_mcp(app):
 def test_deeply_nested_json_is_capped_as_text():
     deep = "[" * 30_000 + "]" * 30_000
     assert "Result capped" in result_cap.capped(deep, 1)
+
+
+def test_rows_that_each_add_keys_are_not_tabled():
+    rows = [{"a": 1, "b": 2, "c": 3, f"k{i}": i} for i in range(4000)]
+    assert result_cap._as_csv(json.dumps(rows)) is None
