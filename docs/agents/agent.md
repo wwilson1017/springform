@@ -352,7 +352,7 @@ memory facts, and the context of a turn already running.
 
 ### Check-ins
 
-`backend/core/checkins/`: a saved prompt Whisk runs on a schedule as its owner. The schedule is one text, `every:<minutes>` (15 to 10,080), `daily@HH:MM` or `weekly:<mon..sun>@HH:MM`, in the install timezone (`schedule.next_run`, DST-safe through `reminders/recurrence.py`). Up to 20 per user.
+`backend/core/checkins/`: a saved prompt Whisk runs on a schedule as its owner. The schedule is one text, `every:<minutes>` (15 to 10,080), `daily@HH:MM` or `weekly:<mon..sun>@HH:MM`, in the install timezone (`schedule.next_run`, DST-safe through `reminders/recurrence.py`). `next_run_at` is an instant: after the install timezone changes, a daily or weekly one runs once more at the old wall time, then follows the new zone (a marked simplification). Up to 20 per user.
 
 - Job `core.agent_checkins` (every 60 s, timeout 1,800 s) runs the due ones one after another. With zero keys it returns `skipped: no_provider` and claims nothing. An inactive owner's check-ins are never claimed; a row whose schedule no longer parses is paused.
 - **Claim before dispatch.** One transaction moves `next_run_at` to the next slot strictly after now, then the turn runs. A second pass or a restart never runs that slot again (a crash mid-turn loses it), and a backlog of missed slots runs once.

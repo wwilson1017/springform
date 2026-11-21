@@ -183,6 +183,9 @@ def _claim() -> dict | None:
     """Move the first due check-in's `next_run_at` to its next slot and return the row as it was:
     the issue's "set before dispatch", so a crash after this never runs the slot twice. A row whose
     schedule no longer parses (edited by hand) is paused instead, so it cannot block the others."""
+    # simplification: `next_run_at` is an instant, so after an admin changes the install timezone a
+    # daily/weekly check-in runs once more at the old wall time, then follows the new zone from its
+    # next slot; upgrade: store the zone with the row and re-anchor when it differs.
     zone = localtime.tz()
     with db.transaction() as conn:
         while (row := conn.execute(_DUE, (clock.now_iso(),)).fetchone()) is not None:
