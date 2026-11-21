@@ -26,6 +26,7 @@ Conventions:
 
 ### Changed
 
+- Whisk runs the lookups of one step at the same time (up to four), so a question that needs several is answered sooner. A change asked for in the same step runs after them, and asks for approval when one of them read the web.
 - Outbound MCP also refuses NAT64, 6to4 and IPv4-compatible IPv6 addresses.
 
 ### Fixed

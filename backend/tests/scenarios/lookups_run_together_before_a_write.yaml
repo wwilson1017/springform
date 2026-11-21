@@ -1,0 +1,27 @@
+name: Two slow lookups of one step run together, and a write in the same step runs after both
+tools:
+  - name: core_scen_count_top_shelf
+    returns: {shelf: top, jars: 12}
+    delay: 0.6
+  - name: core_scen_count_low_shelf
+    returns: {shelf: low, jars: 7}
+    delay: 0.3
+  - name: core_scen_jot_note
+    writes: true
+    confirm_tier: routine
+    returns: {noted: true}
+steps:
+  - send: Note that I asked, and count the jars on both shelves.
+    replies:
+      - - {tool: core_scen_jot_note}
+        - {tool: core_scen_count_top_shelf}
+        - {tool: core_scen_count_low_shelf}
+      - Twelve on top and seven below; noted.
+    events:
+      - {type: tool_end, tool: core_scen_count_low_shelf, status: done}  # called last, back first: both were running
+      - {type: tool_end, tool: core_scen_count_top_shelf, status: done}
+      - {type: tool_end, tool: core_scen_jot_note, status: done}  # called first, run after both lookups
+      - done
+    request:
+      messages_match:  # the results reach the model in the order it called
+        - '"noted": true[\s\S]*"shelf": "top"[\s\S]*"shelf": "low"'

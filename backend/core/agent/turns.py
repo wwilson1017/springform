@@ -2,10 +2,11 @@
 
 `TurnRunner(state, emit).run()` drives one turn and hands every event to `emit` (a dict, not SSE
 text): compact if needed, assemble the history from the database, then loop: call the provider,
-forward text and tool events, persist the iteration, settle each tool call (`dispatch.run_call`),
-and go again until the model stops or a write waits for approval. It emits exactly one terminal
-event (`done` or `error`), last, and raises only on cancel or a bug. `detached.py` owns the task,
-numbers the events and streams them. The hook points it calls are in `turn_hooks.py`.
+forward text and tool events, persist the iteration, settle the step's tool calls
+(`dispatch.run_calls`: lookups together first, then the model's order), and go again until the
+model stops or a write waits for approval. It emits exactly one terminal event (`done` or `error`),
+last, and raises only on cancel or a bug. `detached.py` owns the task, numbers the events and
+streams them. The hook points it calls are in `turn_hooks.py`.
 
 Tools offered are `for_user(user)` ∩ `for_source("chat")`. Results of `untrusted_source` tools
 taint the conversation: from then on every write confirms. Never a provider call inside
@@ -143,7 +144,7 @@ class TurnRunner:
                 return await self._end()
 
             s.pending = False
-            results = [await dispatch.run_call(s, emit, call, message_id) for call in calls]
+            results = await dispatch.run_calls(s, emit, calls, message_id)
             s.messages = s.messages + s.provider.build_tool_turn(text, calls, results, native=native)
             if s.terminated or s.halt:
                 return await self._end()
