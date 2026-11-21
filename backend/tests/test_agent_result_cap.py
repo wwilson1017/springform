@@ -238,3 +238,8 @@ def test_an_untrusted_result_stays_fenced_when_capped_and_when_read(login_as, to
 def test_read_result_is_not_offered_over_mcp(app):
     assert "core_read_result" not in {s.name for s in tool_registry.current().for_source("mcp")}
     assert "core_read_result" in {s.name for s in tool_registry.current().for_source("chat")}
+
+
+def test_deeply_nested_json_is_capped_as_text():
+    deep = "[" * 30_000 + "]" * 30_000
+    assert "Result capped" in result_cap.capped(deep, 1)

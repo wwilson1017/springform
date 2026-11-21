@@ -80,7 +80,7 @@ def _as_csv(text: str) -> str | None:
         return None
     try:
         value = json.loads(text)
-    except ValueError:
+    except (ValueError, RecursionError):  # not JSON, or nested past the parser's depth
         return None
     if header := _uniform_keys(value):
         out = _csv_block("result", value, header)
