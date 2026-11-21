@@ -1,0 +1,9 @@
+name: A reply claiming a send no tool made gets a correction
+steps:
+  - send: Email the supplier.
+    replies:
+      - I sent it.
+    events:
+      - {type: text, text: I sent it.}
+      - {type: text, text: "\n\n*(Correction: this reply says something was sent, but no tool in this turn confirms it. Check before relying on it.)*"}
+      - {type: done}

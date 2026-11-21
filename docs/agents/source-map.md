@@ -94,6 +94,7 @@ All lifted code is the author's sole authorship (Decisions, License); the proven
 | `backend/core/agent/deferred.py` | chatty | `backend/core/agents/deferred_tools.py` | 350 (head 410) | lift | Group key = app slug, threshold 100. |
 | `backend/core/agent/result_cap.py`, `context_shrink.py`, `tools.py` | cake_os | `backend/core/agents/tool_result_compression.py` (the CSV rule) | ~250 | new + lift | #87. Head + tail cap, `core_read_result` and in-turn clearing are new. |
 | `backend/core/agent/errors.py`, `endings.py` | CakeCRM | `backend/assistant/engine.py` at 47b743e (closing notes, 429 back-off) | ~200 | new + lift | #87. Error classes and the write-safe fallback are new. |
+| `backend/core/agent/loop_guard.py`, `call_repair.py`, `completion_claims.py` | cake_os | `backend/core/agents/completion_claims.py` (the claim guards) | ~300 | new + lift | #87. Loop guards, call repair and conversation search are new. |
 | `backend/core/agent/agents.py` | CakeCRM | `backend/assistant/identity.py` | 300 (head 737) | port | Rows, not a singleton. |
 | `backend/core/memory/facts.py` | CakeCRM | `backend/memory/service.py` (Chatty's memory as CakeCRM ported it) | part of 1,800 | port | FTS5, temporal facts, soft invalidation. Chatty's `db.py` was not lifted directly. |
 | `backend/core/memory/context_files.py` | CakeCRM | `backend/context_files/service.py` | part of 1,800 (head 1,274 py) | port | One module; tsvector → FTS5. Chatty's context-file layout. |
