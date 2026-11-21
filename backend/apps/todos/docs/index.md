@@ -20,6 +20,11 @@ taken yet. A revisit date hides a todo from the working lists until that day.
 **Repeating todos** come back when you complete them, with the due date moved on. They keep their
 visibility and assignee.
 
+**Bulk changes by the assistant.** When the assistant changes several todos at once, the chat lists
+every change with an **Undo** that puts them back, except a todo somebody edited since. Undo leaves
+a repeating todo's status alone, since completing or reopening it already made or changed its next
+occurrence; change that one by hand.
+
 **Weekly review** walks your inbox, last week's completions, what is due, projects without a next
 action, what you are waiting for, routines, what is coming up and what has gone stale.
 

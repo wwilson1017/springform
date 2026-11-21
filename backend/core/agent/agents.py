@@ -30,7 +30,8 @@ CONFIRMATION_NOTE = (
     "are about to do and that it is waiting for their approval. That is normal, not an error. "
     "`denied_by_user` means they said no. `stale` means the tool changed after you proposed it, so "
     "it was not run. `interrupted` or `uncertain` means it may or may not have taken effect: check "
-    "before trying again. Read tools never need approval."
+    "before trying again. Read tools never need approval. A bulk edit shows the user its old and new "
+    "values with an Undo button; you cannot undo it yourself, so point them to the button."
 )
 _ROLE_NOTES = {
     "admin": "They are an administrator of this install: settings, users and AI keys are theirs to change.",

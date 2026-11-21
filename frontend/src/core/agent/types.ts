@@ -41,6 +41,8 @@ export type ChatEvent = { seq?: number; turn_id?: number } & (
       status: ToolStatus;
       result: unknown;
       elapsed_ms: number;
+      /** The run has a change list with an Undo (GET /api/agent/change-lists/{tool_run_id}). */
+      change_list?: boolean;
     }
   | { type: 'usage'; input_tokens: number; output_tokens: number; context_tokens: number; context_window: number }
   | {
@@ -53,6 +55,10 @@ export type ChatEvent = { seq?: number; turn_id?: number } & (
       summary: string;
       /** The card may offer "Always allow" (a local write in a clean conversation). */
       can_always_allow?: boolean;
+      /** Pending cards with the same key share one card (same step, tool and argument names). */
+      batch?: string | null;
+      /** A bulk edit: the card lists the changes the server read (GET /api/agent/change-lists/{tool_run_id}). */
+      change_list?: { changes: number; records: number };
     }
   | { type: 'steer'; text: string } // a message sent while the turn ran, now shown to the model
   | { type: 'done'; model?: string; stopped?: boolean }
@@ -67,6 +73,8 @@ export type SkillsPage = S['SkillsPage'];
 export type Skill = S['Skill'];
 /** GET /api/agent/approval-rules */
 export type ApprovalRule = S['ApprovalRule'];
+/** GET /api/agent/change-lists/{tool_run_id}, and its Undo */
+export type ChangeList = S['ChangeList'];
 
 /** GET /api/core/context-files */
 export interface ContextFileMeta {

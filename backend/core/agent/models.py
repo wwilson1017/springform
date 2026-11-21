@@ -72,6 +72,8 @@ class ServerToolCall(Out):
     result: Any
     error: str | None
     can_always_allow: bool = False  # a pending card may offer "Always allow" (engine.rule_eligible)
+    batch: str | None = None  # pending cards with the same key share one card (engine.batch_key)
+    change_list: bool = False  # the run has a change list (GET /api/agent/change-lists/{tool_run_id})
 
 
 class ServerMessage(Out):
@@ -129,6 +131,38 @@ class ApprovalRule(Out):
 
 class RuleVoided(Out):
     voided: bool
+
+
+class ChangeListRow(Out):
+    """One field of one record: `old` and `new` as the change log holds them."""
+
+    entity_type: str
+    entity_id: int
+    title: str
+    field: str
+    old: Any
+    new: Any
+
+
+class ChangeListSkip(Out):
+    entity_type: str
+    entity_id: int
+    title: str
+    reason: str
+
+
+class ChangeList(Out):
+    """A bulk run's changes (agent.md §6). `staged` waits on its card; `not_applied` was denied,
+    stale or refused; `reverted`/`skipped` come with `undone`. Records the caller cannot read now
+    are left out and counted in `hidden`."""
+
+    tool_run_id: int
+    status: Literal["staged", "applied", "undone", "not_applied"]
+    rows: list[ChangeListRow]
+    notes: list[str]
+    hidden: int
+    reverted: int | None
+    skipped: list[ChangeListSkip]
 
 
 class TurnCancelled(Out):

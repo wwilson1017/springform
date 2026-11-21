@@ -1,7 +1,9 @@
 import { memo, useState } from 'react';
 import { MarkdownContent } from '../../shared/MarkdownContent';
 import { IconChevronDown } from '../../shared/icons';
-import { pretty, type ChatMessage, type ToolPart } from './chatModel';
+import { BatchConfirmCard } from './BatchConfirmCard';
+import { ChangeListView } from './ChangeListView';
+import { pretty, renderUnits, type ChatMessage, type ToolPart } from './chatModel';
 import type { DecideOptions, Decision } from './confirmState';
 import { IconSparkle } from './icons';
 import { ToolConfirmCard } from './ToolConfirmCard';
@@ -100,7 +102,7 @@ interface Props {
   agentName: string;
   /** A turn is streaming: approval buttons wait for it to finish. */
   busy: boolean;
-  onDecide: (msgId: string, toolUseId: string, decision: Decision, opts?: DecideOptions) => void;
+  onDecide: (msgId: string, toolUseId: string, decision: Decision, opts?: DecideOptions) => Promise<void> | void;
 }
 
 function Bubble({ message, agentName, busy, onDecide }: Props) {
@@ -135,7 +137,16 @@ function Bubble({ message, agentName, busy, onDecide }: Props) {
           </p>
         )}
         <div className="flex flex-col gap-2 text-[15px] text-sf-ink">
-          {message.parts.map((part, i) => {
+          {renderUnits(message.parts).map((part, i) => {
+            if (part.kind === 'batch')
+              return (
+                <BatchConfirmCard
+                  key={part.key}
+                  members={part.members}
+                  disabled={busy}
+                  onDecide={(t, d, o) => onDecide(message.id, t, d, o)}
+                />
+              );
             if (part.kind === 'text')
               return (
                 <div key={i}>
@@ -152,6 +163,13 @@ function Bubble({ message, agentName, busy, onDecide }: Props) {
                 />
               );
             }
+            if (part.changeList && part.status === 'done' && part.runId != null)
+              return (
+                <div key={part.toolUseId}>
+                  <ToolCallBubble part={part} />
+                  <ChangeListView runId={part.runId} />
+                </div>
+              );
             return <ToolCallBubble key={part.toolUseId} part={part} />;
           })}
         </div>

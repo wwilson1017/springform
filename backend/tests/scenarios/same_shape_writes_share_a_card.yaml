@@ -1,0 +1,27 @@
+name: Same-shape writes of one step share a card; approving all confirms each, and the turn resumes once with every outcome
+tools:
+  - name: core_scen_save_widget
+    writes: true
+    returns: {saved: true}
+  - name: core_scen_tag_widget
+    writes: true
+steps:
+  - send: Save the blue and red widgets and tag them new.
+    replies:
+      - [{tool: core_scen_save_widget, args: {color: blue}}, {tool: core_scen_save_widget, args: {color: red}}, {tool: core_scen_tag_widget, args: {tag: new}}]
+      - These need your approval.
+    events:
+      - {type: confirm, tool: core_scen_save_widget, args: {color: blue}, batch: '[2, "core_scen_save_widget", ["color"]]'}
+      - {type: confirm, tool: core_scen_save_widget, args: {color: red}, batch: '[2, "core_scen_save_widget", ["color"]]'}
+      - {type: confirm, tool: core_scen_tag_widget, batch: '[2, "core_scen_tag_widget", ["tag"]]'}
+      - done
+  - approve: core_scen_save_widget
+    all: true
+    status: done
+  - deny: core_scen_tag_widget
+    status: denied
+  - continue: true
+    replies: [Saved both; the tag was denied.]
+    request:
+      messages_contain: ['{"saved": true}', denied_by_user]
+      messages_exclude: [pending_user_approval]

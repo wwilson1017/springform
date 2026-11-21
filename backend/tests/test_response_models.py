@@ -14,6 +14,7 @@ import httpx
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 
+from backend.apps.todos import service as todos_service
 from backend.core import clock, db as core_db, settings
 from backend.core.agent import providers, registry as tool_registry
 from backend.core.agent.providers import fake
@@ -332,6 +333,14 @@ def exercise(app, login_as, monkeypatch) -> dict[str, httpx.Response]:
     hit(admin, "PATCH", "/api/core/skills/{skill_id}", skill_id=skill["id"], json={"pinned": True})
     hit(admin, "POST", "/api/core/skills/{skill_id}/{action}", skill_id=skill["id"], action="archive")
     hit(admin, "GET", "/api/core/skills", params={"status": "archived"})
+    ids = [todos_service.create_item(member.principal, t, visibility="team")["id"] for t in ("Flour", "Sugar")]
+    fake.script({"tool": "todos_bulk_update", "args": {"ids": ids, "fields": {"visibility": "private"}}}, "Waiting.")
+    stream = member.post("/api/agent/chat", json={"message": "make them private"}).text  # it hides them: a card
+    events = [json.loads(line[6:]) for line in stream.splitlines() if line.startswith("data: ")]
+    run_id = next(e["tool_run_id"] for e in events if e["type"] == "confirm")
+    hit(member, "GET", "/api/agent/change-lists/{tool_run_id}", "staged", tool_run_id=run_id)
+    hit(member, "POST", "/api/agent/confirm", "change list", json={"tool_run_id": run_id, "decision": "approve"})
+    hit(member, "POST", "/api/agent/change-lists/{tool_run_id}/undo", tool_run_id=run_id)
 
     # ── MCP: inbound links and outbound servers ──
     for c in both:

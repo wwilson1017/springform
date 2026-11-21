@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { applyEvent, fromServer, type ChatMessage } from './chatModel';
+import { applyEvent, fromServer, renderUnits, type ChatMessage, type Part, type ToolPart } from './chatModel';
 import type { ChatEvent, ServerMessage } from './types';
 
 const row = (
@@ -28,6 +28,7 @@ describe('fromServer', () => {
           tool_run_id: 9,
           status: 'pending',
           can_always_allow: true,
+          change_list: false,
           result: null,
           error: null,
         },
@@ -48,6 +49,7 @@ describe('fromServer', () => {
         error: null,
         runId: 9,
         canAlwaysAllow: true,
+        changeList: false,
         confirm: { phase: 'pending' },
       },
       { kind: 'text', text: 'Waiting for you.' },
@@ -66,6 +68,7 @@ describe('fromServer', () => {
           result: null,
           error: null,
           can_always_allow: false,
+          change_list: false,
         },
       ]),
     ]);
@@ -180,5 +183,125 @@ describe('applyEvent', () => {
       { type: 'error', error: 'Provider error' },
     );
     expect(m).toMatchObject({ streaming: false, error: 'Provider error' });
+  });
+});
+
+describe('renderUnits', () => {
+  const card = (id: string, batch: string | null, args: Record<string, unknown> = {}): ToolPart => ({
+    kind: 'tool',
+    tool: 'save',
+    toolUseId: id,
+    args,
+    status: 'pending',
+    runId: 1,
+    batch,
+    confirm: { phase: 'pending' },
+  });
+
+  it('draws cards sharing a batch as one unit at the first member, and keeps a group of one plain', () => {
+    const parts: Part[] = [
+      { kind: 'text', text: 'Saving.' },
+      card('a', 'k1'),
+      card('b', 'k2'),
+      card('c', 'k1'),
+      { kind: 'tool', tool: 'read', toolUseId: 'r', status: 'done' },
+    ];
+    const units = renderUnits(parts);
+    expect(units.map((u) => (u.kind === 'batch' ? `batch:${u.members.map((m) => m.toolUseId)}` : u.kind))).toEqual([
+      'text',
+      'batch:a,c',
+      'tool',
+      'tool',
+    ]);
+  });
+
+  it('carries the key from a confirm event and from a reload', () => {
+    const m = applyEvent(
+      { id: 'm', role: 'assistant', parts: [] },
+      { type: 'confirm', tool_run_id: 3, tool: 'save', tool_use_id: 'u', msg_id: 2, args: {}, summary: '', batch: 'k' },
+    );
+    expect(m.parts[0]).toMatchObject({ batch: 'k' });
+    const [reloaded] = fromServer([
+      row(2, 'assistant', '', [
+        {
+          tool: 'save',
+          tool_use_id: 'u',
+          args: {},
+          tool_run_id: 3,
+          status: 'pending',
+          result: null,
+          error: null,
+          can_always_allow: false,
+          change_list: false,
+          batch: 'k',
+        },
+      ]),
+    ]);
+    expect(reloaded.parts[0]).toMatchObject({ batch: 'k' });
+  });
+});
+
+describe('changeList', () => {
+  it('comes from a confirm event, a tool_end and a reload', () => {
+    const start: ChatMessage = { id: 'm', role: 'assistant', parts: [] };
+    const card = applyEvent(start, {
+      type: 'confirm',
+      tool_run_id: 3,
+      tool: 'todos_bulk_update',
+      tool_use_id: 'u',
+      msg_id: 2,
+      args: {},
+      summary: '',
+      change_list: { changes: 2, records: 2 },
+    });
+    expect(card.parts[0]).toMatchObject({ changeList: true });
+    const ran = applyEvent(applyEvent(start, { type: 'tool_start', tool: 'todos_bulk_update', tool_use_id: 'u' }), {
+      type: 'tool_end',
+      tool: 'todos_bulk_update',
+      tool_use_id: 'u',
+      tool_run_id: 3,
+      status: 'done',
+      result: {},
+      elapsed_ms: 5,
+      change_list: true,
+    });
+    expect(ran.parts[0]).toMatchObject({ changeList: true });
+    const [reloaded] = fromServer([
+      row(2, 'assistant', '', [
+        {
+          tool: 'todos_bulk_update',
+          tool_use_id: 'u',
+          args: {},
+          tool_run_id: 3,
+          status: 'done',
+          result: null,
+          error: null,
+          can_always_allow: false,
+          change_list: true,
+        },
+      ]),
+    ]);
+    expect(reloaded.parts[0]).toMatchObject({ changeList: true });
+  });
+});
+
+describe('a card the server settles', () => {
+  it('drops its Approve card on a tool_end (a batch a new message cut short)', () => {
+    const card = applyEvent(
+      { id: 'm', role: 'assistant', parts: [] },
+      { type: 'confirm', tool_run_id: 3, tool: 'save', tool_use_id: 'u', msg_id: 2, args: {}, summary: '', batch: 'k' },
+    );
+    const skipped = applyEvent(card, {
+      type: 'tool_end',
+      tool: 'save',
+      tool_use_id: 'u',
+      tool_run_id: 3,
+      status: 'error',
+      result: { error: 'Skipped to process your new message.' },
+      elapsed_ms: 0,
+    });
+    expect(skipped.parts[0]).toMatchObject({ status: 'error', error: 'Skipped to process your new message.' });
+    expect((skipped.parts[0] as ToolPart).confirm).toBeUndefined();
+    expect(renderUnits(skipped.parts).map((u) => u.kind)).toEqual(['tool']);
   });
 });
