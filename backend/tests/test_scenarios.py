@@ -14,18 +14,20 @@ import pytest
 import yaml
 from fastapi.testclient import TestClient
 
-from backend.core import db as core_db
+from backend.core import clock, db as core_db
 from backend.core.agent import delimiters, detached, registry as tool_registry
 from backend.core.agent.providers import fake
 from backend.core.agent.spec import ToolSpec
+from backend.core.auth import service as auth_service
 
 SCENARIOS = Path(__file__).parent / "scenarios"
-TOP_KEYS = {"name", "role", "context_window", "tools", "steps"}
+TOP_KEYS = {"name", "role", "context_window", "tools", "records", "steps"}
 FLAGS = ("confirm_tier", "always_confirm", "untrusted_source", "external_effect")
 TOOL_KEYS = {"name", "description", "writes", "returns", "repeat", *FLAGS}
 ACTIONS = {"send", "continue", "approve", "deny", "resume"}
-STEP_KEYS = ACTIONS | {"sql", "replies", "drop_after", "events", "request", "status", "usage"}
-REQUEST_KEYS = {"call", "messages_contain", "messages_exclude", "messages_match", "system_contains"}
+STEP_KEYS = ACTIONS | {"sql", "replies", "drop_after", "events", "request", "status", "usage", "page", "record"}
+REQUEST_KEYS = {"call", "messages_contain", "messages_exclude", "messages_match", "system_contains", "system_exclude"}
+RECORD_KEYS = {"name", "private"}
 TERMINAL = {"done", "error"}
 
 
@@ -54,6 +56,8 @@ def load(path: Path) -> dict:
             _strict(f"{path.name} step {i} request", req, REQUEST_KEYS)
     for tool in spec.get("tools", []):
         _strict(f"{path.name} tool", tool, TOOL_KEYS)
+    for key, rec in (spec.get("records") or {}).items():
+        _strict(f"{path.name} record {key}", rec, RECORD_KEYS)
     return spec
 
 
@@ -93,6 +97,21 @@ def _texts(obj) -> str:
     return ""
 
 
+def make_records(records: dict, me: int) -> dict[str, int]:
+    """Example widgets owned by another user, by key: readable unless `private`."""
+    with core_db.transaction() as conn:
+        owner = auth_service.create_user_in(conn, f"scen-owner-{me}@example.com", "Scenario Owner", "member")["id"]
+        return {
+            key: core_db.insert_in(
+                conn,
+                """INSERT INTO example_widgets (name, owner_user_id, is_private, created_at, updated_at)
+                   VALUES (?, ?, ?, ?, ?)""",
+                (rec["name"], owner, int(rec.get("private", False)), clock.now_iso(), clock.now_iso()),
+            )
+            for key, rec in records.items()
+        }
+
+
 def check_events(evs: list[dict], wanted: list) -> None:
     """`wanted` appears in `evs` in order (other events may sit between); a string is a type, a
     mapping matches the keys it names."""
@@ -117,6 +136,8 @@ def check_request(calls: list[dict], req: dict) -> None:
         assert re.search(pattern, messages), f"model call {at}: messages do not match {pattern!r}:\n{messages[-3000:]}"
     for text in req.get("system_contains", []):
         assert text in system, f"model call {at}: system prompt lacks {text!r}"
+    for text in req.get("system_exclude", []):
+        assert text not in system, f"model call {at}: system prompt contains {text!r}"
 
 
 def stream(c: TestClient, method: str, url: str, drop_after: str | None = None, **kw) -> list[dict]:
@@ -138,6 +159,7 @@ def run(path: Path, app, login_as, model_requests: list[dict], monkeypatch) -> N
     before = tool_registry.current()
     tool_registry.set_current(tool_registry.build_registry([*before.all(), *map(tool_spec, spec.get("tools", []))]))
     who = login_as(spec.get("role", "member"))
+    records = make_records(spec.get("records") or {}, who.principal.id)
     cid = turn_id = None
     last_seq = -1
     seen: list[dict] = []
@@ -154,6 +176,10 @@ def run(path: Path, app, login_as, model_requests: list[dict], monkeypatch) -> N
                     evs: list[dict] = []
                     if "send" in step or "continue" in step:
                         body = {"message": step["send"]} if "send" in step else {}
+                        if "page" in step:
+                            body["page"] = step["page"]
+                        if "record" in step:
+                            body["record"] = {"entity_type": "example.widget", "entity_id": records[step["record"]]}
                         evs = stream(
                             c,
                             "POST",
