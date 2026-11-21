@@ -342,7 +342,7 @@ export function useAgentChat(options: Options = {}) {
           // queued on it. Follow that turn to its end, then show what the server saved.
           turn.turnId = ((await res.json()) as { turn_id: number }).turn_id;
           turn.quiet = true;
-          const mine = messagesRef.current.findLast((m) => m.role === 'user' && textOf(m) === body.message);
+          const mine = [...messagesRef.current].reverse().find((m) => m.role === 'user' && textOf(m) === body.message);
           if (mine && body.message) {
             turn.queued.push({ id: mine.id, text: body.message, sent: true });
             updateMessage(mine.id, (m) => ({ ...m, queued: true }));
