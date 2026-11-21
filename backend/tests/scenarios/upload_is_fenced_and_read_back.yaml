@@ -1,0 +1,33 @@
+name: A CSV and a photo reach the model fenced, the spreadsheet reads back, and the upload taints the conversation
+tools:
+  - name: core_scen_jot_note
+    writes: true
+    confirm_tier: routine
+steps:
+  - send: What do these show?
+    files:
+      - {name: parts.csv, text: "name,qty\nbolt,4\nnut,9\n"}
+      - {name: shelf.png, base64: iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGP8z8DAwMDAxMDAwMDAAAANHQEDasKb6QAAAABJRU5ErkJggg==}
+    replies:
+      - {tool: core_read_upload, args: {id: 1, range: "A2:B3"}}
+      - Two parts are listed, and the photo shows a red square.
+    events:
+      - {type: tool_end, tool: core_read_upload, status: done}
+      - done
+    request:
+      - call: 0
+        messages_contain: [image/png, "(photo attached)", "[Upload 1:"]
+        messages_match:  # the file's text, opened and closed with one nonce
+          - '<untrusted_external_content id="([0-9a-f]+)" source="upload" filename="parts.csv">[\s\S]*nut,9[\s\S]*</untrusted_external_content id="\1">'
+      - call: 1  # the rows read back come fenced too
+        messages_match:
+          - '\[Upload 1: rows 2-3[^\]]*\]\n<untrusted_external_content id="([0-9a-f]+)" source="upload" filename="parts.csv">\n2\tbolt\t4\n3\tnut\t9\n</untrusted_external_content id="\1">'
+  - send: Note that we have nine nuts.
+    replies: [{tool: core_scen_jot_note}, Your note is waiting for approval.]
+    events:
+      - {type: confirm, tool: core_scen_jot_note}  # a routine write confirms: the upload tainted the conversation
+      - done
+    request:
+      call: 0
+      messages_contain: ["(photo attached)", "nut,9"]
+      messages_exclude: [image/png]  # the photo went with its own turn only

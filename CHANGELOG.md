@@ -20,6 +20,7 @@ Conventions:
 
 ### Added
 
+- Whisk can see photos and read files: attach up to five JPEG, PNG or WebP photos, PDFs, Word documents, Excel sheets or CSVs to a message. Photos are shrunk in the browser first. Attachments go with a new message, not one sent while Whisk is still working. Whisk sees a photo on the turn it was sent; it can read any rows of an attached spreadsheet later in the conversation. Attached text is treated as untrusted, so every later change in that conversation asks for approval.
 - Whisk learns skills: short named methods it lists in its instructions and loads when a task calls for one (`core_skill_load`). Admins write them in Settings, AI, Skills, or turn on the skills review (off by default): after every ten finished turns Whisk reads recent conversations that are not private and proposes skills or edits, and nothing is used until an admin approves it. Skills unused for 60 days are archived, never deleted; pinned ones stay.
 - Topic reminders: tell Whisk "when the supplier comes up, remind me to ask about the invoice" and it brings the note up the next time you mention the supplier, at most once a day and three times in all, for 90 days. Only your own messages trigger yours. The Reminders page lists them and deletes them.
 - Whisk check-ins: on the assistant page, save a question with a schedule (every few minutes, daily or weekly at a time) and Whisk asks it for you, as you, with look-up tools only. Its answer arrives as a notification that opens the conversation; when there is nothing to report it sends nothing. Pause, resume, run now or delete one; three failed runs in a row notify you and ten pause it. Their AI spend shows under the source `checkin` in Settings, AI, Usage.
@@ -32,6 +33,7 @@ Conventions:
 
 ### Changed
 
+- Several changes of the same kind that Whisk proposes together share one Approve card that lists each one, with Approve all and Deny all.
 - You can write to Whisk while it is working. The message shows as queued; once the step it is on finishes, the steps it had not started yet are skipped and Whisk reads your message before going on, so you can change course mid-reply. A change it had not started is never made.
 - Whisk runs the lookups of one step at the same time (up to four), so a question that needs several is answered sooner. A change asked for in the same step runs after them, and asks for approval when one of them read the web.
 - Outbound MCP also refuses NAT64, 6to4 and IPv4-compatible IPv6 addresses.

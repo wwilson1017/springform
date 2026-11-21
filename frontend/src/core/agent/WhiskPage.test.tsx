@@ -259,7 +259,15 @@ describe('a dropped stream', () => {
     const saved: ConversationDetail = {
       ...conversation(7),
       messages: [
-        { id: 1, role: 'user', text: 'hello', model: null, created_at: '2026-10-24T10:00:00Z', tool_calls: [] },
+        {
+          id: 1,
+          role: 'user',
+          text: 'hello',
+          model: null,
+          created_at: '2026-10-24T10:00:00Z',
+          tool_calls: [],
+          files: [],
+        },
         {
           id: 2,
           role: 'assistant',
@@ -267,6 +275,7 @@ describe('a dropped stream', () => {
           model: 'fake',
           created_at: '2026-10-24T10:00:01Z',
           tool_calls: [],
+          files: [],
         },
       ],
     };

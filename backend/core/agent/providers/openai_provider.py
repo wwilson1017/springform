@@ -29,6 +29,22 @@ def _ensure_array_items(schema: dict) -> dict:
     return out
 
 
+_VISION_PREFIXES = ("gpt-4o", "gpt-4.1", "gpt-5", "o1", "o3", "o4", "chatgpt-")
+_NO_VISION = ("o1-mini", "o1-preview", "o3-mini")
+
+
+def _user_content(content):
+    """Neutral image parts as data-URL `image_url` parts; text parts are already OpenAI's shape."""
+    if not isinstance(content, list):
+        return content
+    return [
+        {"type": "image_url", "image_url": {"url": f"data:{p['media_type']};base64,{p['data']}"}}
+        if isinstance(p, dict) and p.get("type") == "image"
+        else p
+        for p in content
+    ]
+
+
 class OpenAIProvider(AIProvider):
     def __init__(self, api_key: str, model: str):
         super().__init__(model)
@@ -37,6 +53,11 @@ class OpenAIProvider(AIProvider):
     @property
     def provider_name(self) -> str:
         return "openai"
+
+    @property
+    def supports_images(self) -> bool:
+        low = self.model.lower()
+        return low.startswith(_VISION_PREFIXES) and not low.startswith(_NO_VISION)
 
     async def stream_turn(
         self,
@@ -51,11 +72,11 @@ class OpenAIProvider(AIProvider):
         client = openai.AsyncOpenAI(api_key=self.api_key)
         if isinstance(system_prompt, tuple):
             system_prompt = "\n".join(system_prompt)  # caching is Anthropic-only
-        api_messages = [{"role": "system", "content": system_prompt}]
+        api_messages: list[dict] = [{"role": "system", "content": system_prompt}]
         for m in messages:
             role = m.get("role")
             if role == "user":
-                api_messages.append({"role": "user", "content": m.get("content", "")})
+                api_messages.append({"role": "user", "content": _user_content(m.get("content", ""))})
             elif role == "assistant":
                 msg: dict = {"role": "assistant"}
                 if m.get("content") is not None:

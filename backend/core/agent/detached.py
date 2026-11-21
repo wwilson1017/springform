@@ -31,7 +31,7 @@ from collections.abc import AsyncGenerator, AsyncIterator
 from typing import Literal, NamedTuple
 
 from backend.core import clock, db
-from backend.core.agent import history
+from backend.core.agent import history, uploads as uploads_mod
 from backend.core.agent.aio import in_thread
 from backend.core.agent.providers.base import AIProvider, sse
 from backend.core.agent.turn_hooks import TurnState
@@ -133,6 +133,11 @@ def _live(turn_id: int) -> Live | None:
     return next((t for t in _running if t.turn_id == turn_id), None)
 
 
+def running(conversation_id: int) -> bool:
+    """Whether the conversation has a turn running (any thread; the copy is atomic)."""
+    return any(t.conversation_id == conversation_id for t in _running.copy())
+
+
 async def _stream(events: AsyncIterator[dict]) -> AsyncGenerator[str, None]:
     async for event in events:
         yield sse(event)
@@ -146,34 +151,46 @@ async def start(
     conversation_id: int | None,
     agent: dict,
     context: str = "",
+    uploads: list[uploads_mod.Upload] | None = None,
 ) -> AsyncGenerator[str, None] | Queued | None:
     """Start a turn and return its SSE stream; None when the conversation is not this user's. A
     message for a conversation whose turn is running is queued on it (`Queued`); one whose turn is
     ending waits for it to end and starts the next. A continuation (no message) raises TurnRunning.
     The turn does not depend on the caller: a request cancelled from here on still gets its
-    message saved and answered."""
-    while conversation_id is not None and (
-        running := next((t for t in _running if t.conversation_id == conversation_id), None)
-    ):
-        if message is None or running.unattended:
-            raise TurnRunning
-        if running.user_id != user.id:
-            return None
-        if running.turn_id is None:  # its first transaction is still running
-            await asyncio.wait([running.ready])
-            if running.turn_id is None:  # that conversation is not this user's
+    message saved and answered. The staged `uploads` are this function's from here: saved with the
+    message, or discarded. A message with attachments never steers: while a turn is taking messages
+    it raises TurnRunning, since a mid-turn upload would taint a turn already deciding on writes."""
+    uploads = uploads or []
+    try:  # a refusal, or a request cancelled while it waits, discards the staged files
+        while conversation_id is not None and (
+            running := next((t for t in _running if t.conversation_id == conversation_id), None)
+        ):
+            if (message is None and not uploads) or running.unattended:  # nobody steers a check-in
+                raise TurnRunning
+            if running.user_id != user.id:
+                uploads_mod.discard(uploads)
                 return None
-        elif running.accepting():  # no await since the check, so the runner cannot end in between
-            # simplification: the queue is in memory until the runner takes it (or the turn ends and
-            # saves it, shutdown included), so a hard crash loses it; the client re-reads the conversation
-            # when the turn ends and sends again what is missing. Upgrade: a pending-message table.
-            running.steers.append(message)
-            return Queued(running.turn_id)
-        else:  # ending or stopping: the message starts the next turn once this one is gone
-            await asyncio.wait([db.must(running.task)])  # set in the same step as `_running.add`
+            if running.turn_id is None:  # its first transaction is still running
+                await asyncio.wait([running.ready])
+                if running.turn_id is None:  # that conversation is not this user's
+                    uploads_mod.discard(uploads)
+                    return None
+            elif running.accepting():  # no await since the check, so the runner cannot end in between
+                if uploads or message is None:  # attachments never steer (docstring)
+                    raise TurnRunning
+                # simplification: the queue is in memory until the runner takes it (or the turn ends and
+                # saves it, shutdown included), so a hard crash loses it; the client re-reads the conversation
+                # when the turn ends and sends again what is missing. Upgrade: a pending-message table.
+                running.steers.append(message)
+                return Queued(running.turn_id)
+            else:  # ending or stopping: the message starts the next turn once this one is gone
+                await asyncio.wait([db.must(running.task)])  # set in the same step as `_running.add`
+    except BaseException:
+        uploads_mod.discard(uploads)
+        raise
     live = Live(conversation_id, user.id)
     _running.add(live)  # before any await, so a second post on this conversation finds it
-    live.task = asyncio.create_task(_supervise(live, provider, user, message, agent, context))
+    live.task = asyncio.create_task(_supervise(live, provider, user, message, agent, context, uploads))
     if not await asyncio.shield(live.ready):
         return None
     return _stream(live.tail(-1))
@@ -190,7 +207,7 @@ async def run_unattended(
     live = Live(None, user.id)
     live.unattended = True
     _running.add(live)  # before any await, so shutdown() sees it
-    live.task = asyncio.create_task(_supervise(live, provider, user, message, agent, context, "checkin"))
+    live.task = asyncio.create_task(_supervise(live, provider, user, message, agent, context, [], "checkin"))
     done, _ = await asyncio.wait([live.task], timeout=timeout)
     if not done:
         live.stop("cancelled")
@@ -224,11 +241,12 @@ async def _supervise(
     message: str | None,
     agent: dict,
     context: str,
+    uploads: list[uploads_mod.Upload],
     source: Literal["chat", "checkin"] = "chat",
 ) -> None:
     try:
         try:
-            begun = await in_thread(_begin, user, message, live.conversation_id, agent)
+            begun = await in_thread(_begin, user, message, live.conversation_id, agent, uploads)
         except Exception as e:
             live.ready.set_exception(e)
             return
@@ -278,26 +296,38 @@ async def _outcome(live: Live) -> str:
 
 
 def _begin(
-    user: User, message: str | None, conversation_id: int | None, agent: dict
+    user: User,
+    message: str | None,
+    conversation_id: int | None,
+    agent: dict,
+    uploads: list[uploads_mod.Upload] | None = None,
 ) -> tuple[int, str | None, int] | None:
-    """One transaction: the conversation (created if new), the user message, the title and the
-    `running` turn row. None when the conversation is not this user's."""
-    title = None
-    with db.transaction() as conn:
-        if conversation_id is None:
-            conversation_id = history.create_conversation_in(conn, user.id, agent["id"])
-        elif not conn.execute(
-            "SELECT 1 FROM core_agent_conversations WHERE id = ? AND user_id = ?", (conversation_id, user.id)
-        ).fetchone():
-            return None
-        if message:
-            history.save_message_in(conn, conversation_id, "user", {"text": message})
-            title = history.auto_title_in(conn, conversation_id, message)
-        turn_id = db.insert_in(
-            conn,
-            "INSERT INTO core_agent_turns (conversation_id, user_id, status, started_at) VALUES (?, ?, 'running', ?)",
-            (conversation_id, user.id, clock.now_iso()),
-        )
+    """One transaction: the conversation (created if new), the user message with its uploads
+    (which taint the conversation), the title and the `running` turn row. None when the
+    conversation is not this user's. Staged uploads not saved here are discarded."""
+    title, uploads = None, uploads or []
+    try:
+        with db.transaction() as conn:
+            if conversation_id is None:
+                conversation_id = history.create_conversation_in(conn, user.id, agent["id"])
+            elif not conn.execute(
+                "SELECT 1 FROM core_agent_conversations WHERE id = ? AND user_id = ?", (conversation_id, user.id)
+            ).fetchone():
+                return None
+            if message or uploads:
+                content = {"text": message or ""}
+                message_id = history.save_message_in(conn, conversation_id, "user", content)
+                if uploads:
+                    uploads_mod.save_in(conn, user.id, conversation_id, message_id, content, uploads)
+                    history.mark_tainted_in(conn, conversation_id)
+                title = history.auto_title_in(conn, conversation_id, message or uploads_mod.TITLE)
+            turn_id = db.insert_in(
+                conn,
+                "INSERT INTO core_agent_turns (conversation_id, user_id, status, started_at) VALUES (?, ?, 'running', ?)",
+                (conversation_id, user.id, clock.now_iso()),
+            )
+    finally:
+        uploads_mod.discard(uploads)
     return conversation_id, title, turn_id
 
 

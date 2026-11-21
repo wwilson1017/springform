@@ -6,6 +6,7 @@ The client runs the app's lifespan (`with TestClient(app)`), so every request sh
 and leaving a stream early is a real disconnect.
 """
 
+import base64
 import json
 import re
 import time
@@ -28,15 +29,17 @@ FLAGS = ("confirm_tier", "always_confirm", "untrusted_source", "external_effect"
 TOOL_KEYS = {"name", "description", "writes", "returns", "repeat", "delay", *FLAGS}
 ACTIONS = {"send", "continue", "approve", "deny", "resume", "checkin"}
 STEP_KEYS = ACTIONS | {
-    *("sql", "replies", "drop_after", "steer", "events", "request", "status", "usage", "page", "record"),
+    *("sql", "replies", "drop_after", "steer", "events", "request", "status", "usage", "page", "record", "files"),
     *("reason", "always_allow"),  # the /confirm body of a deny or an approve
     "conversations",  # how many conversations the user has after the step
+    "all",  # approve or deny every member of that card's batch, one /confirm each (what the client does)
 }
+STEER_KEYS = {"after", "message"}
+FILE_KEYS = {"name", "text", "base64"}
 REQUEST_KEYS = {
     *("call", "messages_contain", "messages_exclude", "messages_match", "system_contains", "system_exclude"),
     *("tools_include", "tools_exclude"),  # tool names offered to the model on that call
 }
-STEER_KEYS = {"after", "message"}
 RECORD_KEYS = {"name", "private"}
 TERMINAL = {"done", "error"}
 
@@ -66,6 +69,8 @@ def load(path: Path) -> dict:
             _strict(f"{path.name} step {i} request", req, REQUEST_KEYS)
         if "steer" in step:
             _strict(f"{path.name} step {i} steer", step["steer"], STEER_KEYS)
+        for f in step.get("files", []):
+            _strict(f"{path.name} step {i} file", f, FILE_KEYS)
     for tool in spec.get("tools", []):
         _strict(f"{path.name} tool", tool, TOOL_KEYS)
     for key, rec in (spec.get("records") or {}).items():
@@ -220,14 +225,17 @@ def run(path: Path, app, login_as, model_requests: list[dict], monkeypatch) -> N
                             body["page"] = step["page"]
                         if "record" in step:
                             body["record"] = {"entity_type": "example.widget", "entity_id": records[step["record"]]}
-                        evs = stream(
-                            c,
-                            "POST",
-                            "/api/agent/chat",
-                            step.get("drop_after"),
-                            step.get("steer"),
-                            json={**body, **({"conversation_id": cid} if cid else {})},
-                        )
+                        body |= {"conversation_id": cid} if cid else {}
+                        files = [
+                            (
+                                "files",
+                                (f["name"], base64.b64decode(f["base64"]) if "base64" in f else f["text"].encode()),
+                            )
+                            for f in step.get("files", [])
+                        ]
+                        kw = {"data": {"payload": json.dumps(body)}, "files": files} if files else {"json": body}
+                        url = "/api/agent/chat/upload" if files else "/api/agent/chat"
+                        evs = stream(c, "POST", url, step.get("drop_after"), step.get("steer"), **kw)
                         assert evs and evs[0]["type"] == "conversation_id", evs
                         cid, turn_id, first = evs[0]["id"], evs[0]["turn_id"], 0
                         if "drop_after" in step:  # the stream really dropped mid-turn, not after a buffered end
@@ -258,13 +266,18 @@ def run(path: Path, app, login_as, model_requests: list[dict], monkeypatch) -> N
                         confirms = [e for e in seen if e["type"] == "confirm" and e["tool"] == tool]
                         assert confirms, f"no confirm for {tool} to {decision}"
                         extra = {k: step[k] for k in ("reason", "always_allow") if k in step}
-                        r = c.post(
-                            "/api/agent/confirm",
-                            json={"tool_run_id": confirms[-1]["tool_run_id"], "decision": decision, **extra},
-                        )
-                        assert r.status_code == 200, r.text
-                        if "status" in step:
-                            assert r.json()["status"] == step["status"], r.json()
+                        newest = confirms[-1]
+                        if step.get("all"):
+                            assert newest.get("batch"), f"the newest confirm for {tool} has no batch"
+                        members = [e for e in seen if e["type"] == "confirm" and e.get("batch") == newest.get("batch")]
+                        for card in members if step.get("all") else [newest]:
+                            r = c.post(
+                                "/api/agent/confirm",
+                                json={"tool_run_id": card["tool_run_id"], "decision": decision, **extra},
+                            )
+                            assert r.status_code == 200, r.text
+                            if "status" in step:
+                                assert r.json()["status"] == step["status"], r.json()
                         first = None
                     if first is not None:  # one turn's events: numbered without gaps, then a terminal one
                         assert [e["seq"] for e in evs] == list(range(first, first + len(evs))), evs
@@ -306,6 +319,12 @@ def test_removing_the_untrusted_fence_fails_a_scenario(app, login_as, model_requ
     monkeypatch.setattr(delimiters, "wrap_untrusted_external", lambda source, text: text)
     with pytest.raises(AssertionError, match="untrusted_external_content"):
         run(SCENARIOS / "untrusted_result_is_fenced.yaml", app, login_as, model_requests, monkeypatch)
+
+
+def test_removing_the_upload_fence_fails_a_scenario(app, login_as, model_requests, monkeypatch):
+    monkeypatch.setattr(delimiters, "wrap_untrusted_upload", lambda filename, text, image=False: text)
+    with pytest.raises(AssertionError, match="untrusted_external_content"):
+        run(SCENARIOS / "upload_is_fenced_and_read_back.yaml", app, login_as, model_requests, monkeypatch)
 
 
 def test_unknown_keys_fail_loudly(tmp_path):

@@ -88,13 +88,13 @@ core_file_blobs(sha256 PK, byte_size, created_at, unreferenced_since,
    3. `rename` the tmp file into `/data/files/<sha[:2]>/<sha>` (a local disk op, allowed under the lock);
    4. `COMMIT`.
 4. A new attachment returns **201** with the `File`. The same bytes uploaded to the same record (`UNIQUE(entity_type, entity_id, sha256)`) return **200** with the existing row.
-5. When a blob's last `core_files` row is deleted, the files service sets `core_file_blobs.unreferenced_since` in the same transaction.
+5. When a blob's last holding row is deleted, the files service sets `core_file_blobs.unreferenced_since` in the same transaction (`release_in`). The holders are `files.service.BLOB_HOLDERS`: `core_files` and `core_agent_uploads` (Whisk's chat photos and spreadsheets, `agent.md` §5, "Uploads"); the release check, the sweep's re-check and the backup manifest all read that one list.
 
 ### Sweep (`core.files_sweep`, 03:30 install-local)
 
 1. Inside **one** `transaction()`:
    1. select blobs whose `unreferenced_since` is older than **7 days** **and** whose sha256 appears in **no retained backup manifest**;
-   2. re-check each is still unreferenced;
+   2. re-check each is still unreferenced by every holder;
    3. delete their rows;
    4. unlink their files;
    5. set `missing_at` on every blob row whose file is missing, logging it, and clear it on one whose file came back;

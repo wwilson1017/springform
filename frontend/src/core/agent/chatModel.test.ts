@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { applyEvent, fromServer, type ChatMessage } from './chatModel';
+import { applyEvent, fromServer, renderUnits, type ChatMessage, type Part, type ToolPart } from './chatModel';
 import type { ChatEvent, ServerMessage } from './types';
 
 const row = (
@@ -12,6 +12,7 @@ const row = (
   role,
   text,
   tool_calls,
+  files: [],
   model: role === 'assistant' ? 'm' : null,
   created_at: '2026-10-24T10:00:00Z',
 });
@@ -180,5 +181,89 @@ describe('applyEvent', () => {
       { type: 'error', error: 'Provider error' },
     );
     expect(m).toMatchObject({ streaming: false, error: 'Provider error' });
+  });
+});
+
+describe('renderUnits', () => {
+  const card = (id: string, batch: string | null, args: Record<string, unknown> = {}): ToolPart => ({
+    kind: 'tool',
+    tool: 'save',
+    toolUseId: id,
+    args,
+    status: 'pending',
+    runId: 1,
+    batch,
+    confirm: { phase: 'pending' },
+  });
+
+  it('draws cards sharing a batch as one unit at the first member, and keeps a group of one plain', () => {
+    const parts: Part[] = [
+      { kind: 'text', text: 'Saving.' },
+      card('a', 'k1'),
+      card('b', 'k2'),
+      card('c', 'k1'),
+      { kind: 'tool', tool: 'read', toolUseId: 'r', status: 'done' },
+    ];
+    const units = renderUnits(parts);
+    expect(units.map((u) => (u.kind === 'batch' ? `batch:${u.members.map((m) => m.toolUseId)}` : u.kind))).toEqual([
+      'text',
+      'batch:a,c',
+      'tool',
+      'tool',
+    ]);
+  });
+
+  it('carries the key from a confirm event and from a reload', () => {
+    const m = applyEvent(
+      { id: 'm', role: 'assistant', parts: [] },
+      { type: 'confirm', tool_run_id: 3, tool: 'save', tool_use_id: 'u', msg_id: 2, args: {}, summary: '', batch: 'k' },
+    );
+    expect(m.parts[0]).toMatchObject({ batch: 'k' });
+    const [reloaded] = fromServer([
+      row(2, 'assistant', '', [
+        {
+          tool: 'save',
+          tool_use_id: 'u',
+          args: {},
+          tool_run_id: 3,
+          status: 'pending',
+          result: null,
+          error: null,
+          can_always_allow: false,
+          batch: 'k',
+        },
+      ]),
+    ]);
+    expect(reloaded.parts[0]).toMatchObject({ batch: 'k' });
+  });
+});
+
+describe('a card the server settles', () => {
+  it('drops its Approve card on a tool_end (a batch a new message cut short)', () => {
+    const card = applyEvent(
+      { id: 'm', role: 'assistant', parts: [] },
+      { type: 'confirm', tool_run_id: 3, tool: 'save', tool_use_id: 'u', msg_id: 2, args: {}, summary: '', batch: 'k' },
+    );
+    const skipped = applyEvent(card, {
+      type: 'tool_end',
+      tool: 'save',
+      tool_use_id: 'u',
+      tool_run_id: 3,
+      status: 'error',
+      result: { error: 'Skipped to process your new message.' },
+      elapsed_ms: 0,
+    });
+    expect(skipped.parts[0]).toMatchObject({ status: 'error', error: 'Skipped to process your new message.' });
+    expect((skipped.parts[0] as ToolPart).confirm).toBeUndefined();
+    expect(renderUnits(skipped.parts).map((u) => u.kind)).toEqual(['tool']);
+  });
+});
+
+describe('fromServer attachments', () => {
+  it('keeps the files a user message carried', () => {
+    const files = [{ filename: 'shelf.png', kind: 'image' as const }];
+    const [m] = fromServer([{ ...row(1, 'user', ''), files }]);
+    expect(m.files).toEqual(files);
+    expect(m.parts).toEqual([]);
   });
 });
