@@ -229,3 +229,63 @@ def test_alternative_prefers_the_other_vendor_then_the_light_tier(db, monkeypatc
     credentials.update("openai", api_key="k2", model_default="gpt-a", model_light="gpt-b", enabled=True)
     other = errors._alternative(anthropic)
     assert (other.provider_name, other.model) == ("openai", "gpt-a")
+
+
+def test_no_fallback_after_an_older_card_is_approved_or_an_effect_is_uncertain(login_as, send_tool, app):
+    a = login_as("member")
+    fake.script({"tool": "core_send_thing"}, "Sending needs your approval.")
+    evs = chat(a, message="send it")
+    confirm, cid = of(evs, "confirm")[0], evs[0]["id"]
+    chat(a, conversation_id=cid, message="something else meanwhile")  # a newer user message
+    a.post("/api/agent/confirm", json={"tool_run_id": confirm["tool_run_id"], "decision": "approve"})
+    fake.script(OVERLOADED, "from the light model")
+    assert "fake-default is overloaded" in chat(a, conversation_id=cid)[-1]["error"]
+    fake.reset()
+
+    before = tool_registry.current()
+
+    def fails(user, args):
+        raise RuntimeError("the remote end hung up")
+
+    flaky = ToolSpec(
+        name="core_post_thing",
+        description="Post a thing.",
+        input_schema={"type": "object", "properties": {}},
+        writes=True,
+        external_effect=True,
+        handler=fails,
+    )
+    tool_registry.set_current(tool_registry.build_registry([*before.all(), flaky]))
+    fake.script({"tool": "core_post_thing"}, "Needs approval.")
+    evs = chat(a, message="post it")
+    confirm, cid = of(evs, "confirm")[0], evs[0]["id"]
+    r = a.post("/api/agent/confirm", json={"tool_run_id": confirm["tool_run_id"], "decision": "approve"}).json()
+    assert r["status"] == "uncertain"
+    fake.script(OVERLOADED, "from the light model")
+    assert "fake-default is overloaded" in chat(a, conversation_id=cid)[-1]["error"]
+
+
+def test_the_last_answer_survives_a_fallback(login_as, monkeypatch):
+    from backend.core.agent import turn_hooks, turns
+
+    monkeypatch.setattr(turns, "MAX_ITERATIONS", 1)
+    sent = []
+    point = turn_hooks.REGISTERED["before_model_call"]
+    monkeypatch.setitem(
+        turn_hooks.REGISTERED, "before_model_call", [*point, lambda s: sent.append(json.dumps(s.messages))]
+    )
+    fake.script({"tool": "example_list_widgets", "args": {}}, OVERLOADED, "Here is what I have.")
+    evs = chat(login_as("member"), message="dig")
+    assert evs[-1]["model"] == "fake-light" and turns.LAST_ANSWER in sent[-1]
+    assert "Here is what I have." in [e["text"] for e in of(evs, "text")]
+
+
+def test_a_refusal_is_an_error_for_one_shot_calls():
+    from backend.core.agent.providers import ProviderError, collect_text
+
+    async def stream():
+        yield {"type": "text", "text": "I won't"}
+        yield {"type": "_turn_complete", "tool_calls": [], "stop_reason": "refusal"}
+
+    with pytest.raises(ProviderError):
+        asyncio.run(collect_text(stream()))
