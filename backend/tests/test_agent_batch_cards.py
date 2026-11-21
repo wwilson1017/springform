@@ -103,3 +103,43 @@ def test_each_member_is_confirmed_on_its_own(login_as):
     assert post(two).json()["status"] == "done"
     assert post(two).json() == {"status": "already_resolved", "current": "done"}
     assert [w["name"] for w in core_db.rows("SELECT name FROM example_widgets")] == ["Two"]
+
+
+def test_a_message_that_cuts_a_batch_short_skips_the_whole_card(app, login_as, monkeypatch):
+    """Steering (agent.md §5) skips the calls not started; the members of a cut batch already waiting
+    are skipped with them, so Approve all can never apply part of what the model proposed."""
+    import threading
+
+    from fastapi.testclient import TestClient
+
+    from backend.core.agent import dispatch, history
+
+    second, steered, seen = threading.Event(), threading.Event(), []
+    real = dispatch.rule_skips
+
+    def slow_second(*args):
+        seen.append(1)
+        if len(seen) == 2:  # the second card is being made when the message comes in
+            second.set()
+            steered.wait(5)
+        return real(*args)
+
+    monkeypatch.setattr(dispatch, "rule_skips", slow_second)
+    a = login_as("member")
+    fake.script(
+        [{"tool": "example_create_widget", "args": {"name": n}} for n in ("One", "Two", "Three")], "Changing course."
+    )
+    with TestClient(app, headers={"Authorization": f"Bearer {a.cookies.get('sf_session')}"}) as c:
+        with c.stream("POST", "/api/agent/chat", json={"message": "three widgets"}) as r:
+            lines = (json.loads(line[6:]) for line in r.iter_lines() if line.startswith("data: "))
+            cid = next(lines)["id"]
+            assert second.wait(5)
+            assert c.post("/api/agent/chat", json={"conversation_id": cid, "message": "no widgets"}).status_code == 202
+            steered.set()
+            evs = list(lines)
+        runs = [r["status"] for r in history.tool_runs_for(cid) if r["tool"] == "example_create_widget"]
+        widgets = core_db.one("SELECT count(*) AS n FROM example_widgets")["n"]
+    ends = [e for e in evs if e["type"] == "tool_end" and e["tool"] == "example_create_widget"]
+    assert len([e for e in evs if e["type"] == "confirm"]) == 2 and len(ends) == 3  # two cards made, then all skipped
+    assert {e["result"]["error"] for e in ends} == {dispatch.SKIPPED}
+    assert runs == ["error"] * 3 and widgets == 0

@@ -135,6 +135,7 @@ export function applyEvent(m: ChatMessage, e: ChatEvent): ChatMessage {
         elapsedMs: e.elapsed_ms,
         runId: e.tool_run_id,
         error: e.status === 'error' ? errorOf(e.result) : p.error,
+        confirm: undefined, // a card the server settled itself (a batch a new message cut short)
       }));
     case 'confirm': {
       const known = m.parts.some((p) => p.kind === 'tool' && p.toolUseId === e.tool_use_id);

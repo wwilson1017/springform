@@ -15,7 +15,7 @@ from collections.abc import Callable
 
 from backend.core.agent import deferred, execute, history, turn_hooks
 from backend.core.agent.aio import in_thread
-from backend.core.agent.engine import card_extras, needs_confirmation, rule_skips
+from backend.core.agent.engine import batch_key, card_extras, needs_confirmation, rule_skips
 from backend.core.agent.spec import tool_def_sha256
 from backend.core.agent.turn_hooks import TurnState
 from backend.core.agent.write_budget import BudgetAction
@@ -57,7 +57,45 @@ async def run_calls(state: TurnState, emit: Callable[[dict], None], calls: list[
     async with asyncio.TaskGroup() as group:  # left only when every lookup has ended, also on a cancel
         for i in picked:
             group.create_task(one(i))
-    return [await run_call(state, emit, call, message_id, early.get(i)) for i, call in enumerate(calls)]
+    cards: dict[str, dict] = {}  # tool_use_id -> this step's confirm event with a batch key
+
+    def watch(e: dict) -> None:
+        if e["type"] == "confirm" and e.get("batch"):
+            cards[e["tool_use_id"]] = e
+        emit(e)
+
+    was_pending = state.pending
+    results = [await run_call(state, watch, call, message_id, early.get(i)) for i, call in enumerate(calls)]
+    return await _whole_batches(state, emit, calls, results, cards, message_id, was_pending)
+
+
+async def _whole_batches(state, emit, calls, results, cards, message_id, was_pending) -> list:
+    """A message that came in mid-step skips the calls not started yet; when that cut a batch card
+    (agent.md §6), its members already waiting are skipped too, so the card never stands for part of
+    what the model proposed. The client cannot approve while the turn runs; a member approved anyway
+    (from another tab) is no longer pending, so it keeps its outcome."""
+    skipped = json.dumps({"status": "error", "error": SKIPPED})
+    cut = {
+        batch_key(spec, call.get("args") or {}, message_id)
+        for call, res in zip(calls, results)
+        if res["content"] == skipped and (spec := state.by_name.get(call["name"])) is not None
+    } - {None}
+    if not cut:
+        return results
+    out = []
+    for call, res in zip(calls, results):
+        card = cards.get(call["id"])
+        if (
+            card
+            and card["batch"] in cut
+            and await in_thread(history.resolve, card["tool_run_id"], "error", error=SKIPPED)
+        ):
+            _tool_end(emit, call, card["tool_run_id"], "error", {"error": SKIPPED})
+            res = {**res, "content": skipped}
+        out.append(res)
+    waiting = history.model_content({"status": "pending"})
+    state.pending = was_pending or any(r["content"] == waiting for r in out)
+    return out
 
 
 def _together(state: TurnState, calls: list[dict]) -> list[int]:
