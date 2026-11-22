@@ -210,3 +210,31 @@ def test_password_change_ends_other_sessions_and_keeps_this_one(login_as, app):
         .status_code
         == 200
     )
+
+
+def test_first_time_setup_link_for_an_invite_added_without_mail(login_as, app, outbox):
+    admin = login_as("admin")
+    r = admin.post("/api/auth/users", json={"email": "late@example.com", "name": "Late", "send_email": False})
+    assert r.status_code == 200 and r.json()["mailed"] is False and r.json()["invite_url"] and outbox == []
+    member = login_as("member")
+    guest = make_client(app)
+    answers = [
+        guest.post("/api/auth/forgot", json={"email": email})
+        for email in ("nobody@example.com", member.user["email"], "LATE@example.com")
+    ]
+    assert {(a.status_code, a.text) for a in answers} == {(202, '{"mail":true}')}  # identical either way
+    reset, setup = outbox
+    assert reset["subject"].startswith("Reset your") and "/reset-password/" in reset["text"]
+    assert setup["to"] == ["late@example.com"] and setup["subject"].startswith("Set up your")
+    assert "set up your account" in setup["text"] and "password" not in setup["text"]
+    url = next(word for word in setup["text"].split() if "/invite/" in word)
+    assert guest.get(f"/api/auth/invite/{_token(url)}").json()["email"] == "late@example.com"
+    r = guest.post(f"/api/auth/invite/{_token(url)}", json={"password": NEW_PASSWORD})
+    assert r.status_code == 200 and guest.get("/api/me").json()["email"] == "late@example.com"
+    make_client(app).post("/api/auth/forgot", json={"email": "late@example.com"})
+    assert outbox[-1]["subject"].startswith("Reset your")  # set up now: back to the reset wording
+
+
+def test_invite_mail_points_at_first_time_here(login_as, outbox):
+    _invite(login_as("admin"))
+    assert 'go to http://localhost:8000/login and choose "First time here?"' in outbox[0]["text"]

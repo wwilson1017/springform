@@ -18,6 +18,10 @@ Conventions:
 
 ## [Unreleased]
 
+### Added
+
+- The sign-in page has "First time here? Email me my setup link": anyone on the user list whose invite expired gets a fresh "Set up your account" link by email, with no admin involved. The invite email points to it, and an admin can add someone without emailing them ("Send invite email" on the add-user form, on by default).
+
 ### Fixed
 
 - A bulk todo complete's note about repeating todos now counts only the todos it actually completed, never someone else's private ones.

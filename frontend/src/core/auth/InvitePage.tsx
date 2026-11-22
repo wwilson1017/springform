@@ -42,7 +42,7 @@ export default function InvitePage() {
       <AuthLayout subtitle={lookup === 'gone' ? 'This link has expired.' : "Can't reach the server."}>
         <p className="mt-0 text-center text-sm text-sf-ink-mute">
           {lookup === 'gone'
-            ? 'Invite links work once, for an hour. Ask an admin to send you a new one.'
+            ? 'Invite links work once, for an hour. Get a new one from the sign-in page: choose "First time here?".'
             : 'Try again in a moment.'}
         </p>
         <p className="mb-0 mt-6 text-center text-sm">
@@ -83,7 +83,9 @@ function AcceptForm({ token, invite, notice }: { token: string; invite: Invite; 
       setError(
         errorText(
           err,
-          { not_found: 'This invite link has expired. Ask an admin to send a new one.' },
+          {
+            not_found: 'This invite link has expired. Get a new one from the sign-in page: choose "First time here?".',
+          },
           "Couldn't set your password. Try again.",
         ),
       );

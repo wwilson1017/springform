@@ -5,7 +5,9 @@
  *
  * The Google callback lands here with `?error=<code>` when it refuses, or with
  * `#totp_challenge=<token>` when the install requires 2FA after Google too. "Forgot password?"
- * is a mode of this page; its answer never says whether the account exists.
+ * and "First time here?" are modes of this page, one request (`POST /api/auth/forgot`) with two
+ * wordings: the server mails a setup link to an account never set up and a reset link otherwise.
+ * The answer never says whether the account exists.
  *
  * The password form renders even when /api/auth/status fails, with a quiet note: a status blip
  * must not hide the one way in.
@@ -32,7 +34,7 @@ export function LoginPage() {
   const location = useLocation();
   const [params] = useSearchParams();
   const { challenge, setChallenge, finish, enter } = useSignIn(fragmentChallenge(location.hash));
-  const [mode, setMode] = useState<'password' | 'forgot'>('password');
+  const [mode, setMode] = useState<'password' | 'forgot' | 'first'>('password');
   const [status, setStatus] = useState<AuthStatus | null>(null);
   const [statusFailed, setStatusFailed] = useState(false);
   const [email, setEmail] = useState('');
@@ -92,12 +94,18 @@ export function LoginPage() {
     );
   }
 
-  if (mode === 'forgot') {
+  if (mode !== 'password') {
     return (
-      <AuthLayout subtitle="Reset your password.">
-        <ForgotForm initialEmail={email} onBack={() => setMode('password')} />
+      <AuthLayout subtitle={mode === 'first' ? 'Set up your account.' : 'Reset your password.'}>
+        <ForgotForm first={mode === 'first'} initialEmail={email} onBack={() => setMode('password')} />
       </AuthLayout>
     );
+  }
+
+  function switchTo(next: 'forgot' | 'first') {
+    setError('');
+    setNotice('');
+    setMode(next);
   }
 
   return (
@@ -145,15 +153,7 @@ export function LoginPage() {
           <label htmlFor="login-password" className={labelClass}>
             Password
           </label>
-          <button
-            type="button"
-            className={`${btnLink} text-xs`}
-            onClick={() => {
-              setError('');
-              setNotice('');
-              setMode('forgot');
-            }}
-          >
+          <button type="button" className={`${btnLink} text-xs`} onClick={() => switchTo('forgot')}>
             Forgot password?
           </button>
         </div>
@@ -178,6 +178,12 @@ export function LoginPage() {
 
       {status?.google && <GoogleButton href="/api/auth/google/start" />}
 
+      <p className="mb-0 mt-6 text-center text-sm">
+        <button type="button" className={btnLink} onClick={() => switchTo('first')}>
+          First time here? Email me my setup link
+        </button>
+      </p>
+
       {statusFailed && (
         <p className="mt-6 text-center text-xs text-sf-ink-dim">
           Can't reach the server right now, so some sign-in options may be missing.
@@ -199,7 +205,7 @@ export function GoogleButton({ href }: { href: string }) {
   );
 }
 
-function ForgotForm({ initialEmail, onBack }: { initialEmail: string; onBack: () => void }) {
+function ForgotForm({ first, initialEmail, onBack }: { first: boolean; initialEmail: string; onBack: () => void }) {
   const [email, setEmail] = useState(initialEmail);
   const [sent, setSent] = useState<{ mail: boolean } | null>(null);
   const [error, setError] = useState('');
@@ -224,13 +230,17 @@ function ForgotForm({ initialEmail, onBack }: { initialEmail: string; onBack: ()
         // The same answer whether or not the account exists.
         <p role="status" className="m-0 text-sm text-sf-ink">
           {sent.mail
-            ? 'If an account uses that email, a reset link is on its way. It works for an hour.'
-            : "This install can't send email, so no reset link was sent. Ask an admin to help you back in."}
+            ? first
+              ? "If you're on the list, a setup link is on its way. It works for an hour."
+              : 'If an account uses that email, a reset link is on its way. It works for an hour.'
+            : `This install can't send email, so no ${first ? 'setup' : 'reset'} link was sent. Ask an admin for one.`}
         </p>
       ) : (
         <form onSubmit={onSubmit}>
           <p className="mb-5 mt-0 text-sm text-sf-ink-mute">
-            Enter your email and we'll send you a link to choose a new password.
+            {first
+              ? "Enter the email you were invited with. If you're on the list, we'll email you a link to set up your account."
+              : "Enter your email and we'll send you a link to choose a new password."}
           </p>
           <label htmlFor="forgot-email" className={labelClass}>
             Email
@@ -251,7 +261,7 @@ function ForgotForm({ initialEmail, onBack }: { initialEmail: string; onBack: ()
             </p>
           )}
           <button type="submit" disabled={busy || !email.trim()} className={`${buttonClass} mt-5`}>
-            {busy ? 'Sending…' : 'Send reset link'}
+            {busy ? 'Sending…' : first ? 'Send setup link' : 'Send reset link'}
           </button>
         </form>
       )}

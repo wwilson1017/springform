@@ -5373,6 +5373,11 @@ export interface components {
              * @default member
              */
             role: string;
+            /**
+             * Send Email
+             * @default true
+             */
+            send_email: boolean;
         };
         /** Item */
         Item: {

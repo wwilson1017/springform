@@ -7,7 +7,9 @@ Google button, which links whichever Google account they pick (the token proved 
 Resending issues a new link; the old one stops working. Links are single use.
 
 Forgot password mails a one-hour `PUBLIC_URL/reset-password/<token>` link when the account
-exists and mail is configured, and answers the same 202 either way. Without mail, an admin issues
+exists and mail is configured, and answers the same 202 either way. An account never set up (no
+password, no Google link) is mailed a fresh invite link worded "set up your account" instead: the
+sign-in page's "First time here?" entry is this same request, so an expired invite needs no admin. Without mail, an admin issues
 the same link from the Users card and passes it on (it is also mailed when mail is configured). A reset or a password
 change ends every other session and forgets trusted devices. Accepting an invite and resetting
 a password both end like a password sign-in: a session, or the TOTP challenge when 2FA is on.
@@ -36,12 +38,28 @@ def _host() -> str:
     return urlparse(settings.public_url()).hostname or "Springform"
 
 
+def _expired_hint() -> str:
+    return f'If the link has expired, go to {settings.public_url()}/login and choose "First time here?".'
+
+
 def _send_invite(inviter: User, row: dict, url: str) -> bool:
     return mail.send(
         row["email"],
         f"You're invited to {_host()}",
         f"{inviter.name or inviter.email} invited you to {_host()}.\n\n"
         f"Open this link within an hour to set up your account:\n{url}\n\n"
+        f"{_expired_hint()}\n\n"
+        "If you weren't expecting this, you can ignore this message.",
+    )
+
+
+def _send_setup(address: str, url: str) -> bool:
+    return mail.send(
+        address,
+        f"Set up your {_host()} account",
+        f"A setup link was requested for {address} on {_host()}.\n\n"
+        f"Open this link within an hour to set up your account:\n{url}\n\n"
+        f"{_expired_hint()}\n\n"
         "If you weren't expecting this, you can ignore this message.",
     )
 
@@ -56,12 +74,13 @@ def _send_reset(address: str, url: str) -> bool:
     )
 
 
-def invite(admin: User, email: str, name: str, role: str) -> dict:
+def invite(admin: User, email: str, name: str, role: str, send_email: bool = True) -> dict:
     with db.transaction() as conn:
         row = service.create_user_in(conn, email, name, role, None, invited_by=admin.id)
         token = service.issue_token_in(conn, row["id"], "invite", admin.id)
     url = settings.public_url() + INVITE_PATH + token
-    return {"user": service.admin_view(row), "invite_url": url, "mailed": _send_invite(admin, row, url)}
+    mailed = send_email and _send_invite(admin, row, url)
+    return {"user": service.admin_view(row), "invite_url": url, "mailed": mailed}
 
 
 def resend(admin: User, user_id: int) -> dict:
@@ -99,8 +118,10 @@ def _set_password_by_token(token: str, purpose: str, password: str) -> dict:
     return db.must(service.get_user(row["id"]))
 
 
-def forgot(email: str, ip: str) -> tuple[str, str] | None:
-    """(address, reset url) to mail when the account exists and mail is on; None otherwise."""
+def forgot(email: str, ip: str) -> tuple[str, str, bool] | None:
+    """(address, url, setup) to mail when the account exists and mail is on; None otherwise.
+    `setup` is true for an account never set up: its link is a fresh invite (the one the admin
+    sent stops working, as on a resend), mailed only to the account's own address."""
     email = service.normalize_email(email)
     per_email, per_ip = FORGOT_LIMITS
     with db.transaction() as conn:
@@ -109,13 +130,15 @@ def forgot(email: str, ip: str) -> tuple[str, str] | None:
         ):
             raise service.RateLimited()
         row = conn.execute(
-            "SELECT id, email FROM core_users WHERE lower(trim(email)) = ? AND is_active = 1 AND role != 'system'",
+            """SELECT id, email, password_hash, google_sub FROM core_users
+                WHERE lower(trim(email)) = ? AND is_active = 1 AND role != 'system'""",
             (email,),
         ).fetchone()
         if not row or not mail.configured():
             return None
-        token = service.issue_token_in(conn, row["id"], "reset")
-    return row["email"], settings.public_url() + RESET_PATH + token
+        setup = not service.has_password(row["password_hash"]) and not row["google_sub"]
+        token = service.issue_token_in(conn, row["id"], "invite" if setup else "reset")
+    return row["email"], settings.public_url() + (INVITE_PATH if setup else RESET_PATH) + token, setup
 
 
 def change_password(user_id: int, current: str, new: str) -> dict:
@@ -142,6 +165,7 @@ class InviteIn(BaseModel):
     email: str
     name: str = ""
     role: str = "member"
+    send_email: bool = True
 
 
 class AcceptIn(BaseModel):
@@ -169,7 +193,7 @@ class ResetLink(BaseModel):
 
 @router.post("/api/auth/users")
 def invite_user(body: InviteIn, admin: User = Depends(require_admin)) -> dict:
-    return invite(admin, body.email, body.name, body.role)
+    return invite(admin, body.email, body.name, body.role, body.send_email)
 
 
 @router.post("/api/auth/users/{user_id}/resend-invite")
@@ -202,7 +226,8 @@ def forgot_password(body: ForgotIn, request: Request, background: BackgroundTask
     except service.RateLimited:
         raise HTTPException(429, detail="rate_limited") from None
     if found:  # after the response, so its timing does not say whether the account exists
-        background.add_task(_send_reset, *found)
+        address, url, setup = found
+        background.add_task(_send_setup if setup else _send_reset, address, url)
     return {"mail": mail.configured()}
 
 
