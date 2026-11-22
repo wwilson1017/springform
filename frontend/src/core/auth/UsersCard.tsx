@@ -44,7 +44,7 @@ export default function UsersCard() {
   const [status, setStatus] = useState<'active' | 'inactive'>('active');
   const { data: users, error, reload, setData } = useJson<AdminUser[]>(`/api/auth/users?status=${status}`);
   const [inviting, setInviting] = useState(false);
-  const [link, setLink] = useState<(InviteLink & { email: string }) | null>(null);
+  const [link, setLink] = useState<NewLink | null>(null);
 
   const replace = (u: AdminUser) => setData((users ?? []).map((x) => (x.id === u.id ? u : x)));
 
@@ -82,9 +82,9 @@ export default function UsersCard() {
       {inviting && (
         <InviteForm
           onCancel={() => setInviting(false)}
-          onInvited={(email, l) => {
+          onInvited={(l) => {
             setInviting(false);
-            setLink({ ...l, email });
+            setLink(l);
             if (status === 'active') reload();
             else setStatus('active');
           }}
@@ -115,16 +115,11 @@ export default function UsersCard() {
   );
 }
 
-function InviteForm({
-  onInvited,
-  onCancel,
-}: {
-  onInvited: (email: string, link: InviteLink) => void;
-  onCancel: () => void;
-}) {
+function InviteForm({ onInvited, onCancel }: { onInvited: (link: NewLink) => void; onCancel: () => void }) {
   const [email, setEmail] = useState('');
   const [name, setName] = useState('');
   const [role, setRole] = useState<Role>('member');
+  const [sendEmail, setSendEmail] = useState(true);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
 
@@ -137,8 +132,9 @@ function InviteForm({
         email: email.trim(),
         name: name.trim(),
         role,
+        send_email: sendEmail,
       });
-      onInvited(r.user.email, r);
+      onInvited({ ...r, email: r.user.email, skipped: !sendEmail });
     } catch (err) {
       setError(errorText(err, {}, "Couldn't send the invite."));
     } finally {
@@ -191,6 +187,15 @@ function InviteForm({
         </div>
       </div>
       <p className="m-0 text-xs text-sf-ink-dim">Admins also manage users, sign-in and install settings.</p>
+      <label className="flex cursor-pointer items-center gap-2 text-sm text-sf-ink">
+        <input
+          type="checkbox"
+          checked={sendEmail}
+          onChange={(e) => setSendEmail(e.target.checked)}
+          className="accent-sf-accent"
+        />
+        Send invite email
+      </label>
       {error && (
         <p role="alert" className={alertText}>
           {error}
@@ -198,7 +203,7 @@ function InviteForm({
       )}
       <div className="flex gap-2">
         <button type="submit" disabled={busy || !email.trim()} className={btnPrimary}>
-          {busy ? 'Inviting…' : 'Send invite'}
+          {busy ? 'Adding…' : sendEmail ? 'Send invite' : 'Add user'}
         </button>
         <button type="button" className={btnSecondary} onClick={onCancel}>
           Cancel
@@ -208,13 +213,21 @@ function InviteForm({
   );
 }
 
-function LinkPanel({ link, onClose }: { link: InviteLink & { email: string }; onClose: () => void }) {
+/** A fresh invite link; `skipped` when the admin chose not to email it. */
+type NewLink = InviteLink & { email: string; skipped?: boolean };
+
+function LinkPanel({ link, onClose }: { link: NewLink; onClose: () => void }) {
   return (
     <div role="status" className="flex flex-col gap-2 rounded-md border border-sf-green bg-sf-card p-4">
       <p className="m-0 text-sm text-sf-ink">
         {link.mailed ? (
           <>
             Invite emailed to <strong>{link.email}</strong>. You can also send them this link.
+          </>
+        ) : link.skipped ? (
+          <>
+            No email sent. Send <strong>{link.email}</strong> this link, or they can choose "First time here?" on the
+            sign-in page.
           </>
         ) : (
           <>

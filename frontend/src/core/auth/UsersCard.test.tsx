@@ -107,7 +107,23 @@ describe('UsersCard', () => {
       email: 'new@example.com',
       name: '',
       role: 'admin',
+      send_email: true,
     });
+  });
+
+  it('adds someone without emailing them when "Send invite email" is off', async () => {
+    const fetchMock = renderCard({
+      [LIST]: { body: [] },
+      'POST /api/auth/users': {
+        body: { user: row(5, { email: 'quiet@example.com' }), invite_url: 'http://x.test/invite/q', mailed: false },
+      },
+    });
+    fireEvent.click(await screen.findByRole('button', { name: 'Invite someone' }));
+    fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'quiet@example.com' } });
+    fireEvent.click(screen.getByLabelText('Send invite email'));
+    fireEvent.click(screen.getByRole('button', { name: 'Add user' }));
+    expect((await screen.findByRole('status')).textContent).toMatch(/No email sent.*First time here\?/);
+    expect(JSON.parse(callsTo(fetchMock, 'POST', '/api/auth/users')[0][1]!.body as string).send_email).toBe(false);
   });
 
   it('shows the server sentence for a duplicate email', async () => {

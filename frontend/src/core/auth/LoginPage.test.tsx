@@ -190,4 +190,16 @@ describe('LoginPage: forgot password', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Back to sign in' }));
     expect(screen.getByLabelText('Password')).toBeTruthy();
   });
+
+  it('"First time here?" posts the same request with setup wording', async () => {
+    const fetchMock = renderLogin({ 'POST /api/auth/forgot': { status: 202, body: { mail: true } } });
+    fireEvent.click(await screen.findByRole('button', { name: 'First time here? Email me my setup link' }));
+    expect(screen.getByText(/Enter the email you were invited with/)).toBeTruthy();
+    fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'new@example.com' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Send setup link' }));
+    expect((await screen.findByRole('status')).textContent).toMatch(
+      /If you're on the list, a setup link is on its way/,
+    );
+    expect(bodyOf(fetchMock, 'POST', '/api/auth/forgot')).toEqual({ email: 'new@example.com' });
+  });
 });

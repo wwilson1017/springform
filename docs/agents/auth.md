@@ -160,15 +160,16 @@ A failure redirects with `error=` one of `not_invited`, `link_required`, `google
 ## 9. Invites and password reset
 
 1. An admin adds email, name, role → a `core_users` row with `password_hash='!'` (never authenticates) and `invited_by`.
-2. An invite token (`core_login_tokens` purpose `invite`, **1 h**) makes the link `PUBLIC_URL/invite/<token>`. The link is always returned to the admin to copy, and is also mailed via Resend when `RESEND_API_KEY` and `MAIL_FROM` are set.
+2. An invite token (`core_login_tokens` purpose `invite`, **1 h**) makes the link `PUBLIC_URL/invite/<token>`. The link is always returned to the admin to copy, and is also mailed via Resend when `RESEND_API_KEY` and `MAIL_FROM` are set and the add-user form's **"Send invite email"** box (`send_email`, default true) is on. The invite mail says that an expired link is replaced from the sign-in page's "First time here?".
 3. The invitee sets a password or presses Google (the linking rule's invite case).
 4. The same token mechanism serves "forgot password" (purpose `reset`, a one-hour `PUBLIC_URL/reset-password/<token>` link). `POST /api/auth/forgot` answers 202 whether or not the account exists.
+   **First time here?** The sign-in page's "First time here? Email me my setup link" sends the same `POST /api/auth/forgot` with first-time wording. When the account was never set up (no password and no Google link, i.e. `invite_pending`), the server issues a fresh `invite` token instead of a `reset` one (the earlier invite link stops working, as on a resend) and mails "Set up your account" with the `/invite/<token>` link, so the page the person lands on is the invite page. Any other account gets the reset mail. The 202 body, the rate limits and the timing are the same in every case: the mail is sent after the response. An admin can therefore add someone without mail and let them collect their own link.
    Without mail nothing is sent, so an admin issues the same `reset` link for an active member (`POST /api/auth/users/{id}/reset-link`) and passes it on; it is also mailed when mail is configured, and `mailed` says whether Resend accepted it.
 5. Links are single use. Resending an invite issues a new link and the old one stops working.
 6. A reset or a password change ends every other session and forgets trusted devices. Accepting an invite or resetting a password ends like a password sign-in: a session, or the TOTP challenge.
 
 ```
-POST  /api/auth/users                         (admin) invite -> {user, invite_url, mailed}
+POST  /api/auth/users                         (admin) {email, name, role, send_email=true} -> {user, invite_url, mailed}
 POST  /api/auth/users/{id}/resend-invite      (admin)
 POST  /api/auth/users/{id}/reset-link         (admin) -> {reset_url, mailed}; 404 for an unknown, system or deactivated user
 GET   /api/auth/users[?status=active|inactive] (admin) -> [{id, email, name, role, tz, is_active, invite_pending, has_password,
@@ -214,7 +215,7 @@ Revoked and deactivated MCP links return 404 (`mcp.md`).
 | Piece | Source | Contract |
 |---|---|---|
 | `AuthContext.tsx` | CakeCRM (227) | Drop sessionStorage and BroadcastChannel; `GET /api/me` with the cookie. |
-| `LoginPage.tsx` | CakeCRM (181) | Password form, "Continue with Google" (a plain link: `GET /api/auth/google/start`), preview role picker, "Forgot password?" mode, a message for every `?error=` code, and `#totp_challenge=` from the Google callback. |
+| `LoginPage.tsx` | CakeCRM (181) | Password form, "Continue with Google" (a plain link: `GET /api/auth/google/start`), preview role picker, "Forgot password?" and "First time here?" modes (one request, two wordings), a message for every `?error=` code, and `#totp_challenge=` from the Google callback. |
 | `ChallengeStep.tsx` | CakeCRM | The 2FA step (code or backup code, "Trust this browser"), shared by the login, invite and reset pages. |
 | `SetupPage` | new | Token field + email, name, password. |
 | `InvitePage`, `ResetPasswordPage` | new | Public routes `/invite/:token` and `/reset-password/:token` from `routes.tsx`. A 401 on these pages is an answer, not an expired session (`core/api/client.ts`). |
