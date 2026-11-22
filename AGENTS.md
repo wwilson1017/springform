@@ -6,6 +6,9 @@ business features are apps in `backend/apps/<slug>/` and `frontend/src/apps/<slu
 gets a private fork that pulls platform updates with `git merge` and never edits core.
 Default branch `master`.
 
+**In a fork** (a `FORK.md` at the root): read `FORK.md` first. A fork keeps its own rules there and
+in `docs/apps/`, since this file is core and identical in every fork.
+
 ## Commands
 
 Python 3.12 managed by `uv` from the root `pyproject.toml`; the frontend is npm in `frontend/`.
