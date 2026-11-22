@@ -84,7 +84,8 @@ export const GOOGLE_ERRORS: Record<string, string> = {
     "That Google account isn't linked to your account yet. Sign in with your password, then link Google under Settings → Account.",
   google_mismatch: 'Your account is linked to a different Google account. Use that one, or sign in with your password.',
   google_not_configured: "Google sign-in isn't set up on this install yet.",
-  invite_invalid: 'This invite link has expired or was already used. Ask an admin to send a new one.',
+  invite_invalid:
+    'This invite link has expired or was already used. Get a new one from the sign-in page: choose "First time here?".',
   google_in_use: 'That Google account is already linked to another user. Pick a different one.',
 };
 

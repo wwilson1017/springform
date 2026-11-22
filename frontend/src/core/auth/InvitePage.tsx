@@ -83,7 +83,9 @@ function AcceptForm({ token, invite, notice }: { token: string; invite: Invite; 
       setError(
         errorText(
           err,
-          { not_found: 'This invite link has expired. Ask an admin to send a new one.' },
+          {
+            not_found: 'This invite link has expired. Get a new one from the sign-in page: choose "First time here?".',
+          },
           "Couldn't set your password. Try again.",
         ),
       );
