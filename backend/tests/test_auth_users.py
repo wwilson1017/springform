@@ -22,6 +22,7 @@ def test_list_excludes_the_system_principal_and_filters(login_as):
         "google_linked",
         "totp_enabled",
         "invited_by",
+        "self_signup",
         "last_login_at",
         "deactivated_at",
         "created_at",

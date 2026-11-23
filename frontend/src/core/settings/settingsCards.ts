@@ -10,7 +10,15 @@ export default [
     id: 'workspace',
     label: 'Workspace',
     order: 10,
-    cards: [{ id: 'workspace', title: 'Workspace', adminOnly: false, Card: WorkspaceCard }],
+    cards: [
+      { id: 'workspace', title: 'Workspace', adminOnly: false, Card: WorkspaceCard },
+      {
+        id: 'signup',
+        title: 'Who can sign up on their own',
+        adminOnly: true,
+        Card: lazy(() => import('./SignupCard')),
+      },
+    ],
   },
   { id: 'apps', label: 'Apps', order: 20, cards: [{ id: 'apps', title: 'Apps', adminOnly: false, Card: AppsCard }] },
   {

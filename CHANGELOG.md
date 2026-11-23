@@ -21,10 +21,15 @@ Conventions:
 ### Added
 
 - The sign-in page has "First time here? Email me my setup link": anyone on the user list whose invite expired gets a fresh "Set up your account" link by email, with no admin involved. The invite email points to it, and an admin can add someone without emailing them ("Send invite email" on the add-user form, on by default).
+- Settings → Workspace → "Who can sign up on their own": an admin lists whole domains (`@example.com`) or single addresses. Someone with no account at a listed domain or address can choose "First time here?", get a setup link by email and create their own account as a member; the account appears only once they set a password. The Users list says how each account was added ("Invited by …" or "Self sign-up").
 
 ### Fixed
 
 - A bulk todo complete's note about repeating todos now counts only the todos it actually completed, never someone else's private ones.
+
+### Schema
+
+- Added: `core_users.self_signup` (INTEGER NOT NULL DEFAULT 0), set for an account created from the sign-up allow list.
 
 ## [0.2.0] - 2026-11-21
 

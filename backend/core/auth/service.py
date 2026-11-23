@@ -31,7 +31,7 @@ IP_LIMIT = (50, 300)  # higher: one office shares a NAT address
 _WS = " \t\n\r\f\v"  # ASCII whitespace only; str.strip() would also eat a pasted NBSP
 _COLUMNS = (
     "id, email, name, role, tz, is_active, token_epoch, password_hash, google_sub, invited_by, last_login_at, "
-    "deactivated_at, created_at"
+    "deactivated_at, created_at, self_signup"
 )
 
 # Called inside the deactivating transaction, after the user row is marked: later workstreams
@@ -106,7 +106,14 @@ def human_users_exist(conn: db.Conn) -> bool:
 
 
 def create_user_in(
-    conn: db.Conn, email: str, name: str, role: str, password: str | None = None, invited_by: int | None = None
+    conn: db.Conn,
+    email: str,
+    name: str,
+    role: str,
+    password: str | None = None,
+    invited_by: int | None = None,
+    *,
+    self_signup: bool = False,
 ) -> dict:
     """A new account. Without a password it gets the `'!'` hash and cannot sign in yet."""
     email = normalize_email(email)
@@ -120,9 +127,19 @@ def create_user_in(
     now = clock.now_iso()
     try:
         cur = conn.execute(
-            """INSERT INTO core_users (email, name, role, password_hash, invited_by, created_at, updated_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?)""",
-            (email, (name or "").strip(), role, hash_password(password) if password else "!", invited_by, now, now),
+            """INSERT INTO core_users
+                 (email, name, role, password_hash, invited_by, self_signup, created_at, updated_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+            (
+                email,
+                (name or "").strip(),
+                role,
+                hash_password(password) if password else "!",
+                invited_by,
+                int(self_signup),
+                now,
+                now,
+            ),
         )
     except db.sqlite3.IntegrityError as e:
         if "UNIQUE" not in str(e):
@@ -234,6 +251,7 @@ def admin_view(row: dict, totp_enabled: bool = False) -> dict:
         "google_linked": bool(row["google_sub"]),
         "totp_enabled": totp_enabled,
         "invited_by": row["invited_by"],
+        "self_signup": bool(row["self_signup"]),
         "last_login_at": row["last_login_at"],
         "deactivated_at": row["deactivated_at"],
         "created_at": row["created_at"],

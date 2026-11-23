@@ -96,6 +96,25 @@ def _bool(value: Any) -> bool:
     return value
 
 
+_SIGNUP_ENTRY = re.compile(r"^[^@\s]*@(?![.-])[^@\s]*\.[^@\s]*(?<![.-])$")
+
+
+def _signup_allow(value: Any) -> list[str]:
+    """The sign-up allow list: `@domain` (the whole domain) or `name@domain` entries, lowercased."""
+    if not isinstance(value, list) or not all(isinstance(v, str) for v in value):
+        raise ValueError("must be a list of @domain or name@domain entries")
+    cleaned: list[str] = []
+    for raw in value:
+        entry = raw.strip().lower()
+        if entry and not _SIGNUP_ENTRY.match(entry):
+            raise ValueError(f"{raw.strip()!r} is not @domain or name@domain")
+        if entry and entry not in cleaned:
+            cleaned.append(entry)
+    if len(cleaned) > 200:
+        raise ValueError("must have at most 200 entries")
+    return cleaned
+
+
 CORE_KEYS: dict[str, Key] = {
     "workspace.name": Key("Springform", _text(80, required=True)),
     "workspace.show_name": Key(True, _bool),  # off: the header shows only the logo (a wordmark already says it)
@@ -109,6 +128,7 @@ CORE_KEYS: dict[str, Key] = {
     "agent.context_budget_chars": Key(memory.DEFAULT_BUDGET, _positive_int),  # memory block size per turn
     "agent.cost_rates": Key(usage.DEFAULT_RATES, usage.check_rates),  # USD per million tokens, per model
     "auth.require_totp_for_google": Key(False, _bool),
+    "auth.signup_allow": Key([], _signup_allow),  # who may sign up on their own (invites.signup_allowed)
     "web.enabled": Key(True, _bool),  # Whisk's web search and page reading
     "web.search_provider": Key("free", _choice("free", "anthropic")),  # anthropic: Claude's own search
     "web.search_max_uses": Key(5, _int_range(1, 20)),  # Anthropic searches per reply

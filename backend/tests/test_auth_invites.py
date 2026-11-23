@@ -1,11 +1,13 @@
 import json
+import logging
 
 import httpx
 import pytest
 
-from backend.core import db as core_db
-from backend.core.auth import mail
+from backend.core import db as core_db, logscrub
+from backend.core.auth import invites, jwt, mail
 from backend.core.auth.deps import COOKIE
+from backend.core.platform import keys
 from backend.testing.fixtures import PASSWORD, make_client
 
 from .test_auth_totp import T0, enrol
@@ -238,3 +240,169 @@ def test_first_time_setup_link_for_an_invite_added_without_mail(login_as, app, o
 def test_invite_mail_points_at_first_time_here(login_as, outbox):
     _invite(login_as("admin"))
     assert 'go to http://localhost:8000/login and choose "First time here?"' in outbox[0]["text"]
+
+
+# ── Sign-up allow list ───────────────────────────────────────────────────────
+
+ALLOW = ["@example.com", "pat@example.org"]
+
+
+def _allow(admin, entries=ALLOW):
+    r = admin.put("/api/core/settings", json={"values": {"auth.signup_allow": entries}})
+    assert r.status_code == 200, r.text
+    return r.json()["values"]["auth.signup_allow"]
+
+
+def _users(email):
+    return core_db.rows("SELECT * FROM core_users WHERE email = ?", (email,))
+
+
+def _signup_link(app, outbox, email="someone@example.com"):
+    assert make_client(app).post("/api/auth/forgot", json={"email": email}).status_code == 202
+    return _token(next(w for w in outbox[-1]["text"].split() if "/invite/" in w))
+
+
+def test_matching_is_the_whole_domain_or_the_exact_address(login_as):
+    admin = login_as("admin")
+    assert not invites.signup_allowed("someone@example.com")  # empty list: nobody
+    _allow(admin)
+    for email, allowed in (
+        ("X@Example.COM", True),
+        (" someone@example.com ", True),
+        ("x@sub.example.com", False),
+        ("x@badexample.com", False),
+        ("x@example.com.evil.test", False),
+        ("pat@example.org", True),
+        ("PAT@example.org", True),
+        ("sam@example.org", False),
+        ("@example.com", False),
+        ("a@b@example.com", False),
+        ("a b@example.com", False),
+        ("", False),
+    ):
+        assert invites.signup_allowed(email) is allowed, email
+
+
+def test_the_setting_accepts_only_domains_and_addresses_and_cleans_them(login_as):
+    admin = login_as("admin")
+    assert _allow(admin, [" @Example.COM", "Pat@Example.org", "@example.com", ""]) == [
+        "@example.com",
+        "pat@example.org",
+    ]
+    for bad in (["example.com"], ["@"], ["a@b@c.com"], ["@nodot"], ["@.example.com"], ["@example.com-"], "@x.com", [5]):
+        r = admin.put("/api/core/settings", json={"values": {"auth.signup_allow": bad}})
+        assert r.status_code == 422, bad
+    assert keys.get("auth.signup_allow") == ["@example.com", "pat@example.org"]
+    assert login_as("member").put("/api/core/settings", json={"values": {"auth.signup_allow": []}}).status_code == 403
+
+
+def test_a_listed_and_an_unlisted_address_get_the_same_answer(login_as, app, outbox):
+    _allow(login_as("admin"))
+    listed = make_client(app).post("/api/auth/forgot", json={"email": "someone@example.com"})
+    assert len(outbox) == 1 and outbox[0]["to"] == ["someone@example.com"]
+    assert outbox[0]["subject"].startswith("Set up your") and "/invite/" in outbox[0]["text"]
+    unlisted = make_client(app).post("/api/auth/forgot", json={"email": "someone@other.com"})
+    assert (listed.status_code, listed.json()) == (unlisted.status_code, unlisted.json()) == (202, {"mail": True})
+    assert len(outbox) == 1
+    assert _users("someone@example.com") == [] and _users("someone@other.com") == []
+
+
+def test_self_sign_up_end_to_end(login_as, app, outbox):
+    admin = login_as("admin")
+    _allow(admin)
+    token = _signup_link(app, outbox, "Someone@Example.com")
+    guest = make_client(app)
+    assert guest.get(f"/api/auth/invite/{token}").json() == {
+        "email": "someone@example.com",
+        "name": "",
+        "google": False,
+    }
+    assert _users("someone@example.com") == []
+    assert guest.post(f"/api/auth/invite/{token}", json={"password": "short"}).status_code == 422
+    r = guest.post(f"/api/auth/invite/{token}", json={"password": NEW_PASSWORD})
+    assert r.status_code == 200 and COOKIE in guest.cookies
+    me = guest.get("/api/me")
+    assert me.status_code == 200 and me.json()["role"] == "member"
+    row = next(u for u in admin.get("/api/auth/users").json() if u["email"] == "someone@example.com")
+    assert row["self_signup"] is True and row["invited_by"] is None and row["role"] == "member"
+    # single use: the account exists now
+    assert guest.get(f"/api/auth/invite/{token}").status_code == 404
+    assert make_client(app).post(f"/api/auth/invite/{token}", json={"password": "another-password"}).status_code == 404
+    assert len(_users("someone@example.com")) == 1
+
+
+def _mint(claims, purpose="signup", seconds=3600):
+    return jwt.mint_purpose(purpose, claims, seconds)
+
+
+def test_bad_signup_links_create_nothing(login_as, app):
+    _allow(login_as("admin"))
+    good = _mint({"email": "someone@example.com"})
+    for token in (
+        _mint({"email": "someone@example.com"}, seconds=-1),  # expired
+        good[:-2] + ("AA" if not good.endswith("AA") else "BB"),  # tampered
+        _mint({"email": "someone@example.com"}, purpose="challenge"),
+        _mint({}),
+        _mint({"email": 5}),
+        _mint({"email": ""}),
+        _mint({"email": "someone@other.com"}),  # never on the list
+    ):
+        guest = make_client(app)
+        assert guest.get(f"/api/auth/invite/{token}").status_code == 404
+        assert guest.post(f"/api/auth/invite/{token}", json={"password": NEW_PASSWORD}).status_code == 404
+    # a signup link is not a reset link
+    r = make_client(app).post("/api/auth/reset", json={"token": good, "password": NEW_PASSWORD})
+    assert r.status_code == 404
+    assert core_db.one("SELECT count(*) AS n FROM core_users WHERE email LIKE 'someone@%'")["n"] == 0
+
+
+def test_an_invite_sent_after_the_link_wins(login_as, app, outbox):
+    admin = login_as("admin")
+    _allow(admin)
+    token = _signup_link(app, outbox)
+    invited = _invite(admin, "someone@example.com")["user"]
+    guest = make_client(app)
+    assert guest.get(f"/api/auth/invite/{token}").status_code == 404
+    assert guest.post(f"/api/auth/invite/{token}", json={"password": NEW_PASSWORD}).status_code == 404
+    (row,) = _users("someone@example.com")
+    assert row["id"] == invited["id"] and row["password_hash"] == "!" and row["self_signup"] == 0
+
+
+def test_removing_the_entry_stops_an_outstanding_link(login_as, app, outbox):
+    admin = login_as("admin")
+    _allow(admin)
+    token = _signup_link(app, outbox)
+    _allow(admin, ["pat@example.org"])
+    guest = make_client(app)
+    assert guest.get(f"/api/auth/invite/{token}").status_code == 404
+    assert guest.post(f"/api/auth/invite/{token}", json={"password": NEW_PASSWORD}).status_code == 404
+    assert _users("someone@example.com") == []
+
+
+def test_a_deactivated_account_does_not_come_back_by_signing_up(login_as, app, outbox):
+    admin = login_as("admin")
+    _allow(admin)
+    gone = _invite(admin, "gone@example.com")["user"]
+    assert admin.post(f"/api/auth/users/{gone['id']}/deactivate").status_code == 200
+    outbox.clear()
+    assert make_client(app).post("/api/auth/forgot", json={"email": "gone@example.com"}).status_code == 202
+    assert outbox == []
+
+
+def test_an_ordinary_invite_still_works_with_a_list_set(login_as, app):
+    admin = login_as("admin")
+    _allow(admin)
+    token = _token(_invite(admin, "pat@example.org")["invite_url"])
+    guest = make_client(app)
+    assert guest.get(f"/api/auth/invite/{token}").json()["name"] == "New Person"
+    r = guest.post(f"/api/auth/invite/{token}", json={"password": NEW_PASSWORD})
+    assert r.status_code == 200
+    (row,) = _users("pat@example.org")
+    assert row["self_signup"] == 0 and row["invited_by"] == admin.user["id"]
+
+
+def test_logs_mask_a_signup_link(app):
+    token = _mint({"email": "someone@example.com"})
+    record = logging.LogRecord("uvicorn.access", logging.INFO, "", 0, "GET /api/auth/invite/%s", (token,), None)
+    logscrub.ScrubTokens().filter(record)
+    assert record.getMessage() == "GET /api/auth/invite/***" and "eyJ" not in record.getMessage()
