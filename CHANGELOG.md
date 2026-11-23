@@ -18,6 +18,10 @@ Conventions:
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-23
+
+People can get their own setup link from the sign-in page, and an admin can let whole email domains or listed addresses create their own accounts.
+
 ### Added
 
 - The sign-in page has "First time here? Email me my setup link": anyone on the user list whose invite expired gets a fresh "Set up your account" link by email, with no admin involved. The invite email points to it, and an admin can add someone without emailing them ("Send invite email" on the add-user form, on by default).
