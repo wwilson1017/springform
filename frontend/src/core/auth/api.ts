@@ -25,6 +25,8 @@ export interface AdminUser {
   google_linked: boolean;
   totp_enabled: boolean;
   invited_by: number | null;
+  /** Created by the person themselves from the sign-up allow list. */
+  self_signup: boolean;
   last_login_at: string | null;
   deactivated_at: string | null;
   created_at: string;

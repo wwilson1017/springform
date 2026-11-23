@@ -4,6 +4,8 @@
  * and reactivate. There is no delete: a
  * departed person's name keeps rendering on what they touched. The server keeps one active admin
  * who can sign in (`last_admin`); the card only hides the controls that would lock you out.
+ * Each row says how the account was added: invited by someone, or a self sign-up from the
+ * allow list. The whole list loads once, so an inviter in the other tab still resolves.
  */
 
 import { useState, type FormEvent } from 'react';
@@ -42,11 +44,18 @@ const chip = 'rounded bg-sf-ink/6 px-1.5 py-0.5 text-xs text-sf-ink-dim';
 
 export default function UsersCard() {
   const [status, setStatus] = useState<'active' | 'inactive'>('active');
-  const { data: users, error, reload, setData } = useJson<AdminUser[]>(`/api/auth/users?status=${status}`);
+  const { data: all, error, reload, setData } = useJson<AdminUser[]>('/api/auth/users');
+  const users = all?.filter((u) => u.is_active === (status === 'active'));
+  const byId = new Map((all ?? []).map((u) => [u.id, u]));
+  const addedBy = (u: AdminUser) => {
+    if (u.self_signup) return 'Self sign-up';
+    const inviter = u.invited_by === null ? undefined : byId.get(u.invited_by);
+    return inviter ? `Invited by ${inviter.name || inviter.email}` : '';
+  };
   const [inviting, setInviting] = useState(false);
   const [link, setLink] = useState<NewLink | null>(null);
 
-  const replace = (u: AdminUser) => setData((users ?? []).map((x) => (x.id === u.id ? u : x)));
+  const replace = (u: AdminUser) => setData((all ?? []).map((x) => (x.id === u.id ? u : x)));
 
   return (
     <div className="flex flex-col gap-4">
@@ -85,8 +94,8 @@ export default function UsersCard() {
           onInvited={(l) => {
             setInviting(false);
             setLink(l);
-            if (status === 'active') reload();
-            else setStatus('active');
+            setStatus('active');
+            reload();
           }}
         />
       )}
@@ -104,6 +113,7 @@ export default function UsersCard() {
             <UserRow
               key={u.id}
               user={u}
+              addedBy={addedBy(u)}
               onSaved={replace}
               onRemoved={reload}
               onLink={(l) => setLink({ ...l, email: u.email })}
@@ -246,11 +256,13 @@ function LinkPanel({ link, onClose }: { link: NewLink; onClose: () => void }) {
 
 function UserRow({
   user,
+  addedBy,
   onSaved,
   onRemoved,
   onLink,
 }: {
   user: AdminUser;
+  addedBy: string;
   onSaved: (u: AdminUser) => void;
   onRemoved: () => void;
   onLink: (l: InviteLink) => void;
@@ -339,6 +351,7 @@ function UserRow({
                 ? `Last sign-in ${formatDate(user.last_login_at)}`
                 : 'Never signed in'}
           </div>
+          {addedBy && <div className="text-xs text-sf-ink-dim">{addedBy}</div>}
         </div>
         <div className="flex flex-wrap gap-2">
           {user.is_active && !editing && (

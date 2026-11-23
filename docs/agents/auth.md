@@ -58,7 +58,8 @@ core_users(
   password_hash DEFAULT '!',          -- '!' never authenticates
   google_sub UNIQUE NULL,
   is_active, token_epoch, tz,
-  invited_by, last_login_at, deactivated_at, created_at, updated_at
+  invited_by, last_login_at, deactivated_at, created_at, updated_at,
+  self_signup DEFAULT 0                -- created from the sign-up allow list (§9)
 )
 -- plus a unique index on lower(trim(email))
 
@@ -164,6 +165,7 @@ A failure redirects with `error=` one of `not_invited`, `link_required`, `google
 3. The invitee sets a password or presses Google (the linking rule's invite case).
 4. The same token mechanism serves "forgot password" (purpose `reset`, a one-hour `PUBLIC_URL/reset-password/<token>` link). `POST /api/auth/forgot` answers 202 whether or not the account exists.
    **First time here?** The sign-in page's "First time here? Email me my setup link" sends the same `POST /api/auth/forgot` with first-time wording. When the account was never set up (no password and no Google link, i.e. `invite_pending`), the server issues a fresh `invite` token instead of a `reset` one (the earlier invite link stops working, as on a resend) and mails "Set up your account" with the `/invite/<token>` link, so the page the person lands on is the invite page. Any other account gets the reset mail. The 202 body, the rate limits and the timing are the same in every case: the mail is sent after the response. An admin can therefore add someone without mail and let them collect their own link.
+   **Sign-up allow list.** The core setting `auth.signup_allow` (Settings → Workspace → "Who can sign up on their own", admins; default empty = no self sign-up) lists `@domain` and `name@domain` entries, cleaned to lowercase. When "First time here?" names an address with **no `core_users` row in any state** (a deactivated person does not come back this way) and mail is configured, `invites.signup_allowed` checks it: the address itself, or `@` + its whole domain, must be on the list (string equality, so `@example.com` matches neither `sub.example.com` nor `badexample.com`). A match is mailed the same "Set up your account" email with `PUBLIC_URL/invite/<jwt>`, where the JWT is a stateless purpose token (`jwt.mint_purpose("signup", {email}, TOKEN_SECONDS)`, one hour), not a stored row; anything else gets the same 202 and no mail. The invite GET and POST try the stored token first, then the signup JWT (never `/api/auth/reset`), re-checking the allow list each time. No account exists until the password is set: the POST creates a **member** with `self_signup = 1` and signs them in; the GET answers `{email, name: "", google: false}` (no account to link Google to yet). Single use follows from the account then existing (the unique email index answers 404). Being stateless, a second request does not cancel an earlier link, and removing then restoring an entry revives an unexpired one.
    Without mail nothing is sent, so an admin issues the same `reset` link for an active member (`POST /api/auth/users/{id}/reset-link`) and passes it on; it is also mailed when mail is configured, and `mailed` says whether Resend accepted it.
 5. Links are single use. Resending an invite issues a new link and the old one stops working.
 6. A reset or a password change ends every other session and forgets trusted devices. Accepting an invite or resetting a password ends like a password sign-in: a session, or the TOTP challenge.
@@ -173,7 +175,8 @@ POST  /api/auth/users                         (admin) {email, name, role, send_e
 POST  /api/auth/users/{id}/resend-invite      (admin)
 POST  /api/auth/users/{id}/reset-link         (admin) -> {reset_url, mailed}; 404 for an unknown, system or deactivated user
 GET   /api/auth/users[?status=active|inactive] (admin) -> [{id, email, name, role, tz, is_active, invite_pending, has_password,
-                                                 google_linked, totp_enabled, invited_by, last_login_at, deactivated_at, created_at}];
+                                                 google_linked, totp_enabled, invited_by, self_signup, last_login_at, deactivated_at,
+                                                 created_at}];
                                                  never the system principal; invite_pending = no password and no Google link
 PATCH /api/auth/users/{id}                    (admin) name, role, tz
 POST  /api/auth/users/{id}/deactivate         (admin)

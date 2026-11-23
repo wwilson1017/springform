@@ -22,12 +22,13 @@ const row = (id: number, extra: Partial<AdminUser> = {}): AdminUser => ({
   google_linked: false,
   totp_enabled: false,
   invited_by: null,
+  self_signup: false,
   last_login_at: null,
   deactivated_at: null,
   created_at: '2026-10-01T00:00:00Z',
   ...extra,
 });
-const LIST = 'GET /api/auth/users?status=active';
+const LIST = 'GET /api/auth/users';
 
 function renderSettings(role: User['role'], entry: string, routes: Record<string, Reply> = {}) {
   const fetchMock = mockFetch({ 'GET /api/me': { body: me(role) }, 'GET /api/core/apps': { body: [] }, ...routes });
@@ -70,7 +71,7 @@ describe('Settings sections by role', () => {
     // The deep link says so in place instead of loading the admin cards.
     expect(await screen.findByRole('heading', { name: 'Not allowed' })).toBeTruthy();
     expect(screen.queryByRole('heading', { name: 'Users' })).toBeNull();
-    expect(callsTo(fetchMock, 'GET', '/api/auth/users?status=active')).toHaveLength(0);
+    expect(callsTo(fetchMock, 'GET', '/api/auth/users')).toHaveLength(0);
   });
 
   it('gives an admin Account, Users and Sign-in, and the Users card lists accounts', async () => {
@@ -219,5 +220,28 @@ describe('UsersCard', () => {
     expect(within(pending).queryByRole('button', { name: 'Reset link' })).toBeNull();
     fireEvent.click(within(pending).getByRole('button', { name: 'New invite link' }));
     expect((await screen.findByRole('status')).textContent).toMatch(/Invite emailed to u4@example.com/);
+  });
+
+  it('says how each account was added, resolving an inviter from the other tab', async () => {
+    renderCard({
+      [LIST]: {
+        body: [
+          row(1, { email: 'boss@example.com', name: 'Boss', role: 'admin' }),
+          row(2, { invited_by: 1 }),
+          row(3, { self_signup: true }),
+          row(4, { invited_by: 9 }),
+          row(9, { name: 'Former Admin', is_active: false, deactivated_at: '2026-10-02T00:00:00Z' }),
+        ],
+      },
+    });
+    const li = async (name: string) => (await screen.findByText(name)).closest('li')!;
+    expect((await li('User 2')).textContent).toContain('Invited by Boss');
+    expect((await li('User 3')).textContent).toContain('Self sign-up');
+    expect((await li('User 4')).textContent).toContain('Invited by Former Admin');
+    expect((await li('Boss')).textContent).not.toMatch(/Invited by|Self sign-up/);
+    expect(screen.queryByText('Former Admin')).toBeNull(); // only in the Inactive tab
+    fireEvent.click(screen.getByRole('button', { name: 'Inactive' }));
+    expect(await screen.findByText('Former Admin')).toBeTruthy();
+    expect(screen.queryByText('User 2')).toBeNull();
   });
 });
