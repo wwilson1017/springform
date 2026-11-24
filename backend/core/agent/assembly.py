@@ -234,14 +234,11 @@ def skills_index() -> str:
         return ""
 
 
-def system_prompt(
-    agent: dict, user: User, *, query: str | None, catalog: str = "", context: str = ""
-) -> tuple[str, str]:
+def system_prompt(agent: dict, user: User, *, query: str | None, context: str = "") -> tuple[str, str]:
     return agents.build_system_prompt(
         agent,
         user,
         instructions=memory_instructions(agent["slug"]),
-        catalog=catalog,
         memory=memory_context(user, agent["slug"], query),
         context=context,
         skills=skills_index(),

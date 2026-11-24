@@ -18,6 +18,10 @@ Conventions:
 
 ## [Unreleased]
 
+### Changed
+
+- Whisk moves app tools to the `core_find_tools` catalog when the prompt plus every tool definition would pass the prompt budget (14,000 tokens), not only past 100 tools, so a fork with a few extra apps stays under the budget. Core tools are always sent in full; an install under the budget is unchanged.
+
 ## [0.3.1] - 2026-11-24
 
 Apps can declare their own custom fields and write a person's extra emails, phones, links and addresses.
