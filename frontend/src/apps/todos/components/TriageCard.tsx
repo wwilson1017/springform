@@ -626,15 +626,29 @@ export function TriageCard({ todo, projects, contexts, onProcessed, onChanged, o
             );
           })}
         </div>
-        <button
-          type="button"
-          disabled={busy}
-          onClick={() => void patch({ status: 'done' }, true)}
-          title="It took under 2 minutes — done"
-          className="mt-2 rounded-lg border border-sf-green px-3 py-1.5 text-sm font-display text-sf-green-text disabled:opacity-50 hover:bg-sf-green/10"
-        >
-          Took 2 minutes — Done ✓
-        </button>
+        {/* The two ways out of the inbox that need no context. Delete is for an item that never
+            belonged on the list: it archives it (status 'dropped'), and the Done page's Dropped
+            tab is where it can be brought back from. Nothing is ever hard-deleted. */}
+        <div className="mt-2 flex flex-wrap gap-2">
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => void patch({ status: 'done' }, true)}
+            title="It took 2 minutes or less — done"
+            className="rounded-lg border border-sf-green px-3 py-1.5 text-sm font-display text-sf-green-text disabled:opacity-50 hover:bg-sf-green/10"
+          >
+            2 min — Done ✓
+          </button>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => void patch({ status: 'dropped' }, true)}
+            title="Not needed — delete it"
+            className="rounded-lg border border-sf-red px-3 py-1.5 text-sm font-display text-sf-red-text disabled:opacity-50 hover:bg-sf-red/10"
+          >
+            Delete ✕
+          </button>
+        </div>
       </div>
 
       {/* Step 2 — optional enrichment. Nothing here leaves the inbox. */}
@@ -787,25 +801,6 @@ export function TriageCard({ todo, projects, contexts, onProcessed, onChanged, o
             className={`${linkCls} text-sf-ink-dim hover:text-sf-ink`}
           >
             Edit
-          </button>
-          {/* Done completes it; "Delete — not needed" is for an item that never belonged on
-              the list. Nothing is ever deleted: it archives it (status 'dropped'), and the
-              Done page's Dropped tab is where it can be brought back from. */}
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => void patch({ status: 'done' }, true)}
-            className={`${linkCls} text-sf-green-text hover:text-sf-ink`}
-          >
-            Done ✓
-          </button>
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => void patch({ status: 'dropped' }, true)}
-            className={`${linkCls} text-sf-red-text hover:text-sf-ink`}
-          >
-            Delete — not needed
           </button>
         </div>
         {/* Project fields appear only once there is a project to describe: the one

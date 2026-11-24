@@ -25,7 +25,7 @@ Conventions:
 
 ### Changed
 
-- Todos inbox: the triage card's Drop is now two choices, Done ✓ and Delete — not needed (an archive, as Drop was).
+- Todos inbox: the triage card's Drop link is now a red "Delete ✕" pill beside "2 min — Done ✓" (still an archive, as Drop was).
 
 ### Schema
 
