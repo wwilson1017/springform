@@ -108,8 +108,10 @@ def test_app_tools_are_deferred_by_size_not_only_by_count():
     assert "**Bakery** (bakery): bakery_t0, bakery_t1" in catalog
     small = [core, *app_tools(5, "A tool.")]
     assert deferred.split(small, {"bakery": "Bakery"}) == (small, [], "")
-    # the rest of the prompt counts: the same small set is deferred once the prompt fills the budget
-    assert deferred.split(small, {}, CHARS_PER_TOKEN * BUDGET_TOKENS)[1] == small[1:]
+    # the rest of the prompt counts: a set that fits by itself is deferred once the prompt fills the budget
+    full, medium = CHARS_PER_TOKEN * BUDGET_TOKENS, [core, *app_tools(5, "d" * 500)]
+    assert deferred.split(medium, {})[1] == [] and deferred.split(medium, {}, full)[1] == medium[1:]
+    assert deferred.split(small, {}, full) == (small, [], "")  # the catalog would cost more than these tools
     assert deferred.split([core], {}, CHARS_PER_TOKEN * BUDGET_TOKENS * 2) == ([core], [], "")  # nothing to defer
 
 

@@ -214,7 +214,7 @@ The hash is the sha256 hex of `json.dumps(fields, sort_keys=True)` over the fiel
 
 Sources: core packages' `tools.py` (contacts, notes, reminders, memory and context files, listed below; `apps-and-contracts.md` §9), discovered apps' `get_tools()`, and MCP servers (`mcp.md`). Outbound MCP servers are the one source that changes after boot: `registry.swap_server(server_id, specs)` replaces one server's specs, rebuilds and validates the whole registry, and **swaps it in atomically** (a refused build changes nothing). Old specs stay valid for already-pending approvals only until their `tool_def_sha256` check fails. `build_registry` also refuses a remote spec (`server_url` set) that is not `always_confirm`, `untrusted_source` and `external_effect` (a trusted server's read may leave `always_confirm` off), and `trusted` on a local spec.
 
-Deferred tools (`deferred.py`): groups keyed by app slug. App tools are deferred past 100 tools, or when the static prompt plus every tool definition would exceed `deferred.BUDGET_TOKENS` (14,000, characters / 4; the budget `test_prompt_budget.py` enforces). Core tools are always eager.
+Deferred tools (`deferred.py`): groups keyed by app slug. App tools are deferred past 100 tools, or when the static prompt plus every tool definition would exceed `deferred.BUDGET_TOKENS` (14,000, characters / 4; the budget `test_prompt_budget.py` enforces) and the catalog plus `core_find_tools` is smaller than the definitions it replaces. Core tools are always eager.
 
 ### Core tools
 
