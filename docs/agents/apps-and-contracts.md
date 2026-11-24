@@ -70,6 +70,7 @@ The current fixture manifest (`backend/apps/example/app.json`):
 | `jobs.py` | `JOBS = [Job(name="<slug>.<job>", fn, every=…\|at="HH:MM")]` | `scheduler.md`. |
 | `seed.py` | `seed(conn)`, `sample(conn)`, `RESET_TABLES`, `EXPORT` | Below. |
 | `settings.py` | `DEFAULTS = {"<slug>.<key>": value}` | Defaults for `core_settings`. |
+| `fields.py` | `FIELDS = [FieldSpec(entity_type, key, label, type, options=None, required=False)]` | Custom fields the app owns (`from backend.core.fields.api import FieldSpec`). Keys are `<slug>_<name>`; the entity type is core's (`core.person`, `core.organization`) or the app's own. Reconciled at every boot before the seeds, so a seed may set their values; key and type are permanent, and a dropped declaration is archived, never deleted (`records.md` §3). |
 | `migrations/` | `YYYYMMDDHHMMSS_<slug>_<name>.sql` | Below. |
 | `docs/index.md` | Guide topic(s) | Front matter + Markdown, loaded by `backend/core/guide/library.py`. `docs/index.md` is the topic `<slug>`; any other `docs/<name>.md` is `<slug>.<name>` (`frontend-shell.md` §3). |
 | `service.py`, `models.py` | — | App-internal; not discovered. |
@@ -215,6 +216,7 @@ Falsifiable against `backend/tests/fixtures/bad_app` (the test must fail it). It
 22. `DEFAULTS` keys are `<slug>.<key>`.
 23. Every `publishes` name exists in `api.py` as both `name` and `name_in` (the registry also checks this at boot).
 24. No two apps define Pydantic models with the same class name (§3 rule 5); the failure names the model and both apps. Core's models are not checked (the CRM's `MergeIn` and `ResetIn` already share names with core's), so don't reuse a core model's class name either.
+25. `FIELDS` is a list of valid `FieldSpec`s keyed `<slug>_<name>` on a core or own entity type, with no key twice per entity type (the registry also checks at boot).
 
 ### Vitest twin
 
@@ -238,6 +240,7 @@ Falsifiable against `backend/tests/fixtures/bad_app` (the test must fail it). It
 | Job | One job, `example.tidy`, every hour. |
 | Sheet | `widgets`, mode `read`. |
 | Subscribers | `on_entity_merged`, `on_entity_deleted` and `on_record_changed`. |
+| Custom field | `example_finish` on `example.widget` (`fields.py`). |
 | Docs | `docs/index.md`. |
 | Table | `example_widgets`. |
 

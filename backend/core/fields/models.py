@@ -6,7 +6,9 @@ from backend.core.platform.models import Out
 
 
 class FieldDefinition(Out):
-    """`options` only for select and multiselect; `required` is advisory (shown, not enforced)."""
+    """`options` only for select and multiselect; `required` is advisory (shown, not enforced).
+    `owner_app` is the slug of the app that declares the field (null for an admin's field);
+    `retired_at` is when that app stopped declaring it."""
 
     id: int
     entity_type: str
@@ -17,6 +19,8 @@ class FieldDefinition(Out):
     required: bool
     position: int
     archived_at: str | None
+    owner_app: str | None
+    retired_at: str | None
     created_at: str
     updated_at: str
 

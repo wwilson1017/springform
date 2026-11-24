@@ -3,7 +3,8 @@
 An app is a folder `backend/apps/<slug>/` with an `app.json`. Required: `router.py` (exports
 `router`), `migrations/*.sql`, `seed.py`, the manifest's `docs` file. Optional modules, each
 exporting one name: `api` (the only module another app may import), `entities` (ENTITIES),
-`hooks` (HOOKS), `reports` (REPORTS), `tools` (get_tools()), `jobs` (JOBS), `settings` (DEFAULTS).
+`hooks` (HOOKS), `reports` (REPORTS), `tools` (get_tools()), `jobs` (JOBS), `settings` (DEFAULTS),
+`fields` (FIELDS).
 
 `install(app)` registers core's own entities, hooks and jobs, then mounts every discovered app:
 its router at `/api/<slug>` behind `require_roles(manifest.roles)`, and its entities, reports
@@ -17,7 +18,7 @@ import json
 from dataclasses import dataclass, replace
 from pathlib import Path
 from types import ModuleType
-from typing import Literal
+from typing import Any, Literal
 
 from fastapi import Depends, FastAPI
 from packaging.specifiers import InvalidSpecifier, SpecifierSet
@@ -30,6 +31,7 @@ from backend.core.agent.spec import ToolSpec
 from backend.core.auth import service as auth_service
 from backend.core.auth.deps import User, has_role, require_roles
 from backend.core.errors import Forbidden, NotFound
+from backend.core.fields import service as fields_service
 from backend.core.reports import registry as reports
 from backend.core.timeline import service as timeline_service
 
@@ -41,7 +43,7 @@ RESERVED_SLUGS = frozenset(
         "reset-password",
     }
 )  # fmt: skip
-MODULES = ("router", "seed", "api", "entities", "hooks", "reports", "tools", "jobs", "settings")
+MODULES = ("router", "seed", "api", "entities", "hooks", "reports", "tools", "jobs", "settings", "fields")
 
 CORE_DIR = Path(__file__).resolve().parent
 CORE_MODULES = ("router", "hooks", "jobs", "tools", "startup")
@@ -281,6 +283,9 @@ def mount_app(fastapi_app: FastAPI, app: App) -> list[ToolSpec]:
         if entity.app != m.slug:
             raise AppContractError(f"App '{m.slug}' registers entity {entity.type!r} outside its namespace")
         entities.register(_role_scoped(entity, roles))
+    own_types = {e.type for e in entities.all_entities() if e.app in ("core", m.slug)}
+    if problems := fields_service.spec_problems(m.slug, _fields(app), own_types):
+        raise AppContractError(f"App '{m.slug}' fields.py: {'; '.join(problems)}")
     for hook, fns in getattr(mods.get("hooks"), "HOOKS", {}).items():
         for fn in fns:
             entities.subscribe(hook, fn)
@@ -359,8 +364,21 @@ def list_for_user(user: User) -> list[dict]:
     return out
 
 
+def _fields(app: App) -> Any:
+    """The app's declared custom fields; a fields.py without FIELDS is a contract problem."""
+    return getattr(app.modules["fields"], "FIELDS", None) if "fields" in app.modules else []
+
+
+def _sync_fields_in(conn: db.Conn) -> None:
+    """Every app's declared custom fields, reconciled before any seed so a seed may set their values."""
+    fields_service.sync_declared_in(conn, {a.slug: _fields(a) for a in _APPS})
+
+
 def seed_apps() -> None:
-    """Each app's seed(conn) on boot, one transaction per app; seeds must be idempotent."""
+    """Each app's seed(conn) on boot, one transaction per app; seeds must be idempotent. The
+    apps' declared custom fields are reconciled first, in a transaction of their own."""
+    with db.transaction() as conn:
+        _sync_fields_in(conn)
     for app in _APPS:
         with db.transaction() as conn:
             _seed_app_in(conn, app)
@@ -436,6 +454,7 @@ def factory_reset_in(conn: db.Conn, caller: User | None = None, *, keep_job_runs
         """INSERT INTO core_users (id, email, name, role, password_hash, is_active, created_at, updated_at)
            VALUES (0, 'system@springform.local', 'System', 'system', '!', 1, '2026-10-20T00:00:00Z', '2026-10-20T00:00:00Z')"""
     )
+    _sync_fields_in(conn)
     for app in _APPS:
         _seed_app_in(conn, app)
     if settings.preview_mode():

@@ -19,7 +19,9 @@ name or None):
   postal_code, country, is_primary, created_at, updated_at}],
   channels [{id, owner_type, owner_id, kind, value, label, is_primary, created_at, updated_at}]
 `email`/`phone` mirror the primary email/phone channel; passing them to create/update writes
-that channel.
+that channel. Other channels and addresses are added, changed and deleted with
+`add_/update_/delete_channel` and `add_/update_/delete_address`, authorized as a write to the
+owner; the mirror follows the primary email and phone after each.
 """
 
 from backend.core.contacts import service
@@ -76,6 +78,37 @@ def merge_organizations_in(conn, user, target_id: int, source_id: int) -> dict:
     return service.merge_in(conn, "organization", target_id, source_id, user)
 
 
+def add_channel_in(conn, user, owner_type: str, owner_id: int, **fields) -> dict:
+    """Add a channel to a person or organization (owner_type "person" or "organization").
+    Fields: kind (email, phone, url, other), value, label, is_primary (True demotes the old
+    primary of that kind; the first of a kind is primary anyway). Returns the channel."""
+    return service.add_part_in(conn, user, "channel", owner_type, owner_id, **fields)
+
+
+def update_channel_in(conn, user, channel_id: int, **fields) -> dict:
+    """Change any of kind, value, label, is_primary. Returns the channel."""
+    return service.update_part_in(conn, user, "channel", channel_id, **fields)
+
+
+def delete_channel_in(conn, user, channel_id: int) -> None:
+    """Deleting the primary promotes the oldest remaining channel of its kind."""
+    service.delete_part_in(conn, user, "channel", channel_id)
+
+
+def add_address_in(conn, user, owner_type: str, owner_id: int, **fields) -> dict:
+    """Fields: kind, line1, line2, city, region, postal_code, country, is_primary (one primary
+    address per owner; the first is primary anyway). Returns the address."""
+    return service.add_part_in(conn, user, "address", owner_type, owner_id, **fields)
+
+
+def update_address_in(conn, user, address_id: int, **fields) -> dict:
+    return service.update_part_in(conn, user, "address", address_id, **fields)
+
+
+def delete_address_in(conn, user, address_id: int) -> None:
+    service.delete_part_in(conn, user, "address", address_id)
+
+
 get_person = reads(get_person_in)
 get_organization = reads(get_organization_in)
 search = reads(search_in)
@@ -92,8 +125,17 @@ unlink = writes(unlink_in)
 resolve_or_create_organizations = writes(resolve_or_create_organizations_in)
 merge_people = writes(merge_people_in)
 merge_organizations = writes(merge_organizations_in)
+add_channel = writes(add_channel_in)
+update_channel = writes(update_channel_in)
+delete_channel = writes(delete_channel_in)
+add_address = writes(add_address_in)
+update_address = writes(update_address_in)
+delete_address = writes(delete_address_in)
 
 __all__ = [
+    "add_address", "add_address_in", "add_channel", "add_channel_in", "delete_address", "delete_address_in",
+    "delete_channel", "delete_channel_in", "update_address", "update_address_in", "update_channel",
+    "update_channel_in",
     "create_organization", "create_organization_in", "create_person", "create_person_in", "find_duplicates",
     "find_duplicates_in", "get_organization", "get_organization_in", "get_person", "get_person_in", "link",
     "link_in", "merge_organizations", "merge_organizations_in", "merge_people", "merge_people_in",
