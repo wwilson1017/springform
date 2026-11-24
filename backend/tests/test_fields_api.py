@@ -310,6 +310,15 @@ def test_declared_fields_are_created_kept_retired_and_restored(login_as, freeze)
     _sync({"example": [TIER]})
     assert _row("example_tier")["archived_at"] == "2026-11-04T09:00:00Z" and _row("example_tier")["retired_at"] is None
 
+    # Hidden and retired in the same second (timestamps equal): still stays hidden.
+    admin.patch(f"{DEFS}/{tier}", json={"archived": False})
+    freeze("2026-11-06T09:00:00Z")
+    admin.patch(f"{DEFS}/{tier}", json={"archived": True})
+    _sync({})
+    assert _row("example_tier")["archived_at"] == _row("example_tier")["retired_at"]
+    _sync({"example": [TIER]})
+    assert _row("example_tier")["archived_at"] == "2026-11-06T09:00:00Z" and _row("example_tier")["retired_at"] is None
+
     with pytest.raises(ValueError, match="type is permanent"):
         _sync({"example": [FieldSpec(P, "example_tier", "Tier", "text")]})
 

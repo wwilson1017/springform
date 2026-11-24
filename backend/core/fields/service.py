@@ -316,13 +316,14 @@ def sync_declared_in(conn: db.Conn, declared: Mapping[str, Sequence[FieldSpec]])
             if current != (slug, label, options, required, None):
                 conn.execute(
                     """UPDATE core_field_definitions SET owner_app = ?, label = ?, options = ?, required = ?,
-                           archived_at = CASE WHEN archived_at = retired_at THEN NULL ELSE archived_at END,
-                           retired_at = NULL, updated_at = ?
+                           archived_at = CASE WHEN retire_archived = 1 THEN NULL ELSE archived_at END,
+                           retire_archived = 0, retired_at = NULL, updated_at = ?
                        WHERE id = ?""",
                     (slug, label, options, required, now, row["id"]),
                 )
     conn.execute(
-        f"""UPDATE core_field_definitions SET archived_at = COALESCE(archived_at, ?), retired_at = ?, updated_at = ?
+        f"""UPDATE core_field_definitions SET archived_at = COALESCE(archived_at, ?),
+                retire_archived = CASE WHEN archived_at IS NULL THEN 1 ELSE 0 END, retired_at = ?, updated_at = ?
             WHERE owner_app IS NOT NULL AND retired_at IS NULL AND id NOT IN ({", ".join("?" * len(kept))})""",
         (now, now, now, *kept),
     )

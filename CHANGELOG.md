@@ -25,7 +25,7 @@ Conventions:
 
 ### Schema
 
-- Added: `core_field_definitions.owner_app` (TEXT) and `core_field_definitions.retired_at` (TEXT), for fields an app declares.
+- Added: `core_field_definitions.owner_app` (TEXT), `core_field_definitions.retired_at` (TEXT) and `core_field_definitions.retire_archived` (INTEGER, default 0), for fields an app declares.
 
 ## [0.3.0] - 2026-11-23
 

@@ -142,7 +142,7 @@ Source: CakeCRM `backend/crm/field_service.py` (427 → ~400).
 | Authorization | Values are read and written only after `authorize`. |
 | Merge | Target's non-empty value wins, else the source's. |
 | Ownership | Admin-defined (`owner_app` null), or declared by an app in its `fields.py` (`apps-and-contracts.md` §2), `owner_app` its slug. |
-| Boot reconcile | `sync_declared_in`, before the seeds, for every installed app at once: a missing field is created (position after the last); an owned field takes the declaration's label, options and required, written only when they differ, so a restart changes nothing; a field no app declares any more (dropped, or its app removed) is archived with `retired_at` set; declaring it again clears both, unless an admin had hidden it before it was retired (its `archived_at` is older than `retired_at`). A declared type that differs from the app's stored field stops startup. An admin's field with the same key is adopted when the type matches, otherwise left alone with a warning. |
+| Boot reconcile | `sync_declared_in`, before the seeds, for every installed app at once: a missing field is created (position after the last); an owned field takes the declaration's label, options and required, written only when they differ, so a restart changes nothing; a field no app declares any more (dropped, or its app removed) is archived with `retired_at` set; declaring it again clears both, unless an admin had hidden it before it was retired (`retire_archived` records whether retiring is what archived it). A declared type that differs from the app's stored field stops startup. An admin's field with the same key is adopted when the type matches, otherwise left alone with a warning. |
 | Admin on an app's field | Position and archive (hide) only: label, options or required answer 403 `app_owned`, and restoring a retired field 409 `retired_by_app`. Key and type never change on any field, and nothing is deleted. |
 
 ```sql
@@ -153,6 +153,7 @@ core_field_definitions(id, entity_type, key, label,
                        position, archived_at,
                        owner_app,  -- the declaring app's slug; NULL for an admin's field
                        retired_at, -- when that app stopped declaring it
+                       retire_archived, -- 1 when retiring is what archived it
                        created_at, updated_at)   -- UNIQUE(entity_type, key)
 core_field_values(entity_type, entity_id, definition_id, value JSON, updated_at, updated_by)
                        -- PRIMARY KEY (entity_type, entity_id, definition_id); an empty value has no row
