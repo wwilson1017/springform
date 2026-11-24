@@ -3,7 +3,7 @@
 // Issue todo-gtd #1548 rebuilt the inbox triage card as Chatty's 3-step clarify flow, and every
 // property that change is ABOUT is invisible to tsc and eslint: that a destination button
 // no longer writes anything, that setting a context is the only exit from the inbox, that
-// "Done ✓" and "Drop" are the two deliberate exceptions, and that a filed card cannot be
+// "2 min — Done ✓" and "Delete ✕" are the two deliberate exceptions, and that a filed card cannot be
 // used a second time while the parent's reload is still in flight. Those get executable
 // proofs — a screenshot cannot tell "the card stayed put" from "the write silently failed".
 //
@@ -329,7 +329,7 @@ describe('the resolves contract — in-place edits must not advance the card', (
 describe('the two exceptions — done and delete need no context', () => {
   it('completes immediately', async () => {
     render();
-    click(button('Took 2 minutes — Done ✓'));
+    click(button('2 min — Done ✓'));
     await act(async () => {});
 
     expect(updateTodoMock).toHaveBeenCalledWith(7, { status: 'done' });
@@ -340,7 +340,7 @@ describe('the two exceptions — done and delete need no context', () => {
     // Nothing is ever deleted. Drop is a resolving write to status 'dropped'.
     render();
     expect(() => button('Delete')).toThrow();
-    click(button('Drop'));
+    click(button('Delete ✕'));
     await act(async () => {});
 
     expect(updateTodoMock).toHaveBeenCalledWith(7, { status: 'dropped' });
@@ -365,7 +365,7 @@ describe('a resolved card is spent', () => {
   // would reopen a completed (and by then already re-spawned) repeating todo.
   it('cannot be filed again after being completed', async () => {
     render();
-    click(button('Took 2 minutes — Done ✓'));
+    click(button('2 min — Done ✓'));
     await act(async () => {});
     updateTodoMock.mockClear();
 
@@ -742,7 +742,7 @@ describe('inline title editing', () => {
     blur(editor);
     await act(async () => {}); // the rename is saved; the prop still says "dentist"
 
-    click(button('Took 2 minutes — Done ✓'));
+    click(button('2 min — Done ✓'));
     await act(async () => {});
 
     const queued = takeAll();
@@ -760,7 +760,7 @@ describe('inline title editing', () => {
     const editor = openEditor();
     setValue(editor, 'a title the server will refuse');
     blur(editor);
-    click(button('Took 2 minutes — Done ✓'));
+    click(button('2 min — Done ✓'));
     await act(async () => {});
 
     expect(updateTodoMock).toHaveBeenCalledWith(7, { status: 'done' });
@@ -782,7 +782,7 @@ describe('inline title editing', () => {
     const editor = openEditor();
     setValue(editor, 'call the dentist');
     blur(editor);
-    click(button('Took 2 minutes — Done ✓'));
+    click(button('2 min — Done ✓'));
     await act(async () => {});
     expect(updateTodoMock).not.toHaveBeenCalledWith(7, { status: 'done' }); // waits for the rename
 
@@ -808,7 +808,7 @@ describe('inline title editing', () => {
     const editor = openEditor();
     setValue(editor, 'call the dentist');
     blur(editor);
-    click(button('Took 2 minutes — Done ✓'));
+    click(button('2 min — Done ✓'));
     await act(async () => {
       release({ ...TODO, title: 'call the dentist' });
     }); // same rev
@@ -832,7 +832,7 @@ describe('inline title editing', () => {
     await act(async () => {});
     render({ title: 'book the dentist for March', updated_at: '2026-08-06T12:10:00Z', rev: 11 });
 
-    click(button('Took 2 minutes — Done ✓'));
+    click(button('2 min — Done ✓'));
     await act(async () => {});
 
     expect(takeAll().map((e) => e.title)).toEqual(['book the dentist for March']);
@@ -1401,7 +1401,7 @@ describe('step 2 — notes without leaving triage (todo-gtd #2402)', () => {
     render();
     setValue(notesBox(), 'two minute job');
     unfocus(notesBox());
-    click(button('Took 2 minutes — Done ✓'));
+    click(button('2 min — Done ✓'));
     await act(async () => {});
 
     expect(updateTodoMock).toHaveBeenCalledWith(7, { notes: 'two minute job' });
@@ -1604,7 +1604,7 @@ describe('step 2 — notes without leaving triage (todo-gtd #2402)', () => {
     unfocus(notesBox()); // save #1 in flight
     setValue(notesBox(), 'first and second');
     unfocus(notesBox()); // queued behind it — what clicking a button does
-    click(button('Took 2 minutes — Done ✓'));
+    click(button('2 min — Done ✓'));
 
     await act(async () => {
       land({ ...TODO, notes: 'first' });

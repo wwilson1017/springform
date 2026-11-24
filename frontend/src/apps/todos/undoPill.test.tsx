@@ -330,7 +330,7 @@ describe('the other two mark-done surfaces', () => {
   // drives the actual button can see. Both were mutation-checked: removing either
   // line leaves every other suite in this app green.
 
-  it('Inbox triage’s “Took 2 minutes — Done ✓” queues a row that undoes back to inbox', async () => {
+  it('Inbox triage’s “2 min — Done ✓” queues a row that undoes back to inbox', async () => {
     const item = todo({ id: 71, title: 'dentist', status: 'inbox' });
     updateTodoMock.mockResolvedValue({ ...item, status: 'done' });
     await act(async () => {
@@ -349,7 +349,7 @@ describe('the other two mark-done surfaces', () => {
       );
     });
 
-    await clickAsync(button('Took 2 minutes — Done ✓'));
+    await clickAsync(button('2 min — Done ✓'));
 
     expect(updateTodoMock).toHaveBeenCalledWith(71, { status: 'done' });
     expect(rows()).toHaveLength(1);
@@ -949,7 +949,7 @@ describe('a later context choice and a pending row (todo-gtd #2925, Codex stage 
 
 describe('an undo that lands an item back in the inbox', () => {
   it('re-focuses the triage card for ANY such undo, not only a filing', async () => {
-    // "Took 2 minutes — Done ✓" completes straight from triage, so its undo restores
+    // "2 min — Done ✓" completes straight from triage, so its undo restores
     // 'inbox' exactly as a filing's does. Keying the focus on the kind left that item
     // wherever `items[0]` put it; keying it on where the revert lands does not.
     const seen: number[] = [];

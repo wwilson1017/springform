@@ -242,7 +242,7 @@ export async function undoAll(): Promise<void> {
  *  todo-gtd #2925 asks for the item to come back as the CURRENT triage card, not to be
  *  corrected silently behind the list the user is standing on. Keyed on where the
  *  revert lands rather than on the kind: every filing lands there, and so does a
- *  completion made from triage ("Took 2 minutes — Done ✓", or the edit sheet opened
+ *  completion made from triage ("2 min — Done ✓", or the edit sheet opened
  *  off the card), which would otherwise reappear wherever `items[0]` happens to
  *  put it — or behind the filter bar, where the undo looks like it did nothing. */
 function focusIdOf(entry: UndoEntry): number | undefined {
