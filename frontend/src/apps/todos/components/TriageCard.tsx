@@ -788,15 +788,24 @@ export function TriageCard({ todo, projects, contexts, onProcessed, onChanged, o
           >
             Edit
           </button>
-          {/* Nothing is ever deleted: Drop archives it (status 'dropped'), and the
+          {/* Done completes it; "Delete — not needed" is for an item that never belonged on
+              the list. Nothing is ever deleted: it archives it (status 'dropped'), and the
               Done page's Dropped tab is where it can be brought back from. */}
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => void patch({ status: 'done' }, true)}
+            className={`${linkCls} text-sf-green-text hover:text-sf-ink`}
+          >
+            Done ✓
+          </button>
           <button
             type="button"
             disabled={busy}
             onClick={() => void patch({ status: 'dropped' }, true)}
             className={`${linkCls} text-sf-red-text hover:text-sf-ink`}
           >
-            Drop
+            Delete — not needed
           </button>
         </div>
         {/* Project fields appear only once there is a project to describe: the one

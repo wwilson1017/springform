@@ -340,7 +340,7 @@ describe('the two exceptions — done and delete need no context', () => {
     // Nothing is ever deleted. Drop is a resolving write to status 'dropped'.
     render();
     expect(() => button('Delete')).toThrow();
-    click(button('Drop'));
+    click(button('Delete — not needed'));
     await act(async () => {});
 
     expect(updateTodoMock).toHaveBeenCalledWith(7, { status: 'dropped' });
