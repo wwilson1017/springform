@@ -18,6 +18,10 @@ Conventions:
 
 ## [Unreleased]
 
+### Added
+
+- Whisk reads this install's own code and help pages (the running version, shipped in the image) to explain how features and apps work, and files bug and feature requests to the install's GitHub repo after you approve the draft. Requests now show the install's version, and the commit when the image knows it.
+
 ## [0.3.1] - 2026-11-24
 
 Apps can declare their own custom fields and write a person's extra emails, phones, links and addresses.
