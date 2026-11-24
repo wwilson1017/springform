@@ -23,6 +23,10 @@ Conventions:
 - Apps can declare the custom fields they own on people, organizations or their own records (`fields.py`). Core creates them at boot, Settings → Records → Custom fields shows which app each belongs to, and an admin can hide or reorder one but not relabel it. A field the app stops declaring is archived with its values.
 - `contacts.api` publishes `add_/update_/delete_channel` and `add_/update_/delete_address`, so an app can give a person a second email, more phone numbers, links and addresses.
 
+### Changed
+
+- Todos inbox: the triage card's Drop is now two choices, Done ✓ and Delete — not needed (an archive, as Drop was).
+
 ### Schema
 
 - Added: `core_field_definitions.owner_app` (TEXT), `core_field_definitions.retired_at` (TEXT) and `core_field_definitions.retire_archived` (INTEGER, default 0), for fields an app declares.
