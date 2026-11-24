@@ -15,7 +15,7 @@ Base: CakeCRM `backend/assistant/` (Chatty's loop already trimmed, with server-s
 | `spec.py`, `registry.py` | CakeCRM `assistant/registry.py` (212); sources = core + discovered apps + MCP servers; atomic swap on refresh | 76 / 131 |
 | `engine.py`, `history.py`, `assembly.py`, `compaction.py`, `delimiters.py`, `write_budget.py`, `llm.py` | CakeCRM `assistant/` (its `confirm_tier.py` folded into `spec.py` as the `ROUTINE` constant); JSONB → TEXT, array ops in Python; Gmail/page bindings cut | 1,108 |
 | `turns.py`, `dispatch.py`, `turn_hooks.py`, `detached.py`, `aio.py` | The loop (`TurnRunner`) and its per-call chain moved out of `engine.py`; the hook points are new; `detached.py` follows the shape of CakeCRM `assistant/turns.py`, cut down for one process (§5); the step's lookups running together (`dispatch.run_calls`) after the idea of CakeCRM `assistant/read_batch.py`, re-implemented | ~800 |
-| `deferred.py` | Chatty `deferred_tools.py`; group key = app slug, threshold 100 | 64 |
+| `deferred.py` | Chatty `deferred_tools.py`; group key = app slug, threshold 100 tools or the prompt budget | 64 |
 | `result_cap.py`, `context_shrink.py`, `tools.py` | New (#87); the CSV rule after cake_os `tool_result_compression.py` (`docs/PROVENANCE.md`) | ~250 |
 | `errors.py`, `endings.py` | New (#87); the closing-note texts and the retry-after parse after CakeCRM 47b743e (`docs/PROVENANCE.md`) | ~200 |
 | `loop_guard.py`, `call_repair.py`, `completion_claims.py` | New (#87); the claim guards and sentence rules after cake_os `completion_claims.py` (`docs/PROVENANCE.md`) | ~300 |
@@ -214,7 +214,7 @@ The hash is the sha256 hex of `json.dumps(fields, sort_keys=True)` over the fiel
 
 Sources: core packages' `tools.py` (contacts, notes, reminders, memory and context files, listed below; `apps-and-contracts.md` §9), discovered apps' `get_tools()`, and MCP servers (`mcp.md`). Outbound MCP servers are the one source that changes after boot: `registry.swap_server(server_id, specs)` replaces one server's specs, rebuilds and validates the whole registry, and **swaps it in atomically** (a refused build changes nothing). Old specs stay valid for already-pending approvals only until their `tool_def_sha256` check fails. `build_registry` also refuses a remote spec (`server_url` set) that is not `always_confirm`, `untrusted_source` and `external_effect` (a trusted server's read may leave `always_confirm` off), and `trusted` on a local spec.
 
-Deferred tools (`deferred.py`): groups keyed by app slug, deferral threshold 100 tools.
+Deferred tools (`deferred.py`): groups keyed by app slug. App tools are deferred past 100 tools, or when the static prompt plus every tool definition would exceed `deferred.BUDGET_TOKENS` (14,000, characters / 4; the budget `test_prompt_budget.py` enforces). Core tools are always eager.
 
 ### Core tools
 
