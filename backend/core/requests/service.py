@@ -131,14 +131,18 @@ def list_requests(
     """Newest first. `state` is open, closed or all; `q` matches the title or description."""
     limit, offset = pagination.window(limit, offset)
     clauses, params = ([], []) if state == "all" else (["r.state = ?"], [state])
-    if q and q.strip():
-        clauses.append("(r.title LIKE ? COLLATE NOCASE OR r.description LIKE ? COLLATE NOCASE)")
-        params += [f"%{q.strip()}%"] * 2
     where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
-    rows = db.get_conn().execute(
-        f"{_SELECT} {where} ORDER BY r.created_at DESC, r.id DESC LIMIT ? OFFSET ?", (*params, limit, offset)
-    )
-    return [_row(r) for r in rows]
+    sql = f"{_SELECT} {where} ORDER BY r.created_at DESC, r.id DESC"
+    if not (q and q.strip()):
+        return [_row(r) for r in db.get_conn().execute(f"{sql} LIMIT ? OFFSET ?", (*params, limit, offset))]
+    # simplification: casefold match over every board row in Python (NOCASE is ASCII-only); the board
+    # is one install's requests. Upgrade path: an FTS5 index on title and description.
+    needle = q.strip().casefold()
+    hits = [
+        r for r in db.get_conn().execute(sql, params)
+        if needle in r["title"].casefold() or needle in (r["description"] or "").casefold()
+    ]  # fmt: skip
+    return [_row(r) for r in hits[offset : offset + limit]]
 
 
 def refresh_in(conn: db.Conn, issues: list[dict], synced_at: str) -> int:

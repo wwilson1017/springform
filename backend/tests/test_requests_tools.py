@@ -60,6 +60,15 @@ def test_a_feature_without_questions_gets_enhancement_only(login_as, gh):
     assert json.loads(gh.calls[0].content)["labels"] == ["request", "app:example", "enhancement"]
 
 
+def test_search_matches_non_ascii_letters_in_any_case(login_as, gh):
+    admin, member = login_as("admin"), login_as("member")
+    gh_tests._configure(admin)
+    approve(member, propose(member, req_tools.FILE, **{**DRAFT, "title": "Etiqueta ÚNICA por pedido"}))
+    found = call(member.principal, req_tools.SEARCH, query="única")["requests"]
+    assert [r["title"] for r in found] == ["Etiqueta ÚNICA por pedido"]
+    assert call(member.principal, req_tools.SEARCH, query="100%")["requests"] == [], "% is a literal"
+
+
 def test_an_expired_token_says_so(login_as, gh):
     admin, member = login_as("admin"), login_as("member")
     gh_tests._configure(admin)
