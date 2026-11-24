@@ -2,10 +2,13 @@
 timeline/change-log trail, and the delete and merge hooks."""
 
 import pytest
+from fastapi.testclient import TestClient
 
-from backend.core import db as core_db, entities
+from backend.apps.example import fields as example_fields
+from backend.core import db as core_db, entities, scheduler
 from backend.core.errors import Invalid, NotFound
 from backend.core.fields import service as fields
+from backend.core.fields.api import FieldSpec
 
 DEFS = "/api/core/fields/definitions"
 VALUES = "/api/core/fields/values"
@@ -41,6 +44,8 @@ def test_definitions_crud_archive_and_restore(login_as):
         "required": True,
         "position": 10,
         "archived_at": None,
+        "owner_app": None,
+        "retired_at": None,
         "created_at": colour["created_at"],
         "updated_at": colour["updated_at"],
     }
@@ -237,3 +242,102 @@ def test_entity_types_lists_the_registry_for_the_definition_picker(login_as):
     assert {"type": W, "label": "Widget", "label_plural": "Widgets"} in types
     assert {"type": "core.person", "label": "Person", "label_plural": "People"} in types
     assert [t["type"] for t in types] == [e.type for e in entities.all_entities()]
+
+
+P = "core.person"
+TIER = FieldSpec(P, "example_tier", "Tier", "select", options=("Gold", "Silver"))
+
+
+def _sync(declared) -> int:
+    """Run the boot reconcile; returns how many rows it changed."""
+    with core_db.transaction() as conn:
+        before = conn.total_changes
+        fields.sync_declared_in(conn, declared)
+        return conn.total_changes - before
+
+
+def _row(key, entity_type=P) -> dict:
+    return core_db.rows("SELECT * FROM core_field_definitions WHERE entity_type = ? AND key = ?", (entity_type, key))[0]
+
+
+def test_declared_fields_are_created_kept_retired_and_restored(login_as, freeze):
+    admin, member = login_as("admin"), login_as("member")
+    person = member.post("/api/core/contacts/people", json={"name": "Ada Example"}).json()["id"]
+    freeze("2026-11-02T09:00:00Z")
+    _sync({"example": [TIER]})
+    row = _row("example_tier")
+    assert (row["owner_app"], row["retired_at"], row["archived_at"], row["label"]) == ("example", None, None, "Tier")
+    listed = admin.get(DEFS, params={"entity_type": P}).json()
+    assert [(d["key"], d["owner_app"], d["retired_at"]) for d in listed] == [("example_tier", "example", None)]
+    put = member.put(VALUES, json={"entity_type": P, "entity_id": person, "values": {"example_tier": "Gold"}})
+    assert put.json() == {"example_tier": "Gold"}
+
+    freeze("2026-11-03T09:00:00Z")  # a restart writes nothing
+    assert _sync({"example": [TIER]}) == 0 and _row("example_tier") == row
+    _sync({"example": [FieldSpec(P, "example_tier", "Level", "select", options=("Gold", "Silver", "Bronze"))]})
+    changed = _row("example_tier")
+    assert (changed["label"], changed["position"], changed["updated_at"]) == ("Level", 10, "2026-11-03T09:00:00Z")
+
+    # The admin may reorder and hide an app's field, not relabel it.
+    tier = changed["id"]
+    for body in ({"label": "x"}, {"required": True}, {"options": ["a"]}):
+        r = admin.patch(f"{DEFS}/{tier}", json=body)
+        assert (r.status_code, r.json()) == (403, {"detail": "app_owned"})
+    assert admin.patch(f"{DEFS}/{tier}", json={"position": 5}).json()["position"] == 5
+    assert admin.patch(f"{DEFS}/{tier}", json={"archived": True}).json()["archived_at"]
+    _sync({"example": [TIER]})
+    assert _row("example_tier")["archived_at"] and _row("example_tier")["position"] == 5  # boot keeps both
+    assert admin.patch(f"{DEFS}/{tier}", json={"archived": False}).json()["archived_at"] is None
+
+    freeze("2026-11-04T09:00:00Z")  # the app stops declaring it: archived and retired, value kept
+    _sync({"example": []})
+    retired = _row("example_tier")
+    assert retired["archived_at"] == retired["retired_at"] == "2026-11-04T09:00:00Z"
+    assert member.get(VALUES, params={"entity_type": P, "entity_id": person}).json() == {}
+    assert core_db.rows("SELECT value FROM core_field_values WHERE definition_id = ?", (tier,)) == [{"value": '"Gold"'}]
+    r = admin.patch(f"{DEFS}/{tier}", json={"archived": False})
+    assert (r.status_code, r.json()) == (409, {"detail": "retired_by_app"})
+
+    _sync({"example": [TIER]})  # declared again: back, with its value
+    assert (_row("example_tier")["archived_at"], _row("example_tier")["retired_at"]) == (None, None)
+    assert member.get(VALUES, params={"entity_type": P, "entity_id": person}).json() == {"example_tier": "Gold"}
+
+    # Hidden by the admin, then retired, then declared again: it stays hidden.
+    admin.patch(f"{DEFS}/{tier}", json={"archived": True})
+    freeze("2026-11-05T09:00:00Z")
+    _sync({})  # the app is gone altogether
+    assert _row("example_tier")["retired_at"] == "2026-11-05T09:00:00Z"
+    _sync({"example": [TIER]})
+    assert _row("example_tier")["archived_at"] == "2026-11-04T09:00:00Z" and _row("example_tier")["retired_at"] is None
+
+    with pytest.raises(ValueError, match="type is permanent"):
+        _sync({"example": [FieldSpec(P, "example_tier", "Tier", "text")]})
+
+
+def test_an_admins_field_with_the_declared_key_is_adopted_only_when_the_type_matches(login_as):
+    admin = login_as("admin")
+    notes = admin.post(DEFS, json={"entity_type": P, "label": "Notes", "key": "example_notes", "type": "text"}).json()
+    size = admin.post(DEFS, json={"entity_type": P, "label": "Size", "key": "example_size", "type": "number"}).json()
+    _sync({"example": [FieldSpec(P, "example_notes", "Notes", "text"), FieldSpec(P, "example_size", "Size", "text")]})
+    assert _row("example_notes")["owner_app"] == "example" and _row("example_notes")["id"] == notes["id"]
+    assert (_row("example_size")["owner_app"], _row("example_size")["type"]) == (None, "number")
+    assert _row("example_size")["updated_at"] == size["updated_at"]
+
+
+def test_the_example_field_appears_on_boot_and_archives_when_removed(app, monkeypatch):
+    monkeypatch.setattr(scheduler, "jobs", lambda: {})  # boot without the scheduler's catch-up runs
+    with TestClient(app):
+        row = _row("example_finish", W)
+    assert (row["owner_app"], row["archived_at"], row["options"]) == ("example", None, '["Matte", "Gloss"]')
+    with TestClient(app):  # a restart leaves it as it was
+        assert _row("example_finish", W) == row
+    monkeypatch.setattr(example_fields, "FIELDS", [])
+    with TestClient(app):
+        assert _row("example_finish", W)["retired_at"] and _row("example_finish", W)["archived_at"]
+    monkeypatch.setattr(
+        example_fields, "FIELDS", [FieldSpec(W, "example_finish", "Finish", "select", ("Matte", "Gloss"))]
+    )
+    with TestClient(app):
+        assert {k: v for k, v in _row("example_finish", W).items() if k != "updated_at"} == {
+            k: v for k, v in row.items() if k != "updated_at"
+        }

@@ -127,6 +127,7 @@ function Definitions({ entityType }: { entityType: string }) {
                   </span>
                   <span className="ml-2 text-xs text-sf-ink-dim">
                     {TYPE_LABEL[d.type]} · {d.key}
+                    {d.owner_app && ` · from the ${d.owner_app} app`}
                   </span>
                   {d.options && <div className="truncate text-xs text-sf-ink-mute">{d.options.join(', ')}</div>}
                 </div>
@@ -149,9 +150,12 @@ function Definitions({ entityType }: { entityType: string }) {
                   >
                     ↓
                   </button>
-                  <button type="button" className={BTN_LINK} disabled={busy} onClick={() => setEditing(d.id)}>
-                    Edit
-                  </button>
+                  {/* An app's field keeps its label and options from the app; the admin may hide or reorder it. */}
+                  {!d.owner_app && (
+                    <button type="button" className={BTN_LINK} disabled={busy} onClick={() => setEditing(d.id)}>
+                      Edit
+                    </button>
+                  )}
                   <button
                     type="button"
                     className={BTN_LINK}
@@ -195,16 +199,20 @@ function Definitions({ entityType }: { entityType: string }) {
                     {TYPE_LABEL[d.type]} · {d.key}
                   </span>
                 </span>
-                <button
-                  type="button"
-                  className={BTN_LINK}
-                  disabled={busy}
-                  onClick={() =>
-                    void run(() => patchJson(`${DEFS}/${d.id}`, { archived: false }), "Couldn't restore the field.")
-                  }
-                >
-                  Restore
-                </button>
+                {d.retired_at ? (
+                  <span className="text-xs text-sf-ink-dim">No longer used by the {d.owner_app} app</span>
+                ) : (
+                  <button
+                    type="button"
+                    className={BTN_LINK}
+                    disabled={busy}
+                    onClick={() =>
+                      void run(() => patchJson(`${DEFS}/${d.id}`, { archived: false }), "Couldn't restore the field.")
+                    }
+                  >
+                    Restore
+                  </button>
+                )}
               </li>
             ))}
           </ul>

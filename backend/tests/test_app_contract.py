@@ -16,6 +16,8 @@ from pydantic import BaseModel, ValidationError, create_model
 
 from backend.core import db as core_db, entities, registry
 from backend.core.auth.deps import require_roles
+from backend.core.fields import service as fields_service
+from backend.core.fields.api import FieldSpec
 from backend.core.registry import AppContractError, AppManifest
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -144,6 +146,11 @@ def contract_problems(app_dir: Path, tmp_path: Path) -> list[str]:
         if not e.type.startswith(f"{slug}.") or e.table not in owned_tables:
             p.append(f"entity {e.type!r} on {e.table!r} must be {slug}.<name> on a table {slug} owns")
 
+    if "fields" in mods:
+        allowed = {e.type for e in entities.CORE_ENTITIES} | entity_types
+        declared = getattr(mods["fields"], "FIELDS", None)
+        p += [f"fields.py: {x}" for x in fields_service.spec_problems(slug, declared, allowed)]
+
     seed = mods.get("seed")
     if seed is not None:
         for name in ("seed", "sample", "RESET_TABLES"):
@@ -226,6 +233,12 @@ def test_bad_app_breaks_every_rule(tmp_path):
         r"setting 'color' must be named bad_app\.<key>",
         r"publishes 'get_thing' but api\.py has no get_thing_in",
         r"service\.py: imports backend\.apps\.example\.service",
+        r"fields\.py: field 'tier' on 'core\.person' must be keyed bad_app_<name>",
+        r"fields\.py: field 'bad_app_size': entity type 'example\.widget' is not a core entity",
+        r"fields\.py: field 'bad_app_size': type must be one of",
+        r"fields\.py: field 'bad_app_level': entity_type, key, label and type are text",
+        r"fields\.py: field 'bad_app_tier': options: 1 to",
+        r"fields\.py: field 'bad_app_tier' on 'core\.person' is declared twice",
     ]
     for pattern in expected:
         assert re.search(pattern, problems), f"rule not caught: {pattern}\n---\n{problems}"
@@ -403,6 +416,20 @@ def test_publishes_is_checked_at_boot(tmp_path):
     modules: dict[str, Any] = {"router": SimpleNamespace(router=APIRouter()), "api": api}  # stand-in modules
     with pytest.raises(AppContractError, match="no get_widget_in"):
         registry.mount_app(FastAPI(), registry.App(manifest, tmp_path, modules))
+
+
+def test_fields_are_checked_at_boot(tmp_path):
+    manifest = AppManifest.model_validate(_manifest())
+    router = SimpleNamespace(router=APIRouter())
+    bad: dict[str, Any] = {
+        "router": router,
+        "fields": SimpleNamespace(FIELDS=[FieldSpec("core.person", "tier", "Tier", "text")]),
+    }
+    with pytest.raises(AppContractError, match="must be keyed widgets_<name>"):
+        registry.mount_app(FastAPI(), registry.App(manifest, tmp_path, bad))
+    no_list: dict[str, Any] = {"router": router, "fields": SimpleNamespace()}  # a fields.py without FIELDS
+    with pytest.raises(AppContractError, match="FIELDS must be a list"):
+        registry.mount_app(FastAPI(), registry.App(manifest, tmp_path, no_list))
 
 
 def app_models(app_dir: Path) -> dict[str, type[BaseModel]]:

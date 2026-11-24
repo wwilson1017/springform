@@ -613,6 +613,9 @@ def unlink_in(conn: db.Conn, user: User, person_id: int, organization_id: int, r
 def _part_cols(part: Part, fields: dict, creating: bool) -> dict:
     if unknown := set(fields) - set(part.fields) - {"is_primary"}:
         raise Invalid(f"unknown field(s): {', '.join(sorted(unknown))}")
+    for f, v in fields.items():  # the routes' bodies check this; contacts.api callers have no body
+        if v is not None and not isinstance(v, bool if f == "is_primary" else str):
+            raise Invalid(f"{f} must be {'true or false' if f == 'is_primary' else 'text'}")
     cols = {f: (v.strip() or None) if isinstance(v, str) else v for f, v in fields.items()}
     if part.by_kind:
         if (creating or "kind" in cols) and cols.get("kind") not in CHANNEL_KINDS:
