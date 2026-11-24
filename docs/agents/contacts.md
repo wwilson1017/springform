@@ -98,7 +98,8 @@ Each function has an `_in(conn, …)` form.
 | `get_person`, `get_organization` | One record, or `{"merged_into": head}` for a merged id. |
 | `search` | Search via `core_contacts_fts`. |
 | `create_person`, `create_organization` | Create a record. |
-| `update_person`, `update_organization` | Update fields. `email` / `phone` rewrite the primary channel of that kind, and `_sync_primary` then refreshes the mirror columns; other channels and addresses change only through the routes (§5), not `contacts.api`. |
+| `update_person`, `update_organization` | Update fields. `email` / `phone` rewrite the primary channel of that kind, and `_sync_primary` then refreshes the mirror columns. |
+| `add_channel`, `update_channel`, `delete_channel`; `add_address`, `update_address`, `delete_address` | Any channel or address, as the routes (§5) write them: authorized as a write to the owner, primaries kept one per slot, and `_sync_primary` still the only writer of `email` / `phone`. Field types are checked in the service, since no request body stands in front. |
 | `link` / `unlink` | Person ↔ organization with a role. |
 | `organizations_for` | Organizations of a person. |
 | `people_for` | People of an organization. |
@@ -112,6 +113,7 @@ Argument lists as built (each `_in` form adds `conn` first; the record shapes ar
 - `get_person(user, person_id)`, `get_organization(user, organization_id)`
 - `create_person(user, **fields)`, `create_organization(user, **fields)`; `update_person(user, person_id, **fields)`, `update_organization(user, organization_id, **fields)`
 - `search(user, q, kind=None, limit=20)`
+- `add_channel(user, owner_type, owner_id, **fields)` (kind, value, label, is_primary), `update_channel(user, channel_id, **fields)`, `delete_channel(user, channel_id)`; `add_address(user, owner_type, owner_id, **fields)` (kind, line1, line2, city, region, postal_code, country, is_primary), `update_address(user, address_id, **fields)`, `delete_address(user, address_id)`
 - `organizations_for(user, person_id)`, `people_for(user, organization_id)`
 - `link(user, person_id, organization_id, role="", is_primary=False, started_on=None, ended_on=None)` returns the link; `unlink(user, person_id, organization_id, role="")`
 - `resolve_or_create_organizations(user, names)` returns `{name: id}`
