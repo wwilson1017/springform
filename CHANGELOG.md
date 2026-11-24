@@ -18,8 +18,13 @@ Conventions:
 
 ## [Unreleased]
 
+## [0.3.2] - 2026-11-24
+
+Whisk keeps a fork with extra apps under its prompt budget, and the Todos inbox gets a Delete pill.
+
 ### Changed
 
+- Todos inbox: step 1 on a card has two pills, "2 min — Done ✓" and a red "Delete ✕"; the small delete link under step 2 is gone. Delete still archives the item (Done page, Dropped tab).
 - Whisk moves app tools to the `core_find_tools` catalog when the prompt plus every tool definition would pass the prompt budget (14,000 tokens), not only past 100 tools, so a fork with a few extra apps stays under the budget. Core tools are always sent in full; an install under the budget is unchanged.
 
 ## [0.3.1] - 2026-11-24
