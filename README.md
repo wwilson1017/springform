@@ -39,12 +39,12 @@ License: MIT.
 ## Make it yours
 
 A fork swaps the colours, logo, header and favicon without touching core. Stock Springform on the
-left; the EO Nashville Tools fork on the right, same sample data:
+left; a made-up fork, Bramblewick Workshop, on the right, same sample data:
 
 <table>
   <tr>
     <th>Stock</th>
-    <th>EO Nashville Tools</th>
+    <th>A fork's skin</th>
   </tr>
   <tr>
     <td>
@@ -55,8 +55,8 @@ left; the EO Nashville Tools fork on the right, same sample data:
     </td>
     <td>
       <picture>
-        <source media="(prefers-color-scheme: dark)" srcset="docs/images/skin-eo-dark.png">
-        <img src="docs/images/skin-eo-light.png" alt="The same CRM dashboard with the EO Nashville Tools skin">
+        <source media="(prefers-color-scheme: dark)" srcset="docs/images/skin-example-dark.png">
+        <img src="docs/images/skin-example-light.png" alt="The same CRM dashboard with a fork's skin">
       </picture>
     </td>
   </tr>
