@@ -5,6 +5,11 @@ Filing is an outside effect: every call shows the Approve card with the draft, n
 rule skips it, and it is never offered over MCP or to jobs. The server adds the reporter (the
 signed-in user), "Via" (the default agent's current name), the app and the version; the model cannot set them. The tool
 is offered only while GitHub is connected, so a member never approves a draft that cannot be sent.
+
+Search is an `untrusted_source` read, like the web tools: the board's titles are refreshed from
+GitHub, where anyone who can edit an issue can rewrite them, so results are fenced, taint the
+conversation and are not offered over MCP. Filing's own result is what GitHub echoes of the draft
+the user just approved, so it stays trusted.
 """
 
 from __future__ import annotations
@@ -95,6 +100,8 @@ def get_tools() -> list[ToolSpec]:
             writes=False,
             handler=_search,
             enabled=human,
+            untrusted_source=True,
+            mcp_exposed=False,
         ),
         ToolSpec(
             name=FILE,
