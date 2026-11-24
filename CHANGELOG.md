@@ -18,6 +18,10 @@ Conventions:
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-11-24
+
+Apps can declare their own custom fields and write a person's extra emails, phones, links and addresses.
+
 ### Added
 
 - Apps can declare the custom fields they own on people, organizations or their own records (`fields.py`). Core creates them at boot, Settings → Records → Custom fields shows which app each belongs to, and an admin can hide or reorder one but not relabel it. A field the app stops declaring is archived with its values.
