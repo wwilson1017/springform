@@ -322,6 +322,9 @@ def test_an_admins_field_with_the_declared_key_is_adopted_only_when_the_type_mat
     assert _row("example_notes")["owner_app"] == "example" and _row("example_notes")["id"] == notes["id"]
     assert (_row("example_size")["owner_app"], _row("example_size")["type"]) == (None, "number")
     assert _row("example_size")["updated_at"] == size["updated_at"]
+    _sync({"gone": [FieldSpec(P, "gone_x", "X", "text")]})  # an app since removed owned it
+    _sync({"example": [FieldSpec(P, "gone_x", "X", "text")]})
+    assert _row("gone_x")["owner_app"] == "gone"
 
 
 def test_the_example_field_appears_on_boot_and_archives_when_removed(app, monkeypatch):

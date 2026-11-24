@@ -296,6 +296,10 @@ def sync_declared_in(conn: db.Conn, declared: Mapping[str, Sequence[FieldSpec]])
                     )
                 )
                 continue
+            if row["owner_app"] not in (None, slug):  # another app's (uninstalled: slugs never prefix-collide)
+                logger.warning("App %r declares field %r on %r, which app %r owns; left alone", slug, spec.key,
+                               spec.entity_type, row["owner_app"])  # fmt: skip
+                continue
             if row["type"] != spec.type:
                 if row["owner_app"] == slug:
                     raise ValueError(
