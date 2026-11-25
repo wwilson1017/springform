@@ -12,7 +12,7 @@ import json
 import threading
 from typing import TYPE_CHECKING
 
-from backend.core import clock, db, pagination, registry, settings
+from backend.core import COMMIT, VERSION, clock, db, pagination, registry, settings
 from backend.core.errors import Conflict, Invalid, NotFound
 from backend.core.platform import keys
 from backend.core.requests import github
@@ -84,30 +84,65 @@ def record_in(conn: db.Conn, user_id: int, app: str, description: str, issue: di
     return _row(conn.execute(f"{_SELECT} WHERE r.id = ?", (cur.lastrowid,)).fetchone())
 
 
-def create(user: User, title: str, app: str, description: str) -> dict:
+KIND_LABELS = {"bug": "bug", "feature": "enhancement"}
+NEEDS_SPEC = "needs-spec"
+
+
+def create(
+    user: User,
+    title: str,
+    app: str,
+    description: str,
+    *,
+    kind: str | None = None,
+    open_questions: list[str] | None = None,
+    via: str | None = None,
+) -> dict:
+    """File the issue, then store it. `kind`, `open_questions` and `via` come from Whisk; the form
+    passes none. The reporter is always the signed-in user."""
     title, app, description = (title or "").strip(), (app or "core").strip(), (description or "").strip()
     if not title or len(title) > MAX_TITLE:
         raise Invalid(f"title: must be 1-{MAX_TITLE} characters")
     if len(description) > MAX_DESCRIPTION:
         raise Invalid(f"description: must be at most {MAX_DESCRIPTION} characters")
+    if kind is not None and kind not in KIND_LABELS:
+        raise Invalid("kind: must be bug or feature")
+    questions = [q.strip() for q in open_questions or [] if q and q.strip()]
     app_name = _app_name(app)
     credentials = _credentials()
     if credentials is None:
         raise Conflict("github_not_configured")
-    body = f"**Requested by:** {user.name or user.email}\n**App:** {app_name} (`{app}`)\n\n{description or '_No description._'}"
-    issue = github.create_issue(*credentials, title, body, [LABEL, f"app:{app}"])
+    version = f"{VERSION} (`{COMMIT[:12]}`)" if COMMIT else VERSION
+    head = [f"**Requested by:** {user.name or user.email}"]
+    head += [f"**Via:** {via}"] if via else []
+    head += [f"**App:** {app_name} (`{app}`)", f"**Version:** {version}"]
+    body = "\n".join(head) + f"\n\n{description or '_No description._'}"
+    if questions:
+        body += "\n\n## Open questions\n\n" + "\n".join(f"- {q}" for q in questions)
+    labels = [LABEL, f"app:{app}"] + ([KIND_LABELS[kind]] if kind else []) + ([NEEDS_SPEC] if questions else [])
+    issue = github.create_issue(*credentials, title, body, labels)
     with db.transaction() as conn:
         return record_in(conn, user.id, app, description, issue)
 
 
-def list_requests(state: str = "open", limit: int | None = None, offset: int | None = None) -> list[dict]:
-    """Newest first. `state` is open, closed or all."""
+def list_requests(
+    state: str = "open", limit: int | None = None, offset: int | None = None, q: str | None = None
+) -> list[dict]:
+    """Newest first. `state` is open, closed or all; `q` matches the title or description."""
     limit, offset = pagination.window(limit, offset)
-    where, params = ("", ()) if state == "all" else ("WHERE r.state = ?", (state,))
-    rows = db.get_conn().execute(
-        f"{_SELECT} {where} ORDER BY r.created_at DESC, r.id DESC LIMIT ? OFFSET ?", (*params, limit, offset)
-    )
-    return [_row(r) for r in rows]
+    clauses, params = ([], []) if state == "all" else (["r.state = ?"], [state])
+    where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+    sql = f"{_SELECT} {where} ORDER BY r.created_at DESC, r.id DESC"
+    if not (q and q.strip()):
+        return [_row(r) for r in db.get_conn().execute(f"{sql} LIMIT ? OFFSET ?", (*params, limit, offset))]
+    # simplification: casefold match over every board row in Python (NOCASE is ASCII-only); the board
+    # is one install's requests. Upgrade path: an FTS5 index on title and description.
+    needle = q.strip().casefold()
+    hits = [
+        r for r in db.get_conn().execute(sql, params)
+        if needle in r["title"].casefold() or needle in (r["description"] or "").casefold()
+    ]  # fmt: skip
+    return [_row(r) for r in hits[offset : offset + limit]]
 
 
 def refresh_in(conn: db.Conn, issues: list[dict], synced_at: str) -> int:

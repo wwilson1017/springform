@@ -12,4 +12,3 @@ data
 .env
 .env.*
 deploy
-docs
