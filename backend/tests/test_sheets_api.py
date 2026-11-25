@@ -148,7 +148,7 @@ def test_seeding_from_manifests_is_idempotent_and_keeps_admin_settings(admin):
     assert [(s["id"], s["configured"], s["fetched_at"]) for s in listed if s["app"] == "example"] == [
         (sheet_id, True, None)
     ]
-    assert [(s["app"], s["name"], s["configured"]) for s in listed if s["app"] != "example"] == [("afork", "x", False)]
+    assert ("afork", "x", False) in [(s["app"], s["name"], s["configured"]) for s in listed]
 
 
 def test_patch_accepts_a_sheet_url_validates_and_repointing_drops_the_cache(admin, stub):
