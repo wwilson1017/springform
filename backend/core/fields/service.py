@@ -1,6 +1,8 @@
-"""Custom fields: admin-defined extra fields on any registered entity, and their values.
+"""Custom fields: extra fields on any registered entity, and their values.
 
-Definitions are admin-managed and never deleted: DELETE archives one, which hides it and its
+Definitions are admin-defined, or declared by an app in its `fields.py` (`FIELDS`) and
+reconciled at every boot by `sync_declared_in`. An app's field keeps its label, options and
+required from the declaration; an admin may only hide or reorder it. Definitions are never deleted: DELETE archives one, which hides it and its
 values until it is restored. Values are read after `entities.authorize(read)` and written after
 `authorize(write)`. Every change goes through `timeline.record_changes_in` with before/after keyed
 `field.<key>`, so the timeline, the change log and the on_record_changed hooks all see it.
@@ -22,8 +24,11 @@ server does not enforce it.
 from __future__ import annotations
 
 import json
+import logging
 import math
 import re
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
 from datetime import date
 from typing import TYPE_CHECKING, Any
 
@@ -49,7 +54,24 @@ EXPECTED = {
 _KEY = re.compile(r"[a-z][a-z0-9_]{0,63}")
 _DATE = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}")
 _URL = re.compile(r"https?://[^\s/?#]+\S*")
-_COLUMNS = "id, entity_type, key, label, type, options, required, position, archived_at, created_at, updated_at"
+_COLUMNS = (
+    "id, entity_type, key, label, type, options, required, position, archived_at, owner_app, retired_at, "
+    "created_at, updated_at"
+)
+logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class FieldSpec:
+    """A custom field an app declares in its `fields.py` (docs/agents/apps-and-contracts.md §2).
+    `key` is `<slug>_<name>`; key and type are permanent."""
+
+    entity_type: str
+    key: str
+    label: str
+    type: str
+    options: tuple[str, ...] | None = None
+    required: bool = False
 
 
 # ── Definitions ───────────────────────────────────────────────────────────────
@@ -81,7 +103,7 @@ def _label(value: Any) -> str:
     return label
 
 
-def _options(field_type: str, options: list | None) -> str | None:
+def _options(field_type: str, options: Sequence | None) -> str | None:
     """JSON-encoded options: required (1..100 distinct, non-blank) for select and multiselect,
     refused for every other type."""
     if field_type not in ("select", "multiselect"):
@@ -151,9 +173,15 @@ def create_definition(user: User, data: dict) -> dict:
 
 
 def update_definition_in(conn: db.Conn, user: User, definition_id: int, data: dict) -> dict:
-    """Change any of label, options, required, position, archived (false restores). Admin only."""
+    """Change any of label, options, required, position, archived (false restores). Admin only.
+    An app's field takes only position and archived (403 app_owned), and a field its app no
+    longer declares cannot be restored (409 retired_by_app)."""
     _require_admin(user)
     current = _get_in(conn, definition_id)
+    if current["owner_app"] and data.keys() & {"label", "options", "required"}:
+        raise Forbidden("app_owned")
+    if current["retired_at"] and "archived" in data and not data["archived"]:
+        raise Conflict("retired_by_app")
     sets: dict[str, Any] = {}
     if "label" in data:
         sets["label"] = _label(data["label"])
@@ -186,6 +214,119 @@ def archive_definition_in(conn: db.Conn, user: User, definition_id: int) -> dict
 def archive_definition(user: User, definition_id: int) -> dict:
     with db.transaction() as conn:
         return archive_definition_in(conn, user, definition_id)
+
+
+# ── App-declared definitions ─────────────────────────────────────────────────
+
+
+def spec_problems(slug: str, specs: Any, entity_types: set[str]) -> list[str]:
+    """What is wrong with an app's FIELDS (no database): keys are `<slug>_<name>`, entity types
+    come from `entity_types` (core's and the app's own), and each declaration is valid."""
+    if not isinstance(specs, list | tuple):
+        return [f"FIELDS must be a list of FieldSpec, not {type(specs).__name__}"]
+    problems, seen = [], set()
+    for spec in specs:
+        if not isinstance(spec, FieldSpec):
+            problems.append(f"FIELDS entries must be FieldSpec, not {type(spec).__name__}")
+            continue
+        key, entity_type = spec.key, spec.entity_type
+        texts = (key, entity_type, spec.label, spec.type)
+        options_ok = spec.options is None or (
+            isinstance(spec.options, list | tuple) and all(isinstance(o, str) for o in spec.options)
+        )
+        if not all(isinstance(t, str) for t in texts) or not options_ok or not isinstance(spec.required, bool):
+            problems.append(
+                f"field {key!r}: entity_type, key, label and type are text, options text or None, required a bool"
+            )
+            continue
+        if not _KEY.fullmatch(key) or not key.startswith(f"{slug}_"):
+            problems.append(f"field {key!r} on {entity_type!r} must be keyed {slug}_<name>")
+        if entity_type not in entity_types:
+            problems.append(f"field {key!r}: entity type {entity_type!r} is not a core entity or one of {slug}'s")
+        if spec.type not in TYPES:
+            problems.append(f"field {key!r}: type must be one of {', '.join(TYPES)}")
+        else:
+            try:
+                _label(spec.label)
+                _options(spec.type, spec.options)
+            except Invalid as e:
+                problems.append(f"field {key!r}: {e.detail}")
+        if (entity_type, key) in seen:
+            problems.append(f"field {key!r} on {entity_type!r} is declared twice")
+        seen.add((entity_type, key))
+    return problems
+
+
+def sync_declared_in(conn: db.Conn, declared: Mapping[str, Sequence[FieldSpec]]) -> None:
+    """Reconcile every installed app's FIELDS ({slug: specs}, already checked by spec_problems)
+    with core_field_definitions at boot. A missing field is created; an owned one gets the
+    declaration's label, options and required, written only when they differ, so a restart
+    changes nothing. A field no app declares any more (its app removed it, or is gone) is
+    archived and retired; declaring it again restores it, unless an admin had hidden it first.
+    An admin's field with the same key and type is adopted; with another type it is left alone."""
+    now, kept = clock.now_iso(), []
+    for slug, specs in declared.items():
+        for spec in specs:
+            label, options, required = _label(spec.label), _options(spec.type, spec.options), int(spec.required)
+            row = conn.execute(
+                "SELECT id, type, label, options, required, owner_app, retired_at FROM core_field_definitions"
+                " WHERE entity_type = ? AND key = ?",
+                (spec.entity_type, spec.key),
+            ).fetchone()
+            if row is None:
+                kept.append(
+                    db.insert_in(
+                        conn,
+                        """INSERT INTO core_field_definitions (entity_type, key, label, type, options, required,
+                               position, owner_app, created_at, updated_at)
+                           VALUES (?, ?, ?, ?, ?, ?, (SELECT COALESCE(MAX(position), 0) + 10
+                               FROM core_field_definitions WHERE entity_type = ?), ?, ?, ?)""",
+                        (
+                            spec.entity_type,
+                            spec.key,
+                            label,
+                            spec.type,
+                            options,
+                            required,
+                            spec.entity_type,
+                            slug,
+                            now,
+                            now,
+                        ),
+                    )
+                )
+                continue
+            if row["owner_app"] not in (None, slug):  # another app's (uninstalled: slugs never prefix-collide)
+                logger.warning("App %r declares field %r on %r, which app %r owns; left alone", slug, spec.key,
+                               spec.entity_type, row["owner_app"])  # fmt: skip
+                continue
+            if row["type"] != spec.type:
+                if row["owner_app"] == slug:
+                    raise ValueError(
+                        f"App '{slug}' changed field {spec.key!r} on {spec.entity_type!r} from {row['type']} to "
+                        f"{spec.type}; a field's type is permanent, declare a new key"
+                    )
+                logger.warning(
+                    "App %r declares field %r on %r as %s, but an admin's field of type %s has that key; left alone",
+                    slug, spec.key, spec.entity_type, spec.type, row["type"],
+                )  # fmt: skip
+                continue
+            kept.append(row["id"])
+            current = (row["owner_app"], row["label"], row["options"], row["required"], row["retired_at"])
+            if current != (slug, label, options, required, None):
+                conn.execute(
+                    """UPDATE core_field_definitions SET owner_app = ?, label = ?, options = ?, required = ?,
+                           archived_at = CASE WHEN retire_archived = 1 THEN NULL ELSE archived_at END,
+                           retire_archived = 0, retired_at = NULL, updated_at = ?
+                       WHERE id = ?""",
+                    (slug, label, options, required, now, row["id"]),
+                )
+    conn.execute(
+        f"""UPDATE core_field_definitions SET archived_at = COALESCE(archived_at, ?),
+                retire_archived = CASE WHEN archived_at IS NULL THEN 1 ELSE 0 END, retired_at = ?, updated_at = ?
+            WHERE owner_app IS NOT NULL AND retired_at IS NULL AND id NOT IN ({", ".join("?" * len(kept))})""",
+        (now, now, now, *kept),
+    )
 
 
 # ── Values ────────────────────────────────────────────────────────────────────

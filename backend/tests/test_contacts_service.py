@@ -181,3 +181,41 @@ def test_preview_sample_seeds_once(app, monkeypatch):
     assert core_db.one("SELECT count(*) AS n FROM core_people")["n"] == len(seed.PEOPLE)
     assert core_db.one("SELECT count(*) AS n FROM core_organizations")["n"] == len(seed.ORGANIZATIONS)
     assert {g["match_on"] for g in contacts.find_duplicates(system_user(), "person")} == {"email", "name"}
+
+
+def test_api_adds_changes_and_deletes_channels_and_addresses(user):
+    p = contacts.create_person(user, name="Ivy Sample", email="ivy@example.com")["id"]
+    work = contacts.add_channel(user, "person", p, kind="email", value="ivy@work.example", is_primary=True)
+    assert contacts.get_person(user, p)["email"] == "ivy@work.example"  # the new primary is mirrored
+    contacts.update_channel(user, work["id"], value="ivy@office.example")
+    assert contacts.get_person(user, p)["email"] == "ivy@office.example"
+    contacts.delete_channel(user, work["id"])  # the older email becomes primary again
+    assert contacts.get_person(user, p)["email"] == "ivy@example.com"
+    with core_db.transaction() as conn:
+        cell = contacts.add_channel_in(conn, user, "person", p, kind="phone", value="555-0101", label="cell")
+    contacts.add_channel(user, "person", p, kind="url", value="https://ivy.example")
+    detail = contacts.get_person(user, p)
+    assert (detail["phone"], cell["is_primary"]) == ("555-0101", True)
+    assert sorted(c["kind"] for c in detail["channels"]) == ["email", "phone", "url"]
+
+    home = contacts.add_address(user, "person", p, line1="1 Main St", city="Springfield")
+    assert home["is_primary"]  # the first address is primary anyway
+    office = contacts.add_address(user, "person", p, kind="work", line1="2 Side St", is_primary=True)
+    assert [a["is_primary"] for a in contacts.get_person(user, p)["addresses"] if a["id"] == home["id"]] == [False]
+    assert contacts.update_address(user, office["id"], city="Shelbyville")["city"] == "Shelbyville"
+    contacts.delete_address(user, office["id"])
+    assert [(a["id"], a["is_primary"]) for a in contacts.get_person(user, p)["addresses"]] == [(home["id"], True)]
+
+    org = contacts.create_organization(user, name="Initech Sample")["id"]
+    contacts.add_channel(user, "organization", org, kind="phone", value="555-0102")
+    contacts.add_address(user, "organization", org, line1="3 Office Park")
+    assert contacts.get_organization(user, org)["phone"] == "555-0102"
+
+    with pytest.raises(Forbidden):
+        contacts.add_channel(system_user(), "person", p, kind="email", value="x@example.com")
+    with pytest.raises(Invalid):
+        contacts.add_channel(user, "person", p, kind="phone", value=5)
+    with pytest.raises(Invalid):
+        contacts.add_address(user, "person", p, line1=7)
+    with pytest.raises(Invalid):
+        contacts.update_channel(user, cell["id"], is_primary="yes")

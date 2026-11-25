@@ -102,13 +102,12 @@ class TurnRunner:
 
         specs = chat_tools(s.user, s.tool_source)
         s.by_name = {spec.name: spec for spec in specs}
+        static, volatile = await in_thread(assembly.system_prompt, s.agent, s.user, query=query, context=s.context)
         active, s.deferred_specs, catalog = deferred.split(
-            specs, {a.slug: a.manifest.name for a in app_registry.installed()}
+            specs, {a.slug: a.manifest.name for a in app_registry.installed()}, len(static)
         )
         s.loaded = {spec.name for spec in active}
-        s.system = await in_thread(
-            assembly.system_prompt, s.agent, s.user, query=query, catalog=catalog, context=s.context
-        )
+        s.system = ("\n\n".join(p for p in (static, catalog) if p), volatile)  # the catalog ends the static half
 
         for i in range(MAX_ITERATIONS):
             s.iteration = i

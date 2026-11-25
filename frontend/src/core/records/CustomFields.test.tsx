@@ -22,6 +22,8 @@ const def = (key: string, type: FieldType, extra: Partial<FieldDefinition> = {})
   required: false,
   position: nextId * 10,
   archived_at: null,
+  owner_app: null,
+  retired_at: null,
   created_at: '2026-10-20T15:00:00Z',
   updated_at: '2026-10-20T15:00:00Z',
   ...extra,
