@@ -11,6 +11,8 @@
 | `frontend` | `node:22-slim`. **Copies `backend/apps`** so `vite-plugin-apps.ts` sees every `app.json`. Builds the frontend. |
 | runtime | `python:3.12-slim` + uv (`uv sync --frozen --no-dev --no-install-project`); `COPY --from=sqlite libsqlite3.so.0*`; the base image's tzdata (`scripts/check-sqlite.py` checks SQLite, FTS5 and zoneinfo at build time); a non-root `app` user **but no `USER` line**. The image sets `DATA_DIR=/data` and `SPRINGFORM_REQUIRE_SQLITE=1`. |
 
+The runtime image also carries the readable source (`docs/`, `scripts/`, `frontend/src/`, the top-level `*.md`, `Dockerfile`, `fork-allow.txt`; `docs` is no longer in `.dockerignore`), about 4 MB, for Whisk's code tools (`agent.md` §4, "Core tools"), and the commit it was built from as `SPRINGFORM_COMMIT` (the release build passes `--build-arg SOURCE_COMMIT=$GITHUB_SHA`) or `SPRINGFORM_RAILWAY_COMMIT` (Railway's `RAILWAY_GIT_COMMIT_SHA`, passed only to an ARG of that name). `backend.core.COMMIT` is the first set, else `""`; filed requests show it beside the version.
+
 Runtime image settings: `HEALTHCHECK` on `/up`, `STOPSIGNAL SIGTERM`. There is deliberately no `VOLUME /data`: Railway refuses to build a Dockerfile that declares one, and every supported run (compose, `docker run -v`, a Railway volume) mounts `/data` itself. A run without a mount keeps its data in the container and loses it on the next deploy.
 
 ## 2. `entrypoint.sh`

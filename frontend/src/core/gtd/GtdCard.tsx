@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ApiError, del, postJson, putJson } from '../api/client';
 import { useJson } from '../api/useJson';
 import { useAgentName } from '../agent/useAgentName';
@@ -33,6 +33,9 @@ export default function GtdCard() {
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
   const [address, setAddress] = useState<string | null>(null);
+  // Bumped with every button's answer, so a poll answer still in flight is dropped even before React runs
+  // the effect cleanup below (that cleanup lands after the commit, leaving a gap a late answer slips through).
+  const epoch = useRef(0);
 
   const pending = data?.pending ?? null;
   useEffect(() => {
@@ -40,14 +43,16 @@ export default function GtdCard() {
     let cancelled = false; // a Cancel, Disconnect or newer answer ends this effect: its late answer is dropped
     const timer = setTimeout(
       () => {
+        const asked = epoch.current;
+        const stale = () => cancelled || asked !== epoch.current;
         postJson<GtdState>(`${BASE}/connect/poll`).then(
           (next) => {
-            if (cancelled) return;
+            if (stale()) return;
             setProblem(null);
             setData(next);
           },
           (e: unknown) => {
-            if (cancelled) return;
+            if (stale()) return;
             setProblem(say(e));
             reload(); // a fresh state re-arms the timer (a blip keeps the connect waiting) or ends it (expired)
           },
@@ -68,7 +73,9 @@ export default function GtdCard() {
     setBusy(true);
     setProblem(null);
     try {
-      setData(await fn());
+      const next = await fn();
+      epoch.current += 1; // only on success: a failed action leaves the in-flight poll to re-arm the timer
+      setData(next);
     } catch (e) {
       setProblem(say(e));
     } finally {

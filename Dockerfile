@@ -47,6 +47,17 @@ RUN uv sync --frozen --no-dev --no-install-project
 COPY springform-version ./
 COPY backend/ backend/
 COPY --from=frontend /src/frontend/dist/ frontend/dist/
+# The rest of the source, for Whisk's code tools (backend/core/source/tools.py), so it explains
+# the code that is running. COPY *.md picks up FORK.md in a fork.
+COPY *.md Dockerfile fork-allow.txt ./
+COPY docs/ docs/
+COPY scripts/ scripts/
+COPY frontend/src/ frontend/src/
+# The commit this image was built from, shown on filed requests: the release build passes
+# SOURCE_COMMIT; Railway passes its own only to an ARG with its name.
+ARG SOURCE_COMMIT=""
+ARG RAILWAY_GIT_COMMIT_SHA=""
+ENV SPRINGFORM_COMMIT=$SOURCE_COMMIT SPRINGFORM_RAILWAY_COMMIT=$RAILWAY_GIT_COMMIT_SHA
 COPY entrypoint.sh /usr/local/bin/
 
 # No USER line: entrypoint.sh starts as root to chown /data, then drops to `app`.
