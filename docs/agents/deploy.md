@@ -189,7 +189,7 @@ DELETE /api/core/backups/passphrase         -> offsite
 
 ### Off-site, in the app (`backup/offsite.py`)
 
-An admin sets an S3-compatible bucket on the Backups page. Any provider works: AWS S3, Cloudflare R2 (region `auto`), Backblaze B2, MinIO. The client (`backup/s3.py`) signs its own SigV4 PUT, GET, DELETE and LIST requests, with no SDK.
+An admin sets an S3-compatible bucket on the Backups page. Any provider works: AWS S3, Cloudflare R2 (region `auto`), Backblaze B2, MinIO. The recommended one is R2: the Guide topics `backups-cloudflare-r2` (owner, click by click) and `backups-agent-setup` (an agent, by API) cover it, and on Railway this in-app copy is the only off-site path (`offsite.sh` is for VPS hosts). The client (`backup/s3.py`) signs its own SigV4 PUT, GET, DELETE and LIST requests, with no SDK.
 
 1. **When.** `service.run` calls `offsite.upload` under the same guard after every good set, outside any transaction, so both the 03:00 job and "Back up now" upload.
    - Back up now waits for the upload inside its request (a marked simplification).

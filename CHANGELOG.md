@@ -25,6 +25,8 @@ Conventions:
   and its attached files are uploaded there, and older sets are pruned. An optional backup
   passphrase encrypts every upload and download with age. A stale or failing upload shows on the
   page and in a banner for admins.
+- Backups: the Guide recommends Cloudflare R2 for the off-site copy, with a click-by-click topic for
+  owners and a step-by-step topic an AI agent can follow end to end. The Backups page links to it.
 
 ### Fixed
 
