@@ -20,7 +20,7 @@ Conventions:
 
 ### Added
 
-- Star an app on the launcher to keep it at the top. Stars appear once the board has 10 or more tiles and are remembered per browser.
+- Star an app on the launcher to keep it at the top. Stars appear once there are 10 or more apps and links in all and are remembered per browser.
 - Launcher folders: an admin types a folder name for an app in Settings, Apps, and apps with the same name share one folder tile on everyone's launcher.
 
 ## [0.3.2] - 2026-11-24

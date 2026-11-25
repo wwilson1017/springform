@@ -10,7 +10,11 @@ import { LoadError } from '../../shared/LoadError';
 import { AppIcon } from '../../shared/icons';
 
 const BADGE_POLL_MS = 60_000;
-/** Stars show only on a board this big; a short board needs no sorting. */
+/**
+ * Stars show once the user has this many tiles in all (apps inside folders and link tiles count), in
+ * every view; a short launcher needs no sorting. Counting all apps keeps filing into folders from
+ * switching stars off.
+ */
 const STARS_FROM_TILES = 10;
 
 /**
