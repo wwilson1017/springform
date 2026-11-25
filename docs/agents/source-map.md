@@ -35,6 +35,10 @@ All lifted code is the author's sole authorship (Decisions, License); the proven
 | `backend/core/secrets.py` | CakeCRM | `backend/core/secret_store.py` | 309 (head) | lift | Minus keychain. Key: env → `/data/.encryption-key` → generated. |
 | `backend/core/secrets.py` (encryption) | CakeCRM | `backend/core/encryption.py` | 151 (head) | lift | `enc:v1:` format. Lands in `backend/core/secrets.py` with the key ladder, not as its own module. |
 | `backend/core/backup/service.py` | todo-gtd | `backend/backup.py` | 103 (head) | port | Adapted: recovery sets, manifests written last, blob pinning, key fingerprint. |
+| `backend/core/backup/age.py` | CakeCRM | `backend/backups/age.py` (0245558) | 48 (head) | lift | Streaming age v1 scrypt writer; work factor a module constant. The in-memory reader is new. |
+| `backend/core/backup/s3.py` | CakeCRM | `backend/backups/s3.py` (0245558) | 186 (head) | lift | SigV4 path-style client. Multipart dropped for one streamed PUT; `get_bytes` added; errors are `AppError`s. |
+| `backend/core/backup/offsite.py` | CakeCRM | `backend/backups/service.py` (0245558) | 211 (head) | port | Destination validation, write-only secret, connection test. Config in one secret `core_settings` row; blobs, passphrase generations and the bucket-side prune are new. |
+| `frontend/src/core/backups/OffsitePanel.tsx` | CakeCRM | `frontend/src/crm/components/BackupsCard.tsx` (0245558) | — | port | Shape and copy. `OffsiteWarning.tsx` is new. |
 | `scripts/restore.sh` | — | — | — | new | |
 | `backend/core/scheduler.py` | todo-gtd | `backend/main.py` `_tick` (line 75) | ~300 target (plan) | port | Loop shape only; jobs, guard, semaphore, statuses are new. |
 | `backend/core/ratelimit.py` | todo-gtd | `backend/ratelimit.py` | 58 | lift | `RateLimiter`, used by the inbound MCP endpoint (per link, and wrong tokens per address; `mcp.md` §1). Login rate limits are a sliding window over `core_login_attempts` in `backend/core/auth/service.py`. |

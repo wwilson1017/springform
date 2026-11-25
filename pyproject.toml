@@ -38,6 +38,7 @@ dev = [
     "pytest>=9.2.0",
     "pyyaml>=6.0.3",  # the Whisk scenario files (backend/tests/scenarios)
     "ruff>=0.17.5",
+    "pyrage>=1.4.0",
 ]
 
 [tool.uv]
