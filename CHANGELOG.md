@@ -21,6 +21,16 @@ Conventions:
 ### Added
 
 - Whisk reads this install's own code and help pages (the running version, shipped in the image) to explain how features and apps work, and files bug and feature requests to the install's GitHub repo after you approve the draft. Requests now show the install's version, and the commit when the image knows it.
+- Backups: an off-site copy. On the Backups page an admin sets an S3-compatible bucket (AWS S3,
+  Cloudflare R2, Backblaze B2, MinIO). After each nightly backup, and after **Back up now**, the set
+  and its attached files are uploaded there, and older sets are pruned. An optional backup
+  passphrase encrypts every upload and download with age. A stale or failing upload shows on the
+  page and in a banner for admins.
+
+### Fixed
+
+- A request that fails validation (422) no longer includes FastAPI's `input` field, which echoed
+  the submitted values (a secret or password among them) back in the error.
 
 ## [0.3.2] - 2026-11-24
 
