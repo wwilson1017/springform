@@ -6,6 +6,8 @@ rows reference (`files.service.BLOB_HOLDERS`); the files sweep never deletes a b
 manifest lists, so every retained set restores whole, and pruning a set is what releases its blobs.
 
 `run()` never raises: a failure is logged and recorded in `core_backups` (`ok | error | skipped`).
+A snapshot that fails `PRAGMA quick_check` is an `error` run, never a set. After a good set,
+`offsite.upload` copies it to the admin's bucket when one is set (its outcome is recorded apart).
 After every run, skipped or failed too, the snapshots are dropped from the page cache (`_uncache`).
 """
 
@@ -23,6 +25,7 @@ from datetime import datetime
 from pathlib import Path
 
 from backend.core import VERSION, clock, db, secrets, settings
+from backend.core.backup import offsite
 from backend.core.errors import AppError, NotFound
 from backend.core.files import service as files_service
 
@@ -36,6 +39,7 @@ SNAPSHOT, MANIFEST = ".sqlite", ".manifest.json"
 KEY_SHOWN = "backups.key_shown_at"
 KEY_MISMATCH = "backups.key_mismatch"  # written at boot by startup.py
 MANIFEST_VERSION = 1
+QUICK_CHECK = "PRAGMA quick_check"
 
 _running = threading.Lock()  # one run at a time, whether the job or "Back up now" started it
 
@@ -81,9 +85,10 @@ def _write_synced(path: Path, data: bytes) -> None:
     os.replace(tmp, path)
 
 
-def run(trigger: str = "job") -> dict | None:
-    """Take a recovery set. Returns the `core_backups` row, or None when a run is already in
-    progress (nothing is recorded then). Never raises."""
+def run(trigger: str = "job", cancel: threading.Event | None = None) -> dict | None:
+    """Take a recovery set, then copy it off-site when a destination is set. Returns the
+    `core_backups` row, or None when a run is already in progress (nothing is recorded then).
+    Never raises. `cancel` (the job's) stops the off-site copy between objects."""
     if not _running.acquire(blocking=False):
         logger.info("Backup (%s) not started: another backup is running", trigger)
         return None
@@ -98,8 +103,13 @@ def run(trigger: str = "job") -> dict | None:
             logger.warning("Backup (%s) skipped: %s", trigger, fields["error"])
         elif status == "ok":
             logger.info("Backup (%s) written: %s", trigger, fields["snapshot"])
+        row = _record(started, status, fields)
+        if status == "ok":
+            # simplification: "Back up now" uploads inside its request, so a big first copy holds it
+            # open. Upgrade path: hand the upload to the scheduler and let the page poll.
+            offsite.upload(backups_dir() / fields["manifest"], cancel)
         _uncache()  # every run, skipped or failed too: an off-site copy re-reads them between runs
-        return _record(started, status, fields)
+        return row
     finally:
         _running.release()
 
@@ -124,7 +134,11 @@ def _take(started: datetime) -> tuple[str, dict]:
         # a transaction, and the job and the route never hold one here.
         db.get_conn().execute("VACUUM INTO ?", (str(tmp),))
         snap = db.sqlite3.connect(f"file:{tmp}?mode=ro", uri=True)
-        try:  # the blobs this snapshot references, read from the snapshot itself
+        try:
+            check = snap.execute(QUICK_CHECK).fetchall()
+            if check != [("ok",)]:
+                raise RuntimeError(f"the snapshot failed PRAGMA quick_check: {check[:5]!r}")
+            # the blobs this snapshot references, read from the snapshot itself
             blobs = [r[0] for r in snap.execute(f"{files_service.HELD_SHAS} ORDER BY sha256")]
         finally:
             snap.close()

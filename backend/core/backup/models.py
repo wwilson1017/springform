@@ -2,6 +2,8 @@
 
 from typing import Literal
 
+from pydantic import BaseModel, Field
+
 from backend.core.platform.models import Out
 
 KeySource = Literal["env", "file"]
@@ -44,6 +46,42 @@ class BackupRunUnrecorded(Out):
     error: str | None = None
 
 
+class Offsite(Out):
+    """The off-site copy: the destination minus its secret, and how the last upload went.
+    `unreadable`: the stored settings cannot be decrypted (the encryption key changed).
+    `stale`: configured, and no good upload in more than 48 hours."""
+
+    configured: bool
+    unreadable: bool
+    endpoint: str | None
+    bucket: str | None
+    region: str | None
+    prefix: str | None
+    access_key_id: str | None
+    retention: int | None
+    encrypted: bool
+    last_success_at: str | None
+    last_success_bytes: int | None
+    last_error: str | None
+    stale: bool
+
+
+class DestinationIn(BaseModel):
+    """`secret_key` is write-only; leave it out to keep the stored one."""
+
+    endpoint: str = Field(min_length=1, max_length=2048)
+    bucket: str = Field(min_length=1, max_length=255)
+    region: str = Field(default="us-east-1", min_length=1, max_length=128)
+    prefix: str = Field(default="", max_length=512)
+    access_key_id: str = Field(min_length=1, max_length=512)
+    secret_key: str | None = Field(default=None, max_length=4096)
+    retention: int = Field(default=30, ge=1, le=365)
+
+
+class PassphraseIn(BaseModel):
+    passphrase: str = Field(min_length=8, max_length=1024)
+
+
 class BackupsOverview(Out):
     sets: list[BackupSet]
     last_backup_at: str | None
@@ -51,6 +89,7 @@ class BackupsOverview(Out):
     key_source: KeySource
     key_shown: bool
     key_mismatch: str | None  # the newest manifest taken under another encryption key, as the last boot found it
+    offsite: Offsite
 
 
 class KeyReveal(Out):
