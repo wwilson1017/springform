@@ -28,8 +28,8 @@ Conventions:
 
 ### Fixed
 
-- A request that fails validation (422) no longer echoes the submitted values, so a mistyped
-  form never sends a secret or password back in the error.
+- A request that fails validation (422) no longer includes FastAPI's `input` field, which echoed
+  the submitted values (a secret or password among them) back in the error.
 
 ## [0.3.2] - 2026-11-24
 

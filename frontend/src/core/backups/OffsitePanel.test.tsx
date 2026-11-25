@@ -67,4 +67,15 @@ describe('OffsitePanel', () => {
     fireEvent.change(screen.getByLabelText('Bucket'), { target: { value: 'other' } });
     expect(test.disabled).toBe(true);
   });
+
+  it('takes the saved, canonical destination back into the form', async () => {
+    mockFetch({ 'PUT /api/core/backups/destination': { body: { ...saved, prefix: 'shop/' } } });
+    render(<OffsitePanel offsite={{ ...saved, prefix: 'shop/' }} onChanged={() => {}} />);
+    fireEvent.change(screen.getByLabelText('Path prefix (optional)'), { target: { value: 'shop' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save destination' }));
+    await waitFor(() =>
+      expect((screen.getByRole('button', { name: 'Test connection' }) as HTMLButtonElement).disabled).toBe(false),
+    );
+    expect((screen.getByLabelText('Path prefix (optional)') as HTMLInputElement).value).toBe('shop/');
+  });
 });

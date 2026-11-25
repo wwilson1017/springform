@@ -32,7 +32,7 @@ from backend.core.files import service as files_service
 logger = logging.getLogger(__name__)
 
 KEEP = 7
-MIN_FREE_BYTES = 100 * 1024 * 1024  # free space that must remain after a snapshot the size of the DB
+MIN_FREE_BYTES = offsite.MIN_FREE_BYTES  # free space that must remain after a snapshot the size of the DB
 ORPHAN_AGE = 3600  # seconds before a snapshot without a manifest, or a .tmp, counts as abandoned
 STAMP = re.compile(r"^\d{8}T\d{6}Z(-\d+)?$")
 SNAPSHOT, MANIFEST = ".sqlite", ".manifest.json"
@@ -41,7 +41,7 @@ KEY_MISMATCH = "backups.key_mismatch"  # written at boot by startup.py
 MANIFEST_VERSION = 1
 QUICK_CHECK = "PRAGMA quick_check"
 
-_running = threading.Lock()  # one run at a time, whether the job or "Back up now" started it
+_running = offsite.RUNNING  # one run at a time, whether the job or "Back up now" started it; settings edits wait too
 
 
 class KeyAlreadyShown(AppError):

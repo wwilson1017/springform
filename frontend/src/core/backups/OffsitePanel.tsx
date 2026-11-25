@@ -83,16 +83,19 @@ function Field({
   );
 }
 
+/** The form's fields for a destination as the server holds it (canonical: `shop` is saved as `shop/`). */
+const formFrom = (offsite: Offsite) => ({
+  endpoint: offsite.endpoint ?? '',
+  bucket: offsite.bucket ?? '',
+  region: offsite.region ?? 'us-east-1',
+  prefix: offsite.prefix ?? '',
+  access_key_id: offsite.access_key_id ?? '',
+  secret_key: '',
+  retention: String(offsite.retention ?? 30),
+});
+
 function DestinationForm({ offsite, onChanged }: { offsite: Offsite; onChanged: () => void }) {
-  const [form, setForm] = useState({
-    endpoint: offsite.endpoint ?? '',
-    bucket: offsite.bucket ?? '',
-    region: offsite.region ?? 'us-east-1',
-    prefix: offsite.prefix ?? '',
-    access_key_id: offsite.access_key_id ?? '',
-    secret_key: '',
-    retention: String(offsite.retention ?? 30),
-  });
+  const [form, setForm] = useState(() => formFrom(offsite));
   const { busy, error, run } = useAction(onChanged);
   const set = (k: keyof typeof form) => (e: ChangeEvent<HTMLInputElement>) =>
     setForm((f) => ({ ...f, [k]: e.target.value }));
@@ -100,9 +103,7 @@ function DestinationForm({ offsite, onChanged }: { offsite: Offsite; onChanged: 
   function save(e: FormEvent) {
     e.preventDefault();
     const body: DestinationBody = { ...form, retention: Number(form.retention), secret_key: form.secret_key || null };
-    void run(() => putJson(`${URL}/destination`, body), 'Destination saved').then(
-      (ok) => ok && setForm((f) => ({ ...f, secret_key: '' })),
-    );
+    void run(async () => setForm(formFrom(await putJson<Offsite>(`${URL}/destination`, body))), 'Destination saved');
   }
 
   async function remove() {

@@ -13,7 +13,7 @@ import pytest
 
 from backend.core import db as core_db, secrets, settings
 from backend.core.backup import age, offsite, restore, service
-from backend.core.errors import AppError
+from backend.core.errors import AppError, Conflict, Invalid
 from backend.tests.test_backup_service import add_file
 
 # pyrage (rage, an independent age implementation) is compiled and ships no type stubs.
@@ -153,9 +153,8 @@ def test_a_set_restores_from_the_bucket_alone(s3, tmp_path, passphrase):
     assert s3.puts() == [*blob_keys, f"{root}backups/{stamp}.sqlite{ext}", f"{root}backups/{stamp}.manifest.json{ext}"]
     assert not any("encryption-key" in k for k in s3.objects)
     status = offsite.status()
-    assert status["last_error"] is None and status["last_success_bytes"] == len(
-        s3.objects[f"{root}backups/{stamp}.sqlite{ext}"]
-    )
+    # every byte this run put: blobs, snapshot and manifest
+    assert status["last_error"] is None and status["last_success_bytes"] == sum(map(len, s3.objects.values()))
     assert status["encrypted"] is bool(passphrase) and status["stale"] is False
 
     pulled = tmp_path / "pulled"
@@ -278,20 +277,42 @@ def test_prune_reads_manifests_by_suffix_even_under_a_manifest_like_prefix(s3, f
     assert offsite.status()["last_error"] is None
 
 
-def test_an_unreadable_retained_manifest_keeps_blobs_and_is_an_error(s3, freeze):
-    sha = add_file(b"kept while manifests cannot be read")
+def test_a_manifest_that_cannot_be_read_back_prunes_nothing(s3, freeze):
     configure(s3, retention=1)
+    freeze("2026-11-01T03:00:00Z")
+    service.run("job")
+    s3.deny_reads = True
+    freeze("2026-11-02T03:00:00Z")
+    service.run("job")
+    assert {"shop/backups/20261101T030000Z.sqlite", "shop/backups/20261101T030000Z.manifest.json"} <= set(s3.objects)
+    status = offsite.status()
+    assert status["last_success_at"] == "2026-11-01T03:00:00Z" and "403" in status["last_error"]
+    with pytest.raises(AppError, match="403"):
+        offsite.test_connection()  # a key that cannot read fails the test too
+
+
+def test_an_unreadable_retained_manifest_keeps_blobs_and_is_an_error(s3, freeze, monkeypatch):
+    sha = add_file(b"kept while an old manifest cannot be read")
+    configure(s3, retention=2)
     freeze("2026-11-01T03:00:00Z")
     service.run("job")
     with core_db.transaction() as conn:
         conn.execute("DELETE FROM core_files")
-    s3.deny_reads = True
-    freeze("2026-11-02T03:00:00Z")
-    service.run("job")
-    assert any(sha in k for k in s3.objects)  # fail closed: the blob stays
-    assert "could not be read back" in offsite.status()["last_error"]
-    with pytest.raises(AppError, match="403"):
-        offsite.test_connection()  # a key that cannot read fails the test too
+    real = offsite._blobs_listed
+
+    def old_unreadable(dest, key, passphrase):
+        if "20261101" in key:
+            raise ValueError("unreadable")
+        return real(dest, key, passphrase)
+
+    monkeypatch.setattr(offsite, "_blobs_listed", old_unreadable)
+    for day in ("02", "03"):  # day 3 prunes day 1 and then reads day 2's manifest; day 2 read day 1's
+        freeze(f"2026-11-{day}T03:00:00Z")
+        service.run("job")
+        if day == "02":
+            assert any(sha in k for k in s3.objects)  # fail closed: the blob stays
+            assert "could not be read back" in offsite.status()["last_error"]
+    assert not any(sha in k for k in s3.objects) and offsite.status()["last_error"] is None
 
 
 def test_prune_stops_when_cancelled(s3, freeze):
@@ -300,12 +321,39 @@ def test_prune_stops_when_cancelled(s3, freeze):
         freeze(f"2026-11-{day}T03:00:00Z")
         service.run("job")
     before = dict(s3.objects)
-    raw, cfg = offsite._read()
+    _, cfg = offsite._read()
     cancel = threading.Event()
     cancel.set()
     with pytest.raises(AppError, match="stopped"):
-        offsite._prune({**cfg, "retention": 1}, raw, cancel)
+        offsite._prune({**cfg, "retention": 1}, cancel)
     assert s3.objects == before
+
+
+def test_listing_checks_before_each_page(s3):
+    configure(s3)
+    s3.objects = {f"shop/k{i}": b"" for i in range(5)}  # three pages of two
+    calls: list[int] = []
+
+    def check() -> None:
+        calls.append(1)
+        if len(calls) == 2:
+            raise AppError("stopped")
+
+    with pytest.raises(AppError, match="stopped"):
+        offsite._destination(offsite._read()[1]).list_keys("shop/", check)
+    assert len(calls) == 2  # page two was never requested
+
+
+def test_an_encrypted_copy_needs_room_for_itself(s3, monkeypatch):
+    configure(s3, PASSPHRASE)
+    monkeypatch.setattr(offsite, "MIN_FREE_BYTES", 1 << 62)
+    assert service.run("job")["status"] == "ok"  # service's own reserve is its own constant
+    assert s3.puts() == [] and "Not enough disk space to encrypt" in offsite.status()["last_error"]
+
+
+def test_a_bad_hostname_is_a_form_error():
+    with pytest.raises(Invalid, match="host name"):
+        offsite.validate_endpoint("https://" + "a" * 64 + ".example.com")
 
 
 def test_a_snapshot_that_fails_quick_check_is_an_error_and_never_uploaded(s3, monkeypatch):
@@ -316,29 +364,27 @@ def test_a_snapshot_that_fails_quick_check_is_an_error_and_never_uploaded(s3, mo
     assert s3.puts() == [] and service.complete_stamps() == []
 
 
-@pytest.mark.parametrize("edit", ["passphrase", "retention", "remove"])
-def test_a_config_changed_mid_upload_records_and_prunes_nothing(s3, monkeypatch, freeze, edit):
+def test_settings_edits_wait_for_a_running_backup(s3, monkeypatch, freeze):
     configure(s3, retention=1)
-    freeze("2026-11-01T03:00:00Z")
-    service.run("job")
-    first = set(s3.objects)
     real = offsite._upload
+    refused = []
 
     def edited_meanwhile(cfg, manifest, cancel):
-        size = real(cfg, manifest, cancel)  # the new set is published; the prune has not started
-        if edit == "passphrase":
-            offsite.set_passphrase(None, "set while uploading")
-        elif edit == "retention":
-            configure(s3, retention=30)
-        else:
-            offsite.clear_destination()
-        return size
+        for edit in (
+            lambda: offsite.set_passphrase(None, "set while uploading"),
+            offsite.clear_passphrase,
+            lambda: configure(s3, retention=30),
+            offsite.clear_destination,
+        ):
+            with pytest.raises(Conflict, match="A backup is running"):
+                edit()
+            refused.append(edit)
+        return real(cfg, manifest, cancel)
 
     monkeypatch.setattr(offsite, "_upload", edited_meanwhile)
-    freeze("2026-11-02T03:00:00Z")
     service.run("job")
-    assert first < set(s3.objects)  # the old set the old retention would have pruned is still there
-    assert offsite.status()["last_success_at"] in (None, "2026-11-01T03:00:00Z")
+    assert len(refused) == 4 and offsite.status()["last_error"] is None
+    configure(s3, retention=30)  # once the run is over, edits go through
 
 
 def test_the_routes(s3, client, login_as, freeze):
@@ -371,6 +417,9 @@ def test_the_routes(s3, client, login_as, freeze):
         "stale": False,
     }
     assert admin.put("/api/core/backups/passphrase", json={"passphrase": "short"}).status_code == 422
+    with offsite.RUNNING:  # a backup is running: the edit is refused with a sentence to show
+        r = admin.put("/api/core/backups/passphrase", json={"passphrase": PASSPHRASE})
+    assert (r.status_code, r.json()["detail"]) == (409, offsite.BUSY)
     assert admin.put("/api/core/backups/passphrase", json={"passphrase": PASSPHRASE}).json()["encrypted"] is True
     for r in (admin.get("/api/core/backups"), admin.post("/api/core/backups/destination/test")):
         assert r.status_code == 200 and SECRET not in r.text and PASSPHRASE not in r.text

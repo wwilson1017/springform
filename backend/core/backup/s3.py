@@ -7,7 +7,7 @@ CakeCRM `backend/backups/s3.py`, without its multipart upload.
 import hashlib
 import hmac
 import xml.etree.ElementTree as ET
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from datetime import datetime
 from pathlib import Path
 from urllib.parse import quote, unquote, urlsplit, urlunsplit
@@ -45,7 +45,10 @@ def validate_endpoint(endpoint: str) -> str:
         or any(ord(c) < 32 for c in endpoint)
     ):
         raise Invalid("The endpoint must be an http(s) URL with a host, and no credentials, query or dot segments.")
-    host = url.hostname.encode("idna").decode().lower()
+    try:
+        host = url.hostname.encode("idna").decode().lower()
+    except UnicodeError:
+        raise Invalid("The endpoint's host name is not valid.") from None
     if ":" in host:
         host = f"[{host}]"
     default = {"http": 80, "https": 443}[url.scheme]  # httpx drops a default port from Host, so the signature must too
@@ -159,11 +162,14 @@ class S3Destination:
     def delete(self, key: str) -> None:
         self._request("DELETE", key)
 
-    def list_keys(self, prefix: str) -> list[str]:
+    def list_keys(self, prefix: str, check: Callable[[], None] | None = None) -> list[str]:
+        """Every key under `prefix`. `check` runs before each page request (a cancel check raises)."""
         keys: list[str] = []
         params = {"list-type": "2", "prefix": prefix}
         seen: set[str] = set()
         while True:
+            if check:
+                check()
             root = _xml(self._request("GET", params=params).content)
             keys.extend(n.text for n in root.findall("Contents/Key") if n.text is not None)
             if root.findtext("IsTruncated", "false").lower() != "true":

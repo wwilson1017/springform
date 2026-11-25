@@ -23,7 +23,10 @@ import json
 import logging
 import re
 import secrets as token
+import shutil
 import threading
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 
@@ -43,6 +46,11 @@ _ROOT = r"(?:(age-[0-9a-f]{8})/)?"
 SET_KEY = re.compile(rf"^{_ROOT}backups/({_STAMP})\.(sqlite|manifest\.json)(?:\.age)?$")
 BLOB_KEY = re.compile(rf"^{_ROOT}files/[0-9a-f]{{2}}/([0-9a-f]{{64}})(?:\.age)?$")
 SHA = re.compile(r"^[0-9a-f]{64}$")
+MIN_FREE_BYTES = 100 * 1024 * 1024  # free space that must remain after a snapshot or an encrypted copy
+# One backup at a time (service.run holds it through the upload and prune). Settings changes take
+# it too, so an acknowledged edit never races a copy still writing or pruning with the old settings.
+RUNNING = threading.Lock()
+BUSY = "A backup is running; try again in a minute."
 
 
 class ConfigUnreadable(Conflict):
@@ -58,6 +66,25 @@ UNREADABLE = (
 def _order(stamp: str) -> tuple[str, int]:
     base, _, n = stamp.partition("-")
     return base, int(n) if n.isdigit() else 1
+
+
+@contextmanager
+def _idle() -> Iterator[None]:
+    if not RUNNING.acquire(blocking=False):
+        raise Conflict(BUSY)
+    try:
+        yield
+    finally:
+        RUNNING.release()
+
+
+def _room_for(path: Path, tmp_dir: Path) -> None:
+    """An encrypted temporary copy of `path` fits in `tmp_dir` and leaves MIN_FREE_BYTES (age adds well under 1%)."""
+    free, need = shutil.disk_usage(tmp_dir).free, path.stat().st_size + MIN_FREE_BYTES
+    if free < need:
+        raise Conflict(
+            f"Not enough disk space to encrypt {path.name}: {free // 2**20} MB free, {need // 2**20} MB needed."
+        )
 
 
 def _read_in(conn: db.Conn) -> tuple[str | None, dict]:
@@ -125,7 +152,7 @@ def save_destination(
         raise Invalid("Enter a bucket, region and access key id; the prefix cannot hold dot segments.")
     if not 1 <= retention <= 365:
         raise Invalid("Keep between 1 and 365 sets.")
-    with db.transaction() as conn:
+    with _idle(), db.transaction() as conn:
         _, cfg = _read_in(conn)
         secret = (secret_key or "").strip() or cfg.get("secret_key")
         if not secret:
@@ -141,7 +168,7 @@ def save_destination(
 
 def clear_destination() -> dict:
     """Forget the destination (the passphrase stays). An unreadable config is removed whole."""
-    with db.transaction() as conn:
+    with _idle(), db.transaction() as conn:
         try:
             _, cfg = _read_in(conn)
             cfg = {k: v for k, v in cfg.items() if k in ("passphrase", "generation")}
@@ -154,7 +181,7 @@ def clear_destination() -> dict:
 
 def set_passphrase(user_id: int | None, passphrase: str) -> dict:
     """A new passphrase starts a new generation: later sets go under a new `age-<generation>/` root."""
-    with db.transaction() as conn:
+    with _idle(), db.transaction() as conn:
         _, cfg = _read_in(conn)
         cfg.update(passphrase=passphrase, generation=token.token_hex(4))
         _write_in(conn, cfg, user_id)
@@ -162,7 +189,7 @@ def set_passphrase(user_id: int | None, passphrase: str) -> dict:
 
 
 def clear_passphrase() -> dict:
-    with db.transaction() as conn:
+    with _idle(), db.transaction() as conn:
         _, cfg = _read_in(conn)
         cfg.pop("passphrase", None)
         cfg.pop("generation", None)
@@ -223,6 +250,7 @@ def encrypted_copy(snapshot: Path) -> Path | None:
     _, cfg = _read()
     if not cfg.get("passphrase"):
         return None
+    _room_for(snapshot, snapshot.parent)
     tmp = snapshot.with_name(f"{snapshot.stem}.{token.token_hex(6)}.age.tmp")  # service.prune clears strays
     try:
         age.encrypt_file(snapshot, tmp, cfg["passphrase"])
@@ -256,7 +284,7 @@ def upload(manifest: Path, cancel: threading.Event | None = None) -> None:
     logger.info("Off-site copy of %s uploaded", manifest.name)
     _record(raw, last_success_at=clock.now_iso(), last_success_bytes=size, last_error=None)
     try:
-        _prune(cfg, raw, cancel)
+        _prune(cfg, cancel)
     except Exception as e:
         logger.exception("Pruning the off-site copy failed; the new set is uploaded")
         _record(raw, last_error="Uploaded, but removing old backups failed: " + _message(e))
@@ -285,18 +313,12 @@ def _check(cancel: threading.Event | None) -> None:
         raise AppError("The off-site copy was stopped before it finished; the next backup resumes it.")
 
 
-def _config_unchanged(raw: str | None) -> None:
-    """A plain read, no transaction: prune stops once the admin removed or changed the destination."""
-    now = db.get_conn().execute("SELECT value FROM core_settings WHERE key = ?", (CONFIG,)).fetchone()
-    if now is None or now[0] != raw:
-        raise AppError("The off-site settings changed while the copy ran; old backups were left alone.")
-
-
 def _put(dest: S3Destination, key: str, path: Path, passphrase: str | None, tmp_dir: Path) -> int:
     if not passphrase:
         return dest.put_file(key, path)
     # simplification: one scrypt per object (about a second at age's work factor), so a first
     # encrypted copy of many attachments is slow; later runs upload only new ones.
+    _room_for(path, tmp_dir)
     tmp = tmp_dir / f"offsite-{token.token_hex(6)}.age.tmp"
     try:
         age.encrypt_file(path, tmp, passphrase)
@@ -306,13 +328,13 @@ def _put(dest: S3Destination, key: str, path: Path, passphrase: str | None, tmp_
 
 
 def _upload(cfg: dict, manifest: Path, cancel: threading.Event | None) -> int:
-    """Blobs, then the snapshot, then the manifest. Returns the snapshot's uploaded size."""
+    """Blobs, then the snapshot, then the manifest, read back to check it. Returns the bytes uploaded."""
     body = json.loads(manifest.read_text(encoding="utf-8"))
     backups, passphrase = manifest.parent, cfg.get("passphrase")
     files, root, ext = backups.parent / "files", _root(cfg), ".age" if passphrase else ""
     dest = _destination(cfg)
-    have = set(dest.list_keys(f"{root}files/"))
-    missing = []
+    have = set(dest.list_keys(f"{root}files/", lambda: _check(cancel)))
+    missing, sent = [], 0
     for sha in body["blobs"]:
         _check(cancel)
         key = f"{root}files/{sha[:2]}/{sha}{ext}"
@@ -322,7 +344,7 @@ def _upload(cfg: dict, manifest: Path, cancel: threading.Event | None) -> int:
         if not local.is_file() or _sha256(local) != sha:  # a damaged file would publish a set restore refuses
             missing.append(sha)
             continue
-        _put(dest, key, local, passphrase, backups)
+        sent += _put(dest, key, local, passphrase, backups)
     if missing:  # publishing this manifest would put a set in the bucket that restore refuses
         raise AppError(
             f"{len(missing)} attached files the backup lists are missing or damaged on this server (first: {missing[0]}); "
@@ -330,10 +352,14 @@ def _upload(cfg: dict, manifest: Path, cancel: threading.Event | None) -> int:
         )
     _check(cancel)
     snapshot = backups / body["snapshot"]["filename"]
-    size = _put(dest, f"{root}backups/{snapshot.name}{ext}", snapshot, passphrase, backups)
+    sent += _put(dest, f"{root}backups/{snapshot.name}{ext}", snapshot, passphrase, backups)
     _check(cancel)
-    _put(dest, f"{root}backups/{manifest.name}{ext}", manifest, passphrase, backups)
-    return size
+    key = f"{root}backups/{manifest.name}{ext}"
+    sent += _put(dest, key, manifest, passphrase, backups)
+    # Read the manifest back before success or any prune: older sets go only once this one restores.
+    if _blobs_listed(dest, key, passphrase) != set(body["blobs"]):
+        raise AppError("The backup list read back from the bucket does not match the one uploaded.")
+    return sent
 
 
 def _sha256(path: Path) -> str:
@@ -359,21 +385,20 @@ def _blobs_listed(dest: S3Destination, key: str, passphrase: str | None) -> set[
     return set(blobs)
 
 
-def _prune(cfg: dict, raw: str | None, cancel: threading.Event | None = None) -> None:
+def _prune(cfg: dict, cancel: threading.Event | None = None) -> None:
     """Keep the newest `retention` complete sets across every root; delete older set objects
     (manifest first), then blobs no retained manifest in their root lists. A root whose manifests
     this install cannot read (an older passphrase) keeps its blobs until its sets age out; one it
     should read but cannot keeps its blobs and raises once the rest is pruned. Stops (raises)
-    when cancelled or when the config changed since the run read it."""
+    when cancelled."""
 
     def step() -> None:
         _check(cancel)
-        _config_unchanged(raw)
 
     dest, prefix = _destination(cfg), cfg["prefix"]
     sets: dict[tuple[str, str], list[tuple[str, bool]]] = {}  # (root, stamp) -> [(key, is_manifest)]
     blobs: dict[str, list[tuple[str, str]]] = {}
-    for key in dest.list_keys(prefix):
+    for key in dest.list_keys(prefix, step):
         rel = key[len(prefix) :]
         if m := SET_KEY.match(rel):
             sets.setdefault((m[1] or "", m[2]), []).append((key, m[3] == "manifest.json"))

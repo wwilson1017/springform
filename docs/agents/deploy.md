@@ -193,9 +193,11 @@ An admin sets an S3-compatible bucket on the Backups page. Any provider works: A
 
 1. **When.** `service.run` calls `offsite.upload` under the same guard after every good set, outside any transaction, so both the 03:00 job and "Back up now" upload.
    - Back up now waits for the upload inside its request (a marked simplification).
-   - The job's timeout is 3600 s, and it checks its cancel event between objects, prune included.
+   - The job's timeout is 3600 s, and it checks its cancel event between objects and before each listing page, prune included.
+   - The run guard is `offsite.RUNNING` (service's `_running` is the same lock). Saving or removing the destination or the passphrase takes it too and answers 409 "A backup is running" while a copy is out, so no edit is acknowledged while a run still writes or prunes with the old settings.
+   - An encrypted temporary copy (upload or download) first checks that the volume has room for it plus `MIN_FREE_BYTES`, and fails with a readable error otherwise.
    - An interrupted copy resumes on the next run, because blobs already in the bucket are skipped.
-2. **Layout.** The bucket mirrors the volume, so a downloaded copy restores with `restore.py` unchanged. Objects go up **in this order**: `<prefix>files/<aa>/<sha>`, then `<prefix>backups/<stamp>.sqlite`, then `<prefix>backups/<stamp>.manifest.json`. A remote set is complete once its manifest is there. Blobs are content-addressed and uploaded once.
+2. **Layout.** The bucket mirrors the volume, so a downloaded copy restores with `restore.py` unchanged. Objects go up **in this order**: `<prefix>files/<aa>/<sha>`, then `<prefix>backups/<stamp>.sqlite`, then `<prefix>backups/<stamp>.manifest.json`. A remote set is complete once its manifest is there; the run reads it back and checks its blob list before recording success or pruning anything. Blobs are content-addressed and uploaded once.
 3. **Missing or damaged blobs.** Each blob not yet in the bucket is hashed before upload. The copy stops before the snapshot when the manifest lists a blob that is neither in the bucket nor on this volume with its SHA-256 matching its name. Nothing is published, nothing is pruned, and the error is recorded, so a set that restore would refuse never reaches the bucket.
 4. **Passphrase.** With a backup passphrase, every object is age-encrypted (scrypt recipient, `backup/age.py`) and ends in `.age`, the manifest included.
    - Encrypted objects go under their own root, `<prefix>age-<generation>/`, with the same layout inside.
@@ -207,14 +209,14 @@ An admin sets an S3-compatible bucket on the Backups page. Any provider works: A
    - **The plain root and the current generation's root** keep only the blobs their retained manifests list. Each manifest is read back, decrypted and validated; one that is unreadable or malformed leaves that root's blobs alone (fail closed) and is recorded as the last error once the rest is pruned.
    - **An older generation's root with a retained set** keeps every blob until its sets age out, because its passphrase is no longer known.
 
-   Only stamp-shaped and blob-shaped names are ever deleted, classified by their suffix after the prefix. Before each deletion the run re-reads the config row and stops if it changed (the admin removed the destination or changed retention mid-run).
-   - **Versioned buckets** (Backblaze B2 keeps every version by default; S3 and R2 with versioning on) turn a delete into a hidden version that is still stored and billed. Add a lifecycle rule on the prefix that expires noncurrent versions, e.g. B2's "Keep only the last version of the file" (`daysFromHidingToDeleting: 1`).
+   Only stamp-shaped and blob-shaped names are ever deleted, classified by their suffix after the prefix.
+   - **Versioned buckets** (Backblaze B2 keeps every version by default; AWS S3 with versioning on) turn a delete into a hidden or noncurrent version that is still stored and billed. On B2, a bucket used only for these backups can take the "Keep only the last version of the file" preset; a shared bucket needs a custom rule with `fileNamePrefix` set to the Springform prefix, `daysFromHidingToDeleting: 1` and no `daysFromUploadingToHiding` (the preset covers the whole bucket). On S3, a prefix-scoped `NoncurrentVersionExpiration` rule. Never an age-based expiry of current objects: attachments are uploaded once and stay referenced.
 6. **Never the key.** The upload touches only `files/` and `backups/`. `.encryption-key` and `ENCRYPTION_KEY` never go to the bucket: keep the key apart from it.
 7. **Storage.** The destination, its secret and the passphrase are one secret `core_settings` row, `backups.offsite_config`. Outcomes go to the plain row `backups.offsite`, and a run records its outcome only if the config is unchanged since it started.
    - When the install key cannot decrypt the config row, it is reported as `unreadable`, never taken for "no passphrase".
    - The upload is then skipped and the download answers 409.
    - The page and the banner say to set the destination again.
-8. **Visibility.** The Backups page shows the last good upload (time and size) and the last error. For admins, `OffsiteWarning` in the Layout shows a banner on every page when the copy is stale, failing or unreadable.
+8. **Visibility.** The Backups page shows the last good upload (time, and the bytes that run put: new attachments, snapshot and manifest) and the last error. For admins, `OffsiteWarning` in the Layout shows a banner on every page when the copy is stale, failing or unreadable.
 
 Simplifications:
 
