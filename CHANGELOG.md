@@ -22,14 +22,19 @@ Conventions:
 
 - Star an app on the launcher to keep it at the top. Stars appear once there are 10 or more apps and links in all and are remembered per browser.
 - Launcher folders: an admin types a folder name for an app in Settings, Apps, and apps with the same name share one folder tile on everyone's launcher.
+- Whisk reads this install's own code and help pages (the running version, shipped in the image) to explain how features and apps work, and files bug and feature requests to the install's GitHub repo after you approve the draft. Requests now show the install's version, and the commit when the image knows it.
 - Backups: an off-site copy. On the Backups page an admin sets an S3-compatible bucket (AWS S3,
   Cloudflare R2, Backblaze B2, MinIO). After each nightly backup, and after **Back up now**, the set
   and its attached files are uploaded there, and older sets are pruned. An optional backup
   passphrase encrypts every upload and download with age. A stale or failing upload shows on the
   page and in a banner for admins.
+- Backups: the Guide recommends Cloudflare R2 for the off-site copy, with a click-by-click topic for
+  owners and a step-by-step topic an AI agent can follow end to end. The Backups page links to it.
 
 ### Fixed
 
+- Settings, GTD suite: a code approval that lands just after Cancel no longer shows the suite as
+  connected.
 - A request that fails validation (422) no longer includes FastAPI's `input` field, which echoed
   the submitted values (a secret or password among them) back in the error.
 

@@ -112,3 +112,9 @@ without the volume, so attach it first. Set `SECRET_KEY`,
 `PUBLIC_URL`, `TRUST_PROXY=1` and `RAILWAY_DEPLOYMENT_DRAINING_SECONDS=15` (time for a graceful
 shutdown). With a volume attached, Railway stops the old deployment before starting the new one,
 which the lock relies on.
+
+**Off-site backups.** Railway has no host for a cron, so the Backups page's off-site copy is the
+off-site path there; set it up with the in-app Guide topic "Set up Cloudflare R2 (recommended)"
+([`backups-cloudflare-r2.md`](backend/core/docs/backups-cloudflare-r2.md)), or have an AI agent do it
+([`backups-agent-setup.md`](backend/core/docs/backups-agent-setup.md)). `deploy/offsite.sh` (rclone)
+stays for VPS installs.
