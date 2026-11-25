@@ -13,3 +13,9 @@ export type KeySource = BackupsOverview['key_source'];
 export type BackupsOverview = S['BackupsOverview'];
 /** POST /api/core/backups/key: `key` once (file source), only the fingerprint (env). 410 once shown. */
 export type KeyReveal = S['KeyReveal'];
+/** The off-site copy: the destination minus its secret, `encrypted` (a passphrase is set), the last upload, `stale` (> 48 h). */
+export type Offsite = S['Offsite'];
+/** PUT /api/core/backups/destination. `secret_key` is write-only: leave it out to keep the stored one. */
+export type DestinationBody = S['DestinationIn'];
+/** Fired on window after a backup or an off-site change, so the admin banner re-reads the state. */
+export const BACKUPS_CHANGED = 'sf:backups-changed';

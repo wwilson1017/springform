@@ -170,6 +170,11 @@ def exercise(app, login_as, monkeypatch) -> dict[str, httpx.Response]:
     hit(admin, "GET", "/api/core/backups")
     hit(admin, "POST", "/api/core/backups/key")
     hit(admin, "GET", "/api/core/backups/{stamp}/manifest", stamp=run["snapshot"].split(".")[0])
+    destination = {"endpoint": "https://s3.example.com", "bucket": "b", "access_key_id": "id", "secret_key": "s"}
+    hit(admin, "PUT", "/api/core/backups/destination", json=destination)  # no network: nothing uploads until a run
+    hit(admin, "PUT", "/api/core/backups/passphrase", json={"passphrase": "a long passphrase"})
+    hit(admin, "DELETE", "/api/core/backups/passphrase")
+    hit(admin, "DELETE", "/api/core/backups/destination")
     hit(admin, "PUT", "/api/core/sheets/credentials", json={"service_account_json": _service_account()})
     hit(admin, "GET", "/api/core/sheets/credentials")
     sheets = hit(admin, "GET", "/api/core/sheets")
