@@ -383,13 +383,13 @@ describe('InboxPage — the inline undo notice and the edit sheet', () => {
   });
 
   it('puts a two-minute completion back on the card when it is undone', async () => {
-    // "Took 2 minutes — Done ✓" completes straight from triage, so its undo lands the
+    // "2 min — Done ✓" completes straight from triage, so its undo lands the
     // item back in the inbox exactly as a filing's does — and it has to come back as
     // the current card for the same reason: `items[0]` is something else.
     await render();
     click(restRows()[0]); // triage "second captured", which is NOT the head
     listTodosMock.mockResolvedValue([FIRST]);
-    click(button('Took 2 minutes — Done ✓'));
+    click(button('2 min — Done ✓'));
     await act(async () => {});
     expect(updateTodoMock).toHaveBeenCalledWith(2, { status: 'done' });
     expect(onCard()).toBe('first captured');

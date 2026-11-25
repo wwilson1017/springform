@@ -5096,6 +5096,8 @@ export interface components {
         /**
          * FieldDefinition
          * @description `options` only for select and multiselect; `required` is advisory (shown, not enforced).
+         *     `owner_app` is the slug of the app that declares the field (null for an admin's field);
+         *     `retired_at` is when that app stopped declaring it.
          */
         FieldDefinition: {
             /** Archived At */
@@ -5112,10 +5114,14 @@ export interface components {
             label: string;
             /** Options */
             options: string[] | null;
+            /** Owner App */
+            owner_app: string | null;
             /** Position */
             position: number;
             /** Required */
             required: boolean;
+            /** Retired At */
+            retired_at: string | null;
             /**
              * Type
              * @enum {string}

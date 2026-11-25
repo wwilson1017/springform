@@ -13,12 +13,13 @@ import os
 import pytest
 
 from backend.core import db as core_db, skills
+from backend.core.agent import deferred, registry as tool_registry
 from backend.core.agent.assembly import CHARS_PER_TOKEN
+from backend.core.agent.deferred import BUDGET_TOKENS
 from backend.core.agent.engine import chat_tools
 from backend.core.agent.providers import fake
+from backend.core.agent.spec import ToolSpec
 from backend.core.memory.context_files import DEFAULTS, SOUL
-
-BUDGET_TOKENS = 14_000
 
 
 @pytest.fixture(autouse=True)
@@ -89,3 +90,44 @@ def test_the_budget_check_flags_only_an_oversized_prompt():
     tool = [{"name": "core_t", "description": "A tool.", "input_schema": {"type": "object"}}]
     assert tokens("x" * CHARS_PER_TOKEN * (BUDGET_TOKENS + 1), tool) > BUDGET_TOKENS
     assert tokens("x" * CHARS_PER_TOKEN * 100, tool) <= BUDGET_TOKENS
+
+
+def app_tools(count: int, description: str) -> list[ToolSpec]:
+    schema = {"type": "object", "properties": {}}
+    return [
+        ToolSpec(f"bakery_t{i}", description, schema, writes=False, handler=lambda u, a: None, app="bakery")
+        for i in range(count)
+    ]
+
+
+def test_app_tools_are_deferred_by_size_not_only_by_count():
+    core = ToolSpec("core_x", "core", {"type": "object"}, writes=False, handler=lambda u, a: None)
+    big = [core, *app_tools(5, "d" * (CHARS_PER_TOKEN * BUDGET_TOKENS // 4))]  # 6 tools, over the budget
+    active, rest, catalog = deferred.split(big, {"bakery": "Bakery"})
+    assert active == [core] and rest == big[1:]
+    assert "**Bakery** (bakery): bakery_t0, bakery_t1" in catalog
+    small = [core, *app_tools(5, "A tool.")]
+    assert deferred.split(small, {"bakery": "Bakery"}) == (small, [], "")
+    # the rest of the prompt counts: a set that fits by itself is deferred once the prompt fills the budget
+    full, medium = CHARS_PER_TOKEN * BUDGET_TOKENS, [core, *app_tools(5, "d" * 500)]
+    assert deferred.split(medium, {})[1] == [] and deferred.split(medium, {}, full)[1] == medium[1:]
+    assert deferred.split(small, {}, full) == (small, [], "")  # the catalog would cost more than these tools
+    assert deferred.split([core], {}, CHARS_PER_TOKEN * BUDGET_TOKENS * 2) == ([core], [], "")  # nothing to defer
+
+
+def test_a_fork_with_extra_apps_stays_under_the_budget(login_as, model_requests):
+    a = login_as("admin")
+    before = tool_registry.current()
+    extra = app_tools(15, "d" * 1200)  # about 4,600 tokens: over the budget on any install, whatever its tool count
+    try:
+        with a:
+            tool_registry.set_current(tool_registry.build_registry([*before.all(), *extra]))
+            assert a.post("/api/agent/chat", json={"message": "hi"}).status_code == 200
+    finally:
+        tool_registry.set_current(before)
+    static, tools = model_requests[0]["system"][0], model_requests[0]["tools"]
+    names = {t["name"] for t in tools}
+    assert deferred.FIND_TOOLS in names and not any(n.startswith("bakery_") for n in names)
+    assert "bakery_t0" in static and all(n.startswith("core_") for n in names)
+    total = tokens(static, tools)
+    assert total <= BUDGET_TOKENS, f"with extra apps deferred ~{total:,} tokens, over the {BUDGET_TOKENS:,} budget"

@@ -32,9 +32,40 @@ private fork that pulls platform updates and never edits core.
   connected Google Sheets, and an assistant named Whisk with an MCP connector.
 - Built-in apps: CRM, Todos.
 - Forks: `scripts/new-fork.sh` makes a private client repo with a fetch-only `upstream`; CI fails any
-  change outside the app folders.
+  change outside the app folders. A fork rebrands from one folder.
 
 License: MIT.
+
+## Make it yours
+
+A fork swaps the colours, logo, header and favicon without touching core. Stock Springform on the
+left; a made-up fork, Bramblewick Workshop, on the right, same sample data:
+
+<table>
+  <tr>
+    <th>Stock</th>
+    <th>A fork's skin</th>
+  </tr>
+  <tr>
+    <td>
+      <picture>
+        <source media="(prefers-color-scheme: dark)" srcset="docs/images/skin-stock-dark.png">
+        <img src="docs/images/skin-stock-light.png" alt="Stock Springform, CRM dashboard">
+      </picture>
+    </td>
+    <td>
+      <picture>
+        <source media="(prefers-color-scheme: dark)" srcset="docs/images/skin-example-dark.png">
+        <img src="docs/images/skin-example-light.png" alt="The same CRM dashboard with a fork's skin">
+      </picture>
+    </td>
+  </tr>
+</table>
+
+Everything lives in `frontend/public/branding/`: `theme.css` (colour tokens, light and dark),
+`mark-*.svg` for the sign-in pages, `header-*.svg` for the header bar, and `favicon.svg`.
+`fork-allow.txt` lets a fork change that folder, so upstream updates still merge cleanly. Details:
+[Brand colours and logo](docs/agents/forks.md#10-brand-colours-and-logo).
 
 ## Run it
 

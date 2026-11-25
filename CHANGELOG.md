@@ -18,6 +18,28 @@ Conventions:
 
 ## [Unreleased]
 
+## [0.3.2] - 2026-11-24
+
+Whisk keeps a fork with extra apps under its prompt budget, and the Todos inbox gets a Delete pill.
+
+### Changed
+
+- Todos inbox: step 1 on a card has two pills, "2 min — Done ✓" and a red "Delete ✕"; the small delete link under step 2 is gone. Delete still archives the item (Done page, Dropped tab).
+- Whisk moves app tools to the `core_find_tools` catalog when the prompt plus every tool definition would pass the prompt budget (14,000 tokens), not only past 100 tools, so a fork with a few extra apps stays under the budget. Core tools are always sent in full; an install under the budget is unchanged.
+
+## [0.3.1] - 2026-11-24
+
+Apps can declare their own custom fields and write a person's extra emails, phones, links and addresses.
+
+### Added
+
+- Apps can declare the custom fields they own on people, organizations or their own records (`fields.py`). Core creates them at boot, Settings → Records → Custom fields shows which app each belongs to, and an admin can hide or reorder one but not relabel it. A field the app stops declaring is archived with its values.
+- `contacts.api` publishes `add_/update_/delete_channel` and `add_/update_/delete_address`, so an app can give a person a second email, more phone numbers, links and addresses.
+
+### Schema
+
+- Added: `core_field_definitions.owner_app` (TEXT), `core_field_definitions.retired_at` (TEXT) and `core_field_definitions.retire_archived` (INTEGER, default 0), for fields an app declares.
+
 ## [0.3.0] - 2026-11-23
 
 People can get their own setup link from the sign-in page, and an admin can let whole email domains or listed addresses create their own accounts.
