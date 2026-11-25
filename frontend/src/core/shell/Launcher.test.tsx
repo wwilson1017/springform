@@ -1,4 +1,4 @@
-import { act, render, screen } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { CoreApp, User } from '../api/types';
@@ -18,15 +18,16 @@ const app = (slug: string, extra: Partial<CoreApp> = {}): CoreApp => ({
   order: 1,
   badge: null,
   hidden: false,
+  folder: null,
   settings_cards: [],
   version: '0.1.0',
   ...extra,
 });
 
-function renderLauncher(role: User['role'], apps: CoreApp[], extra = {}) {
+function renderLauncher(role: User['role'], apps: CoreApp[], extra = {}, at = '/') {
   const fetchMock = mockFetch({ 'GET /api/me': { body: user(role) }, 'GET /api/core/apps': { body: apps }, ...extra });
   render(
-    <MemoryRouter>
+    <MemoryRouter initialEntries={[at]}>
       <AuthProvider>
         <CoreAppsProvider>
           <Launcher />
@@ -87,6 +88,76 @@ describe('Launcher', () => {
       vi.advanceTimersByTime(60_000);
     });
     expect(badgeCalls()).toBe(3);
+  });
+});
+
+describe('Launcher stars', () => {
+  const ten = Array.from({ length: 10 }, (_, i) => app(`app${i}`));
+  const appOrder = () => screen.getAllByRole('link').map((a) => a.getAttribute('aria-label'));
+
+  afterEach(() => localStorage.clear());
+
+  it('shows no stars on a board under 10 tiles, and ignores saved ones', async () => {
+    localStorage.setItem('springform.launcher.starred.1', '["beta"]');
+    renderLauncher('admin', [app('alpha'), app('beta')]);
+    await screen.findByRole('link', { name: 'Alpha' });
+    expect(screen.queryByRole('button', { name: /star/i })).toBeNull();
+    expect(appOrder()).toEqual(['Alpha', 'Beta']);
+  });
+
+  it('moves a starred app to the top and remembers it per user', async () => {
+    renderLauncher('admin', ten);
+    await screen.findByRole('link', { name: 'App0' });
+    expect(appOrder()[0]).toBe('App0');
+    act(() => screen.getByRole('button', { name: 'Star App7' }).click());
+    expect(appOrder().slice(0, 2)).toEqual(['App7', 'App0']);
+    expect(screen.getByRole('button', { name: 'Unstar App7' }).getAttribute('aria-pressed')).toBe('true');
+    expect(localStorage.getItem('springform.launcher.starred.1')).toBe('["app7"]');
+    act(() => screen.getByRole('button', { name: 'Unstar App7' }).click());
+    expect(appOrder().slice(0, 2)).toEqual(['App0', 'App1']);
+  });
+});
+
+describe('Launcher folders', () => {
+  const filed = [
+    app('alpha'),
+    app('sales', { folder: 'Dashboards' }),
+    app('beta'),
+    app('ops', { folder: 'Dashboards' }),
+  ];
+  const labels = () => screen.getAllByRole('link').map((a) => a.getAttribute('aria-label'));
+
+  it('shows one folder tile where its first app falls, with the badges added up', async () => {
+    renderLauncher(
+      'admin',
+      filed.map((a) => (a.folder ? { ...a, badge: `/api/${a.slug}/badge` } : a)),
+      {
+        'GET /api/sales/badge': { body: { count: 2 } },
+        'GET /api/ops/badge': { body: { count: 1 } },
+      },
+    );
+    await screen.findByRole('link', { name: 'Alpha' });
+    expect(labels()).toEqual(['Alpha', 'Dashboards folder', 'Beta']);
+    const folder = screen.getByRole('link', { name: 'Dashboards folder' });
+    expect(folder.getAttribute('href')).toBe('/?folder=Dashboards');
+    await waitFor(() => expect(folder.textContent).toContain('3'));
+  });
+
+  it('opens a folder from the URL, showing only its apps and a way back', async () => {
+    renderLauncher('admin', filed, {}, '/?folder=Dashboards');
+    await screen.findByRole('link', { name: 'Sales' });
+    expect(screen.getByRole('heading', { name: 'Dashboards' })).toBeTruthy();
+    expect(labels()).toEqual([null, 'Sales', 'Ops']); // the ← Apps link has no aria-label
+    expect(screen.getByRole('link', { name: '← Apps' }).getAttribute('href')).toBe('/');
+  });
+
+  it('shows a starred app at the top level as well as in its folder', async () => {
+    localStorage.setItem('springform.launcher.starred.1', '["ops"]');
+    const many = [...filed, ...Array.from({ length: 6 }, (_, i) => app(`app${i}`))];
+    renderLauncher('admin', many);
+    await screen.findByRole('link', { name: 'Ops' });
+    expect(labels().slice(0, 3)).toEqual(['Ops', 'Alpha', 'Dashboards folder']);
+    localStorage.clear();
   });
 });
 

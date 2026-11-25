@@ -50,6 +50,7 @@ def test_apps_listing_by_role_and_hidden_state(login_as):
         "order",
         "badge",
         "hidden",
+        "folder",
         "settings_cards",
         "version",
     }

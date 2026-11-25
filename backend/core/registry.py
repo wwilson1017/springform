@@ -335,7 +335,7 @@ def agent_guidance(user: User) -> str:
 
 def list_for_user(user: User) -> list[dict]:
     """The launcher's apps for this user. Admins also get hidden apps, marked hidden."""
-    state = {r["slug"]: r for r in db.rows("SELECT slug, hidden, position FROM core_apps_state")}
+    state = {r["slug"]: r for r in db.rows("SELECT slug, hidden, position, folder FROM core_apps_state")}
     out = []
     for app in _APPS:
         m = app.manifest
@@ -353,6 +353,7 @@ def list_for_user(user: User) -> list[dict]:
                 "order": m.order,
                 "badge": m.badge,
                 "hidden": hidden,
+                "folder": state.get(m.slug, {}).get("folder"),
                 "settings_cards": [c.model_dump() for c in m.settings_cards if user.is_admin or not c.admin_only],
                 "version": m.version,
                 "_position": state.get(m.slug, {}).get("position"),

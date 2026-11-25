@@ -33,6 +33,24 @@ def test_hide_is_persisted_and_hides_the_tile_from_members_only(login_as):
     assert member.patch("/api/core/apps/example", json={"hidden": True}).status_code == 403
 
 
+def test_folder_is_shared_and_blank_clears_it(login_as):
+    admin, member = login_as("admin"), login_as("member")
+
+    def folder(client):
+        return next(a for a in client.get("/api/core/apps").json() if a["slug"] == "example")["folder"]
+
+    assert folder(member) is None
+    r = admin.patch("/api/core/apps/example", json={"folder": "  Dashboards "})
+    assert r.status_code == 200, r.text
+    assert folder(member) == "Dashboards"
+    admin.patch("/api/core/apps/example", json={"hidden": True})
+    assert folder(admin) == "Dashboards"  # hiding keeps the folder
+    admin.patch("/api/core/apps/example", json={"folder": ""})
+    assert folder(admin) is None
+    assert admin.patch("/api/core/apps/example", json={"folder": "x" * 41}).status_code == 422
+    assert member.patch("/api/core/apps/example", json={"folder": "Mine"}).status_code == 403
+
+
 def test_order_is_persisted_and_applies_to_everyone(login_as, two_apps):
     admin, member = login_as("admin"), login_as("member")
     assert _slugs(member) == ["zeta", "example"]  # manifest order

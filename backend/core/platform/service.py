@@ -75,7 +75,7 @@ def workspace() -> dict:
     }
 
 
-# ── Apps: hide and order ──────────────────────────────────────────────────────
+# ── Apps: hide, folder and order ──────────────────────────────────────────────────────
 
 
 def set_hidden_in(conn: db.Conn, slug: str, hidden: bool) -> None:
@@ -90,6 +90,21 @@ def set_hidden_in(conn: db.Conn, slug: str, hidden: bool) -> None:
 def set_hidden(slug: str, hidden: bool) -> None:
     with db.transaction() as conn:
         set_hidden_in(conn, slug, hidden)
+
+
+def set_folder_in(conn: db.Conn, slug: str, folder: str) -> None:
+    """File the app under a launcher folder for everyone; a blank name puts it back at the top level."""
+    registry.get_app(slug)
+    conn.execute(
+        """INSERT INTO core_apps_state (slug, folder) VALUES (?, ?)
+           ON CONFLICT (slug) DO UPDATE SET folder = excluded.folder""",
+        (slug, folder.strip() or None),
+    )
+
+
+def set_folder(slug: str, folder: str) -> None:
+    with db.transaction() as conn:
+        set_folder_in(conn, slug, folder)
 
 
 def set_order_in(conn: db.Conn, slugs: list[str]) -> None:

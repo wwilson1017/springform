@@ -5,7 +5,7 @@ in main.py; this adds the admin writes beside it. Function names carry their are
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from backend.core import registry
 from backend.core.auth.deps import User, current_user, require_admin
@@ -25,6 +25,7 @@ class SettingsIn(BaseModel):
 
 class AppPatch(BaseModel):
     hidden: bool | None = None
+    folder: str | None = Field(None, max_length=40)  # "" takes the app out of its folder
 
 
 class AppOrder(BaseModel):
@@ -60,6 +61,8 @@ def apps_patch(slug: str, body: AppPatch, user: User = Depends(require_admin)) -
     registry.get_app(slug)
     if body.hidden is not None:
         service.set_hidden(slug, body.hidden)
+    if body.folder is not None:
+        service.set_folder(slug, body.folder)
     return registry.list_for_user(user)
 
 

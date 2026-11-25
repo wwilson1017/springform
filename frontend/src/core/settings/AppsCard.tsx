@@ -13,7 +13,8 @@ const arrowClass =
   'cursor-pointer rounded border border-sf-line-strong bg-transparent px-2 py-1 text-xs text-sf-ink-mute hover:bg-sf-hover disabled:cursor-default disabled:opacity-40';
 
 /**
- * Installed apps in launcher order. Admins hide, show and reorder them; members see the list.
+ * Installed apps in launcher order. Admins hide, show, reorder and file them into launcher folders;
+ * members see the list.
  * Each write answers with the admin's new app list, shown at once, and reloads the shared list so
  * the header and launcher follow.
  */
@@ -49,6 +50,12 @@ export function AppsCard() {
     }
   }
 
+  /** Saves a folder name when it changed; a blank one takes the app out of its folder. */
+  function fileUnder(app: CoreApp, value: string) {
+    if (value.trim() !== (app.folder ?? ''))
+      void write(patchJson<CoreApp[]>(`/api/core/apps/${app.slug}`, { folder: value }));
+  }
+
   function move(index: number, by: -1 | 1) {
     const slugs = list!.map((a) => a.slug);
     [slugs[index], slugs[index + by]] = [slugs[index + by], slugs[index]];
@@ -64,6 +71,7 @@ export function AppsCard() {
             <span className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
               <span className="text-sf-ink">{app.name}</span>
               {app.hidden && <span className={chipClass}>Hidden</span>}
+              {!isAdmin && app.folder && <span className={chipClass}>{app.folder}</span>}
               {app.badge && (
                 <span className={chipClass} title={`Launcher badge from ${app.badge}`}>
                   Badge
@@ -72,6 +80,18 @@ export function AppsCard() {
             </span>
             {isAdmin && (
               <span className="flex items-center gap-1.5">
+                <input
+                  key={app.folder ?? ''}
+                  defaultValue={app.folder ?? ''}
+                  placeholder="No folder"
+                  aria-label={`Folder for ${app.name}`}
+                  list="launcher-folders"
+                  maxLength={40}
+                  disabled={busy}
+                  onBlur={(e) => fileUnder(app, e.currentTarget.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
+                  className="box-border w-32 rounded-md border border-sf-line-strong bg-sf-card px-2 py-1 text-xs text-sf-ink placeholder:text-sf-ink-dim"
+                />
                 <button
                   type="button"
                   aria-label={`Move ${app.name} up`}
@@ -106,6 +126,11 @@ export function AppsCard() {
           </li>
         ))}
       </ul>
+      <datalist id="launcher-folders">
+        {[...new Set(list.map((a) => a.folder).filter(Boolean))].map((f) => (
+          <option key={f} value={f!} />
+        ))}
+      </datalist>
       {!!links.data?.length && (
         <>
           <h3 className="mb-0 mt-5 text-sm font-medium text-sf-ink-soft">Links</h3>
@@ -136,7 +161,9 @@ export function AppsCard() {
       {isAdmin && (
         <p className="mb-0 mt-4 text-xs text-sf-ink-dim">
           A hidden app leaves members' launcher and navigation; admins still see it, marked hidden. The order here is
-          the launcher's order for everyone. Links open another site in a new tab.
+          the launcher's order for everyone. Type a folder name to file an app into a launcher folder; apps with the
+          same name share one folder, and clearing it puts the app back on the main board. Links open another site in a
+          new tab.
         </p>
       )}
     </div>

@@ -101,6 +101,13 @@ export function IconGrid(p: IconProps) {
     </Ico>
   );
 }
+export function IconFolder(p: IconProps) {
+  return (
+    <Ico {...p}>
+      <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+    </Ico>
+  );
+}
 export function IconSliders(p: IconProps) {
   return (
     <Ico {...p}>
@@ -248,6 +255,7 @@ const APP_ICONS: Record<string, ComponentType<IconProps>> = {
   settings: IconSliders,
   bell: IconBell,
   grid: IconGrid,
+  folder: IconFolder,
 };
 
 export function AppIcon({ name, ...props }: IconProps & { name: string }) {

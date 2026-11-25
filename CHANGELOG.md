@@ -18,6 +18,11 @@ Conventions:
 
 ## [Unreleased]
 
+### Added
+
+- Star an app on the launcher to keep it at the top. Stars appear once the board has 10 or more tiles and are remembered per browser.
+- Launcher folders: an admin types a folder name for an app in Settings, Apps, and apps with the same name share one folder tile on everyone's launcher.
+
 ### Changed
 
 - Whisk moves app tools to the `core_find_tools` catalog when the prompt plus every tool definition would pass the prompt budget (14,000 tokens), not only past 100 tools, so a fork with a few extra apps stays under the budget. Core tools are always sent in full; an install under the budget is unchanged.
