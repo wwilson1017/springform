@@ -35,6 +35,8 @@ scripts/seed-labels.sh --repo owner/n  # an explicit repo
 | `awaiting-answer` | Parked: waiting on a human answer to a design question. |
 | `bug` | Something is broken. |
 | `enhancement` | A new capability or improvement. |
+| `request` | Filed from the install's Requests page or by Whisk (`core/requests`). |
+| `needs-spec` | A request Whisk filed with open questions; answer them before building it. |
 | `dependencies` | A Dependabot PR (`.github/dependabot.yml` sets it). |
 | `app:<slug>` | The issue or PR concerns that app (one label per `backend/apps/*/app.json`). |
 
