@@ -177,7 +177,8 @@ def exercise(app, login_as, monkeypatch) -> dict[str, httpx.Response]:
     hit(admin, "DELETE", "/api/core/backups/destination")
     hit(admin, "PUT", "/api/core/sheets/credentials", json={"service_account_json": _service_account()})
     hit(admin, "GET", "/api/core/sheets/credentials")
-    sheet_id = hit(admin, "GET", "/api/core/sheets")[0]["id"]
+    sheets = hit(admin, "GET", "/api/core/sheets")
+    sheet_id = next(s["id"] for s in sheets if (s["app"], s["name"]) == ("example", "widgets"))
     hit(
         admin,
         "PATCH",
