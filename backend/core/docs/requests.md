@@ -12,6 +12,8 @@ order: 70
 
 Your request becomes an issue in this install's GitHub project, labelled with the app, where the people who maintain the install pick it up. Your name and the app are added at the top.
 
+You can also ask {agent_name} to file it. It checks the board for the same request first, asks what it needs to know, and shows you the draft with an **Approve** button; nothing is sent until you approve. Its requests also say they came through {agent_name} and which version of the install you are on.
+
 ## The warning on the form
 
 The form shows a short warning chosen by your admin. It is there because requests leave this install and are read by the people who maintain it. Leave out passwords, card numbers and private customer details; describe the problem instead.

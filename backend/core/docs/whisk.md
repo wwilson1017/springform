@@ -7,6 +7,10 @@ order: 50
 
 {agent_name} is the built-in assistant. It can look things up across your apps and the people directory, answer questions about your records, and make changes when you ask, such as adding a note or creating a record. {agent_name} sees only what you are allowed to see.
 
+## How this install works
+
+Ask {agent_name} how a feature or app works and it reads this install's own code and help pages, the version you are running, then explains it in plain words. It can also file a bug or a feature request for you on the **Requests** board (see Requests); it asks questions until the request is clear, and you approve the draft before it is sent.
+
 ## AI keys
 
 {agent_name} needs an AI provider key, which an admin adds in **Settings → AI**. Keys are stored encrypted.

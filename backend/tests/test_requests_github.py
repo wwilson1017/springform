@@ -5,7 +5,7 @@ from types import SimpleNamespace
 import httpx
 import pytest
 
-from backend.core import db as core_db, scheduler
+from backend.core import VERSION, db as core_db, scheduler
 from backend.core.requests import github, jobs
 
 REPO = "acme/ops"
@@ -65,7 +65,9 @@ def test_create_files_a_labelled_issue_and_stores_the_row(login_as, gh):
     }  # fmt: skip
     sent = json.loads(gh.calls[0].content)
     assert sent["labels"] == ["request", "app:example"]
-    assert sent["body"] == f"**Requested by:** {member.user['name']}\n**App:** Example (`example`)\n\nOn the list."
+    assert sent["body"] == (
+        f"**Requested by:** {member.user['name']}\n**App:** Example (`example`)\n**Version:** {VERSION}\n\nOn the list."
+    )
     assert member.get("/api/core/requests").json() == [row]
 
     core = member.post("/api/core/requests", json={"title": "Faster sign-in"}).json()

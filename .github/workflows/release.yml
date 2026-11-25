@@ -80,5 +80,6 @@ jobs:
           docker build \
             --label "org.opencontainers.image.source=$GITHUB_SERVER_URL/$GITHUB_REPOSITORY" \
             --label "org.opencontainers.image.version=$GITHUB_REF_NAME" \
+            --build-arg "SOURCE_COMMIT=$GITHUB_SHA" \
             "${tags[@]/#/--tag=}" .
           for tag in "${tags[@]}"; do docker push "$tag"; done
