@@ -43,12 +43,15 @@ MAX_REJECTED_LISTED = 30
 MAX_TOKENS = 8_192  # three bodies plus headroom: thinking counts against max_tokens
 TIER = "default"  # judgement work, one call per ten finished turns, and the job is opt-in
 # A done run that names no record passes only for these tools, whose results any member may read:
-# a remembered fact, a context file's metadata after a write, an approved skill. Any other run naming
-# nothing (a search of the user's other conversations, their reminders, a count over records they
+# a remembered fact, a context file's metadata after a write, an approved skill, the install's code.
+# Any other run naming nothing (a search of the user's other conversations, their reminders, a count over records they
 # can see, a read of a context file or memory search that may return admin-only soul.md or
 # MEMORY.md) has nothing the recheck could test, so its conversation is skipped: fail closed, since
 # a reply may restate the result.
-SHARED_RESULTS = frozenset({"core_memory_remember", "core_context_file_write", "core_skill_load"})
+SHARED_RESULTS = frozenset({
+    "core_memory_remember", "core_context_file_write", "core_skill_load",
+    "core_code_search", "core_code_list", "core_code_read",  # the install's own source, shared by all
+})  # fmt: skip
 
 SYSTEM_PROMPT = """\
 You review conversations between the staff of a small business and its assistant, and decide \
