@@ -20,13 +20,14 @@ These are the only steps a person does.
 
 ## Agent steps
 
-Use `curl` and `jq`. Never print a secret: pass it from one command to the next through shell variables or a file only you can read (`umask 077`). Set:
+Use `curl` and `jq`. Never print a secret: pass it from one command to the next through shell variables or files only you can read. In one shell, set:
 
 ```bash
 SF=https://crm.example.com          # the install, no trailing slash
 CF_ACCOUNT=<account id>  CF_TOKEN=<Cloudflare token>
 BUCKET=<install name>-springform-backups   # lowercase, digits, hyphens; 3-63 chars
 CF=https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT
+umask 077                            # every file below (cookie jar, token) is readable only by you
 ```
 
 **1. Sign in to Springform.** With the invite link `$SF/invite/<token>`:
@@ -57,7 +58,6 @@ curl -sS "$CF/r2/buckets" -H "Authorization: Bearer $CF_TOKEN" -H 'Content-Type:
 ```bash
 PG=$(curl -sS "$CF/tokens/permission_groups" -H "Authorization: Bearer $CF_TOKEN" \
   | jq -r '.result[] | select(.name=="Workers R2 Storage Bucket Item Write") | .id')
-umask 077
 curl -sS "$CF/tokens" -H "Authorization: Bearer $CF_TOKEN" -H 'Content-Type: application/json' \
   -d "$(jq -n --arg pg "$PG" --arg r "com.cloudflare.edge.r2.bucket.${CF_ACCOUNT}_default_$BUCKET" \
      '{name:"springform-backups", policies:[{effect:"allow", permission_groups:[{id:$pg}], resources:{($r):"*"}}]}')" \
