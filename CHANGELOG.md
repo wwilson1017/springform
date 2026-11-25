@@ -29,6 +29,8 @@ Conventions:
 
 ### Fixed
 
+- Settings, GTD suite: a code approval that lands just after Cancel no longer shows the suite as
+  connected.
 - A request that fails validation (422) no longer includes FastAPI's `input` field, which echoed
   the submitted values (a secret or password among them) back in the error.
 
