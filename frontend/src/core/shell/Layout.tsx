@@ -6,6 +6,7 @@ import { useIsMobile } from '../../shared/useIsMobile';
 import { useCoreApps } from '../apps/CoreAppsContext';
 import { navItems } from '../apps/registry';
 import { useAuth } from '../auth/AuthContext';
+import { OffsiteWarning } from '../backups/OffsiteWarning';
 import BootFallback from '../components/BootFallback';
 import ChunkErrorBoundary from '../components/ChunkErrorBoundary';
 import { NotificationBell } from '../records/NotificationBell';
@@ -100,6 +101,7 @@ export function Layout() {
           onSignOut={() => void signOut()}
         />
       )}
+      <OffsiteWarning isAdmin={isAdmin} />
       <main className="flex-1">
         <ChunkErrorBoundary scope="route" resetKey={location.pathname}>
           <Suspense fallback={<BootFallback variant="panel" />}>

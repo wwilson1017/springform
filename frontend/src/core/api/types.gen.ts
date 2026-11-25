@@ -992,6 +992,41 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/core/backups/destination": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Save Destination */
+        put: operations["core_save_destination"];
+        post?: never;
+        /** Clear Destination */
+        delete: operations["core_clear_destination"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/core/backups/destination/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Test Destination */
+        post: operations["core_test_destination"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/core/backups/key": {
         parameters: {
             query?: never;
@@ -1004,6 +1039,24 @@ export interface paths {
         /** Show Key */
         post: operations["core_show_key"];
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/core/backups/passphrase": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Set Passphrase */
+        put: operations["core_set_passphrase"];
+        post?: never;
+        /** Clear Passphrase */
+        delete: operations["core_clear_passphrase"];
         options?: never;
         head?: never;
         patch?: never;
@@ -1033,7 +1086,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Download Backup */
+        /**
+         * Download Backup
+         * @description The snapshot; with a backup passphrase, an age-encrypted copy named `<stamp>.sqlite.age`.
+         */
         get: operations["core_download_backup"];
         put?: never;
         post?: never;
@@ -4087,6 +4143,7 @@ export interface components {
             /** Last Backup At */
             last_backup_at: string | null;
             last_run: components["schemas"]["BackupRun"] | null;
+            offsite: components["schemas"]["Offsite"];
             /** Sets */
             sets: components["schemas"]["BackupSet"][];
         };
@@ -5054,6 +5111,35 @@ export interface components {
             /** Deleted */
             deleted: number;
         };
+        /**
+         * DestinationIn
+         * @description `secret_key` is write-only; leave it out to keep the stored one.
+         */
+        DestinationIn: {
+            /** Access Key Id */
+            access_key_id: string;
+            /** Bucket */
+            bucket: string;
+            /** Endpoint */
+            endpoint: string;
+            /**
+             * Prefix
+             * @default
+             */
+            prefix: string;
+            /**
+             * Region
+             * @default us-east-1
+             */
+            region: string;
+            /**
+             * Retention
+             * @default 30
+             */
+            retention: number;
+            /** Secret Key */
+            secret_key?: string | null;
+        };
         /** DuplicateGroup */
         DuplicateGroup: {
             /** Count */
@@ -5903,6 +5989,40 @@ export interface components {
             /** Title */
             title: string;
         };
+        /**
+         * Offsite
+         * @description The off-site copy: the destination minus its secret, and how the last upload went.
+         *     `unreadable`: the stored settings cannot be decrypted (the encryption key changed).
+         *     `stale`: configured, and no good upload in more than 48 hours.
+         */
+        Offsite: {
+            /** Access Key Id */
+            access_key_id: string | null;
+            /** Bucket */
+            bucket: string | null;
+            /** Configured */
+            configured: boolean;
+            /** Encrypted */
+            encrypted: boolean;
+            /** Endpoint */
+            endpoint: string | null;
+            /** Last Error */
+            last_error: string | null;
+            /** Last Success At */
+            last_success_at: string | null;
+            /** Last Success Bytes */
+            last_success_bytes: number | null;
+            /** Prefix */
+            prefix: string | null;
+            /** Region */
+            region: string | null;
+            /** Retention */
+            retention: number | null;
+            /** Stale */
+            stale: boolean;
+            /** Unreadable */
+            unreadable: boolean;
+        };
         /** Ok */
         Ok: {
             /** Ok */
@@ -6069,6 +6189,11 @@ export interface components {
             recent_activity: components["schemas"]["Activity"][];
             /** Won Value Cents */
             won_value_cents: number;
+        };
+        /** PassphraseIn */
+        PassphraseIn: {
+            /** Passphrase */
+            passphrase: string;
         };
         /** PasswordIn */
         PasswordIn: {
@@ -9543,6 +9668,79 @@ export interface operations {
             };
         };
     };
+    core_save_destination: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DestinationIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Offsite"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    core_clear_destination: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Offsite"];
+                };
+            };
+        };
+    };
+    core_test_destination: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Ok"];
+                };
+            };
+        };
+    };
     core_show_key: {
         parameters: {
             query?: never;
@@ -9559,6 +9757,59 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["KeyReveal"];
+                };
+            };
+        };
+    };
+    core_set_passphrase: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PassphraseIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Offsite"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    core_clear_passphrase: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Offsite"];
                 };
             };
         };

@@ -3,6 +3,7 @@ import { MemoryRouter } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { mockFetch } from '../../testing';
 import BackupsPage from './BackupsPage';
+import { offsite } from './testFixtures';
 import type { BackupsOverview } from './types';
 
 afterEach(() => vi.unstubAllGlobals());
@@ -14,6 +15,7 @@ const overview = (extra: Partial<BackupsOverview> = {}): BackupsOverview => ({
   key_source: 'env',
   key_shown: false,
   key_mismatch: null,
+  offsite: offsite(),
   ...extra,
 });
 

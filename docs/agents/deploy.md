@@ -155,7 +155,7 @@ Lifted from CakeCRM `core/secret_store.py` (minus keychain) and `core/encryption
    - the list of blob sha256s referenced by the blob holders (`core_files`, `core_agent_uploads`) at snapshot time;
    - the encryption-key fingerprint;
    - the Springform version.
-3. Keep the newest **7** sets.
+3. Keep the newest **7** sets. Before the manifest, `PRAGMA quick_check` runs on the snapshot. A snapshot that fails it is an `error` run, never a set, and is never uploaded.
 4. Skip the run, recorded as `skipped` in `core_backups`, when free space is below the database file's size plus **100 MB**.
 5. Never raise.
 6. Log to `core_backups`.
@@ -169,18 +169,61 @@ core_backups(id, started_at, finished_at, status CHECK (status IN ('running','ok
 Backups API (admin only):
 
 ```
-GET  /api/core/backups                    -> {sets, last_backup_at, last_run, key_source, key_shown, key_mismatch}
-POST /api/core/backups/run                -> 202 the core_backups row; 409 backup_in_progress
-POST /api/core/backups/key                -> {key_source, key?, fingerprint}; 410 key_already_shown
-GET  /api/core/backups/{stamp}/download   -> the snapshot file
-GET  /api/core/backups/{stamp}/manifest   -> the manifest JSON
+GET    /api/core/backups                    -> {sets, last_backup_at, last_run, key_source, key_shown, key_mismatch, offsite}
+POST   /api/core/backups/run                -> 202 the core_backups row (after the off-site copy); 409 backup_in_progress
+POST   /api/core/backups/key                -> {key_source, key?, fingerprint}; 410 key_already_shown
+GET    /api/core/backups/{stamp}/download   -> the snapshot; with a passphrase <stamp>.sqlite.age; 409 offsite_config_unreadable
+GET    /api/core/backups/{stamp}/manifest   -> the manifest JSON
+PUT    /api/core/backups/destination        {endpoint, bucket, region="us-east-1", prefix="", access_key_id, secret_key?, retention=30} -> offsite
+DELETE /api/core/backups/destination        -> offsite (the passphrase stays)
+POST   /api/core/backups/destination/test   -> {ok: true}; 502 with the storage service's refusal
+PUT    /api/core/backups/passphrase         {passphrase (8+ chars)} -> offsite
+DELETE /api/core/backups/passphrase         -> offsite
 ```
+
+`offsite` is `{configured, unreadable, endpoint, bucket, region, prefix, access_key_id, retention, encrypted, last_success_at, last_success_bytes, last_error, stale}`. It never holds the secret or the passphrase. `stale` is true when a destination is set and there has been no good upload in 48 hours, counted from when the destination was saved if there has never been one.
 
 ### Blob pinning
 
 **A blob is never deleted while any retained manifest lists it.** The file sweep reads the manifests (`records.md` §2), so every retained set restores whole. Pruning a set is what releases its blobs.
 
-### Off-site
+### Off-site, in the app (`backup/offsite.py`)
+
+An admin sets an S3-compatible bucket on the Backups page. Any provider works: AWS S3, Cloudflare R2 (region `auto`), Backblaze B2, MinIO. The client (`backup/s3.py`) signs its own SigV4 PUT, GET, DELETE and LIST requests, with no SDK.
+
+1. **When.** `service.run` calls `offsite.upload` under the same guard after every good set, outside any transaction, so both the 03:00 job and "Back up now" upload.
+   - Back up now waits for the upload inside its request (a marked simplification).
+   - The job's timeout is 3600 s, and it checks its cancel event between objects.
+   - An interrupted copy resumes on the next run, because blobs already in the bucket are skipped.
+2. **Layout.** The bucket mirrors the volume, so a downloaded copy restores with `restore.py` unchanged. Objects go up **in this order**: `<prefix>files/<aa>/<sha>`, then `<prefix>backups/<stamp>.sqlite`, then `<prefix>backups/<stamp>.manifest.json`. A remote set is complete once its manifest is there. Blobs are content-addressed and uploaded once.
+3. **Missing blobs.** The copy stops before the snapshot when the manifest lists a blob that is neither on this volume nor already in the bucket. Nothing is published, nothing is pruned, and the error is recorded, so a set that restore would refuse never reaches the bucket.
+4. **Passphrase.** With a backup passphrase, every object is age-encrypted (scrypt recipient, `backup/age.py`) and ends in `.age`, the manifest included.
+   - Encrypted objects go under their own root, `<prefix>age-<generation>/`, with the same layout inside.
+   - Every `PUT /passphrase` starts a new random generation. A changed passphrase therefore never overwrites an attachment that an older retained set, encrypted with the old passphrase, still needs.
+   - The download route encrypts too, serving `<stamp>.sqlite.age` from a temporary file that is deleted after the response.
+   - Sets on the volume stay plain, because restore reads them.
+5. **Prune.** It works from the bucket's own listing, never from local state. It keeps the newest `retention` complete sets across every root and deletes the objects of all the others, manifest first. Then, per root:
+   - **A root with no retained set** loses all its blobs.
+   - **The plain root and the current generation's root** keep only the blobs their retained manifests list. Each manifest is read back, decrypted and validated; one that is unreadable or malformed leaves that root's blobs alone (fail closed).
+   - **An older generation's root with a retained set** keeps every blob until its sets age out, because its passphrase is no longer known.
+
+   Only stamp-shaped and blob-shaped names are ever deleted.
+6. **Never the key.** The upload touches only `files/` and `backups/`. `.encryption-key` and `ENCRYPTION_KEY` never go to the bucket: keep the key apart from it.
+7. **Storage.** The destination, its secret and the passphrase are one secret `core_settings` row, `backups.offsite_config`. Outcomes go to the plain row `backups.offsite`, and a run records its outcome only if the config is unchanged since it started.
+   - When the install key cannot decrypt the config row, it is reported as `unreadable`, never taken for "no passphrase".
+   - The upload is then skipped and the download answers 409.
+   - The page and the banner say to set the destination again.
+8. **Visibility.** The Backups page shows the last good upload (time and size) and the last error. For admins, `OffsiteWarning` in the Layout shows a banner on every page when the copy is stale, failing or unreadable.
+
+Simplifications:
+
+- One PUT per object, so about 5 GB at most per object. Upgrade path: CakeCRM's multipart `put_file`.
+- One scrypt per encrypted object at age's work factor 18, about a second each, so a first encrypted copy of many attachments is slow.
+- Retained remote manifests are read again on every prune.
+
+### Off-site, on the host (rclone)
+
+The in-app copy replaces this for most installs. If both run, retire the cron (`sudo crontab -e`) or point it at another bucket or prefix. `offsite.sh` copies `.encryption-key` next to the sets, so it must never write into the app's prefix. Delete any key file it already left there.
 
 `deploy/setup.sh` offers a nightly cron on the host, at 04:00 server time, that runs `deploy/offsite.sh <rclone-remote:path>`. Each run copies the newest set from `/srv/springform/data/backups`, **in order**: the whole `files/` directory, then the snapshot, then its manifest (so a remote set is complete when its manifest is present), then the volume's `.encryption-key` if it exists. The remote keeps every set and blob (a marked simplification).
 
@@ -210,6 +253,28 @@ sudo docker compose up -d app        # entrypoint.sh gives the restored files to
 ```
 
 If the restore refuses, `data/` is still empty: `sudo rmdir data && sudo mv data.before-restore data` puts the old one back. Restoring from the off-site copy works the same way: `rclone copy <remote:path> <dir>` gives `<dir>/backups/` and `<dir>/files/`, so mount `<dir>` as `/restore-from`. On a new server, first put the old `.env`'s `ENCRYPTION_KEY` and `SECRET_KEY` into the new `.env`: `setup.sh` generated fresh ones, and the restore refuses the new key.
+
+### Restoring from the bucket (in-app off-site copy)
+
+The backup does not hold the encryption key. Use the key you kept apart, or `ENCRYPTION_KEY` from the old `.env`.
+
+1. **Fetch** the root that holds the set into one directory, with any S3 tool: `<prefix>` for a plain set, `<prefix>age-<generation>/` for an encrypted one. For example, `rclone copy r2:bucket/<root> ./pulled` gives `./pulled/backups/` and `./pulled/files/`.
+2. **Decrypt** an encrypted set with [age](https://age-encryption.org) (`apt install age`) and the passphrase alone. Each `x.age` becomes `x` beside it, and the `.age` files can stay. age asks for the passphrase once per file:
+   ```bash
+   find ./pulled -name '*.age' -exec sh -c 'age -d -o "${1%.age}" "$1"' _ {} \;
+   ```
+   For many attachments, one pass with pyrage (`pip install pyrage`) asks once:
+   ```bash
+   read -rs PASS; export PASS
+   python3 -c 'import os, pathlib, pyrage
+   for p in pathlib.Path("pulled").rglob("*.age"): p.with_suffix("").write_bytes(pyrage.passphrase.decrypt(p.read_bytes(), os.environ["PASS"]))'
+   ```
+3. **Restore** with the module as above, mounting `./pulled` as `/restore-from`: `-m backend.core.backup.restore /restore-from/backups/<stamp>.manifest.json /data`, with `--key-file` unless `ENCRYPTION_KEY` is set.
+4. **Keep a drill copy away from the production bucket.** The restored database holds the destination, and its 03:00 job would upload into the production prefix and prune it. Before a drill copy's first boot, remove the setting:
+   ```bash
+   sqlite3 <target>/springform.sqlite "DELETE FROM core_settings WHERE key IN ('backups.offsite_config', 'backups.offsite')"
+   ```
+   A real restore onto a new server keeps the destination.
 
 Only the restore refuses a wrong key. A data directory copied by hand boots with a wrong `ENCRYPTION_KEY` and serves: every stored credential then reads as unset (the Whisk provider shows a key but "not configured"). The boot does notice: `backup/startup.py` compares the key's fingerprint with the newest manifest under `/data/backups`, and on a mismatch logs an ERROR with the remedy and stores the manifest's filename in the internal `core_settings` row `backups.key_mismatch` (cleared on the next boot that matches, or when there is no backup). It never refuses to boot, so an install whose key is lost can still be recovered. The Backups overview (`GET /api/core/backups`, admin only) returns that filename as `key_mismatch` (null when the keys match), and the public `/api/health` reports only `key_mismatch: true` or `false`. So restore through the module, never by copying files.
 
