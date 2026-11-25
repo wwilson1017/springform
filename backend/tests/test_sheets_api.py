@@ -65,9 +65,10 @@ def stub(monkeypatch):
 @pytest.fixture
 def admin(app, login_as):
     startup.on_startup()
-    # A fork's own app may declare sheets too; these tests must hold with one present.
+    # A fork's own app may declare sheets too; these tests must hold with one present. Its slug
+    # sorts before "example", so a read that takes the first listed sheet fails here.
     with core_db.transaction() as conn:
-        service.seed_in(conn, [("forkapp", registry.Sheet(name="x", mode="read"))])
+        service.seed_in(conn, [("afork", registry.Sheet(name="x", mode="read"))])
     return login_as("admin")
 
 
@@ -147,9 +148,7 @@ def test_seeding_from_manifests_is_idempotent_and_keeps_admin_settings(admin):
     assert [(s["id"], s["configured"], s["fetched_at"]) for s in listed if s["app"] == "example"] == [
         (sheet_id, True, None)
     ]
-    assert [(s["app"], s["name"], s["configured"]) for s in listed if s["app"] != "example"] == [
-        ("forkapp", "x", False)
-    ]
+    assert [(s["app"], s["name"], s["configured"]) for s in listed if s["app"] != "example"] == [("afork", "x", False)]
 
 
 def test_patch_accepts_a_sheet_url_validates_and_repointing_drops_the_cache(admin, stub):
@@ -206,7 +205,7 @@ def test_failed_refresh_records_last_error_keeps_the_cache_and_returns_502(admin
     freeze("2026-11-02T09:05:00Z")
     r = admin.post(f"/api/core/sheets/{sheet_id}/refresh")
     assert r.status_code == 502 and "403" in r.json()["detail"]
-    sheet = admin.get("/api/core/sheets").json()[0]
+    sheet = next(s for s in admin.get("/api/core/sheets").json() if s["id"] == sheet_id)
     assert sheet["last_error"].startswith("Google returned 403") and sheet["row_count"] == 2
     assert sheets.client("example").read("widgets").stale is True  # cache kept, flagged stale
 
@@ -253,7 +252,7 @@ def test_job_never_raises_and_records_each_failure(admin, stub, monkeypatch):
         for r in core_db.rows("SELECT last_error FROM core_connected_sheets WHERE app = 'example' ORDER BY id")
     ]
     assert errors == ["RuntimeError: boom", "RuntimeError: boom"]
-    assert core_db.one("SELECT last_error FROM core_connected_sheets WHERE app = 'forkapp'")["last_error"] is None
+    assert core_db.one("SELECT last_error FROM core_connected_sheets WHERE app = 'afork'")["last_error"] is None
     monkeypatch.setattr(service, "due_in", lambda conn: 1 / 0)
     jobs.refresh_due(threading.Event())  # still no exception
 
