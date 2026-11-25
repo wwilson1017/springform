@@ -193,21 +193,22 @@ An admin sets an S3-compatible bucket on the Backups page. Any provider works: A
 
 1. **When.** `service.run` calls `offsite.upload` under the same guard after every good set, outside any transaction, so both the 03:00 job and "Back up now" upload.
    - Back up now waits for the upload inside its request (a marked simplification).
-   - The job's timeout is 3600 s, and it checks its cancel event between objects.
+   - The job's timeout is 3600 s, and it checks its cancel event between objects, prune included.
    - An interrupted copy resumes on the next run, because blobs already in the bucket are skipped.
 2. **Layout.** The bucket mirrors the volume, so a downloaded copy restores with `restore.py` unchanged. Objects go up **in this order**: `<prefix>files/<aa>/<sha>`, then `<prefix>backups/<stamp>.sqlite`, then `<prefix>backups/<stamp>.manifest.json`. A remote set is complete once its manifest is there. Blobs are content-addressed and uploaded once.
-3. **Missing blobs.** The copy stops before the snapshot when the manifest lists a blob that is neither on this volume nor already in the bucket. Nothing is published, nothing is pruned, and the error is recorded, so a set that restore would refuse never reaches the bucket.
+3. **Missing or damaged blobs.** Each blob not yet in the bucket is hashed before upload. The copy stops before the snapshot when the manifest lists a blob that is neither in the bucket nor on this volume with its SHA-256 matching its name. Nothing is published, nothing is pruned, and the error is recorded, so a set that restore would refuse never reaches the bucket.
 4. **Passphrase.** With a backup passphrase, every object is age-encrypted (scrypt recipient, `backup/age.py`) and ends in `.age`, the manifest included.
    - Encrypted objects go under their own root, `<prefix>age-<generation>/`, with the same layout inside.
    - Every `PUT /passphrase` starts a new random generation. A changed passphrase therefore never overwrites an attachment that an older retained set, encrypted with the old passphrase, still needs.
-   - The download route encrypts too, serving `<stamp>.sqlite.age` from a temporary file that is deleted after the response.
+   - The download route encrypts too, serving `<stamp>.sqlite.age` from a temporary file that is deleted after the response. It ignores `Range` (`Accept-Ranges: none`): every download is a fresh ciphertext, so a resumed tail would not decrypt. The plain download still resumes.
    - Sets on the volume stay plain, because restore reads them.
 5. **Prune.** It works from the bucket's own listing, never from local state. It keeps the newest `retention` complete sets across every root and deletes the objects of all the others, manifest first. Then, per root:
    - **A root with no retained set** loses all its blobs.
-   - **The plain root and the current generation's root** keep only the blobs their retained manifests list. Each manifest is read back, decrypted and validated; one that is unreadable or malformed leaves that root's blobs alone (fail closed).
+   - **The plain root and the current generation's root** keep only the blobs their retained manifests list. Each manifest is read back, decrypted and validated; one that is unreadable or malformed leaves that root's blobs alone (fail closed) and is recorded as the last error once the rest is pruned.
    - **An older generation's root with a retained set** keeps every blob until its sets age out, because its passphrase is no longer known.
 
-   Only stamp-shaped and blob-shaped names are ever deleted.
+   Only stamp-shaped and blob-shaped names are ever deleted, classified by their suffix after the prefix. Before each deletion the run re-reads the config row and stops if it changed (the admin removed the destination or changed retention mid-run).
+   - **Versioned buckets** (Backblaze B2 keeps every version by default; S3 and R2 with versioning on) turn a delete into a hidden version that is still stored and billed. Add a lifecycle rule on the prefix that expires noncurrent versions, e.g. B2's "Keep only the last version of the file" (`daysFromHidingToDeleting: 1`).
 6. **Never the key.** The upload touches only `files/` and `backups/`. `.encryption-key` and `ENCRYPTION_KEY` never go to the bucket: keep the key apart from it.
 7. **Storage.** The destination, its secret and the passphrase are one secret `core_settings` row, `backups.offsite_config`. Outcomes go to the plain row `backups.offsite`, and a run records its outcome only if the config is unchanged since it started.
    - When the install key cannot decrypt the config row, it is reported as `unreadable`, never taken for "no passphrase".

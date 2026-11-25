@@ -116,6 +116,13 @@ function DestinationForm({ offsite, onChanged }: { offsite: Offsite; onChanged: 
   }
 
   const saved = offsite.configured && !offsite.unreadable;
+  // Test connection checks the SAVED destination, so it waits until edits are saved.
+  const edited =
+    form.secret_key !== '' ||
+    (['endpoint', 'bucket', 'region', 'prefix', 'access_key_id'] as const).some(
+      (k) => form[k] !== (offsite[k] ?? ''),
+    ) ||
+    form.retention !== String(offsite.retention ?? 30);
   return (
     <form onSubmit={save} className="flex flex-col gap-3">
       <h3 className="m-0 text-sm font-medium text-sf-ink">Destination</h3>
@@ -175,7 +182,8 @@ function DestinationForm({ offsite, onChanged }: { offsite: Offsite; onChanged: 
         {saved && (
           <button
             type="button"
-            disabled={busy}
+            disabled={busy || edited}
+            title={edited ? 'Save the destination first: the test uses the saved one.' : undefined}
             className={secondaryButtonClass}
             onClick={() => void run(() => postJson(`${URL}/destination/test`), 'Connection works')}
           >

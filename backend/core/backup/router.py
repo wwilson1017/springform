@@ -3,6 +3,7 @@
 from fastapi import APIRouter, Depends
 from fastapi.responses import FileResponse
 from starlette.background import BackgroundTask
+from starlette.types import Receive, Scope, Send
 
 from backend.core.auth.deps import User, require_admin
 from backend.core.backup import models, offsite, service
@@ -62,6 +63,15 @@ def clear_passphrase() -> dict:
     return offsite.clear_passphrase()
 
 
+class _WholeFile(FileResponse):
+    """Ignores Range: each encrypted download is a fresh ciphertext (a new age file key), so a
+    resumed tail would come from a different file and fail to decrypt."""
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        scope = {**scope, "headers": [(k, v) for k, v in scope["headers"] if k.lower() != b"range"]}
+        await super().__call__(scope, receive, send)
+
+
 @router.get("/{stamp}/download")
 def download_backup(stamp: str) -> FileResponse:
     """The snapshot; with a backup passphrase, an age-encrypted copy named `<stamp>.sqlite.age`."""
@@ -69,8 +79,9 @@ def download_backup(stamp: str) -> FileResponse:
     encrypted = offsite.encrypted_copy(path)
     if encrypted is None:
         return FileResponse(path, filename=path.name, media_type="application/octet-stream")
-    return FileResponse(
+    return _WholeFile(
         encrypted,
+        headers={"accept-ranges": "none"},
         filename=f"{path.name}.age",
         media_type="application/octet-stream",
         background=BackgroundTask(encrypted.unlink, missing_ok=True),

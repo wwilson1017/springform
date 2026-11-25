@@ -59,4 +59,12 @@ describe('OffsitePanel', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Test connection' }));
     expect((await screen.findByRole('alert')).textContent).toBe('The storage service answered HTTP 403: AccessDenied');
   });
+
+  it('holds Test connection while the destination has unsaved edits', () => {
+    render(<OffsitePanel offsite={saved} onChanged={() => {}} />);
+    const test = screen.getByRole('button', { name: 'Test connection' }) as HTMLButtonElement;
+    expect(test.disabled).toBe(false);
+    fireEvent.change(screen.getByLabelText('Bucket'), { target: { value: 'other' } });
+    expect(test.disabled).toBe(true);
+  });
 });

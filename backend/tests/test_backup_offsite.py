@@ -13,6 +13,7 @@ import pytest
 
 from backend.core import db as core_db, secrets, settings
 from backend.core.backup import age, offsite, restore, service
+from backend.core.errors import AppError
 from backend.tests.test_backup_service import add_file
 
 # pyrage (rage, an independent age implementation) is compiled and ships no type stubs.
@@ -22,12 +23,14 @@ PASSPHRASE = "correct horse battery"
 
 
 class FakeS3:
-    """Path-style S3: PUT, GET, DELETE, ListObjectsV2 two keys a page. `refuse` answers every call with it."""
+    """Path-style S3: PUT, GET, DELETE, ListObjectsV2 two keys a page. `refuse` answers every call
+    with it; `deny_reads` refuses only object GETs (listing still works)."""
 
     def __init__(self) -> None:
         self.objects: dict[str, bytes] = {}
         self.log: list[tuple[str, str]] = []
         self.refuse: int | None = None
+        self.deny_reads = False
         fake = self
 
         class Handler(BaseHTTPRequestHandler):
@@ -75,6 +78,8 @@ class FakeS3:
                 if self._refused():
                     return
                 if "list-type" not in q:
+                    if fake.deny_reads:
+                        return self._send(403, b"<Error><Code>AccessDenied</Code></Error>")
                     body = fake.objects.get(key)
                     return self._send(200, body) if body is not None else self._send(404)
                 keys = sorted(k for k in fake.objects if k.startswith(q.get("prefix", [""])[0]))
@@ -246,7 +251,61 @@ def test_a_blob_missing_everywhere_blocks_the_set_and_the_prune(s3, freeze):
     assert service.run("job")["status"] == "ok"  # the local set is fine; only the copy refuses
     assert s3.objects == first  # nothing published, nothing pruned
     status = offsite.status()
-    assert status["last_success_at"] == good and "missing on this server" in status["last_error"]
+    assert status["last_success_at"] == good and "missing or damaged on this server" in status["last_error"]
+
+
+def test_a_damaged_blob_blocks_the_set(s3, freeze):
+    configure(s3)
+    sha = add_file(b"the real attachment")
+    (core_db.data_dir() / "files" / sha[:2] / sha).write_bytes(b"trunc")
+    assert service.run("job")["status"] == "ok"
+    assert s3.puts() == [] and "missing or damaged on this server" in offsite.status()["last_error"]
+
+
+def test_prune_reads_manifests_by_suffix_even_under_a_manifest_like_prefix(s3, freeze):
+    add_file(b"only in the first set")
+    configure(s3, retention=1, prefix="old.manifest.json")
+    freeze("2026-11-01T03:00:00Z")
+    service.run("job")
+    with core_db.transaction() as conn:
+        conn.execute("DELETE FROM core_files")
+    freeze("2026-11-02T03:00:00Z")
+    service.run("job")
+    assert sorted(s3.objects) == [
+        "old.manifest.json/backups/20261102T030000Z.manifest.json",
+        "old.manifest.json/backups/20261102T030000Z.sqlite",
+    ]
+    assert offsite.status()["last_error"] is None
+
+
+def test_an_unreadable_retained_manifest_keeps_blobs_and_is_an_error(s3, freeze):
+    sha = add_file(b"kept while manifests cannot be read")
+    configure(s3, retention=1)
+    freeze("2026-11-01T03:00:00Z")
+    service.run("job")
+    with core_db.transaction() as conn:
+        conn.execute("DELETE FROM core_files")
+    s3.deny_reads = True
+    freeze("2026-11-02T03:00:00Z")
+    service.run("job")
+    assert any(sha in k for k in s3.objects)  # fail closed: the blob stays
+    assert "could not be read back" in offsite.status()["last_error"]
+    with pytest.raises(AppError, match="403"):
+        offsite.test_connection()  # a key that cannot read fails the test too
+
+
+def test_prune_stops_when_cancelled(s3, freeze):
+    configure(s3)
+    for day in ("01", "02"):
+        freeze(f"2026-11-{day}T03:00:00Z")
+        service.run("job")
+    before = dict(s3.objects)
+    raw, cfg = offsite._read()
+    cancel = threading.Event()
+    cancel.set()
+    with pytest.raises(AppError, match="stopped"):
+        offsite._prune({**cfg, "retention": 1}, raw, cancel)
+    assert s3.objects == before
 
 
 def test_a_snapshot_that_fails_quick_check_is_an_error_and_never_uploaded(s3, monkeypatch):
@@ -257,18 +316,29 @@ def test_a_snapshot_that_fails_quick_check_is_an_error_and_never_uploaded(s3, mo
     assert s3.puts() == [] and service.complete_stamps() == []
 
 
-def test_a_config_changed_mid_upload_records_nothing(s3, monkeypatch):
-    configure(s3)
+@pytest.mark.parametrize("edit", ["passphrase", "retention", "remove"])
+def test_a_config_changed_mid_upload_records_and_prunes_nothing(s3, monkeypatch, freeze, edit):
+    configure(s3, retention=1)
+    freeze("2026-11-01T03:00:00Z")
+    service.run("job")
+    first = set(s3.objects)
     real = offsite._upload
 
     def edited_meanwhile(cfg, manifest, cancel):
-        size = real(cfg, manifest, cancel)
-        offsite.set_passphrase(None, "set while uploading")
+        size = real(cfg, manifest, cancel)  # the new set is published; the prune has not started
+        if edit == "passphrase":
+            offsite.set_passphrase(None, "set while uploading")
+        elif edit == "retention":
+            configure(s3, retention=30)
+        else:
+            offsite.clear_destination()
         return size
 
     monkeypatch.setattr(offsite, "_upload", edited_meanwhile)
-    service.run("manual")
-    assert offsite.status()["last_success_at"] is None
+    freeze("2026-11-02T03:00:00Z")
+    service.run("job")
+    assert first < set(s3.objects)  # the old set the old retention would have pruned is still there
+    assert offsite.status()["last_success_at"] in (None, "2026-11-01T03:00:00Z")
 
 
 def test_the_routes(s3, client, login_as, freeze):
@@ -315,6 +385,17 @@ def test_the_routes(s3, client, login_as, freeze):
         == (core_db.data_dir() / "backups" / run["snapshot"]).read_bytes()
     )
     assert not list((core_db.data_dir() / "backups").glob("*.tmp"))
+    # a fresh ciphertext each time: a resumed range would splice two files, so ranges are ignored
+    ranged = admin.get(f"/api/core/backups/{stamp}/download", headers={"Range": "bytes=10-"})
+    assert ranged.status_code == 200 and ranged.headers["accept-ranges"] == "none"
+    assert pyrage.passphrase.decrypt(ranged.content, PASSPHRASE)
+    # a 422 never echoes what was submitted
+    for path, bad in [
+        ("/api/core/backups/destination", {**body, "bucket": None}),
+        ("/api/core/backups/passphrase", {"passphrase": "short12"}),
+    ]:
+        r = admin.put(path, json=bad)
+        assert r.status_code == 422 and SECRET not in r.text and "short12" not in r.text and "input" not in r.text
 
     freeze("2026-11-03T09:00:01Z")  # 48 h after the upload, plus a second
     assert admin.get("/api/core/backups").json()["offsite"]["stale"] is True
@@ -338,7 +419,7 @@ def test_the_routes(s3, client, login_as, freeze):
     assert len(s3.puts()) == puts
     off = admin.delete("/api/core/backups/destination").json()
     assert (off["configured"], off["unreadable"], off["encrypted"]) == (False, False, False)
-    assert (
-        admin.get(f"/api/core/backups/{stamp}/download").content
-        == (core_db.data_dir() / "backups" / run["snapshot"]).read_bytes()
-    )
+    plain = (core_db.data_dir() / "backups" / run["snapshot"]).read_bytes()
+    assert admin.get(f"/api/core/backups/{stamp}/download").content == plain
+    ranged = admin.get(f"/api/core/backups/{stamp}/download", headers={"Range": "bytes=10-"})
+    assert ranged.status_code == 206 and ranged.content == plain[10:]  # the stable plain file still resumes

@@ -18,6 +18,7 @@ the Backups page and the admin banner read. No network call runs inside a transa
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import re
@@ -39,7 +40,7 @@ STALE_HOURS = 48
 DESTINATION_FIELDS = ("endpoint", "bucket", "region", "prefix", "access_key_id", "retention")
 _STAMP = r"\d{8}T\d{6}Z(?:-\d+)?"
 _ROOT = r"(?:(age-[0-9a-f]{8})/)?"
-SET_KEY = re.compile(rf"^{_ROOT}backups/({_STAMP})\.(?:sqlite|manifest\.json)(?:\.age)?$")
+SET_KEY = re.compile(rf"^{_ROOT}backups/({_STAMP})\.(sqlite|manifest\.json)(?:\.age)?$")
 BLOB_KEY = re.compile(rf"^{_ROOT}files/[0-9a-f]{{2}}/([0-9a-f]{{64}})(?:\.age)?$")
 SHA = re.compile(r"^[0-9a-f]{64}$")
 
@@ -193,16 +194,20 @@ def status() -> dict:
 
 
 def test_connection() -> None:
-    """Write, list and delete a small object: proves the endpoint, the credentials and every permission the copy uses."""
+    """Write, list, read back and delete a small object: proves the endpoint, the credentials and
+    every permission the copy uses (prune reads manifests back)."""
     _, cfg = _read()
     if not _configured(cfg):
         raise Invalid("Save a backup destination first.")
     dest = _destination(cfg)
     key = f"{cfg['prefix']}springform-connection-test-{token.token_hex(12)}.txt"
+    probe = b"Springform backup connection test\n"
     try:
-        dest.put_bytes(key, b"Springform backup connection test\n")
+        dest.put_bytes(key, probe)
         if key not in dest.list_keys(key):
             raise AppError("The storage service accepted the test file but does not list it.")
+        if dest.get_bytes(key) != probe:
+            raise AppError("The storage service returned something other than the test file it stored.")
     except Exception:
         try:
             dest.delete(key)
@@ -251,7 +256,7 @@ def upload(manifest: Path, cancel: threading.Event | None = None) -> None:
     logger.info("Off-site copy of %s uploaded", manifest.name)
     _record(raw, last_success_at=clock.now_iso(), last_success_bytes=size, last_error=None)
     try:
-        _prune(cfg)
+        _prune(cfg, raw, cancel)
     except Exception as e:
         logger.exception("Pruning the off-site copy failed; the new set is uploaded")
         _record(raw, last_error="Uploaded, but removing old backups failed: " + _message(e))
@@ -278,6 +283,13 @@ def _record(raw: str | None, **fields: Any) -> None:
 def _check(cancel: threading.Event | None) -> None:
     if cancel is not None and cancel.is_set():
         raise AppError("The off-site copy was stopped before it finished; the next backup resumes it.")
+
+
+def _config_unchanged(raw: str | None) -> None:
+    """A plain read, no transaction: prune stops once the admin removed or changed the destination."""
+    now = db.get_conn().execute("SELECT value FROM core_settings WHERE key = ?", (CONFIG,)).fetchone()
+    if now is None or now[0] != raw:
+        raise AppError("The off-site settings changed while the copy ran; old backups were left alone.")
 
 
 def _put(dest: S3Destination, key: str, path: Path, passphrase: str | None, tmp_dir: Path) -> int:
@@ -307,13 +319,13 @@ def _upload(cfg: dict, manifest: Path, cancel: threading.Event | None) -> int:
         if key in have:
             continue
         local = files / sha[:2] / sha
-        if not local.is_file():
+        if not local.is_file() or _sha256(local) != sha:  # a damaged file would publish a set restore refuses
             missing.append(sha)
             continue
         _put(dest, key, local, passphrase, backups)
     if missing:  # publishing this manifest would put a set in the bucket that restore refuses
         raise AppError(
-            f"{len(missing)} attached files the backup lists are missing on this server (first: {missing[0]}); "
+            f"{len(missing)} attached files the backup lists are missing or damaged on this server (first: {missing[0]}); "
             "the set was not uploaded."
         )
     _check(cancel)
@@ -322,6 +334,11 @@ def _upload(cfg: dict, manifest: Path, cancel: threading.Event | None) -> int:
     _check(cancel)
     _put(dest, f"{root}backups/{manifest.name}{ext}", manifest, passphrase, backups)
     return size
+
+
+def _sha256(path: Path) -> str:
+    with path.open("rb") as f:
+        return hashlib.file_digest(f, "sha256").hexdigest()
 
 
 def _blobs_listed(dest: S3Destination, key: str, passphrase: str | None) -> set[str]:
@@ -342,41 +359,56 @@ def _blobs_listed(dest: S3Destination, key: str, passphrase: str | None) -> set[
     return set(blobs)
 
 
-def _prune(cfg: dict) -> None:
+def _prune(cfg: dict, raw: str | None, cancel: threading.Event | None = None) -> None:
     """Keep the newest `retention` complete sets across every root; delete older set objects
     (manifest first), then blobs no retained manifest in their root lists. A root whose manifests
-    this install cannot read (an older passphrase) keeps its blobs until its sets age out."""
+    this install cannot read (an older passphrase) keeps its blobs until its sets age out; one it
+    should read but cannot keeps its blobs and raises once the rest is pruned. Stops (raises)
+    when cancelled or when the config changed since the run read it."""
+
+    def step() -> None:
+        _check(cancel)
+        _config_unchanged(raw)
+
     dest, prefix = _destination(cfg), cfg["prefix"]
-    sets: dict[tuple[str, str], list[str]] = {}
+    sets: dict[tuple[str, str], list[tuple[str, bool]]] = {}  # (root, stamp) -> [(key, is_manifest)]
     blobs: dict[str, list[tuple[str, str]]] = {}
     for key in dest.list_keys(prefix):
         rel = key[len(prefix) :]
         if m := SET_KEY.match(rel):
-            sets.setdefault((m[1] or "", m[2]), []).append(key)
+            sets.setdefault((m[1] or "", m[2]), []).append((key, m[3] == "manifest.json"))
         elif m := BLOB_KEY.match(rel):
             blobs.setdefault(m[1] or "", []).append((key, m[2]))
-    complete = sorted(
-        (s for s, keys in sets.items() if any(".manifest.json" in k for k in keys)), key=lambda s: _order(s[1])
-    )
+    complete = sorted((s for s, keys in sets.items() if any(man for _, man in keys)), key=lambda s: _order(s[1]))
     retained = set(complete[-cfg["retention"] :])
     for s, keys in sets.items():
         if s not in retained:
-            for key in sorted(keys, key=lambda k: ".manifest.json" not in k):  # manifest first
+            for key, _ in sorted(keys, key=lambda k: not k[1]):  # manifest first
+                step()
                 dest.delete(key)
     current = f"age-{cfg['generation']}" if cfg.get("passphrase") else ""
+    unread: list[str] = []
     for root, items in blobs.items():
-        manifests = [
-            k for s, keys in sets.items() if s in retained and s[0] == root for k in keys if ".manifest.json" in k
-        ]
+        manifests = [k for s, keys in sets.items() if s in retained and s[0] == root for k, man in keys if man]
         if manifests and root not in ("", current):
             continue  # an older passphrase's root: its manifests cannot be read here
-        try:
-            keep = set().union(*(_blobs_listed(dest, k, cfg.get("passphrase")) for k in manifests))
-        except Exception:
-            logger.warning(
-                "Off-site prune left the attachments under %r alone: a retained manifest could not be read", root or "/"
-            )
+        keep: set[str] = set()
+        for k in manifests:
+            _check(cancel)
+            try:
+                keep |= _blobs_listed(dest, k, cfg.get("passphrase"))
+            except Exception as e:  # fail closed: keep every blob in this root
+                logger.warning("Off-site prune left the attachments under %r alone: %r", root or "/", e)
+                unread.append(root or "/")
+                break
+        if (root or "/") in unread:
             continue
         for key, sha in items:
             if sha not in keep:
+                step()
                 dest.delete(key)
+    if unread:
+        raise AppError(
+            f"A retained backup's list of attached files could not be read back from the bucket ({', '.join(unread)}), "
+            "so its old attachments were kept. Check that the access key can read objects."
+        )

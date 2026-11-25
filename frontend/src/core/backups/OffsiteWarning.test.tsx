@@ -1,7 +1,7 @@
-import { render, screen } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { mockFetch } from '../../testing';
+import { callsTo, mockFetch } from '../../testing';
 import { offsite } from './testFixtures';
 import { OffsiteWarning } from './OffsiteWarning';
 
@@ -44,5 +44,15 @@ describe('OffsiteWarning', () => {
     const fetch = setup(false, overview({ stale: true }));
     expect(fetch).not.toHaveBeenCalled();
     expect(screen.queryByRole('alert')).toBeNull();
+  });
+
+  it('re-reads when the tab becomes visible again', async () => {
+    const fetch = setup(true, overview({}));
+    await act(async () => {});
+    const before = callsTo(fetch, 'GET', '/api/core/backups').length;
+    await act(async () => {
+      document.dispatchEvent(new Event('visibilitychange'));
+    });
+    expect(callsTo(fetch, 'GET', '/api/core/backups').length).toBe(before + 1);
   });
 });
