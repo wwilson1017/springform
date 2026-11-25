@@ -7,28 +7,26 @@ import { buttonClass, chipClass } from '../settings/ui';
 import { formatDate } from '../../shared/formatDate';
 import { LoadError } from '../../shared/LoadError';
 import { toast } from '../../shared/toast';
+import { formatBytes } from './format';
 import { KeyPanel } from './KeyPanel';
-import type { BackupRun, BackupRunResult, BackupsOverview } from './types';
+import { OffsitePanel } from './OffsitePanel';
+import { BACKUPS_CHANGED, type BackupRun, type BackupRunResult, type BackupsOverview } from './types';
 
 /** `20261024T033507Z` → the same instant as an ISO string, for formatDate. */
 const stampIso = (s: string) =>
   `${s.slice(0, 4)}-${s.slice(4, 6)}-${s.slice(6, 8)}T${s.slice(9, 11)}:${s.slice(11, 13)}:${s.slice(13, 15)}Z`;
 
-function formatBytes(n: number | null): string {
-  if (n == null) return '—';
-  if (n < 1024) return `${n} B`;
-  if (n < 1024 ** 2) return `${(n / 1024).toFixed(0)} KB`;
-  if (n < 1024 ** 3) return `${(n / 1024 ** 2).toFixed(1)} MB`;
-  return `${(n / 1024 ** 3).toFixed(2)} GB`;
-}
-
 const panelClass = 'rounded-lg border border-sf-line-strong bg-sf-card p-5';
 const linkClass = 'text-sf-accent-text';
 
-/** `/backups` (admin): the recovery sets, "Back up now", the last run and the encryption key. */
+/** `/backups` (admin): the recovery sets, "Back up now", the last run, the off-site copy and the encryption key. */
 export default function BackupsPage() {
-  const { data, error, reload } = useJson<BackupsOverview>('/api/core/backups');
+  const { data, error, reload: load } = useJson<BackupsOverview>('/api/core/backups');
   const [running, setRunning] = useState(false);
+  const reload = () => {
+    load();
+    window.dispatchEvent(new Event(BACKUPS_CHANGED)); // the admin banner in the Layout re-reads too
+  };
 
   async function backUpNow() {
     setRunning(true);
@@ -126,6 +124,12 @@ export default function BackupsPage() {
                 </table>
               </div>
             )}
+          </section>
+          <section aria-labelledby="offsite-heading" className={panelClass}>
+            <h2 id="offsite-heading" className="m-0 mb-3 font-display text-base font-medium text-sf-ink">
+              Off-site copy
+            </h2>
+            <OffsitePanel key={JSON.stringify(data.offsite)} offsite={data.offsite} onChanged={reload} />
           </section>
           <section aria-labelledby="key-heading" className={panelClass}>
             <h2 id="key-heading" className="m-0 mb-3 font-display text-base font-medium text-sf-ink">

@@ -77,7 +77,7 @@ Timezone: `core_settings.timezone` (IANA, default `UTC`). Nothing hardcoded.
 
 | Job | Cadence | What |
 |---|---|---|
-| `core.backup` | `at` 03:00 | `VACUUM INTO` snapshot + manifest (`deploy.md`). |
+| `core.backup` | `at` 03:00, timeout 3600 s | `VACUUM INTO` snapshot + manifest, then the off-site copy when a bucket is set (`deploy.md` §7). The copy checks the cancel event between objects. |
 | `core.sheets_refresh` | every 1 h | Refresh connected sheets (`sheets-and-export.md`). |
 | `core.requests_refresh` | every 15 min | Refresh the Requests board from GitHub (`frontend-shell.md`). |
 | `core.reminders_fire_due` | every 60 s | Fire due reminders (`records.md`). |
