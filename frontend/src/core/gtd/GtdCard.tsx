@@ -33,8 +33,8 @@ export default function GtdCard() {
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
   const [address, setAddress] = useState<string | null>(null);
-  // Bumped the moment a button acts, so a poll answer already in flight is dropped even before React
-  // runs the effect cleanup below (that cleanup lands after the commit, leaving a gap a late answer slips through).
+  // Bumped with every button's answer, so a poll answer still in flight is dropped even before React runs
+  // the effect cleanup below (that cleanup lands after the commit, leaving a gap a late answer slips through).
   const epoch = useRef(0);
 
   const pending = data?.pending ?? null;
@@ -70,11 +70,12 @@ export default function GtdCard() {
   if (!data) return <BootFallback variant="panel" />;
 
   async function act(fn: () => Promise<GtdState>) {
-    epoch.current += 1;
     setBusy(true);
     setProblem(null);
     try {
-      setData(await fn());
+      const next = await fn();
+      epoch.current += 1; // only on success: a failed action leaves the in-flight poll to re-arm the timer
+      setData(next);
     } catch (e) {
       setProblem(say(e));
     } finally {
