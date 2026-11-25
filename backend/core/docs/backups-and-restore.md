@@ -18,7 +18,10 @@ Passwords and keys stored in the install (AI keys, the GitHub token, Google sign
 
 ## Off-site copies
 
-A backup on the same server does not survive the server. Under **Off-site copy** on the Backups page, an admin can set a storage bucket of your own on any S3-compatible service (AWS S3, Cloudflare R2, Backblaze B2, MinIO):
+A backup on the same server does not survive the server. Under **Off-site copy** on the Backups page, an admin can set a storage bucket of your own on any S3-compatible service (AWS S3, Cloudflare R2, Backblaze B2, MinIO).
+
+**We recommend Cloudflare R2**, free for small installs: [Set up Cloudflare R2](/guide/backups-cloudflare-r2) walks through it click by click, and [Set up backups with an AI agent](/guide/backups-agent-setup) lets an agent such as Claude Code do it for you. How the copy works, with any provider:
+
 
 - Enter the endpoint, bucket, region (`auto` for R2), an optional folder (prefix) and an access key. **Test connection** writes a small file, reads it back and removes it; save your changes before testing. Settings cannot change while a backup is running.
 - After each backup, nightly and on **Back up now**, the set goes up: the attached files first (each only once), then the database, then the list, so a copy is only complete once its list has arrived. Sets past the number you keep (30 by default) are removed from the bucket. On a bucket that keeps old versions (Backblaze B2 does by default), removed files are only hidden and still billed: add a lifecycle rule that deletes hidden versions. B2's "Keep only the last version of the file" preset covers the whole bucket, so use it only on a bucket that holds nothing but these backups; otherwise make a rule for your folder (prefix) that deletes hidden files after 1 day.

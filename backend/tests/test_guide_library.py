@@ -4,7 +4,7 @@ from backend.core.guide import library
 
 CORE_SLUGS = [
     "getting-started", "signing-in", "people-and-organizations", "apps-and-launcher", "whisk", "mcp-connector",
-    "requests", "backups-and-restore", "google-sign-in-setup",
+    "requests", "backups-and-restore", "backups-cloudflare-r2", "backups-agent-setup", "google-sign-in-setup",
 ]  # fmt: skip
 
 

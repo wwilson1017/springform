@@ -1,4 +1,5 @@
 import { useState, type ChangeEvent, type FormEvent, type InputHTMLAttributes } from 'react';
+import { Link } from 'react-router';
 import { ApiError, del, postJson, putJson } from '../api/client';
 import { buttonClass, chipClass, errorTextClass, inputClass, labelClass, secondaryButtonClass } from '../settings/ui';
 import { confirmDialog } from '../../shared/confirm';
@@ -127,6 +128,13 @@ function DestinationForm({ offsite, onChanged }: { offsite: Offsite; onChanged: 
   return (
     <form onSubmit={save} className="flex flex-col gap-3">
       <h3 className="m-0 text-sm font-medium text-sf-ink">Destination</h3>
+      <p className="m-0 text-sm text-sf-ink-mute">
+        Recommended:{' '}
+        <Link to="/guide/backups-cloudflare-r2" className="text-sf-accent-text">
+          Cloudflare R2 (free for small installs)
+        </Link>
+        , with step-by-step setup.
+      </p>
       <Field
         id="os-endpoint"
         label="Endpoint"
