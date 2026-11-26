@@ -17,6 +17,7 @@ const app = (slug: string, extra: Partial<CoreApp> = {}): CoreApp => ({
   order: 1,
   badge: null,
   hidden: false,
+  folder: null,
   settings_cards: [],
   version: '0.1.0',
   ...extra,
@@ -45,6 +46,21 @@ const names = () => screen.getAllByRole('listitem').map((li) => li.textContent);
 afterEach(() => vi.unstubAllGlobals());
 
 describe('AppsCard', () => {
+  it('files an app under a folder on blur, and skips the write when nothing changed', async () => {
+    const fetchMock = renderCard('admin', {
+      'PATCH /api/core/apps/example': { body: [todos, { ...example, folder: 'Dashboards' }] },
+    });
+    const input = await screen.findByRole('combobox', { name: 'Folder for Example' });
+    fireEvent.blur(input);
+    expect(callsTo(fetchMock, 'PATCH', '/api/core/apps/example')).toHaveLength(0);
+
+    fireEvent.change(input, { target: { value: 'Dashboards' } });
+    fireEvent.blur(input);
+    await waitFor(() => expect(callsTo(fetchMock, 'PATCH', '/api/core/apps/example')).toHaveLength(1));
+    const [patch] = callsTo(fetchMock, 'PATCH', '/api/core/apps/example');
+    expect(JSON.parse(String(patch[1]?.body))).toEqual({ folder: 'Dashboards' });
+  });
+
   it('moves an app up: PUTs the whole new order, shows the answer and reloads the shared list', async () => {
     const fetchMock = renderCard('admin', { 'PUT /api/core/apps/order': { body: [example, todos] } });
     expect((await screen.findByRole('button', { name: 'Move Todos up' })).hasAttribute('disabled')).toBe(true);

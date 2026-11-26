@@ -51,6 +51,7 @@ class CoreApp(Out):
     order: int
     badge: str | None
     hidden: bool
+    folder: str | None
     settings_cards: list[SettingsCard]
     version: str
 

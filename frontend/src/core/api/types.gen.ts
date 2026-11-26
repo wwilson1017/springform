@@ -3944,6 +3944,8 @@ export interface components {
         };
         /** AppPatch */
         AppPatch: {
+            /** Folder */
+            folder?: string | null;
             /** Hidden */
             hidden?: boolean | null;
         };
@@ -4705,6 +4707,8 @@ export interface components {
             badge: string | null;
             /** Description */
             description: string;
+            /** Folder */
+            folder: string | null;
             /** Hidden */
             hidden: boolean;
             /** Icon */
