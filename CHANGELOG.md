@@ -18,6 +18,16 @@ Conventions:
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-11-27
+
+A fork whose apps fill Whisk's prompt budget passes CI again.
+
+### Fixed
+
+- `test_response_models` no longer fails in a fork whose app tools push Whisk past its prompt
+  budget: it checks response shapes, so it holds the budget open instead of depending on the
+  example tool being sent in full.
+
 ## [0.4.0] - 2026-11-27
 
 Backups go off-site to the owner's own bucket, Whisk can read the install's code and file requests,
