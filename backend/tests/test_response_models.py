@@ -16,7 +16,7 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 
 from backend.apps.todos import service as todos_service
 from backend.core import clock, db as core_db, settings
-from backend.core.agent import providers, registry as tool_registry
+from backend.core.agent import deferred, providers, registry as tool_registry
 from backend.core.agent.providers import fake
 from backend.core.gtd import service as gtd_service
 from backend.core.platform import keys
@@ -102,6 +102,9 @@ def exercise(app, login_as, monkeypatch) -> dict[str, httpx.Response]:
     """Call every typed route once per role that may call it, in an order that gives each body
     something to show (links, channels, tool calls, change-log rows)."""
     monkeypatch.setenv("AGENT_FAKE_PROVIDER", "1")
+    # Response shapes, not the prompt budget: a fork whose apps fill the budget defers
+    # example_create_widget to the catalog, and the confirm below never comes (test_prompt_budget owns that).
+    monkeypatch.setattr(deferred, "BUDGET_TOKENS", 10**9)
     monkeypatch.setenv("MCP_ALLOW_PRIVATE", "1")
     monkeypatch.setattr(github, "transport", _github())
     sheet = SimpleNamespace(read=lambda spreadsheet_id, a1: [["name", "color"], ["Sprocket", "teal"], ["Gear"]])
