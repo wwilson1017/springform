@@ -18,6 +18,11 @@ Conventions:
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-27
+
+Backups go off-site to the owner's own bucket, Whisk can read the install's code and file requests,
+and the launcher gains stars and folders.
+
 ### Added
 
 - Star an app on the launcher to keep it at the top. Stars appear once there are 10 or more apps and links in all and are remembered per browser.
